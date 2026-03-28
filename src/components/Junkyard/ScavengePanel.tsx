@@ -16,6 +16,13 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
+const CONDITION_SHORT: Record<string, string> = {
+  rusted: "Rst",
+  worn: "Wrn",
+  decent: "Dec",
+  good: "Gd",
+  pristine: "Pri",
+};
 
 interface InventoryGroup {
   key: string;
@@ -173,7 +180,7 @@ export default function ScavengePanel() {
                         <span className="ml-1 text-xs text-zinc-500">x{group.count}</span>
                       )}
                       <span className={`ml-1.5 text-xs font-mono sm:hidden ${CONDITION_COLORS[group.condition] ?? "text-zinc-400"}`}>
-                        {capitalize(group.condition).slice(0, 3)}
+                        {CONDITION_SHORT[group.condition] ?? group.condition}
                       </span>
                     </div>
                     <span className={`hidden sm:inline text-xs font-mono ${CONDITION_COLORS[group.condition] ?? "text-zinc-400"}`}>

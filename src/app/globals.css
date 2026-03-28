@@ -50,7 +50,7 @@ html {
     scrollbar-width: none !important;
     border-top: 1px solid rgba(255,255,255,.1) !important;
     border-bottom: none !important;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     backdrop-filter: blur(12px) saturate(1.5) !important;
     -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
   }

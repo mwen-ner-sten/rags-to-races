@@ -18,6 +18,13 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
+const CONDITION_SHORT: Record<string, string> = {
+  rusted: "Rst",
+  worn: "Wrn",
+  decent: "Dec",
+  good: "Gd",
+  pristine: "Pri",
+};
 
 /** Group identical parts (same definition + condition) into buckets */
 interface PartGroup {
@@ -166,7 +173,7 @@ export default function GaragePanel() {
                             >
                               {def.name}{" "}
                               <span className={CONDITION_COLORS[group.condition] ?? "text-zinc-400"}>
-                                {capitalize(group.condition).slice(0, 3)}
+                                {CONDITION_SHORT[group.condition] ?? group.condition}
                               </span>
                               {group.parts.length > 1 && (
                                 <span className="ml-0.5 text-zinc-500">
@@ -242,7 +249,7 @@ export default function GaragePanel() {
                       </div>
                       <div className="mt-0.5 text-xs text-zinc-500">
                         <span className={CONDITION_COLORS[vehicle.parts.engine.condition] ?? ""}>
-                          {engineDef?.name} ({capitalize(vehicle.parts.engine.condition).slice(0, 3)})
+                          {engineDef?.name} ({CONDITION_SHORT[vehicle.parts.engine.condition] ?? vehicle.parts.engine.condition})
                         </span>
                       </div>
                       <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs sm:flex sm:gap-4">
