@@ -4,6 +4,8 @@ import { useGameStore } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { formatNumber, capitalize } from "@/utils/format";
+import { useMemo } from "react";
+import type { ScavengedPart } from "@/engine/scavenge";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted: "text-red-400",
@@ -12,6 +14,45 @@ const CONDITION_COLORS: Record<string, string> = {
   good: "text-green-400",
   pristine: "text-cyan-400",
 };
+
+const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
+
+interface InventoryGroup {
+  key: string;
+  definitionId: string;
+  condition: string;
+  count: number;
+  unitValue: number;
+  parts: ScavengedPart[];
+}
+
+function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
+  const map = new Map<string, InventoryGroup>();
+  for (const p of inventory) {
+    const key = `${p.definitionId}:${p.condition}`;
+    let g = map.get(key);
+    if (!g) {
+      const def = getPartById(p.definitionId);
+      const mult = CONDITION_MULTIPLIERS[p.condition as keyof typeof CONDITION_MULTIPLIERS];
+      g = {
+        key,
+        definitionId: p.definitionId,
+        condition: p.condition,
+        count: 0,
+        unitValue: def ? Math.floor(def.scrapValue * mult) : 0,
+        parts: [],
+      };
+      map.set(key, g);
+    }
+    g.count++;
+    g.parts.push(p);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const ci = CONDITION_ORDER.indexOf(a.condition) - CONDITION_ORDER.indexOf(b.condition);
+    if (ci !== 0) return ci;
+    return (getPartById(a.definitionId)?.name ?? "").localeCompare(getPartById(b.definitionId)?.name ?? "");
+  });
+}
 
 export default function ScavengePanel() {
   const inventory = useGameStore((s) => s.inventory);
@@ -30,6 +71,8 @@ export default function ScavengePanel() {
   const lockedLocations = LOCATION_DEFINITIONS.filter(
     (l) => !unlockedLocationIds.includes(l.id),
   );
+
+  const groups = useMemo(() => groupInventory(inventory), [inventory]);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -108,39 +151,41 @@ export default function ScavengePanel() {
         ) : (
           <div className="rounded-lg border border-zinc-800 bg-zinc-900">
             {/* Desktop table header */}
-            <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] gap-x-4 border-b border-zinc-800 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 border-b border-zinc-800 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
               <span>Part</span>
               <span>Condition</span>
+              <span>Qty</span>
               <span>Value</span>
               <span></span>
             </div>
             <div className="max-h-72 sm:max-h-96 overflow-y-auto">
-              {inventory.map((part) => {
-                const def = getPartById(part.definitionId);
+              {groups.map((group) => {
+                const def = getPartById(group.definitionId);
                 if (!def) return null;
-                const mult = CONDITION_MULTIPLIERS[part.condition];
-                const value = Math.floor(def.scrapValue * mult);
                 return (
                   <div
-                    key={part.id}
-                    className="flex items-center justify-between gap-2 border-b border-zinc-800/50 px-3 py-1.5 last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto] sm:gap-x-4 sm:px-4 sm:py-2"
+                    key={group.key}
+                    className="flex items-center justify-between gap-2 border-b border-zinc-800/50 px-3 py-1.5 last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-x-4 sm:px-4 sm:py-2"
                   >
                     <div className="min-w-0">
                       <span className="text-sm text-white">{def.name}</span>
-                      <span className={`ml-1.5 text-xs font-mono sm:hidden ${CONDITION_COLORS[part.condition] ?? "text-zinc-400"}`}>
-                        {capitalize(part.condition).slice(0, 3)}
+                      {group.count > 1 && (
+                        <span className="ml-1 text-xs text-zinc-500">x{group.count}</span>
+                      )}
+                      <span className={`ml-1.5 text-xs font-mono sm:hidden ${CONDITION_COLORS[group.condition] ?? "text-zinc-400"}`}>
+                        {capitalize(group.condition).slice(0, 3)}
                       </span>
-                      <span className="ml-1.5 text-xs text-zinc-500 hidden sm:inline">{def.category}</span>
                     </div>
-                    <span className={`hidden sm:inline text-xs font-mono ${CONDITION_COLORS[part.condition] ?? "text-zinc-400"}`}>
-                      {capitalize(part.condition)}
+                    <span className={`hidden sm:inline text-xs font-mono ${CONDITION_COLORS[group.condition] ?? "text-zinc-400"}`}>
+                      {capitalize(group.condition)}
                     </span>
-                    <span className="font-mono text-xs text-green-400 shrink-0">${formatNumber(value)}</span>
+                    <span className="hidden sm:inline text-xs font-mono text-zinc-400">{group.count}</span>
+                    <span className="font-mono text-xs text-green-400 shrink-0">${formatNumber(group.unitValue)}</span>
                     <button
-                      onClick={() => sellPart(part.id)}
+                      onClick={() => sellPart(group.parts[0].id)}
                       className="text-xs text-zinc-500 transition-colors hover:text-red-400 shrink-0"
                     >
-                      Sell
+                      Sell 1
                     </button>
                   </div>
                 );

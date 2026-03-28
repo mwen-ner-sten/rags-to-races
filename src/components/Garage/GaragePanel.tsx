@@ -17,6 +17,37 @@ const CONDITION_COLORS: Record<string, string> = {
   pristine: "text-cyan-400",
 };
 
+const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
+
+/** Group identical parts (same definition + condition) into buckets */
+interface PartGroup {
+  key: string;           // definitionId:condition
+  definitionId: string;
+  condition: string;
+  parts: ScavengedPart[];
+}
+
+function groupParts(parts: ScavengedPart[]): PartGroup[] {
+  const map = new Map<string, PartGroup>();
+  for (const p of parts) {
+    const key = `${p.definitionId}:${p.condition}`;
+    let group = map.get(key);
+    if (!group) {
+      group = { key, definitionId: p.definitionId, condition: p.condition, parts: [] };
+      map.set(key, group);
+    }
+    group.parts.push(p);
+  }
+  // Sort: best condition first, then by name
+  return Array.from(map.values()).sort((a, b) => {
+    const ci = CONDITION_ORDER.indexOf(a.condition) - CONDITION_ORDER.indexOf(b.condition);
+    if (ci !== 0) return ci;
+    const nameA = getPartById(a.definitionId)?.name ?? "";
+    const nameB = getPartById(b.definitionId)?.name ?? "";
+    return nameA.localeCompare(nameB);
+  });
+}
+
 export default function GaragePanel() {
   const garage = useGameStore((s) => s.garage);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
@@ -45,28 +76,35 @@ export default function GaragePanel() {
     pendingBuildParts.fuel &&
     scrapBucks >= pendingDef.buildCost;
 
-  // Parts eligible for each slot
-  function eligibleParts(slot: Slot): ScavengedPart[] {
+  // Parts eligible for each slot, grouped by type+condition
+  function eligibleGroups(slot: Slot): PartGroup[] {
     if (!pendingDef) return [];
     const allowed = pendingDef.requiredParts[slot];
-    return inventory.filter((p) => allowed.includes(p.definitionId));
+    const eligible = inventory.filter((p) => allowed.includes(p.definitionId));
+    return groupParts(eligible);
+  }
+
+  // Check if any part in a group is the currently selected one
+  function isGroupSelected(group: PartGroup, slot: Slot): boolean {
+    const sel = pendingBuildParts[slot];
+    return sel ? group.parts.some((p) => p.id === sel.id) : false;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
       {/* Build a vehicle */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:gap-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
           Build a Vehicle
         </h2>
 
         {/* Vehicle selector */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {unlockedVehicles.map((v) => (
             <button
               key={v.id}
               onClick={() => setPendingVehicle(v.id)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+              className={`rounded-lg border px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm transition-colors ${
                 pendingBuildVehicleId === v.id
                   ? "border-orange-500 bg-orange-500/10 text-white"
                   : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-white"
@@ -79,7 +117,7 @@ export default function GaragePanel() {
 
         {pendingDef && (
           <>
-            <p className="text-sm text-zinc-400">{pendingDef.description}</p>
+            <p className="text-xs sm:text-sm text-zinc-400">{pendingDef.description}</p>
             <div className="text-xs text-zinc-500">
               Build cost:{" "}
               <span className={scrapBucks >= pendingDef.buildCost ? "text-green-400" : "text-red-400"}>
@@ -87,42 +125,54 @@ export default function GaragePanel() {
               </span>
             </div>
 
-            {/* Part slots */}
+            {/* Part slots — grouped by type+condition */}
             <div className="flex flex-col gap-2">
               {SLOTS.map((slot) => {
                 const selectedPart = pendingBuildParts[slot];
-                const options = eligibleParts(slot);
+                const groups = eligibleGroups(slot);
+                const totalCount = groups.reduce((n, g) => n + g.parts.length, 0);
                 return (
                   <div key={slot} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2 sm:p-3">
                     <div className="mb-1.5 flex items-center justify-between">
                       <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                         {slot}
                       </span>
-                      <span className="text-xs text-zinc-600">{options.length} available</span>
+                      <span className="text-xs text-zinc-600">{totalCount} parts</span>
                     </div>
-                    {options.length === 0 ? (
-                      <p className="text-xs text-zinc-600">No compatible parts in inventory</p>
+                    {groups.length === 0 ? (
+                      <p className="text-xs text-zinc-600">No compatible parts</p>
                     ) : (
-                      <div className="max-h-24 overflow-y-auto flex flex-wrap gap-1 sm:gap-1.5 sm:max-h-32">
-                        {options.map((part) => {
-                          const def = getPartById(part.definitionId);
+                      <div className="max-h-28 overflow-y-auto flex flex-wrap gap-1 sm:gap-1.5">
+                        {groups.map((group) => {
+                          const def = getPartById(group.definitionId);
                           if (!def) return null;
+                          const selected = isGroupSelected(group, slot);
                           return (
                             <button
-                              key={part.id}
-                              onClick={() =>
-                                setPendingPart(slot, selectedPart?.id === part.id ? null : part)
-                              }
+                              key={group.key}
+                              onClick={() => {
+                                if (selected) {
+                                  setPendingPart(slot, null);
+                                } else {
+                                  // Pick the first available part from the group
+                                  setPendingPart(slot, group.parts[0]);
+                                }
+                              }}
                               className={`rounded border px-1.5 py-0.5 text-xs transition-colors sm:px-2 sm:py-1 ${
-                                selectedPart?.id === part.id
+                                selected
                                   ? "border-orange-500 bg-orange-500/10 text-white"
                                   : "border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
                               }`}
                             >
                               {def.name}{" "}
-                              <span className={CONDITION_COLORS[part.condition] ?? "text-zinc-400"}>
-                                {capitalize(part.condition).slice(0, 3)}
+                              <span className={CONDITION_COLORS[group.condition] ?? "text-zinc-400"}>
+                                {capitalize(group.condition).slice(0, 3)}
                               </span>
+                              {group.parts.length > 1 && (
+                                <span className="ml-0.5 text-zinc-500">
+                                  x{group.parts.length}
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -144,7 +194,7 @@ export default function GaragePanel() {
             <button
               onClick={buildSelectedVehicle}
               disabled={!canBuild}
-              className="rounded-lg bg-orange-600 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-orange-600 px-5 py-2 sm:px-6 sm:py-2.5 font-semibold text-sm text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Build {pendingDef.name}
             </button>
@@ -153,13 +203,13 @@ export default function GaragePanel() {
       </div>
 
       {/* Garage — built vehicles */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:gap-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
           Your Garage ({garage.length})
         </h2>
 
         {garage.length === 0 ? (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-500">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 text-center text-zinc-500 text-sm">
             No vehicles yet. Build one from scavenged parts.
           </div>
         ) : (
@@ -174,7 +224,7 @@ export default function GaragePanel() {
               return (
                 <div
                   key={vehicle.id}
-                  className={`rounded-lg border p-3 sm:p-4 transition-colors ${
+                  className={`rounded-lg border p-2.5 sm:p-4 transition-colors ${
                     isActive ? "border-orange-500 bg-orange-500/5" : "border-zinc-700 bg-zinc-900"
                   }`}
                 >

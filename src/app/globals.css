@@ -40,6 +40,9 @@ html {
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
     z-index: 900 !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
