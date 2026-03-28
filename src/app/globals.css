@@ -16,3 +16,59 @@
 html {
   overflow-y: scroll;
 }
+
+/* ── Mobile responsive overrides for theme shells ────────────────────────── */
+/* All shells use semantic <header>, <nav>, <main>, <footer> with inline     */
+/* styles, so we need !important to override at mobile breakpoints.          */
+
+@media (max-width: 640px) {
+  /* Header: wrap stats below title, reduce padding */
+  header {
+    flex-wrap: wrap !important;
+    gap: .4rem !important;
+    padding: .5rem .75rem !important;
+  }
+  /* Stats row — tighter gap */
+  header > div:last-child {
+    gap: .75rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Tabs: fixed bottom nav bar for thumb reach */
+  nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 900 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 0 .25rem !important;
+    scrollbar-width: none !important;
+    border-top: 1px solid rgba(255,255,255,.1) !important;
+    border-bottom: none !important;
+    justify-content: center !important;
+    backdrop-filter: blur(12px) saturate(1.5) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
+  }
+  nav::-webkit-scrollbar { display: none; }
+
+  /* Content: less padding, room for bottom nav */
+  main {
+    padding: .75rem !important;
+    padding-bottom: 3.5rem !important;
+  }
+
+  /* Footer: center, compact, sits above bottom nav */
+  footer {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: .4rem !important;
+    padding: .5rem .75rem !important;
+    padding-bottom: 3.5rem !important;
+  }
+  /* Hide the long copyright text on small screens */
+  footer > span:first-child {
+    display: none !important;
+  }
+}

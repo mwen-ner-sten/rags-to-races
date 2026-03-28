@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme, type Theme } from "@/hooks/useTheme";
+import { useState } from "react";
 
 const THEMES: { id: Theme; label: string; color: string; bg: string; border: string }[] = [
   { id: "grease",  label: "Grease",  color: "#c83e0c", bg: "#1a0c04", border: "rgba(200,62,12,.4)"  },
@@ -22,55 +23,133 @@ const THEMES: { id: Theme; label: string; color: string; bg: string; border: str
 
 export default function ThemeSwitcher() {
   const [theme, setTheme] = useTheme();
+  const [open, setOpen] = useState(false);
+  const current = THEMES.find((t) => t.id === theme) ?? THEMES[0];
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
-      {THEMES.map((t) => {
-        const isActive = theme === t.id;
-        return (
-          <button
-            key={t.id}
-            onClick={() => setTheme(t.id)}
-            title={t.label}
+    <div style={{ position: "relative" }}>
+      {/* Toggle button — shows current theme dot + name */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: ".3rem",
+          padding: ".25rem .55rem",
+          background: current.bg,
+          border: `1px solid ${current.border}`,
+          borderRadius: 4,
+          cursor: "pointer",
+          transition: "all .15s",
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: current.color,
+            boxShadow: `0 0 6px ${current.color}`,
+            display: "block",
+            flexShrink: 0,
+          }}
+        />
+        <span
+          style={{
+            fontSize: ".52rem",
+            fontWeight: 700,
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            color: current.color,
+            fontFamily: "inherit",
+          }}
+        >
+          {current.label}
+        </span>
+        <span style={{ fontSize: ".5rem", color: "rgba(255,255,255,.3)", marginLeft: ".15rem" }}>
+          ▾
+        </span>
+      </button>
+
+      {/* Dropdown popover */}
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 998 }}
+          />
+          {/* Panel */}
+          <div
             style={{
-              display: "flex",
-              alignItems: "center",
+              position: "absolute",
+              bottom: "calc(100% + 6px)",
+              right: 0,
+              zIndex: 999,
+              background: "#0c0c10",
+              border: "1px solid rgba(255,255,255,.12)",
+              borderRadius: 6,
+              padding: ".4rem",
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: ".3rem",
-              padding: ".25rem .55rem",
-              background: isActive ? t.bg : "transparent",
-              border: `1px solid ${isActive ? t.border : "rgba(255,255,255,.07)"}`,
-              borderRadius: 4,
-              cursor: "pointer",
-              transition: "all .15s",
-              opacity: isActive ? 1 : 0.45,
+              minWidth: 240,
+              boxShadow: "0 8px 32px rgba(0,0,0,.6)",
             }}
           >
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: t.color,
-                boxShadow: isActive ? `0 0 6px ${t.color}` : "none",
-                display: "block",
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontSize: ".52rem",
-                fontWeight: 700,
-                letterSpacing: ".12em",
-                textTransform: "uppercase",
-                color: isActive ? t.color : "rgba(255,255,255,.35)",
-                fontFamily: "inherit",
-              }}
-            >
-              {t.label}
-            </span>
-          </button>
-        );
-      })}
+            {THEMES.map((t) => {
+              const isActive = theme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setTheme(t.id);
+                    setOpen(false);
+                  }}
+                  title={t.label}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: ".3rem",
+                    padding: ".3rem .45rem",
+                    background: isActive ? t.bg : "transparent",
+                    border: `1px solid ${isActive ? t.border : "rgba(255,255,255,.05)"}`,
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    transition: "all .15s",
+                    opacity: isActive ? 1 : 0.55,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: t.color,
+                      boxShadow: isActive ? `0 0 6px ${t.color}` : "none",
+                      display: "block",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: ".45rem",
+                      fontWeight: 700,
+                      letterSpacing: ".08em",
+                      textTransform: "uppercase",
+                      color: isActive ? t.color : "rgba(255,255,255,.4)",
+                      fontFamily: "inherit",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
