@@ -1256,48 +1256,50 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap');
         .vw { font-family: 'Press Start 2P', cursive; }
-        .vw-bg { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(185,103,255,.04) 0%, transparent 40%, transparent 60%, rgba(1,205,254,.04) 100%); }
-        .vw-tab { font-family: 'Press Start 2P', cursive; font-size: .42rem; letter-spacing: .06em; cursor: pointer; padding: .9rem 1.1rem; border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(255,113,206,.2); transition: all .14s; text-transform: uppercase; }
+        .vw-tab { font-family: 'Press Start 2P', cursive; font-size: .48rem; letter-spacing: .06em; cursor: pointer; padding: .9rem 1.1rem; border-bottom: 2px solid transparent; transition: all .14s; color: rgba(255,113,206,.2); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
         .vw-tab:hover { color: rgba(255,113,206,.6); text-shadow: 0 0 8px rgba(255,113,206,.3); }
-        .vw-tab-on { color: #ff71ce !important; border-bottom-color: #ff71ce !important; text-shadow: 0 0 12px rgba(255,113,206,.6); }
-        .vw-tab-dev { margin-left: auto; color: rgba(185,103,255,.2) !important; }
-        .vw-tab-dev:hover { color: rgba(185,103,255,.6) !important; }
-        .vw-tab-dev-on { color: #b967ff !important; border-bottom-color: #b967ff !important; text-shadow: 0 0 12px rgba(185,103,255,.6); }
-        .vw-stat-label { font-family: 'Press Start 2P', cursive; font-size: .32rem; letter-spacing: .1em; color: rgba(1,205,254,.35); text-transform: uppercase; }
-        .vw-glow-p { text-shadow: 0 0 12px rgba(255,113,206,.6), 0 0 30px rgba(255,113,206,.2); }
-        .vw-glow-c { text-shadow: 0 0 12px rgba(1,205,254,.6), 0 0 30px rgba(1,205,254,.2); }
-        .vw-gradient-bar { height: 3px; background: linear-gradient(90deg, #ff71ce, #b967ff, #01cdfe); }
+        .vw-tab-on { color: #ff71ce !important; border-bottom-color: #ff71ce !important; text-shadow: 0 0 12px rgba(255,113,206,.6), 0 0 24px rgba(255,113,206,.2) !important; }
+        .vw-tab-dev { margin-left: auto; color: rgba(185,103,255,.15) !important; }
+        .vw-tab-dev:hover { color: rgba(185,103,255,.5) !important; }
+        .vw-tab-dev-on { color: #b967ff !important; border-bottom-color: #b967ff !important; text-shadow: 0 0 12px rgba(185,103,255,.6) !important; }
+        .vw-stat-label { font-family: 'Space Mono', monospace; font-size: .5rem; font-weight: 700; letter-spacing: .15em; color: rgba(185,103,255,.4); text-transform: uppercase; }
+        .vw-glow-pink { text-shadow: 0 0 10px rgba(255,113,206,.6), 0 0 25px rgba(255,113,206,.25); }
+        .vw-glow-cyan { text-shadow: 0 0 10px rgba(1,205,254,.6), 0 0 25px rgba(1,205,254,.25); }
+        .vw-header-stripe { background: linear-gradient(90deg, #ff71ce, #b967ff, #01cdfe, #b967ff, #ff71ce); height: 3px; opacity: .6; }
+        .vw-bg-grid { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: linear-gradient(rgba(185,103,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(185,103,255,.03) 1px, transparent 1px); background-size: 40px 40px; }
+        .vw-bg-glow { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 50% 120%, rgba(255,113,206,.08) 0%, transparent 50%), radial-gradient(ellipse at 50% 0%, rgba(1,205,254,.06) 0%, transparent 40%); }
       `}</style>
 
-      <div className="vw-bg" />
+      <div className="vw-bg-grid" />
+      <div className="vw-bg-glow" />
 
-      {/* Gradient bar */}
-      <div className="vw-gradient-bar" style={{ flexShrink: 0 }} />
+      {/* Gradient stripe */}
+      <div className="vw-header-stripe" style={{ position: "relative", zIndex: 10, flexShrink: 0 }} />
 
       {/* HUD */}
-      <header style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.8)", borderBottom: "1px solid rgba(255,113,206,.1)", padding: ".75rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      <header style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.8)", borderBottom: "1px solid rgba(255,113,206,.12)", padding: ".75rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div>
-            <div className="vw vw-glow-p" style={{ fontSize: ".9rem", color: "#ff71ce", lineHeight: 1.2 }}>RAGS TO RACES</div>
+            <div className="vw vw-glow-pink" style={{ fontSize: ".9rem", color: "#ff71ce", lineHeight: 1.4 }}>RAGS TO RACES</div>
             {prestigeCount > 0 && (
-              <div style={{ fontSize: ".35rem", color: "#b967ff", letterSpacing: ".18em", marginTop: ".2rem", fontFamily: "'Press Start 2P', cursive" }}>PRESTIGE {prestigeCount}</div>
+              <div style={{ fontSize: ".42rem", color: "#01cdfe", letterSpacing: ".2em", marginTop: ".2rem", fontFamily: "'Press Start 2P', cursive" }}>PRESTIGE {prestigeCount}</div>
             )}
           </div>
-          <div style={{ width: 1, height: 28, background: "rgba(185,103,255,.15)" }} />
-          <div className="vw" style={{ fontSize: ".35rem", color: "rgba(1,205,254,.3)", letterSpacing: ".3em" }}>A E S T H E T I C</div>
+          <div style={{ width: 1, height: 28, background: "rgba(185,103,255,.2)" }} />
+          <div className="vw" style={{ fontSize: ".42rem", color: "rgba(1,205,254,.4)", letterSpacing: ".3em" }}>A E S T H E T I C</div>
         </div>
-        <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "1.8rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
-            <div className="vw vw-glow-p" style={{ fontSize: ".7rem", color: "#ff71ce" }}>${formatNumber(scrapBucks)}</div>
+            <div className="vw vw-glow-cyan" style={{ fontSize: ".7rem", color: "#01cdfe" }}>${formatNumber(scrapBucks)}</div>
             <div className="vw-stat-label">SCRAP BUCKS</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="vw vw-glow-c" style={{ fontSize: ".7rem", color: "#01cdfe" }}>{formatNumber(repPoints)}</div>
-            <div className="vw-stat-label" style={{ color: "rgba(185,103,255,.35)" }}>REP</div>
+            <div className="vw vw-glow-pink" style={{ fontSize: ".7rem", color: "#ff71ce" }}>{formatNumber(repPoints)}</div>
+            <div className="vw-stat-label" style={{ color: "rgba(255,113,206,.4)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
-              <div className="vw" style={{ fontSize: ".65rem", color: "#b967ff" }}>{vehicleDef.name.toUpperCase()}</div>
+              <div className="vw" style={{ fontSize: ".6rem", color: "#b967ff", textShadow: "0 0 10px rgba(185,103,255,.5)" }}>{vehicleDef.name.toUpperCase()}</div>
               <div className="vw-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
@@ -1320,8 +1322,8 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".38rem", color: "rgba(1,205,254,.3)", marginRight: ".5rem", fontFamily: "'Press Start 2P', cursive", letterSpacing: ".08em" }}>
-            <span style={{ color: "#01cdfe", textShadow: "0 0 6px #01cdfe" }}>▶</span> AUTO
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".45rem", color: "rgba(1,205,254,.3)", marginRight: ".5rem", fontFamily: "'Press Start 2P', cursive", letterSpacing: ".1em" }}>
+            <span style={{ color: "#01cdfe", textShadow: "0 0 8px #01cdfe" }}>&#9830;</span> AUTO
           </div>
         )}
       </nav>
@@ -1331,10 +1333,12 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
         {children}
       </main>
 
+      {/* Gradient stripe */}
+      <div className="vw-header-stripe" style={{ position: "relative", zIndex: 10, flexShrink: 0 }} />
+
       {/* Footer */}
-      <div className="vw-gradient-bar" style={{ flexShrink: 0 }} />
-      <footer style={{ position: "relative", zIndex: 10, padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="vw" style={{ fontSize: ".3rem", color: "rgba(185,103,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
+      <footer style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.8)", padding: ".65rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -1349,41 +1353,49 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Source Code Pro', monospace", background: "#0a0c08", minHeight: "100vh", color: "#8a9a78", display: "flex", flexDirection: "column" }}>
+    <div style={{ fontFamily: "'Source Code Pro', monospace", background: "#0a0c08", minHeight: "100vh", color: "#8a9a78", display: "flex", flexDirection: "column", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Source+Code+Pro:wght@400;500;600;700&display=swap');
         .tc { font-family: 'Black Ops One', cursive; }
-        .tc-tab { font-family: 'Black Ops One', cursive; font-size: .72rem; letter-spacing: .08em; cursor: pointer; padding: .7rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: #3a4a28; background: none; border-top: none; border-left: none; border-right: none; }
-        .tc-tab:hover { color: #4a8a28; }
-        .tc-tab-on { color: #4a8a28 !important; border-bottom-color: #4a8a28 !important; }
-        .tc-tab-dev { margin-left: auto; color: #2a3818 !important; }
-        .tc-tab-dev:hover { color: #c8a848 !important; }
-        .tc-tab-dev-on { color: #c8a848 !important; border-bottom-color: #c8a848 !important; }
-        .tc-stat-label { font-family: 'Source Code Pro', monospace; font-size: .5rem; font-weight: 600; letter-spacing: .16em; color: #3a4a28; text-transform: uppercase; }
-        .tc-bracket { color: #3a4a28; font-family: 'Source Code Pro', monospace; font-weight: 400; }
+        .tc-tab { font-family: 'Black Ops One', cursive; font-size: .65rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: rgba(74,138,40,.25); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
+        .tc-tab:hover { color: rgba(74,138,40,.6); }
+        .tc-tab-on { color: #4a8a28 !important; border-bottom-color: #4a8a28 !important; text-shadow: 0 0 8px rgba(74,138,40,.4); }
+        .tc-tab-dev { margin-left: auto; color: rgba(200,168,72,.15) !important; }
+        .tc-tab-dev:hover { color: rgba(200,168,72,.5) !important; }
+        .tc-tab-dev-on { color: #c8a848 !important; border-bottom-color: #c8a848 !important; text-shadow: 0 0 8px rgba(200,168,72,.4); }
+        .tc-stat-label { font-family: 'Source Code Pro', monospace; font-size: .5rem; font-weight: 600; letter-spacing: .18em; color: rgba(74,138,40,.35); text-transform: uppercase; }
+        .tc-bracket { position: relative; }
+        .tc-bracket::before, .tc-bracket::after { content: ''; position: absolute; width: 12px; height: 12px; border-color: rgba(74,138,40,.25); border-style: solid; }
+        .tc-bracket::before { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .tc-bracket::after { top: 0; right: 0; border-width: 2px 2px 0 0; }
+        .tc-bracket-bottom { position: relative; }
+        .tc-bracket-bottom::before, .tc-bracket-bottom::after { content: ''; position: absolute; width: 12px; height: 12px; border-color: rgba(74,138,40,.25); border-style: solid; }
+        .tc-bracket-bottom::before { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+        .tc-bracket-bottom::after { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+        .tc-scanline { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: repeating-linear-gradient(0deg, rgba(74,138,40,.012) 0, rgba(74,138,40,.012) 1px, transparent 1px, transparent 4px); }
       `}</style>
 
+      <div className="tc-scanline" />
+
       {/* HUD */}
-      <header style={{ background: "#080a06", borderBottom: "2px solid #2a3818", padding: ".7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      <header className="tc-bracket tc-bracket-bottom" style={{ position: "relative", zIndex: 10, background: "#080a06", borderBottom: "1px solid rgba(74,138,40,.15)", padding: ".75rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: ".75rem" }}>
-          <span className="tc-bracket" style={{ fontSize: "1.2rem" }}>[</span>
-          <span className="tc" style={{ fontSize: "1.6rem", color: "#4a8a28", lineHeight: 1 }}>RAGS TO RACES</span>
-          <span className="tc-bracket" style={{ fontSize: "1.2rem" }}>]</span>
+          <span className="tc" style={{ fontSize: "1.6rem", color: "#4a8a28", letterSpacing: ".06em", lineHeight: 1, textShadow: "0 0 10px rgba(74,138,40,.3)" }}>RAGS TO RACES</span>
           {prestigeCount > 0 && (
-            <span style={{ fontSize: ".55rem", background: "rgba(74,138,40,.1)", border: "1px solid rgba(74,138,40,.3)", color: "#4a8a28", padding: ".1rem .4rem", letterSpacing: ".15em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>
+            <span style={{ fontSize: ".55rem", background: "rgba(200,168,72,.1)", border: "1px solid rgba(200,168,72,.3)", color: "#c8a848", padding: ".15rem .45rem", letterSpacing: ".15em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>
               LVL {prestigeCount}
             </span>
           )}
-          <span className="tc" style={{ fontSize: ".65rem", color: "#c8a848", letterSpacing: ".15em" }}>OPERATION SCRAPYARD</span>
+          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.3)", letterSpacing: ".22em", fontWeight: 600 }}>OPERATION SCRAPYARD</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
           <div style={{ textAlign: "right" }}>
-            <div className="tc" style={{ fontSize: "1.2rem", color: "#4a8a28", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
+            <div className="tc" style={{ fontSize: "1.1rem", color: "#4a8a28", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
             <div className="tc-stat-label">SCRAP BUCKS</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="tc" style={{ fontSize: "1.2rem", color: "#c8a848", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="tc-stat-label" style={{ color: "rgba(200,168,72,.3)" }}>REP</div>
+            <div className="tc" style={{ fontSize: "1.1rem", color: "#c8a848", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
+            <div className="tc-stat-label" style={{ color: "rgba(200,168,72,.35)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -1395,7 +1407,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
       </header>
 
       {/* Tabs */}
-      <nav style={{ background: "#090b07", borderBottom: "1px solid #1a2810", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
+      <nav style={{ position: "relative", zIndex: 10, background: "#090b07", borderBottom: "1px solid rgba(74,138,40,.1)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
         {TABS.map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
@@ -1410,20 +1422,20 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".55rem", color: "#3a4a28", marginRight: ".5rem", fontFamily: "'Source Code Pro', monospace", fontWeight: 600, letterSpacing: ".12em" }}>
-            <span style={{ color: "#4a8a28" }}>◎</span> AUTO
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".55rem", color: "rgba(74,138,40,.3)", marginRight: ".5rem", fontFamily: "'Source Code Pro', monospace", fontWeight: 600, letterSpacing: ".12em" }}>
+            <span style={{ color: "#4a8a28", textShadow: "0 0 6px rgba(74,138,40,.5)" }}>&#9654;</span> AUTO
           </div>
         )}
       </nav>
 
       {/* Content */}
-      <main style={{ maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
+      <main style={{ position: "relative", zIndex: 10, maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
         {children}
       </main>
 
       {/* Footer */}
-      <footer style={{ borderTop: "1px solid #1a2810", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="tc" style={{ fontSize: ".5rem", color: "#2a3818", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
+      <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(74,138,40,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.2)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
         <ThemeSwitcher />
       </footer>
     </div>
