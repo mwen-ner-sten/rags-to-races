@@ -93,14 +93,17 @@ export default function GaragePanel() {
                 const selectedPart = pendingBuildParts[slot];
                 const options = eligibleParts(slot);
                 return (
-                  <div key={slot} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                      {slot}
+                  <div key={slot} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2 sm:p-3">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        {slot}
+                      </span>
+                      <span className="text-xs text-zinc-600">{options.length} available</span>
                     </div>
                     {options.length === 0 ? (
                       <p className="text-xs text-zinc-600">No compatible parts in inventory</p>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="max-h-24 overflow-y-auto flex flex-wrap gap-1 sm:gap-1.5 sm:max-h-32">
                         {options.map((part) => {
                           const def = getPartById(part.definitionId);
                           if (!def) return null;
@@ -110,7 +113,7 @@ export default function GaragePanel() {
                               onClick={() =>
                                 setPendingPart(slot, selectedPart?.id === part.id ? null : part)
                               }
-                              className={`rounded border px-2 py-1 text-xs transition-colors ${
+                              className={`rounded border px-1.5 py-0.5 text-xs transition-colors sm:px-2 sm:py-1 ${
                                 selectedPart?.id === part.id
                                   ? "border-orange-500 bg-orange-500/10 text-white"
                                   : "border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
@@ -118,7 +121,7 @@ export default function GaragePanel() {
                             >
                               {def.name}{" "}
                               <span className={CONDITION_COLORS[part.condition] ?? "text-zinc-400"}>
-                                ({capitalize(part.condition)})
+                                {capitalize(part.condition).slice(0, 3)}
                               </span>
                             </button>
                           );
@@ -127,7 +130,7 @@ export default function GaragePanel() {
                     )}
                     {selectedPart && (
                       <p className="mt-1 text-xs text-zinc-500">
-                        Selected: {getPartById(selectedPart.definitionId)?.name} —{" "}
+                        {getPartById(selectedPart.definitionId)?.name} —{" "}
                         <span className={CONDITION_COLORS[selectedPart.condition] ?? ""}>
                           {capitalize(selectedPart.condition)}
                         </span>
@@ -160,7 +163,7 @@ export default function GaragePanel() {
             No vehicles yet. Build one from scavenged parts.
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2 sm:gap-3 max-h-[60vh] overflow-y-auto">
             {garage.map((vehicle) => {
               const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
               if (!def) return null;
@@ -171,41 +174,42 @@ export default function GaragePanel() {
               return (
                 <div
                   key={vehicle.id}
-                  className={`rounded-lg border p-4 transition-colors ${
+                  className={`rounded-lg border p-3 sm:p-4 transition-colors ${
                     isActive ? "border-orange-500 bg-orange-500/5" : "border-zinc-700 bg-zinc-900"
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="font-semibold text-white">
-                        T{def.tier} {def.name}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-white text-sm">
+                          T{def.tier} {def.name}
+                        </span>
+                        {isActive && (
+                          <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[.6rem] font-semibold text-orange-400">
+                            Active
+                          </span>
+                        )}
                       </div>
                       <div className="mt-0.5 text-xs text-zinc-500">
-                        Engine:{" "}
                         <span className={CONDITION_COLORS[vehicle.parts.engine.condition] ?? ""}>
-                          {engineDef?.name} ({capitalize(vehicle.parts.engine.condition)})
+                          {engineDef?.name} ({capitalize(vehicle.parts.engine.condition).slice(0, 3)})
                         </span>
                       </div>
-                      <div className="mt-2 flex gap-4 text-xs">
-                        <StatBadge label="Speed" value={Math.floor(vehicle.stats.speed)} />
-                        <StatBadge label="Handling" value={Math.floor(vehicle.stats.handling)} />
-                        <StatBadge label="Reliability" value={Math.floor(vehicle.stats.reliability)} />
-                        <StatBadge label="Performance" value={Math.floor(vehicle.stats.performance)} highlight />
+                      <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs sm:flex sm:gap-4">
+                        <StatBadge label="Spd" value={Math.floor(vehicle.stats.speed)} />
+                        <StatBadge label="Hnd" value={Math.floor(vehicle.stats.handling)} />
+                        <StatBadge label="Rel" value={Math.floor(vehicle.stats.reliability)} />
+                        <StatBadge label="Perf" value={Math.floor(vehicle.stats.performance)} highlight />
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {!isActive && (
                         <button
                           onClick={() => setActiveVehicle(vehicle.id)}
                           className="rounded border border-orange-600 px-2 py-1 text-xs text-orange-400 transition-colors hover:bg-orange-600/20"
                         >
-                          Set Active
+                          Activate
                         </button>
-                      )}
-                      {isActive && (
-                        <span className="rounded bg-orange-500/20 px-2 py-1 text-xs font-semibold text-orange-400">
-                          Active
-                        </span>
                       )}
                       <button
                         onClick={() => sellVehicle(vehicle.id)}

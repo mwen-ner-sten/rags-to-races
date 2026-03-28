@@ -47,36 +47,39 @@ export default function RacePanel() {
     activeVehicleDef.tier >= selectedCircuit.minVehicleTier;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
       {/* Circuit selector */}
       <div className="col-span-1 flex flex-col gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
           Circuits
         </h2>
-        {unlockedCircuits.map((circuit) => (
-          <button
-            key={circuit.id}
-            onClick={() => setSelectedCircuit(circuit.id)}
-            className={`rounded-lg border p-3 text-left transition-colors ${
-              selectedCircuitId === circuit.id
-                ? "border-orange-500 bg-orange-500/10"
-                : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
-            }`}
-          >
-            <div className="font-semibold text-white">{circuit.name}</div>
-            <div className="mt-0.5 text-xs text-zinc-400">{circuit.description}</div>
-            <div className="mt-1.5 flex gap-3 text-xs text-zinc-500">
-              <span>Entry: ${formatNumber(circuit.entryFee)}</span>
-              <span>Prize: ${formatNumber(circuit.rewardBase)}</span>
-              <span>+{circuit.repReward} Rep</span>
-            </div>
-            <div className="mt-1 text-xs text-zinc-600">
-              Requires Tier {circuit.minVehicleTier}+ vehicle
-            </div>
-          </button>
-        ))}
+        {/* Horizontal scroll on mobile, vertical stack on desktop */}
+        <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-x-visible lg:pb-0">
+          {unlockedCircuits.map((circuit) => (
+            <button
+              key={circuit.id}
+              onClick={() => setSelectedCircuit(circuit.id)}
+              className={`shrink-0 rounded-lg border p-2.5 sm:p-3 text-left transition-colors lg:shrink ${
+                selectedCircuitId === circuit.id
+                  ? "border-orange-500 bg-orange-500/10"
+                  : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
+              }`}
+            >
+              <div className="font-semibold text-white text-sm">{circuit.name}</div>
+              <div className="mt-0.5 text-xs text-zinc-400 hidden lg:block">{circuit.description}</div>
+              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-zinc-500">
+                <span>${formatNumber(circuit.entryFee)}</span>
+                <span>Prize: ${formatNumber(circuit.rewardBase)}</span>
+                <span>+{circuit.repReward} Rep</span>
+              </div>
+              <div className="mt-0.5 text-xs text-zinc-600">
+                T{circuit.minVehicleTier}+ vehicle
+              </div>
+            </button>
+          ))}
+        </div>
         {lockedCircuits.map((circuit) => (
-          <div key={circuit.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 opacity-50">
+          <div key={circuit.id} className="hidden lg:block rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 opacity-50">
             <div className="font-semibold text-zinc-500">🔒 {circuit.name}</div>
             <div className="mt-1 text-xs text-zinc-600">
               Need {circuit.unlockRepCost} Rep to unlock
@@ -86,35 +89,37 @@ export default function RacePanel() {
       </div>
 
       {/* Race action */}
-      <div className="col-span-2 flex flex-col gap-4">
+      <div className="col-span-1 lg:col-span-2 flex flex-col gap-3 sm:gap-4">
         {/* Active vehicle info */}
         {activeVehicle && activeVehicleDef ? (
-          <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-            <div className="text-xs text-zinc-500 mb-1">Racing with</div>
-            <div className="font-semibold text-white">
-              T{activeVehicleDef.tier} {activeVehicleDef.name}
+          <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 sm:p-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-500">Racing with</span>
+              <span className="font-semibold text-white text-sm">
+                T{activeVehicleDef.tier} {activeVehicleDef.name}
+              </span>
             </div>
-            <div className="mt-2 flex gap-4 text-xs text-zinc-400">
-              <span>Speed: {Math.floor(activeVehicle.stats.speed)}</span>
-              <span>Handling: {Math.floor(activeVehicle.stats.handling)}</span>
-              <span>Reliability: {Math.floor(activeVehicle.stats.reliability)}</span>
+            <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-zinc-400 sm:flex sm:gap-4">
+              <span>Spd: {Math.floor(activeVehicle.stats.speed)}</span>
+              <span>Hnd: {Math.floor(activeVehicle.stats.handling)}</span>
+              <span>Rel: {Math.floor(activeVehicle.stats.reliability)}</span>
               <span className="font-semibold text-orange-400">
-                Performance: {Math.floor(activeVehicle.stats.performance)}
+                Perf: {Math.floor(activeVehicle.stats.performance)}
               </span>
             </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-500">
-            No active vehicle. Build and set one in the Garage tab.
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3 sm:p-4 text-sm text-zinc-500">
+            No active vehicle. Build one in the Garage tab.
           </div>
         )}
 
         {/* Race button */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <button
             onClick={enterRace}
             disabled={!canEnter}
-            className="rounded-lg bg-orange-600 px-8 py-3 font-bold text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg bg-orange-600 px-6 py-2.5 font-bold text-white text-sm transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isRacing ? "Racing..." : "Enter Race"}
           </button>
@@ -127,7 +132,7 @@ export default function RacePanel() {
           )}
           {autoRaceUnlocked && !isRacing && (
             <span className="rounded bg-blue-500/20 px-2 py-1 text-xs text-blue-400">
-              Auto-race active
+              Auto-race
             </span>
           )}
           {selectedCircuit && !canEnter && !isRacing && (
@@ -135,9 +140,9 @@ export default function RacePanel() {
               {!activeVehicle
                 ? "No vehicle"
                 : scrapBucks < selectedCircuit.entryFee
-                ? `Need $${formatNumber(selectedCircuit.entryFee)} entry fee`
+                ? `Need $${formatNumber(selectedCircuit.entryFee)}`
                 : activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier
-                ? `Need Tier ${selectedCircuit.minVehicleTier}+ vehicle`
+                ? `Need T${selectedCircuit.minVehicleTier}+ vehicle`
                 : ""}
             </span>
           )}
