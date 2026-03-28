@@ -1069,30 +1069,33 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'IBM Plex Mono', monospace", background: "#0c0806", minHeight: "100vh", color: "#b8a090", display: "flex", flexDirection: "column" }}>
+    <div style={{ fontFamily: "'IBM Plex Mono', monospace", background: "#0c0806", minHeight: "100vh", color: "#b8a090", display: "flex", flexDirection: "column", position: "relative" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
         .rb { font-family: 'Russo One', sans-serif; }
-        .rb-tab { font-family: 'Russo One', sans-serif; font-size: .78rem; letter-spacing: .08em; cursor: pointer; padding: .7rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: #5a3820; background: none; border-top: none; border-left: none; border-right: none; }
+        .rb-tab { font-family: 'Russo One', sans-serif; font-size: .72rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: #5a3a20; background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
         .rb-tab:hover { color: #b44a1a; }
-        .rb-tab-on { color: #b44a1a !important; border-bottom-color: #b44a1a !important; }
-        .rb-tab-dev { margin-left: auto; color: #3a2818 !important; }
+        .rb-tab-on { color: #b44a1a !important; border-bottom-color: #b44a1a !important; text-shadow: 0 0 8px rgba(180,74,26,.4); }
+        .rb-tab-dev { margin-left: auto; color: #3a2210 !important; }
         .rb-tab-dev:hover { color: #7a3a1a !important; }
-        .rb-tab-dev-on { color: #d87830 !important; border-bottom-color: #d87830 !important; }
-        .rb-stat-label { font-family: 'Russo One', sans-serif; font-size: .5rem; letter-spacing: .15em; color: #5a3820; text-transform: uppercase; }
-        .rb-rust { background-image: radial-gradient(ellipse at 30% 0%, rgba(180,74,26,.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(122,58,26,.05) 0%, transparent 50%), repeating-linear-gradient(135deg, rgba(180,74,26,.015) 0, rgba(180,74,26,.015) 1px, transparent 1px, transparent 10px); }
+        .rb-tab-dev-on { color: #c87030 !important; border-bottom-color: #c87030 !important; }
+        .rb-stat-label { font-family: 'IBM Plex Mono', monospace; font-size: .5rem; font-weight: 600; letter-spacing: .18em; color: #5a3a20; text-transform: uppercase; }
+        .rb-rust-overlay { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 20% 50%, rgba(180,74,26,.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(122,58,26,.08) 0%, transparent 40%), radial-gradient(ellipse at 60% 80%, rgba(180,74,26,.04) 0%, transparent 45%); }
+        .rb-grit { background-image: repeating-linear-gradient(90deg, rgba(180,74,26,.02) 0, rgba(180,74,26,.02) 1px, transparent 1px, transparent 4px), repeating-linear-gradient(0deg, rgba(122,58,26,.015) 0, rgba(122,58,26,.015) 1px, transparent 1px, transparent 6px); }
       `}</style>
 
+      <div className="rb-rust-overlay" />
+
       {/* HUD */}
-      <header className="rb-rust" style={{ background: "#0a0604", borderBottom: "2px solid #3a1c0a", padding: ".7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      <header className="rb-grit" style={{ position: "relative", zIndex: 10, background: "#0a0604", borderBottom: "2px solid #2a1a0a", boxShadow: "0 2px 0 #3a1a08", padding: ".7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: ".75rem" }}>
-          <span className="rb" style={{ fontSize: "1.8rem", color: "#b44a1a", lineHeight: 1 }}>RAGS TO RACES</span>
+          <span className="rb" style={{ fontSize: "1.9rem", color: "#b44a1a", letterSpacing: ".06em", lineHeight: 1, textShadow: "0 0 12px rgba(180,74,26,.3)" }}>RAGS TO RACES</span>
           {prestigeCount > 0 && (
-            <span style={{ fontSize: ".58rem", background: "rgba(180,74,26,.12)", border: "1px solid rgba(180,74,26,.3)", color: "#b44a1a", padding: ".1rem .4rem", letterSpacing: ".15em", fontFamily: "'Russo One', sans-serif" }}>
+            <span style={{ fontSize: ".58rem", background: "rgba(180,74,26,.12)", border: "1px solid rgba(180,74,26,.3)", color: "#b44a1a", padding: ".15rem .45rem", letterSpacing: ".15em", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>
               P{prestigeCount}
             </span>
           )}
-          <span style={{ fontSize: ".55rem", color: "#5a3820", letterSpacing: ".2em", fontFamily: "'Russo One', sans-serif" }}>CORRODED BUT RUNNING</span>
+          <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".22em", fontWeight: 600 }}>CORRODED BUT RUNNING</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
           <div style={{ textAlign: "right" }}>
@@ -1100,12 +1103,12 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
             <div className="rb-stat-label">SCRAP BUCKS</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="rb" style={{ fontSize: "1.2rem", color: "#7a3a1a", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
+            <div className="rb" style={{ fontSize: "1.2rem", color: "#8a6a40", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
             <div className="rb-stat-label">REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
-              <div className="rb" style={{ fontSize: "1.2rem", color: "#b44a1a", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+              <div className="rb" style={{ fontSize: "1.2rem", color: "#b8a090", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
               <div className="rb-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
@@ -1113,7 +1116,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
       </header>
 
       {/* Tabs */}
-      <nav style={{ background: "#0a0604", borderBottom: "1px solid #2a1808", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
+      <nav style={{ position: "relative", zIndex: 10, background: "#0a0705", borderBottom: "1px solid #2a1a0a", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
         {TABS.map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
@@ -1128,20 +1131,20 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#5a3820", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Russo One', sans-serif" }}>
-            <span style={{ color: "#b44a1a" }}>⚙</span> AUTO
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#5a3a20", marginRight: ".5rem", letterSpacing: ".12em", fontWeight: 600 }}>
+            <span style={{ color: "#b44a1a", textShadow: "0 0 6px rgba(180,74,26,.5)" }}>&#9673;</span> AUTO
           </div>
         )}
       </nav>
 
       {/* Content */}
-      <main style={{ maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
+      <main style={{ position: "relative", zIndex: 10, maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
         {children}
       </main>
 
       {/* Footer */}
-      <footer style={{ borderTop: "1px solid #2a1808", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="rb" style={{ fontSize: ".5rem", color: "#3a2010", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
+      <footer style={{ position: "relative", zIndex: 10, borderTop: "2px solid #2a1a0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -1158,45 +1161,47 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
   return (
     <div style={{ fontFamily: "'Nunito Sans', sans-serif", background: "#060a10", minHeight: "100vh", color: "#b0c8d8", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Michroma&family=Nunito+Sans:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Michroma&family=Nunito+Sans:wght@400;600;700;800&display=swap');
         .ar { font-family: 'Michroma', sans-serif; }
-        .ar-frost { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 20% 0%, rgba(72,184,232,.04) 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(136,208,240,.03) 0%, transparent 50%); }
-        .ar-tab { font-family: 'Michroma', sans-serif; font-size: .55rem; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(72,184,232,.2); transition: all .14s; text-transform: uppercase; }
-        .ar-tab:hover { color: rgba(72,184,232,.6); }
+        .ar-tab { font-family: 'Michroma', sans-serif; font-size: .58rem; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; transition: all .14s; color: rgba(72,184,232,.2); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
+        .ar-tab:hover { color: rgba(72,184,232,.55); }
         .ar-tab-on { color: #48b8e8 !important; border-bottom-color: #48b8e8 !important; text-shadow: 0 0 10px rgba(72,184,232,.4); }
         .ar-tab-dev { margin-left: auto; color: rgba(136,208,240,.15) !important; }
-        .ar-tab-dev:hover { color: rgba(136,208,240,.5) !important; }
-        .ar-tab-dev-on { color: #88d0f0 !important; border-bottom-color: #88d0f0 !important; text-shadow: 0 0 10px rgba(136,208,240,.4); }
+        .ar-tab-dev:hover { color: rgba(136,208,240,.45) !important; }
+        .ar-tab-dev-on { color: #88d0f0 !important; border-bottom-color: #88d0f0 !important; text-shadow: 0 0 8px rgba(136,208,240,.4); }
         .ar-stat-label { font-family: 'Michroma', sans-serif; font-size: .45rem; letter-spacing: .18em; color: rgba(72,184,232,.3); text-transform: uppercase; }
+        .ar-frost { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 30% 0%, rgba(136,208,240,.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 100%, rgba(72,184,232,.04) 0%, transparent 45%), radial-gradient(ellipse at 50% 50%, rgba(200,230,255,.02) 0%, transparent 60%); }
+        .ar-shimmer { pointer-events: none; position: fixed; inset: 0; z-index: 1; background: linear-gradient(135deg, transparent 40%, rgba(200,230,255,.015) 45%, transparent 50%, transparent 55%, rgba(136,208,240,.01) 60%, transparent 65%); }
         .ar-glow { text-shadow: 0 0 10px rgba(72,184,232,.5), 0 0 25px rgba(72,184,232,.2); }
       `}</style>
 
       <div className="ar-frost" />
+      <div className="ar-shimmer" />
 
       {/* HUD */}
-      <header style={{ position: "relative", zIndex: 10, background: "rgba(72,184,232,.02)", borderBottom: "1px solid rgba(72,184,232,.1)", padding: ".75rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(3px)", flexShrink: 0 }}>
+      <header style={{ position: "relative", zIndex: 10, background: "rgba(72,184,232,.03)", borderBottom: "1px solid rgba(72,184,232,.1)", padding: ".7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(2px)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div>
-            <div className="ar ar-glow" style={{ fontSize: "1.3rem", color: "#48b8e8", letterSpacing: ".1em", lineHeight: 1 }}>RAGS TO RACES</div>
+            <div className="ar ar-glow" style={{ fontSize: "1.3rem", color: "#48b8e8", letterSpacing: ".1em", lineHeight: 1, textShadow: "0 0 16px rgba(72,184,232,.3)" }}>RAGS TO RACES</div>
             {prestigeCount > 0 && (
-              <div style={{ fontSize: ".48rem", color: "#88d0f0", letterSpacing: ".2em", marginTop: ".1rem", fontFamily: "'Michroma', sans-serif" }}>PRESTIGE {prestigeCount}</div>
+              <div style={{ fontSize: ".48rem", color: "#88d0f0", letterSpacing: ".2em", marginTop: ".15rem", fontFamily: "'Michroma', sans-serif" }}>PRESTIGE {prestigeCount}</div>
             )}
           </div>
           <div style={{ width: 1, height: 28, background: "rgba(72,184,232,.12)" }} />
-          <div className="ar" style={{ fontSize: ".48rem", color: "rgba(72,184,232,.2)", letterSpacing: ".22em" }}>COLD START</div>
+          <div style={{ fontSize: ".48rem", color: "rgba(72,184,232,.25)", letterSpacing: ".22em", fontFamily: "'Michroma', sans-serif" }}>COLD START</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
-            <div className="ar ar-glow" style={{ fontSize: "1.1rem", color: "#48b8e8", letterSpacing: ".06em" }}>${formatNumber(scrapBucks)}</div>
+            <div className="ar" style={{ fontSize: "1.05rem", color: "#48b8e8", letterSpacing: ".06em", textShadow: "0 0 10px rgba(72,184,232,.3)" }}>${formatNumber(scrapBucks)}</div>
             <div className="ar-stat-label">SCRAP BUCKS</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="ar" style={{ fontSize: "1.1rem", color: "#88d0f0", letterSpacing: ".06em" }}>{formatNumber(repPoints)}</div>
+            <div className="ar" style={{ fontSize: "1.05rem", color: "#88d0f0", letterSpacing: ".06em" }}>{formatNumber(repPoints)}</div>
             <div className="ar-stat-label" style={{ color: "rgba(136,208,240,.3)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
-              <div className="ar" style={{ fontSize: "1rem", color: "#b0c8d8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+              <div className="ar" style={{ fontSize: "1.05rem", color: "#b0c8d8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
               <div className="ar-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
@@ -1220,7 +1225,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
         })}
         {autoScavengeUnlocked && (
           <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".5rem", color: "rgba(72,184,232,.25)", marginRight: ".5rem", fontFamily: "'Michroma', sans-serif", letterSpacing: ".12em" }}>
-            <span style={{ color: "#48b8e8", textShadow: "0 0 6px rgba(72,184,232,.5)" }}>❄</span> AUTO
+            <span style={{ color: "#48b8e8", textShadow: "0 0 8px rgba(72,184,232,.6)" }}>&#10052;</span> AUTO
           </div>
         )}
       </nav>
@@ -1232,7 +1237,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(72,184,232,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.15)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
+        <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.18)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
         <ThemeSwitcher />
       </footer>
     </div>
