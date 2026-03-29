@@ -258,13 +258,15 @@ export default function RacePanel() {
   );
 
   const selectedCircuit = CIRCUIT_DEFINITIONS.find((c) => c.id === selectedCircuitId);
+  const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const canEnter =
     !isRacing &&
     activeVehicle &&
     selectedCircuit &&
     scrapBucks >= selectedCircuit.entryFee &&
     activeVehicleDef &&
-    activeVehicleDef.tier >= selectedCircuit.minVehicleTier;
+    activeVehicleDef.tier >= selectedCircuit.minVehicleTier &&
+    vehicleCondition > 0;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
@@ -327,7 +329,22 @@ export default function RacePanel() {
               <span className="font-semibold text-orange-400">
                 Perf: {Math.floor(activeVehicle.stats.performance)}
               </span>
+              <span className={`font-semibold ${
+                vehicleCondition > 70 ? "text-green-400" : vehicleCondition > 30 ? "text-yellow-400" : "text-red-400"
+              }`}>
+                Cond: {vehicleCondition}%
+              </span>
             </div>
+            {vehicleCondition <= 0 && (
+              <div className="mt-1.5 text-xs font-semibold text-red-400">
+                Vehicle is broken! Repair it in the Garage tab.
+              </div>
+            )}
+            {vehicleCondition > 0 && vehicleCondition <= 30 && (
+              <div className="mt-1.5 text-xs text-yellow-400">
+                Your vehicle is falling apart! Consider repairing.
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3 sm:p-4 text-sm text-zinc-500">
@@ -364,6 +381,8 @@ export default function RacePanel() {
             <span className="text-xs text-zinc-500">
               {!activeVehicle
                 ? "No vehicle"
+                : vehicleCondition <= 0
+                ? "Vehicle broken — repair in Garage"
                 : scrapBucks < selectedCircuit.entryFee
                 ? `Need $${formatNumber(selectedCircuit.entryFee)}`
                 : activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier

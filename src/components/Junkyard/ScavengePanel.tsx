@@ -3,6 +3,7 @@
 import { useGameStore } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
+import { calculateRefurbishCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
@@ -71,6 +72,10 @@ export default function ScavengePanel() {
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const scrapBucks = useGameStore((s) => s.scrapBucks);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
+  const refurbishPart = useGameStore((s) => s.refurbishPart);
+  const refurbBenchUnlocked = (workshopLevels["refurbishment_bench"] ?? 0) >= 1;
 
   const unlockedLocations = LOCATION_DEFINITIONS.filter((l) =>
     unlockedLocationIds.includes(l.id),
@@ -225,12 +230,28 @@ export default function ScavengePanel() {
                     </span>
                     <span className="hidden sm:inline text-xs font-mono text-zinc-400">{group.count}</span>
                     <span className="font-mono text-xs text-green-400 shrink-0">${formatNumber(group.unitValue)}</span>
-                    <button
-                      onClick={() => sellPart(group.parts[0].id)}
-                      className="text-xs text-zinc-500 transition-colors hover:text-red-400 shrink-0"
-                    >
-                      Sell 1
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {refurbBenchUnlocked && group.condition !== "rusted" && group.condition !== "pristine" && (() => {
+                        const refurbInfo = calculateRefurbishCost(group.parts[0], 0);
+                        if (!refurbInfo) return null;
+                        return (
+                          <button
+                            onClick={() => refurbishPart(group.parts[0].id)}
+                            disabled={scrapBucks < refurbInfo.cost}
+                            className="text-xs text-cyan-500 transition-colors hover:text-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={`Refurbish to ${capitalize(refurbInfo.newCondition)} — $${refurbInfo.cost}`}
+                          >
+                            Fix ${refurbInfo.cost}
+                          </button>
+                        );
+                      })()}
+                      <button
+                        onClick={() => sellPart(group.parts[0].id)}
+                        className="text-xs text-zinc-500 transition-colors hover:text-red-400"
+                      >
+                        Sell 1
+                      </button>
+                    </div>
                   </div>
                 );
               })}

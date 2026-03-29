@@ -7,14 +7,16 @@ import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
 import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus } from "@/engine/prestige";
+import type { PartCondition } from "@/data/parts";
 import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge } from "@/engine/scavenge";
-import { buildVehicle } from "@/engine/build";
-import { simulateRace } from "@/engine/race";
+import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition } from "@/engine/build";
+import { simulateRace, calculateWear } from "@/engine/race";
 import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
 import { getVehicleById } from "@/data/vehicles";
+import { getUpgradeById, getUpgradeCost } from "@/data/upgrades";
 
 export interface GameState {
   // Currency
@@ -55,6 +57,9 @@ export interface GameState {
   // Unlock notifications (transient)
   unlockEvents: string[];
 
+  // Workshop upgrades
+  workshopLevels: Record<string, number>;
+
   // Build UI state
   pendingBuildParts: {
     engine: ScavengedPart | null;
@@ -85,10 +90,14 @@ export interface GameState {
   setSelectedCircuit: (circuitId: string) => void;
   enterRace: () => void;
   clearUnlockEvents: () => void;
+  repairVehicle: (vehicleId: string) => void;
+  swapPart: (vehicleId: string, slot: "engine" | "wheel" | "frame" | "fuel", newPart: ScavengedPart) => void;
+  refurbishPart: (partId: string) => void;
+  purchaseUpgrade: (upgradeId: string) => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
-  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number) => void;
+  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => void;
 
   // Dev / admin actions
   devSetScrapBucks: (amount: number) => void;
@@ -129,6 +138,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     winStreak: 0,
     bestWinStreak: 0,
     unlockEvents: [],
+    workshopLevels: {},
     pendingBuildParts: { engine: null, wheel: null, frame: null, fuel: null },
     pendingBuildVehicleId: "push_mower",
     unlockedLocationIds: ["curbside"],
@@ -138,6 +148,18 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
   };
 }
 
+// ── Workshop upgrade helpers (exported for tick.ts and UI) ───────────────────
+export function _getUpgradeLevel(state: GameState, upgradeId: string): number {
+  return state.workshopLevels[upgradeId] ?? 0;
+}
+export function _getUpgradeEffectValue(state: GameState, upgradeId: string): number {
+  const level = _getUpgradeLevel(state, upgradeId);
+  if (level === 0) return 0;
+  const def = getUpgradeById(upgradeId);
+  if (!def) return 0;
+  return def.effect.valuePerLevel * level;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createActions(set: any, get: any) {
   return {
@@ -145,7 +167,13 @@ function createActions(set: any, get: any) {
       const state = get() as GameState;
       const location = getLocationById(state.selectedLocationId);
       if (!location) return;
-      const parts = scavenge(location, state.prestigeBonus.luckBonus);
+      const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
+      const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
+      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck);
+      for (let i = 0; i < extraParts; i++) {
+        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck);
+        if (bonus.length > 0) parts.push(bonus[0]);
+      }
       set((s: GameState) => ({
         inventory: [...s.inventory, ...parts],
       }));
@@ -207,7 +235,9 @@ function createActions(set: any, get: any) {
       const vehicleDef = getVehicleById(pendingBuildVehicleId);
       if (!vehicleDef) return;
 
-      if (state.scrapBucks < vehicleDef.buildCost) return;
+      const buildReduction = _getUpgradeEffectValue(state, "bargain_builder");
+      const actualBuildCost = Math.max(0, Math.floor(vehicleDef.buildCost * (1 - buildReduction)));
+      if (state.scrapBucks < actualBuildCost) return;
 
       const usedPartIds = new Set([engine.id, wheel.id, frame.id, fuel.id]);
       const built = buildVehicle(vehicleDef, { engine, wheel, frame, fuel }, _vehicleIdCounter);
@@ -215,7 +245,7 @@ function createActions(set: any, get: any) {
       set((s: GameState) => ({
         garage: [...s.garage, built],
         inventory: s.inventory.filter((p) => !usedPartIds.has(p.id)),
-        scrapBucks: s.scrapBucks - vehicleDef.buildCost,
+        scrapBucks: s.scrapBucks - actualBuildCost,
         _vehicleIdCounter: s._vehicleIdCounter + 1,
         pendingBuildParts: { engine: null, wheel: null, frame: null, fuel: null },
         activeVehicleId: s.activeVehicleId ?? built.id,
@@ -261,6 +291,7 @@ function createActions(set: any, get: any) {
       const circuit = getCircuitById(state.selectedCircuitId);
       if (!vehicle || !circuit) return;
       if (state.scrapBucks < circuit.entryFee) return;
+      if ((vehicle.condition ?? 100) <= 0) return;
 
       // Pre-compute the outcome immediately so the UI can animate it
       const outcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier);
@@ -317,12 +348,35 @@ function createActions(set: any, get: any) {
           if (newStreak === 5) newUnlockEvents.push("5 WINS! Unstoppable!");
           if (newStreak === 10) newUnlockEvents.push("10 WINS! LEGENDARY!");
 
+          // Apply vehicle wear
+          const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
+          const activeV = s.garage.find((v) => v.id === s.activeVehicleId);
+          const wearAmount = activeV ? calculateWear(activeV, outcome.result, wearReduction) : 0;
+          const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension");
+          const updatedGarage = s.garage.map((v) => {
+            if (v.id !== s.activeVehicleId) return v;
+            const newCond = Math.max(0, (v.condition ?? 100) - wearAmount);
+            const vDef = getVehicleById(v.definitionId);
+            return {
+              ...v,
+              condition: newCond,
+              totalRaces: (v.totalRaces ?? 0) + 1,
+              stats: vDef ? calculateStats(vDef, v.parts, newCond, handlingBonus) : v.stats,
+            };
+          });
+
+          // Apply consolation sponsor bonus
+          const consolationBonus = _getUpgradeEffectValue(s, "consolation_sponsor");
+          const finalScraps = outcome.result !== "win" && consolationBonus > 0
+            ? Math.floor(outcome.scrapsEarned * (1 + consolationBonus))
+            : outcome.scrapsEarned;
+
           return {
             isRacing: false,
             lastRaceOutcome: outcome,
             raceHistory: [outcome, ...s.raceHistory].slice(0, 20),
-            scrapBucks: s.scrapBucks + outcome.scrapsEarned,
-            lifetimeScrapBucks: s.lifetimeScrapBucks + outcome.scrapsEarned,
+            scrapBucks: s.scrapBucks + finalScraps,
+            lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps,
             repPoints: newRep,
             unlockedCircuitIds: newUnlockedCircuits,
             unlockedLocationIds: newUnlockedLocations,
@@ -335,6 +389,7 @@ function createActions(set: any, get: any) {
             winStreak: newStreak,
             bestWinStreak: newBestStreak,
             unlockEvents: newUnlockEvents,
+            garage: updatedGarage,
           };
         });
       }, circuit.raceDuration);
@@ -342,6 +397,101 @@ function createActions(set: any, get: any) {
 
     clearUnlockEvents: () => {
       set({ unlockEvents: [] });
+    },
+
+    repairVehicle: (vehicleId: string) => {
+      const state = get() as GameState;
+      const vehicle = state.garage.find((v) => v.id === vehicleId);
+      if (!vehicle || (vehicle.condition ?? 100) >= 100) return;
+      const vehicleDef = getVehicleById(vehicle.definitionId);
+      if (!vehicleDef) return;
+      const reduction = _getUpgradeEffectValue(state, "budget_repairs");
+      const cost = calculateRepairCost(vehicleDef, vehicle.condition ?? 100, 100, reduction);
+      if (state.scrapBucks < cost) return;
+      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension");
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - cost,
+        garage: s.garage.map((v) => v.id !== vehicleId ? v : {
+          ...v,
+          condition: 100,
+          stats: calculateStats(vehicleDef, v.parts, 100, handlingBonus),
+        }),
+      }));
+    },
+
+    swapPart: (vehicleId: string, slot: "engine" | "wheel" | "frame" | "fuel", newPart: ScavengedPart) => {
+      const state = get() as GameState;
+      if (_getUpgradeLevel(state, "toolkit") < 1) return;
+      const vehicle = state.garage.find((v) => v.id === vehicleId);
+      if (!vehicle) return;
+
+      const oldPart = vehicle.parts[slot];
+      const noDegrade = _getUpgradeLevel(state, "gentle_swap") >= 1;
+      const returnedPart: ScavengedPart = noDegrade ? oldPart : {
+        ...oldPart,
+        condition: degradeCondition(oldPart.condition as PartCondition),
+      };
+
+      const vehicleDef = getVehicleById(vehicle.definitionId);
+      if (!vehicleDef) return;
+      if (!vehicleDef.requiredParts[slot].includes(newPart.definitionId)) return;
+
+      const newParts = { ...vehicle.parts, [slot]: newPart };
+      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension");
+      const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
+
+      set((s: GameState) => ({
+        garage: s.garage.map((v) => v.id !== vehicleId ? v : {
+          ...v,
+          parts: newParts,
+          stats: newStats,
+        }),
+        inventory: [
+          ...s.inventory.filter((p) => p.id !== newPart.id),
+          returnedPart,
+        ],
+      }));
+    },
+
+    refurbishPart: (partId: string) => {
+      const state = get() as GameState;
+      if (_getUpgradeLevel(state, "refurbishment_bench") < 1) return;
+      const part = state.inventory.find((p) => p.id === partId);
+      if (!part) return;
+      const reduction = _getUpgradeEffectValue(state, "cheap_refurb");
+      const result = calculateRefurbishCost(part, reduction);
+      if (!result) return;
+      if (state.scrapBucks < result.cost) return;
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - result.cost,
+        inventory: s.inventory.map((p) => p.id !== partId ? p : {
+          ...p,
+          condition: result.newCondition,
+        }),
+      }));
+    },
+
+    purchaseUpgrade: (upgradeId: string) => {
+      const state = get() as GameState;
+      const def = getUpgradeById(upgradeId);
+      if (!def) return;
+      const currentLevel = state.workshopLevels[upgradeId] ?? 0;
+      if (currentLevel >= def.maxLevel) return;
+
+      if (def.unlockRequirement) {
+        if (def.unlockRequirement.repPoints && state.repPoints < def.unlockRequirement.repPoints) return;
+        if (def.unlockRequirement.workshopUpgradeId) {
+          const reqLevel = state.workshopLevels[def.unlockRequirement.workshopUpgradeId] ?? 0;
+          if (reqLevel < 1) return;
+        }
+      }
+
+      const cost = getUpgradeCost(def, currentLevel);
+      if (state.scrapBucks < cost) return;
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - cost,
+        workshopLevels: { ...s.workshopLevels, [upgradeId]: currentLevel + 1 },
+      }));
     },
 
     unlockLocation: (locationId: string) => {
@@ -367,19 +517,43 @@ function createActions(set: any, get: any) {
         ...initialState(),
         prestigeCount: kept.prestigeCount,
         prestigeBonus: kept.bonuses,
+        workshopLevels: {},
         unlockedVehicleIds: ["push_mower"],
         unlockedLocationIds: ["curbside"],
         unlockedCircuitIds: ["backyard_derby"],
       });
     },
 
-    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number) => {
-      set((s: GameState) => ({
-        inventory: [...s.inventory, ...partsFound],
-        scrapBucks: s.scrapBucks + scrapsEarned,
-        lifetimeScrapBucks: s.lifetimeScrapBucks + scrapsEarned,
-        repPoints: s.repPoints + repEarned,
-      }));
+    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => {
+      set((s: GameState) => {
+        let updatedGarage = s.garage;
+        if ((vehicleWear || vehicleRepair) && s.activeVehicleId) {
+          const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension");
+          updatedGarage = s.garage.map((v) => {
+            if (v.id !== s.activeVehicleId) return v;
+            let newCond = v.condition ?? 100;
+            if (vehicleWear) newCond = Math.max(0, newCond - vehicleWear);
+            if (vehicleRepair) newCond = Math.min(100, newCond + vehicleRepair);
+            if (vehicleWear) {
+              const vDef = getVehicleById(v.definitionId);
+              return {
+                ...v,
+                condition: newCond,
+                totalRaces: (v.totalRaces ?? 0) + 1,
+                stats: vDef ? calculateStats(vDef, v.parts, newCond, handlingBonus) : v.stats,
+              };
+            }
+            return { ...v, condition: newCond };
+          });
+        }
+        return {
+          inventory: [...s.inventory, ...partsFound],
+          scrapBucks: s.scrapBucks + scrapsEarned,
+          lifetimeScrapBucks: s.lifetimeScrapBucks + scrapsEarned,
+          repPoints: s.repPoints + repEarned,
+          garage: updatedGarage,
+        };
+      });
     },
 
     // ── Dev / admin actions ──────────────────────────────────────────────────
@@ -497,6 +671,7 @@ export const useGameStore = create<GameState>()(
         raceHistory: state.raceHistory,
         winStreak: state.winStreak,
         bestWinStreak: state.bestWinStreak,
+        workshopLevels: state.workshopLevels,
         pendingBuildVehicleId: state.pendingBuildVehicleId,
       }),
     },

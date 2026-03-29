@@ -1,4 +1,5 @@
 import type { CircuitDefinition } from "@/data/circuits";
+import { BASE_WEAR_PER_RACE, DNF_WEAR_BONUS, RELIABILITY_WEAR_THRESHOLD } from "@/data/vehicles";
 import type { BuiltVehicle } from "./build";
 
 export type RaceResult = "win" | "loss" | "dnf";
@@ -109,4 +110,25 @@ export function simulateRace(
   ].filter(Boolean);
 
   return { result, position, totalRacers, scrapsEarned, repEarned, log };
+}
+
+/** Calculate condition points lost from a race. */
+export function calculateWear(
+  vehicle: BuiltVehicle,
+  result: RaceResult,
+  wearReductionPct: number,
+): number {
+  let wear = BASE_WEAR_PER_RACE;
+  if (result === "dnf") wear += DNF_WEAR_BONUS;
+
+  // Higher reliability = slower degradation
+  if (vehicle.stats.reliability > RELIABILITY_WEAR_THRESHOLD) {
+    const reliabilityBonus = (vehicle.stats.reliability - RELIABILITY_WEAR_THRESHOLD) / 200;
+    wear *= Math.max(0.3, 1 - reliabilityBonus);
+  }
+
+  // Workshop upgrade reduction
+  wear *= Math.max(0, 1 - wearReductionPct);
+
+  return Math.round(Math.max(1, wear));
 }
