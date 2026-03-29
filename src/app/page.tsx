@@ -7,6 +7,7 @@ import GaragePanel from "@/components/Garage/GaragePanel";
 import RacePanel from "@/components/RaceTrack/RacePanel";
 import ShopPanel from "@/components/Shop/ShopPanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
+import ToastContainer from "@/components/effects/Toast";
 import { useGameStore } from "@/state/store";
 import { computeTick, TICK_MS } from "@/engine/tick";
 
@@ -42,12 +43,15 @@ export default function Home() {
   }, [applyTickResult]);
 
   return (
-    <ThemeShell activeTab={activeTab} setActiveTab={setActiveTab}>
-      {activeTab === "junkyard" && <ScavengePanel />}
-      {activeTab === "garage"   && <GaragePanel />}
-      {activeTab === "race"     && <RacePanel />}
-      {activeTab === "shop"     && <ShopPanel />}
-      {activeTab === "dev"      && <AdminPanel />}
-    </ThemeShell>
+    <>
+      <ToastContainer />
+      <ThemeShell activeTab={activeTab} setActiveTab={setActiveTab}>
+        {activeTab === "junkyard" && <ScavengePanel />}
+        {activeTab === "garage"   && <GaragePanel />}
+        {activeTab === "race"     && <RacePanel />}
+        {activeTab === "shop"     && <ShopPanel />}
+        {activeTab === "dev"      && <AdminPanel />}
+      </ThemeShell>
+    </>
   );
 }

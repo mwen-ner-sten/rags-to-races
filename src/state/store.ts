@@ -5,8 +5,10 @@ import { persist } from "zustand/middleware";
 import type { ScavengedPart } from "@/engine/scavenge";
 import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
+import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus } from "@/engine/prestige";
 import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
+import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge } from "@/engine/scavenge";
 import { buildVehicle } from "@/engine/build";
 import { simulateRace } from "@/engine/race";
@@ -42,6 +44,16 @@ export interface GameState {
   autoRaceUnlocked: boolean;
   lastRaceOutcome: RaceOutcome | null;
   raceHistory: RaceOutcome[];
+  raceEvents: RaceEvent[];
+  raceStartTime: number | null;
+  precomputedOutcome: RaceOutcome | null;
+
+  // Streaks
+  winStreak: number;
+  bestWinStreak: number;
+
+  // Unlock notifications (transient)
+  unlockEvents: string[];
 
   // Build UI state
   pendingBuildParts: {
@@ -72,6 +84,7 @@ export interface GameState {
   setSelectedLocation: (locationId: string) => void;
   setSelectedCircuit: (circuitId: string) => void;
   enterRace: () => void;
+  clearUnlockEvents: () => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
@@ -110,6 +123,12 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     autoRaceUnlocked: false,
     lastRaceOutcome: null,
     raceHistory: [],
+    raceEvents: [],
+    raceStartTime: null,
+    precomputedOutcome: null,
+    winStreak: 0,
+    bestWinStreak: 0,
+    unlockEvents: [],
     pendingBuildParts: { engine: null, wheel: null, frame: null, fuel: null },
     pendingBuildVehicleId: "push_mower",
     unlockedLocationIds: ["curbside"],
@@ -243,38 +262,60 @@ function createActions(set: any, get: any) {
       if (!vehicle || !circuit) return;
       if (state.scrapBucks < circuit.entryFee) return;
 
-      set({ isRacing: true, scrapBucks: state.scrapBucks - circuit.entryFee });
+      // Pre-compute the outcome immediately so the UI can animate it
+      const outcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier);
+      const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
+
+      set({
+        isRacing: true,
+        scrapBucks: state.scrapBucks - circuit.entryFee,
+        raceEvents: events,
+        raceStartTime: Date.now(),
+        precomputedOutcome: outcome,
+      });
 
       setTimeout(() => {
-        const outcome = simulateRace(vehicle, circuit, get().prestigeBonus.scrapMultiplier);
         set((s: GameState) => {
           const newRep = s.repPoints + outcome.repEarned;
           const newUnlockedCircuits = [...s.unlockedCircuitIds];
           const newUnlockedLocations = [...s.unlockedLocationIds];
           const newUnlockedVehicles = [...s.unlockedVehicleIds];
+          const newUnlockEvents = [...s.unlockEvents];
 
           // Unlock circuits by rep
-          if (newRep >= 10 && !newUnlockedCircuits.includes("dirt_track")) newUnlockedCircuits.push("dirt_track");
-          if (newRep >= 30 && !newUnlockedCircuits.includes("regional_circuit")) newUnlockedCircuits.push("regional_circuit");
-          if (newRep >= 80 && !newUnlockedCircuits.includes("national_circuit")) newUnlockedCircuits.push("national_circuit");
-          if (newRep >= 200 && !newUnlockedCircuits.includes("world_championship")) newUnlockedCircuits.push("world_championship");
+          if (newRep >= 10 && !newUnlockedCircuits.includes("dirt_track")) { newUnlockedCircuits.push("dirt_track"); newUnlockEvents.push("Dirt Track Unlocked! Real gravel, real glory."); }
+          if (newRep >= 30 && !newUnlockedCircuits.includes("regional_circuit")) { newUnlockedCircuits.push("regional_circuit"); newUnlockEvents.push("Regional Circuit Unlocked! Somebody brought a trailer."); }
+          if (newRep >= 80 && !newUnlockedCircuits.includes("national_circuit")) { newUnlockedCircuits.push("national_circuit"); newUnlockEvents.push("National Circuit Unlocked! Corporate sponsors. Cameras."); }
+          if (newRep >= 200 && !newUnlockedCircuits.includes("world_championship")) { newUnlockedCircuits.push("world_championship"); newUnlockEvents.push("World Championship Unlocked! The big leagues."); }
 
           // Unlock locations by rep
-          if (newRep >= 5 && !newUnlockedLocations.includes("neighborhood_yards")) newUnlockedLocations.push("neighborhood_yards");
-          if (newRep >= 20 && !newUnlockedLocations.includes("local_junkyard")) newUnlockedLocations.push("local_junkyard");
-          if (newRep >= 60 && !newUnlockedLocations.includes("salvage_auction")) newUnlockedLocations.push("salvage_auction");
-          if (newRep >= 150 && !newUnlockedLocations.includes("industrial_surplus")) newUnlockedLocations.push("industrial_surplus");
-          if (newRep >= 400 && !newUnlockedLocations.includes("military_scrapyard")) newUnlockedLocations.push("military_scrapyard");
+          if (newRep >= 5 && !newUnlockedLocations.includes("neighborhood_yards")) { newUnlockedLocations.push("neighborhood_yards"); newUnlockEvents.push("New Location: Neighborhood Yards!"); }
+          if (newRep >= 20 && !newUnlockedLocations.includes("local_junkyard")) { newUnlockedLocations.push("local_junkyard"); newUnlockEvents.push("New Location: Local Junkyard — better parts await!"); }
+          if (newRep >= 60 && !newUnlockedLocations.includes("salvage_auction")) { newUnlockedLocations.push("salvage_auction"); newUnlockEvents.push("New Location: Salvage Auction!"); }
+          if (newRep >= 150 && !newUnlockedLocations.includes("industrial_surplus")) { newUnlockedLocations.push("industrial_surplus"); newUnlockEvents.push("New Location: Industrial Surplus!"); }
+          if (newRep >= 400 && !newUnlockedLocations.includes("military_scrapyard")) { newUnlockedLocations.push("military_scrapyard"); newUnlockEvents.push("New Location: Military Scrapyard!"); }
 
           // Unlock vehicles by rep
-          if (newRep >= 5 && !newUnlockedVehicles.includes("beater_car")) newUnlockedVehicles.push("beater_car");
-          if (newRep >= 20 && !newUnlockedVehicles.includes("street_racer")) newUnlockedVehicles.push("street_racer");
-          if (newRep >= 80 && !newUnlockedVehicles.includes("stock_car")) newUnlockedVehicles.push("stock_car");
+          if (newRep >= 5 && !newUnlockedVehicles.includes("beater_car")) { newUnlockedVehicles.push("beater_car"); newUnlockEvents.push("Beater Car Blueprint Unlocked!"); }
+          if (newRep >= 20 && !newUnlockedVehicles.includes("street_racer")) { newUnlockedVehicles.push("street_racer"); newUnlockEvents.push("Street Racer Blueprint Unlocked!"); }
+          if (newRep >= 80 && !newUnlockedVehicles.includes("stock_car")) { newUnlockedVehicles.push("stock_car"); newUnlockEvents.push("Stock Car Blueprint Unlocked!"); }
 
           // Unlock go-kart after winning backyard derby
           if (outcome.result === "win" && s.selectedCircuitId === "backyard_derby" && !newUnlockedVehicles.includes("go_kart")) {
             newUnlockedVehicles.push("go_kart");
+            newUnlockEvents.push("Go-Kart Blueprint Unlocked!");
           }
+
+          // Auto-unlock notifications
+          if (!s.autoScavengeUnlocked && newRep >= 8) newUnlockEvents.push("Auto-Scavenge Enabled! Parts collect themselves now.");
+          if (!s.autoRaceUnlocked && newRep >= 15) newUnlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
+
+          // Win streak
+          const newStreak = outcome.result === "win" ? s.winStreak + 1 : 0;
+          const newBestStreak = Math.max(s.bestWinStreak, newStreak);
+          if (newStreak === 3) newUnlockEvents.push("3-Win Streak! You're on fire!");
+          if (newStreak === 5) newUnlockEvents.push("5 WINS! Unstoppable!");
+          if (newStreak === 10) newUnlockEvents.push("10 WINS! LEGENDARY!");
 
           return {
             isRacing: false,
@@ -288,9 +329,19 @@ function createActions(set: any, get: any) {
             unlockedVehicleIds: newUnlockedVehicles,
             autoRaceUnlocked: s.autoRaceUnlocked || newRep >= 15,
             autoScavengeUnlocked: s.autoScavengeUnlocked || newRep >= 8,
+            raceEvents: [],
+            raceStartTime: null,
+            precomputedOutcome: null,
+            winStreak: newStreak,
+            bestWinStreak: newBestStreak,
+            unlockEvents: newUnlockEvents,
           };
         });
       }, circuit.raceDuration);
+    },
+
+    clearUnlockEvents: () => {
+      set({ unlockEvents: [] });
     },
 
     unlockLocation: (locationId: string) => {
@@ -444,6 +495,8 @@ export const useGameStore = create<GameState>()(
         unlockedVehicleIds: state.unlockedVehicleIds,
         _vehicleIdCounter: state._vehicleIdCounter,
         raceHistory: state.raceHistory,
+        winStreak: state.winStreak,
+        bestWinStreak: state.bestWinStreak,
         pendingBuildVehicleId: state.pendingBuildVehicleId,
       }),
     },
