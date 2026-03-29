@@ -180,3 +180,11 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
 export function getVehicleById(id: string): VehicleDefinition | undefined {
   return VEHICLE_DEFINITIONS.find((v) => v.id === id);
 }
+
+// ── Vehicle wear & repair constants ──────────────────────────────────────────
+export const BASE_WEAR_PER_RACE = 8;
+export const DNF_WEAR_BONUS = 15;
+export const RELIABILITY_WEAR_THRESHOLD = 60;
+export const CONDITION_PENALTY_THRESHOLD = 70;
+export const REPAIR_COST_PER_POINT_PER_TIER = 3;
+export const REPAIR_COST_BASE = 1;

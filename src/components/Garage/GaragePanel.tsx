@@ -1,8 +1,10 @@
 "use client";
 
-import { useGameStore } from "@/state/store";
+import { useState } from "react";
+import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
+import { calculateRepairCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 
@@ -26,9 +28,8 @@ const CONDITION_SHORT: Record<string, string> = {
   pristine: "Pri",
 };
 
-/** Group identical parts (same definition + condition) into buckets */
 interface PartGroup {
-  key: string;           // definitionId:condition
+  key: string;
   definitionId: string;
   condition: string;
   parts: ScavengedPart[];
@@ -45,7 +46,6 @@ function groupParts(parts: ScavengedPart[]): PartGroup[] {
     }
     group.parts.push(p);
   }
-  // Sort: best condition first, then by name
   return Array.from(map.values()).sort((a, b) => {
     const ci = CONDITION_ORDER.indexOf(a.condition) - CONDITION_ORDER.indexOf(b.condition);
     if (ci !== 0) return ci;
@@ -63,11 +63,16 @@ export default function GaragePanel() {
   const unlockedVehicleIds = useGameStore((s) => s.unlockedVehicleIds);
   const pendingBuildVehicleId = useGameStore((s) => s.pendingBuildVehicleId);
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
   const setPendingVehicle = useGameStore((s) => s.setPendingVehicle);
   const setPendingPart = useGameStore((s) => s.setPendingPart);
   const buildSelectedVehicle = useGameStore((s) => s.buildSelectedVehicle);
   const setActiveVehicle = useGameStore((s) => s.setActiveVehicle);
   const sellVehicle = useGameStore((s) => s.sellVehicle);
+  const repairVehicle = useGameStore((s) => s.repairVehicle);
+  const swapPart = useGameStore((s) => s.swapPart);
+
+  const toolkitUnlocked = (workshopLevels["toolkit"] ?? 0) >= 1;
 
   const unlockedVehicles = VEHICLE_DEFINITIONS.filter((v) =>
     unlockedVehicleIds.includes(v.id),
@@ -75,15 +80,18 @@ export default function GaragePanel() {
 
   const pendingDef = VEHICLE_DEFINITIONS.find((v) => v.id === pendingBuildVehicleId);
 
+  // Apply bargain builder discount
+  const buildReduction = _getUpgradeEffectValue(useGameStore.getState(), "bargain_builder");
+  const actualBuildCost = pendingDef ? Math.max(0, Math.floor(pendingDef.buildCost * (1 - buildReduction))) : 0;
+
   const canBuild =
     pendingDef &&
     pendingBuildParts.engine &&
     pendingBuildParts.wheel &&
     pendingBuildParts.frame &&
     pendingBuildParts.fuel &&
-    scrapBucks >= pendingDef.buildCost;
+    scrapBucks >= actualBuildCost;
 
-  // Parts eligible for each slot, grouped by type+condition
   function eligibleGroups(slot: Slot): PartGroup[] {
     if (!pendingDef) return [];
     const allowed = pendingDef.requiredParts[slot];
@@ -91,7 +99,6 @@ export default function GaragePanel() {
     return groupParts(eligible);
   }
 
-  // Check if any part in a group is the currently selected one
   function isGroupSelected(group: PartGroup, slot: Slot): boolean {
     const sel = pendingBuildParts[slot];
     return sel ? group.parts.some((p) => p.id === sel.id) : false;
@@ -105,7 +112,6 @@ export default function GaragePanel() {
           Build a Vehicle
         </h2>
 
-        {/* Vehicle selector */}
         <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {unlockedVehicles.map((v) => (
             <button
@@ -127,12 +133,14 @@ export default function GaragePanel() {
             <p className="text-xs sm:text-sm text-zinc-400">{pendingDef.description}</p>
             <div className="text-xs text-zinc-500">
               Build cost:{" "}
-              <span className={scrapBucks >= pendingDef.buildCost ? "text-green-400" : "text-red-400"}>
-                ${formatNumber(pendingDef.buildCost)}
+              <span className={scrapBucks >= actualBuildCost ? "text-green-400" : "text-red-400"}>
+                ${formatNumber(actualBuildCost)}
               </span>
+              {buildReduction > 0 && (
+                <span className="ml-1 text-zinc-600 line-through">${formatNumber(pendingDef.buildCost)}</span>
+              )}
             </div>
 
-            {/* Part slots — grouped by type+condition */}
             <div className="flex flex-col gap-2">
               {SLOTS.map((slot) => {
                 const selectedPart = pendingBuildParts[slot];
@@ -161,7 +169,6 @@ export default function GaragePanel() {
                                 if (selected) {
                                   setPendingPart(slot, null);
                                 } else {
-                                  // Pick the first available part from the group
                                   setPendingPart(slot, group.parts[0]);
                                 }
                               }}
@@ -221,66 +228,251 @@ export default function GaragePanel() {
           </div>
         ) : (
           <div className="flex flex-col gap-2 sm:gap-3 max-h-[60vh] overflow-y-auto">
-            {garage.map((vehicle) => {
-              const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
-              if (!def) return null;
-              const isActive = vehicle.id === activeVehicleId;
-              const mult = CONDITION_MULTIPLIERS[vehicle.parts.engine.condition];
-              const engineDef = getPartById(vehicle.parts.engine.definitionId);
+            {garage.map((vehicle) => (
+              <VehicleCard
+                key={vehicle.id}
+                vehicle={vehicle}
+                isActive={vehicle.id === activeVehicleId}
+                scrapBucks={scrapBucks}
+                inventory={inventory}
+                workshopLevels={workshopLevels}
+                toolkitUnlocked={toolkitUnlocked}
+                setActiveVehicle={setActiveVehicle}
+                sellVehicle={sellVehicle}
+                repairVehicle={repairVehicle}
+                swapPart={swapPart}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
+// ── Vehicle Card ─────────────────────────────────────────────────────────────
+
+function VehicleCard({
+  vehicle,
+  isActive,
+  scrapBucks,
+  inventory,
+  workshopLevels,
+  toolkitUnlocked,
+  setActiveVehicle,
+  sellVehicle,
+  repairVehicle,
+  swapPart,
+}: {
+  vehicle: import("@/engine/build").BuiltVehicle;
+  isActive: boolean;
+  scrapBucks: number;
+  inventory: ScavengedPart[];
+  workshopLevels: Record<string, number>;
+  toolkitUnlocked: boolean;
+  setActiveVehicle: (id: string) => void;
+  sellVehicle: (id: string) => void;
+  repairVehicle: (id: string) => void;
+  swapPart: (vehicleId: string, slot: "engine" | "wheel" | "frame" | "fuel", newPart: ScavengedPart) => void;
+}) {
+  const [swapSlot, setSwapSlot] = useState<Slot | null>(null);
+
+  const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
+  if (!def) return null;
+
+  const condition = vehicle.condition ?? 100;
+  const mult = CONDITION_MULTIPLIERS[vehicle.parts.engine.condition];
+  const engineDef = getPartById(vehicle.parts.engine.definitionId);
+
+  // Repair cost
+  const repairReduction = _getUpgradeEffectValue({ workshopLevels } as import("@/state/store").GameState, "budget_repairs");
+  const repairCost = condition < 100 ? calculateRepairCost(def, condition, 100, repairReduction) : 0;
+
+  return (
+    <div
+      className={`rounded-lg border p-2.5 sm:p-4 transition-colors ${
+        isActive ? "border-orange-500 bg-orange-500/5" : "border-zinc-700 bg-zinc-900"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-white text-sm">
+              T{def.tier} {def.name}
+            </span>
+            {isActive && (
+              <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[.6rem] font-semibold text-orange-400">
+                Active
+              </span>
+            )}
+            {condition <= 0 && (
+              <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[.6rem] font-semibold text-red-400">
+                Broken
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 text-xs text-zinc-500">
+            <span className={CONDITION_COLORS[vehicle.parts.engine.condition] ?? ""}>
+              {engineDef?.name} ({CONDITION_SHORT[vehicle.parts.engine.condition] ?? vehicle.parts.engine.condition})
+            </span>
+          </div>
+          <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs sm:flex sm:gap-4">
+            <StatBadge label="Spd" value={Math.floor(vehicle.stats.speed)} />
+            <StatBadge label="Hnd" value={Math.floor(vehicle.stats.handling)} />
+            <StatBadge label="Rel" value={Math.floor(vehicle.stats.reliability)} />
+            <StatBadge label="Perf" value={Math.floor(vehicle.stats.performance)} highlight />
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {!isActive && (
+            <button
+              onClick={() => setActiveVehicle(vehicle.id)}
+              className="rounded border border-orange-600 px-2 py-1 text-xs text-orange-400 transition-colors hover:bg-orange-600/20"
+            >
+              Activate
+            </button>
+          )}
+          <button
+            onClick={() => sellVehicle(vehicle.id)}
+            className="text-xs text-zinc-600 transition-colors hover:text-red-400"
+          >
+            Sell ${formatNumber(def.sellValue * mult)}
+          </button>
+        </div>
+      </div>
+
+      {/* Condition bar */}
+      <div className="mt-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-zinc-500">Condition</span>
+          <span className={`text-xs font-mono font-semibold ${
+            condition > 70 ? "text-green-400" : condition > 30 ? "text-yellow-400" : "text-red-400"
+          }`}>
+            {condition}%
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${
+              condition > 70 ? "bg-green-500" : condition > 30 ? "bg-yellow-500" : "bg-red-500"
+            }`}
+            style={{ width: `${condition}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Repair button */}
+      {condition < 100 && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={() => repairVehicle(vehicle.id)}
+            disabled={scrapBucks < repairCost}
+            className="rounded border border-green-600 px-2 py-1 text-xs text-green-400 transition-colors hover:bg-green-600/20 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Repair to 100% — ${formatNumber(repairCost)}
+          </button>
+        </div>
+      )}
+
+      {/* Part swap UI */}
+      {toolkitUnlocked && (
+        <div className="mt-2">
+          <div className="flex flex-wrap gap-1">
+            {SLOTS.map((slot) => {
+              const part = vehicle.parts[slot];
+              const partDef = getPartById(part.definitionId);
               return (
-                <div
-                  key={vehicle.id}
-                  className={`rounded-lg border p-2.5 sm:p-4 transition-colors ${
-                    isActive ? "border-orange-500 bg-orange-500/5" : "border-zinc-700 bg-zinc-900"
+                <button
+                  key={slot}
+                  onClick={() => setSwapSlot(swapSlot === slot ? null : slot)}
+                  className={`rounded border px-1.5 py-0.5 text-[.65rem] transition-colors ${
+                    swapSlot === slot
+                      ? "border-orange-500 bg-orange-500/10 text-orange-300"
+                      : "border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-white text-sm">
-                          T{def.tier} {def.name}
-                        </span>
-                        {isActive && (
-                          <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[.6rem] font-semibold text-orange-400">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-0.5 text-xs text-zinc-500">
-                        <span className={CONDITION_COLORS[vehicle.parts.engine.condition] ?? ""}>
-                          {engineDef?.name} ({CONDITION_SHORT[vehicle.parts.engine.condition] ?? vehicle.parts.engine.condition})
-                        </span>
-                      </div>
-                      <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs sm:flex sm:gap-4">
-                        <StatBadge label="Spd" value={Math.floor(vehicle.stats.speed)} />
-                        <StatBadge label="Hnd" value={Math.floor(vehicle.stats.handling)} />
-                        <StatBadge label="Rel" value={Math.floor(vehicle.stats.reliability)} />
-                        <StatBadge label="Perf" value={Math.floor(vehicle.stats.performance)} highlight />
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      {!isActive && (
-                        <button
-                          onClick={() => setActiveVehicle(vehicle.id)}
-                          className="rounded border border-orange-600 px-2 py-1 text-xs text-orange-400 transition-colors hover:bg-orange-600/20"
-                        >
-                          Activate
-                        </button>
-                      )}
-                      <button
-                        onClick={() => sellVehicle(vehicle.id)}
-                        className="text-xs text-zinc-600 transition-colors hover:text-red-400"
-                      >
-                        Sell ${formatNumber(def.sellValue * mult)}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  {slot}: {partDef?.name ?? "?"}{" "}
+                  <span className={CONDITION_COLORS[part.condition] ?? ""}>
+                    {CONDITION_SHORT[part.condition] ?? ""}
+                  </span>
+                </button>
               );
             })}
           </div>
-        )}
+          {swapSlot && (
+            <SwapPartPicker
+              vehicleId={vehicle.id}
+              vehicleDef={def}
+              slot={swapSlot}
+              currentPart={vehicle.parts[swapSlot]}
+              inventory={inventory}
+              swapPart={swapPart}
+              onDone={() => setSwapSlot(null)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Swap Part Picker ─────────────────────────────────────────────────────────
+
+function SwapPartPicker({
+  vehicleId,
+  vehicleDef,
+  slot,
+  currentPart,
+  inventory,
+  swapPart,
+  onDone,
+}: {
+  vehicleId: string;
+  vehicleDef: import("@/data/vehicles").VehicleDefinition;
+  slot: Slot;
+  currentPart: ScavengedPart;
+  inventory: ScavengedPart[];
+  swapPart: (vehicleId: string, slot: Slot, newPart: ScavengedPart) => void;
+  onDone: () => void;
+}) {
+  const allowed = vehicleDef.requiredParts[slot];
+  const eligible = inventory.filter((p) => allowed.includes(p.definitionId));
+  const groups = groupParts(eligible);
+
+  if (groups.length === 0) {
+    return (
+      <div className="mt-1.5 rounded border border-zinc-800 bg-zinc-900 p-2 text-xs text-zinc-500">
+        No compatible parts in inventory for {slot}.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 rounded border border-zinc-800 bg-zinc-900 p-2">
+      <div className="mb-1 text-xs text-zinc-500">
+        Swap {slot} (current: {getPartById(currentPart.definitionId)?.name} {CONDITION_SHORT[currentPart.condition]})
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {groups.map((group) => {
+          const partDef = getPartById(group.definitionId);
+          if (!partDef) return null;
+          return (
+            <button
+              key={group.key}
+              onClick={() => {
+                swapPart(vehicleId, slot, group.parts[0]);
+                onDone();
+              }}
+              className="rounded border border-zinc-700 px-1.5 py-0.5 text-xs text-zinc-300 transition-colors hover:border-orange-500 hover:text-white"
+            >
+              {partDef.name}{" "}
+              <span className={CONDITION_COLORS[group.condition] ?? ""}>
+                {CONDITION_SHORT[group.condition]}
+              </span>
+              {group.parts.length > 1 && <span className="ml-0.5 text-zinc-500">x{group.parts.length}</span>}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

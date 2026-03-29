@@ -3,8 +3,9 @@
 import { useGameStore } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
+import { calculateRefurbishCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -71,6 +72,10 @@ export default function ScavengePanel() {
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const scrapBucks = useGameStore((s) => s.scrapBucks);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
+  const refurbishPart = useGameStore((s) => s.refurbishPart);
+  const refurbBenchUnlocked = (workshopLevels["refurbishment_bench"] ?? 0) >= 1;
 
   const unlockedLocations = LOCATION_DEFINITIONS.filter((l) =>
     unlockedLocationIds.includes(l.id),
@@ -80,6 +85,35 @@ export default function ScavengePanel() {
   );
 
   const groups = useMemo(() => groupInventory(inventory), [inventory]);
+
+  // Track inventory changes for new-part animations via Zustand subscription
+  const [newPartKeys, setNewPartKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let prevLen = useGameStore.getState().inventory.length;
+    let clearTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsub = useGameStore.subscribe((state) => {
+      if (state.inventory.length > prevLen) {
+        const keys = new Set<string>();
+        for (const p of state.inventory.slice(prevLen)) {
+          keys.add(`${p.definitionId}:${p.condition}`);
+        }
+        setNewPartKeys(keys);
+        if (clearTimer) clearTimeout(clearTimer);
+        clearTimer = setTimeout(() => setNewPartKeys(new Set()), 600);
+      }
+      prevLen = state.inventory.length;
+    });
+    return () => { unsub(); if (clearTimer) clearTimeout(clearTimer); };
+  }, []);
+
+  // Scavenge button animation
+  const [isScavengeAnimating, setIsScavengeAnimating] = useState(false);
+  const handleScavenge = () => {
+    setIsScavengeAnimating(true);
+    manualScavenge();
+    setTimeout(() => setIsScavengeAnimating(false), 300);
+  };
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -128,8 +162,10 @@ export default function ScavengePanel() {
       <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={manualScavenge}
-            className="rounded-lg bg-orange-600 px-5 py-2 font-semibold text-white text-sm transition-colors hover:bg-orange-500 active:bg-orange-700"
+            onClick={handleScavenge}
+            className={`rounded-lg bg-orange-600 px-5 py-2 font-semibold text-white text-sm transition-all hover:bg-orange-500 active:bg-orange-700 ${
+              isScavengeAnimating ? "scale-90" : "scale-100"
+            }`}
           >
             Scavenge!
           </button>
@@ -172,7 +208,13 @@ export default function ScavengePanel() {
                 return (
                   <div
                     key={group.key}
-                    className="flex items-center justify-between gap-2 border-b border-zinc-800/50 px-3 py-1.5 last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-x-4 sm:px-4 sm:py-2"
+                    className={`flex items-center justify-between gap-2 border-b border-zinc-800/50 px-3 py-1.5 last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-x-4 sm:px-4 sm:py-2 ${
+                      newPartKeys.has(group.key) ? "animate-fade-up" : ""
+                    } ${
+                      newPartKeys.has(group.key) && (group.condition === "pristine" || group.condition === "good")
+                        ? "animate-pulse-gold"
+                        : ""
+                    }`}
                   >
                     <div className="min-w-0">
                       <span className="text-sm text-white">{def.name}</span>
@@ -188,12 +230,28 @@ export default function ScavengePanel() {
                     </span>
                     <span className="hidden sm:inline text-xs font-mono text-zinc-400">{group.count}</span>
                     <span className="font-mono text-xs text-green-400 shrink-0">${formatNumber(group.unitValue)}</span>
-                    <button
-                      onClick={() => sellPart(group.parts[0].id)}
-                      className="text-xs text-zinc-500 transition-colors hover:text-red-400 shrink-0"
-                    >
-                      Sell 1
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {refurbBenchUnlocked && group.condition !== "rusted" && group.condition !== "pristine" && (() => {
+                        const refurbInfo = calculateRefurbishCost(group.parts[0], 0);
+                        if (!refurbInfo) return null;
+                        return (
+                          <button
+                            onClick={() => refurbishPart(group.parts[0].id)}
+                            disabled={scrapBucks < refurbInfo.cost}
+                            className="text-xs text-cyan-500 transition-colors hover:text-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={`Refurbish to ${capitalize(refurbInfo.newCondition)} — $${refurbInfo.cost}`}
+                          >
+                            Fix ${refurbInfo.cost}
+                          </button>
+                        );
+                      })()}
+                      <button
+                        onClick={() => sellPart(group.parts[0].id)}
+                        className="text-xs text-zinc-500 transition-colors hover:text-red-400"
+                      >
+                        Sell 1
+                      </button>
+                    </div>
                   </div>
                 );
               })}

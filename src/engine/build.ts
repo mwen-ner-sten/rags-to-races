@@ -1,5 +1,6 @@
-import { getPartById, CONDITION_MULTIPLIERS, type PartCondition } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition } from "@/data/parts";
 import type { VehicleDefinition } from "@/data/vehicles";
+import { CONDITION_PENALTY_THRESHOLD, REPAIR_COST_BASE, REPAIR_COST_PER_POINT_PER_TIER } from "@/data/vehicles";
 import type { ScavengedPart } from "./scavenge";
 
 export interface VehicleStats {
@@ -21,12 +22,16 @@ export interface BuiltVehicle {
     fuel: ScavengedPart;
   };
   stats: VehicleStats;
-  builtAt: number; // timestamp
+  builtAt: number;
+  condition: number;    // 0-100, starts at 100
+  totalRaces: number;   // lifetime race counter
 }
 
 export function calculateStats(
   vehicleDef: VehicleDefinition,
   parts: BuiltVehicle["parts"],
+  vehicleCondition: number = 100,
+  handlingBonusPct: number = 0,
 ): VehicleStats {
   const slots = [parts.engine, parts.wheel, parts.frame, parts.fuel] as ScavengedPart[];
 
@@ -43,9 +48,16 @@ export function calculateStats(
     totalWeight += def.baseWeight;
   }
 
+  // Condition penalty: below threshold, stats degrade linearly (1.0 → 0.3 at condition 0)
+  let conditionMultiplier = 1.0;
+  if (vehicleCondition < CONDITION_PENALTY_THRESHOLD) {
+    conditionMultiplier = 0.3 + (vehicleCondition / CONDITION_PENALTY_THRESHOLD) * 0.7;
+  }
+
   const weightPenalty = Math.max(0, (totalWeight - vehicleDef.baseStats.weight) / 50);
-  const speed = Math.max(1, vehicleDef.baseStats.speed + bonusPower - weightPenalty);
-  const handling = Math.max(1, vehicleDef.baseStats.handling + bonusPower * 0.2);
+  const speed = Math.max(1, (vehicleDef.baseStats.speed + bonusPower - weightPenalty) * conditionMultiplier);
+  const rawHandling = (vehicleDef.baseStats.handling + bonusPower * 0.2) * conditionMultiplier;
+  const handling = Math.max(1, rawHandling * (1 + handlingBonusPct));
   const reliability = Math.max(1, vehicleDef.baseStats.reliability + bonusReliability);
   const weight = totalWeight;
 
@@ -65,5 +77,48 @@ export function buildVehicle(
     parts,
     stats: calculateStats(vehicleDef, parts),
     builtAt: Date.now(),
+    condition: 100,
+    totalRaces: 0,
   };
+}
+
+// ── Repair ───────────────────────────────────────────────────────────────────
+
+export function calculateRepairCost(
+  vehicleDef: VehicleDefinition,
+  currentCondition: number,
+  targetCondition: number,
+  repairCostReduction: number,
+): number {
+  const points = targetCondition - currentCondition;
+  if (points <= 0) return 0;
+  const costPerPoint = REPAIR_COST_BASE + vehicleDef.tier * REPAIR_COST_PER_POINT_PER_TIER;
+  const baseCost = points * costPerPoint;
+  return Math.max(1, Math.floor(baseCost * Math.max(0, 1 - repairCostReduction)));
+}
+
+// ── Part refurbishment ───────────────────────────────────────────────────────
+
+export function calculateRefurbishCost(
+  part: ScavengedPart,
+  costReduction: number,
+): { cost: number; newCondition: PartCondition } | null {
+  const currentIdx = CONDITIONS.indexOf(part.condition as PartCondition);
+  if (currentIdx <= 0 || currentIdx >= CONDITIONS.length - 1) return null;
+
+  const newCondition = CONDITIONS[currentIdx + 1];
+  const partDef = getPartById(part.definitionId);
+  if (!partDef) return null;
+
+  const baseCost = CONDITION_REPAIR_COST[newCondition] + Math.floor(partDef.scrapValue * 0.5);
+  const finalCost = Math.max(1, Math.floor(baseCost * Math.max(0, 1 - costReduction)));
+
+  return { cost: finalCost, newCondition };
+}
+
+// ── Part condition degradation (for swapping) ────────────────────────────────
+
+export function degradeCondition(condition: PartCondition): PartCondition {
+  const idx = CONDITIONS.indexOf(condition);
+  return CONDITIONS[Math.max(0, idx - 1)];
 }

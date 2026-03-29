@@ -1,4 +1,5 @@
 import type { CircuitDefinition } from "@/data/circuits";
+import { BASE_WEAR_PER_RACE, DNF_WEAR_BONUS, RELIABILITY_WEAR_THRESHOLD } from "@/data/vehicles";
 import type { BuiltVehicle } from "./build";
 
 export type RaceResult = "win" | "loss" | "dnf";
@@ -36,6 +37,28 @@ const RACE_FLAVOR: Record<RaceResult, string[]> = {
 function pickFlavor(result: RaceResult): string {
   const arr = RACE_FLAVOR[result];
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/** Calculate pre-race odds for display. */
+export function calculateOdds(
+  performance: number,
+  reliability: number,
+  difficulty: number,
+  prestigeBonus: number = 1,
+): { winChance: number; dnfChance: number; oddsLabel: string } {
+  const effectivePerformance = performance * prestigeBonus;
+  const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2)));
+  const dnfChance = Math.max(0, 0.3 - reliability / 200);
+
+  // Convert to odds format (e.g., 2:1, 5:1)
+  let oddsLabel: string;
+  if (winChance >= 0.7) oddsLabel = "Heavy Favorite";
+  else if (winChance >= 0.5) oddsLabel = "Favored";
+  else if (winChance >= 0.35) oddsLabel = "Even";
+  else if (winChance >= 0.2) oddsLabel = "Underdog";
+  else oddsLabel = "Long Shot";
+
+  return { winChance, dnfChance, oddsLabel };
 }
 
 /** Simulate a race. Returns outcome. */
@@ -87,4 +110,25 @@ export function simulateRace(
   ].filter(Boolean);
 
   return { result, position, totalRacers, scrapsEarned, repEarned, log };
+}
+
+/** Calculate condition points lost from a race. */
+export function calculateWear(
+  vehicle: BuiltVehicle,
+  result: RaceResult,
+  wearReductionPct: number,
+): number {
+  let wear = BASE_WEAR_PER_RACE;
+  if (result === "dnf") wear += DNF_WEAR_BONUS;
+
+  // Higher reliability = slower degradation
+  if (vehicle.stats.reliability > RELIABILITY_WEAR_THRESHOLD) {
+    const reliabilityBonus = (vehicle.stats.reliability - RELIABILITY_WEAR_THRESHOLD) / 200;
+    wear *= Math.max(0.3, 1 - reliabilityBonus);
+  }
+
+  // Workshop upgrade reduction
+  wear *= Math.max(0, 1 - wearReductionPct);
+
+  return Math.round(Math.max(1, wear));
 }
