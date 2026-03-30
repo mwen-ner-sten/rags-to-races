@@ -20,16 +20,17 @@ export function weightedPick<T extends string>(weights: Record<T, number>): T {
 /** Roll a part condition based on location rarity bias (0–1) */
 export function rollCondition(rarityBias: number): PartCondition {
   // rarityBias=0 → mostly rusted; rarityBias=1 → mostly pristine
+  // Uses weighted distribution: low bias heavily favors rusted/worn
   const r = Math.random();
-  const adjusted = r * (1 - rarityBias) + rarityBias * r * r; // bias toward higher
-  const idx = Math.min(Math.floor(adjusted * CONDITIONS.length), CONDITIONS.length - 1);
-  // Invert: low adjusted = rusted, high = pristine
-  const conditionIdx = Math.min(
-    Math.floor((1 - adjusted + rarityBias * adjusted) * CONDITIONS.length * 0.7),
-    CONDITIONS.length - 1,
-  );
-  void idx; // suppress unused warning
-  return CONDITIONS[conditionIdx];
+
+  // Skew the roll toward lower conditions when rarityBias is low
+  // At bias=0: exponent ~4 (very skewed toward 0), bias=0.5: ~2, bias=1: ~1 (uniform)
+  const exponent = 1 + 3 * (1 - rarityBias);
+  const skewed = Math.pow(r, exponent);
+
+  // Map skewed value (0-1) to condition index (0-4)
+  const idx = Math.min(Math.floor(skewed * CONDITIONS.length), CONDITIONS.length - 1);
+  return CONDITIONS[idx];
 }
 
 /** Returns true with given probability (0–1) */

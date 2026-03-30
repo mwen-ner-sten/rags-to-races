@@ -148,15 +148,17 @@ function OddsDisplay({
   reliability,
   difficulty,
   prestigeBonus,
+  fatigue,
 }: {
   performance: number;
   reliability: number;
   difficulty: number;
   prestigeBonus: number;
+  fatigue: number;
 }) {
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus),
-    [performance, reliability, difficulty, prestigeBonus],
+    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue),
+    [performance, reliability, difficulty, prestigeBonus, fatigue],
   );
 
   const winStyle: React.CSSProperties = odds.winChance >= 0.5
@@ -244,6 +246,7 @@ export default function RacePanel() {
   const winStreak = useGameStore((s) => s.winStreak);
   const bestWinStreak = useGameStore((s) => s.bestWinStreak);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
+  const fatigue = useGameStore((s) => s.fatigue);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
 
@@ -413,6 +416,7 @@ export default function RacePanel() {
             reliability={activeVehicle.stats.reliability}
             difficulty={selectedCircuit.difficulty}
             prestigeBonus={prestigeBonus.scrapMultiplier}
+            fatigue={fatigue}
           />
         )}
 

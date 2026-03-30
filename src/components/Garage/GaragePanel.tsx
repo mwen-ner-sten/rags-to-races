@@ -64,6 +64,7 @@ export default function GaragePanel() {
   const pendingBuildVehicleId = useGameStore((s) => s.pendingBuildVehicleId);
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
+  const fatigue = useGameStore((s) => s.fatigue);
   const setPendingVehicle = useGameStore((s) => s.setPendingVehicle);
   const setPendingPart = useGameStore((s) => s.setPendingPart);
   const buildSelectedVehicle = useGameStore((s) => s.buildSelectedVehicle);
@@ -255,6 +256,7 @@ export default function GaragePanel() {
                 scrapBucks={scrapBucks}
                 inventory={inventory}
                 workshopLevels={workshopLevels}
+                fatigue={fatigue}
                 toolkitUnlocked={toolkitUnlocked}
                 setActiveVehicle={setActiveVehicle}
                 sellVehicle={sellVehicle}
@@ -277,6 +279,7 @@ function VehicleCard({
   scrapBucks,
   inventory,
   workshopLevels,
+  fatigue,
   toolkitUnlocked,
   setActiveVehicle,
   sellVehicle,
@@ -288,6 +291,7 @@ function VehicleCard({
   scrapBucks: number;
   inventory: ScavengedPart[];
   workshopLevels: Record<string, number>;
+  fatigue: number;
   toolkitUnlocked: boolean;
   setActiveVehicle: (id: string) => void;
   sellVehicle: (id: string) => void;
@@ -305,7 +309,7 @@ function VehicleCard({
 
   // Repair cost
   const repairReduction = _getUpgradeEffectValue({ workshopLevels } as import("@/state/store").GameState, "budget_repairs");
-  const repairCost = condition < 100 ? calculateRepairCost(def, condition, 100, repairReduction) : 0;
+  const repairCost = condition < 100 ? calculateRepairCost(def, condition, 100, repairReduction, fatigue) : 0;
 
   return (
     <div

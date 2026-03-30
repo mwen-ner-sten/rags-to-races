@@ -9,10 +9,10 @@ export interface PrestigeBonus {
 export function calculatePrestigeBonus(prestigeCount: number): PrestigeBonus {
   const p = prestigeCount;
   return {
-    scrapMultiplier: 1 + p * 0.5,
-    luckBonus: Math.min(0.4, p * 0.05),
-    repMultiplier: 1 + p * 0.3,
-    buildSpeedMultiplier: 1 + p * 0.25,
+    scrapMultiplier: 1 + p * 0.25,
+    luckBonus: Math.min(0.3, p * 0.03),
+    repMultiplier: 1 + p * 0.15,
+    buildSpeedMultiplier: 1 + p * 0.15,
   };
 }
 

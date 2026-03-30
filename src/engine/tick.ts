@@ -33,10 +33,11 @@ export function computeTick(state: GameState): TickResult {
     if (location) {
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
-      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck);
+      const fatigue = state.fatigue ?? 0;
+      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue);
       // Add extra parts from Deep Pockets
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck);
+        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       result.partsFound = parts;
@@ -59,7 +60,8 @@ export function computeTick(state: GameState): TickResult {
 
       // Only race if vehicle is functional and can afford entry
       if (vehicleCondition > 0 && state.scrapBucks >= circuit.entryFee) {
-        result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier);
+        const fatigue = state.fatigue ?? 0;
+        result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue);
 
         // Apply consolation sponsor bonus
         const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");
@@ -72,7 +74,7 @@ export function computeTick(state: GameState): TickResult {
 
         // Calculate wear
         const wearReduction = _getUpgradeEffectValue(state, "reinforced_chassis");
-        result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction);
+        result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction, fatigue);
       }
     }
   }

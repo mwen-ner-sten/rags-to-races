@@ -30,6 +30,7 @@ export default function HUD() {
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const garage = useGameStore((s) => s.garage);
+  const fatigue = useGameStore((s) => s.fatigue);
   const saveLabel = useAutoSaveIndicator();
 
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
@@ -55,6 +56,13 @@ export default function HUD() {
           )}
           <Stat label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} color="text-green-400" />
           <Stat label="Rep" value={formatNumber(repPoints)} color="text-blue-400" />
+          {fatigue > 0 && (
+            <Stat
+              label="Fatigue"
+              value={`${fatigue}%`}
+              color={fatigue >= 75 ? "text-red-400" : fatigue >= 50 ? "text-orange-400" : fatigue >= 25 ? "text-yellow-400" : "text-zinc-400"}
+            />
+          )}
           {vehicleDef && activeVehicle && (
             <Stat
               label="Active"

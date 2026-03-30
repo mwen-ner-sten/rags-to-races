@@ -89,12 +89,16 @@ export function calculateRepairCost(
   currentCondition: number,
   targetCondition: number,
   repairCostReduction: number,
+  fatigue: number = 0,
 ): number {
   const points = targetCondition - currentCondition;
   if (points <= 0) return 0;
   const costPerPoint = REPAIR_COST_BASE + vehicleDef.tier * REPAIR_COST_PER_POINT_PER_TIER;
   const baseCost = points * costPerPoint;
-  return Math.max(1, Math.floor(baseCost * Math.max(0, 1 - repairCostReduction)));
+  const afterReduction = baseCost * Math.max(0, 1 - repairCostReduction);
+  // Fatigue increases repair costs (tired mechanic = more mistakes)
+  const fatigueMult = 1 + fatigue * 0.01;
+  return Math.max(1, Math.floor(afterReduction * fatigueMult));
 }
 
 // ── Part refurbishment ───────────────────────────────────────────────────────
