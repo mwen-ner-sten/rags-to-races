@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 import {
   saveToSlot,
   loadFromSlot,
@@ -26,17 +26,13 @@ function formatTimestamp(ts: number | null): string {
 }
 
 export default function SaveLoadPanel() {
-  const [slots, setSlots] = useState<SaveSlotMeta[]>([]);
+  const [slots, setSlots] = useState<SaveSlotMeta[]>(() => getSlotMeta());
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const refreshSlots = useCallback(() => setSlots(getSlotMeta()), []);
-
-  useEffect(() => {
-    refreshSlots();
-  }, [refreshSlots]);
+  function refreshSlots() { setSlots(getSlotMeta()); }
 
   function showToast(msg: string, type: "ok" | "err" = "ok") {
     setToast({ msg, type });
