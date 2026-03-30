@@ -23,6 +23,94 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "dev",      label: "Dev"      },
 ];
 
+const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
+
+// ─── Theme CSS custom properties ─────────────────────────────────────────────
+// These cascade into all content panels so they can use var(--panel-bg) etc.
+const THEME_VARS: Record<Theme, Record<string, string>> = {
+  grease: {
+    "--panel-bg": "#181008",
+    "--panel-border": "#3a2510",
+    "--panel-border-active": "#c83e0c",
+    "--text-primary": "#d4b896",
+    "--text-secondary": "#8a7560",
+    "--text-muted": "#4a3520",
+    "--text-heading": "#c4872a",
+    "--text-white": "#e8d8c4",
+    "--accent": "#c83e0c",
+    "--accent-secondary": "#c4872a",
+    "--accent-bg": "rgba(200,62,12,.1)",
+    "--accent-border": "rgba(200,62,12,.4)",
+    "--btn-primary-bg": "#c83e0c",
+    "--btn-primary-text": "#fff",
+    "--btn-primary-hover": "#d4501e",
+    "--btn-border": "#5a4228",
+    "--btn-border-hover": "#8a7560",
+    "--success": "#6aaa3a",
+    "--warning": "#c4872a",
+    "--danger": "#e05c1a",
+    "--info": "#6aaa3a",
+    "--input-bg": "#1a0c04",
+    "--input-border": "#3a2510",
+    "--input-focus": "#c83e0c",
+    "--divider": "#2a1c0a",
+  },
+  neon: {
+    "--panel-bg": "rgba(0,20,30,.6)",
+    "--panel-border": "rgba(0,229,255,.12)",
+    "--panel-border-active": "#00e5ff",
+    "--text-primary": "#c0d8e0",
+    "--text-secondary": "rgba(0,229,255,.55)",
+    "--text-muted": "rgba(0,229,255,.25)",
+    "--text-heading": "#00e5ff",
+    "--text-white": "#e0f0f4",
+    "--accent": "#00e5ff",
+    "--accent-secondary": "#ff0090",
+    "--accent-bg": "rgba(0,229,255,.1)",
+    "--accent-border": "rgba(0,229,255,.4)",
+    "--btn-primary-bg": "#00e5ff",
+    "--btn-primary-text": "#000",
+    "--btn-primary-hover": "#33ecff",
+    "--btn-border": "rgba(0,229,255,.25)",
+    "--btn-border-hover": "rgba(0,229,255,.55)",
+    "--success": "#00e5ff",
+    "--warning": "#ff0090",
+    "--danger": "#ff0090",
+    "--info": "rgba(0,229,255,.7)",
+    "--input-bg": "rgba(0,20,30,.8)",
+    "--input-border": "rgba(0,229,255,.15)",
+    "--input-focus": "#00e5ff",
+    "--divider": "rgba(0,229,255,.08)",
+  },
+  prestige: {
+    "--panel-bg": "rgba(12,12,24,.8)",
+    "--panel-border": "rgba(184,151,90,.12)",
+    "--panel-border-active": "#b8975a",
+    "--text-primary": "#c8c0d0",
+    "--text-secondary": "rgba(184,151,90,.55)",
+    "--text-muted": "rgba(184,151,90,.25)",
+    "--text-heading": "#b8975a",
+    "--text-white": "#e0d8e8",
+    "--accent": "#b8975a",
+    "--accent-secondary": "rgba(200,192,208,.7)",
+    "--accent-bg": "rgba(184,151,90,.08)",
+    "--accent-border": "rgba(184,151,90,.4)",
+    "--btn-primary-bg": "#b8975a",
+    "--btn-primary-text": "#080810",
+    "--btn-primary-hover": "#c9a86b",
+    "--btn-border": "rgba(184,151,90,.2)",
+    "--btn-border-hover": "rgba(184,151,90,.5)",
+    "--success": "#b8975a",
+    "--warning": "rgba(200,192,208,.6)",
+    "--danger": "rgba(184,151,90,.5)",
+    "--info": "rgba(184,151,90,.55)",
+    "--input-bg": "rgba(12,12,24,.9)",
+    "--input-border": "rgba(184,151,90,.12)",
+    "--input-focus": "#b8975a",
+    "--divider": "rgba(184,151,90,.08)",
+  },
+};
+
 // ─── Shared store hook ─────────────────────────────────────────────────────────
 function useHUDData() {
   const scrapBucks   = useGameStore((s) => s.scrapBucks);
@@ -46,7 +134,7 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Share Tech Mono', monospace", background: "#0f0a04", minHeight: "100vh", color: "#d4b896", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.grease as React.CSSProperties, fontFamily: "'Share Tech Mono', monospace", background: "#0f0a04", minHeight: "100vh", color: "#d4b896", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap');
         .gm { font-family: 'Bebas Neue', cursive; }
@@ -58,9 +146,6 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
         .gm-tab-dev-on { color: #f0b020 !important; border-bottom-color: #f0b020 !important; }
         .gm-stripe { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0, rgba(255,255,255,.015) 1px, transparent 1px, transparent 8px); }
         .gm-panel { background: #181008; border: 1px solid #3a2510; border-top-color: #503518; }
-        /* Override panel bg inside grease shell */
-        .gm-content .rounded-lg { background: #181008 !important; border-color: #3a2510 !important; }
-        .gm-content h2, .gm-content h3 { color: #c4872a !important; }
       `}</style>
 
       {/* HUD */}
@@ -109,19 +194,22 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
         })}
         {autoScavengeUnlocked && (
           <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".6rem", color: "#4a3520", marginRight: ".5rem", letterSpacing: ".12em" }}>
-            <span style={{ color: "#c83e0c" }}>◉</span> AUTO
+            <span style={{ color: "#c83e0c" }}>&#9673;</span> AUTO
           </div>
         )}
       </nav>
 
       {/* Content */}
-      <main className="gm-content" style={{ maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
+      <main style={{ maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
         {children}
       </main>
 
       {/* Footer */}
       <footer style={{ borderTop: "1px solid #2a1c0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span style={{ fontSize: ".6rem", color: "#3a2510", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span style={{ fontSize: ".6rem", color: "#3a2510", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span style={{ fontSize: ".5rem", color: "#2a1c0a", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -136,7 +224,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Rajdhani', sans-serif", background: "#000", minHeight: "100vh", color: "#c0d8e0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.neon as React.CSSProperties, fontFamily: "'Rajdhani', sans-serif", background: "#000", minHeight: "100vh", color: "#c0d8e0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
         .mc { font-family: 'Orbitron', sans-serif; }
@@ -201,7 +289,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
         })}
         {autoScavengeUnlocked && (
           <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".55rem", color: "rgba(0,229,255,.3)", marginRight: ".5rem", fontFamily: "'Orbitron', sans-serif", fontWeight: 700, letterSpacing: ".12em" }}>
-            <span style={{ color: "#00e5ff", textShadow: "0 0 8px #00e5ff" }}>●</span> AUTO
+            <span style={{ color: "#00e5ff", textShadow: "0 0 8px #00e5ff" }}>&#9679;</span> AUTO
           </div>
         )}
       </nav>
@@ -213,7 +301,10 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,229,255,.08)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.15)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -228,7 +319,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Lato', sans-serif", background: "#080810", minHeight: "100vh", color: "#c8c0d0", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.prestige as React.CSSProperties, fontFamily: "'Lato', sans-serif", background: "#080810", minHeight: "100vh", color: "#c8c0d0", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
         .pc { font-family: 'Playfair Display', serif; }
@@ -298,7 +389,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
         })}
         {autoScavengeUnlocked && (
           <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".52rem", color: "rgba(184,151,90,.25)", marginRight: ".5rem", fontFamily: "'Lato', sans-serif", fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" }}>
-            <span style={{ color: "rgba(184,151,90,.5)" }}>◆</span> Auto
+            <span style={{ color: "rgba(184,151,90,.5)" }}>&#9670;</span> Auto
           </div>
         )}
       </nav>
@@ -310,7 +401,10 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ borderTop: "1px solid rgba(184,151,90,.08)", padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.2)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.2)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
+          <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.15)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>

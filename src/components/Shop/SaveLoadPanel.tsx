@@ -12,12 +12,6 @@ import {
 } from "@/utils/saveLoad";
 import { formatNumber } from "@/utils/format";
 
-const BTN = "rounded px-3 py-1.5 text-xs font-semibold transition-colors";
-const BTN_ORANGE = `${BTN} bg-orange-600 text-white hover:bg-orange-500`;
-const BTN_ZINC = `${BTN} border border-zinc-600 text-zinc-300 hover:border-zinc-400 hover:text-white`;
-const BTN_RED = `${BTN} border border-red-800 text-red-400 hover:border-red-600 hover:text-red-300`;
-const BTN_GREEN = `${BTN} bg-green-700 text-white hover:bg-green-600`;
-
 function formatTimestamp(ts: number | null): string {
   if (!ts) return "Empty";
   const d = new Date(ts);
@@ -89,7 +83,6 @@ export default function SaveLoadPanel() {
       refreshSlots();
       showToast("Save imported successfully!");
     }
-    // Reset input so the same file can be re-imported
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -99,11 +92,11 @@ export default function SaveLoadPanel() {
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-lg transition-all ${
-            toast.type === "ok"
-              ? "bg-green-800 text-green-100"
-              : "bg-red-800 text-red-100"
-          }`}
+          style={{
+            background: toast.type === "ok" ? "rgba(92,184,92,.9)" : "rgba(224,92,92,.9)",
+            color: "#fff",
+          }}
+          className="fixed bottom-6 right-6 z-50 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-lg transition-all"
         >
           {toast.msg}
         </div>
@@ -111,36 +104,37 @@ export default function SaveLoadPanel() {
 
       {/* Save Slots */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-widest text-zinc-400">
+        <h3 style={{ color: "var(--text-heading)" }} className="mb-3 text-sm font-semibold uppercase tracking-widest">
           Save Slots
         </h3>
         <div className="flex flex-col gap-3">
           {slots.map((meta) => (
             <div
               key={meta.slot}
-              className="flex items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-900 p-3"
+              style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
+              className="flex items-center gap-3 rounded-lg border p-3"
             >
               {/* Slot info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white">
+                  <span style={{ color: "var(--text-white)" }} className="text-sm font-semibold">
                     Slot {meta.slot + 1}
                   </span>
                   {meta.timestamp ? (
-                    <span className="text-xs text-zinc-500">
+                    <span style={{ color: "var(--text-muted)" }} className="text-xs">
                       {formatTimestamp(meta.timestamp)}
                     </span>
                   ) : (
-                    <span className="text-xs text-zinc-700 italic">empty</span>
+                    <span style={{ color: "var(--text-muted)" }} className="text-xs italic">empty</span>
                   )}
                 </div>
                 {meta.timestamp && (
-                  <div className="mt-0.5 flex gap-3 text-xs text-zinc-500">
+                  <div style={{ color: "var(--text-muted)" }} className="mt-0.5 flex gap-3 text-xs">
                     <span>${formatNumber(meta.scrapBucks)} Scrap</span>
                     <span>{formatNumber(meta.repPoints)} Rep</span>
                     <span>{meta.vehicleCount} vehicle{meta.vehicleCount !== 1 ? "s" : ""}</span>
                     {meta.prestigeCount > 0 && (
-                      <span className="text-amber-500">P{meta.prestigeCount}</span>
+                      <span style={{ color: "var(--accent)" }}>P{meta.prestigeCount}</span>
                     )}
                   </div>
                 )}
@@ -148,13 +142,18 @@ export default function SaveLoadPanel() {
 
               {/* Actions */}
               <div className="flex gap-1.5 shrink-0">
-                <button onClick={() => handleSave(meta.slot)} className={BTN_ORANGE}>
+                <button
+                  onClick={() => handleSave(meta.slot)}
+                  style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                  className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
+                >
                   Save
                 </button>
                 <button
                   onClick={() => handleLoad(meta.slot)}
                   disabled={!meta.timestamp}
-                  className={`${BTN_GREEN} disabled:opacity-30 disabled:cursor-not-allowed`}
+                  style={{ background: "var(--success)", color: "var(--btn-primary-text)" }}
+                  className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Load
                 </button>
@@ -163,33 +162,38 @@ export default function SaveLoadPanel() {
                     onClick={() => {
                       if (confirm(`Clear Slot ${meta.slot + 1}?`)) handleDelete(meta.slot);
                     }}
-                    className={BTN_RED}
+                    style={{ borderColor: "var(--danger)", color: "var(--danger)" }}
+                    className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
                   >
-                    ✕
+                    &#10005;
                   </button>
                 )}
               </div>
             </div>
           ))}
         </div>
-        <p className="mt-2 text-xs text-zinc-600">
+        <p style={{ color: "var(--text-muted)" }} className="mt-2 text-xs">
           The game also auto-saves to your browser on every action.
         </p>
       </div>
 
       {/* Export / Import */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-widest text-zinc-400">
+        <h3 style={{ color: "var(--text-heading)" }} className="mb-3 text-sm font-semibold uppercase tracking-widest">
           Export / Import
         </h3>
-        <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-900 p-4">
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex flex-wrap gap-3 items-start">
             {/* Export */}
             <div className="flex flex-col gap-1">
-              <button onClick={handleExport} className={BTN_ORANGE}>
-                ⬇ Export Save File
+              <button
+                onClick={handleExport}
+                style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
+              >
+                &#11015; Export Save File
               </button>
-              <p className="text-xs text-zinc-600">Downloads a .json backup you can keep.</p>
+              <p style={{ color: "var(--text-muted)" }} className="text-xs">Downloads a .json backup you can keep.</p>
             </div>
 
             {/* Import */}
@@ -197,11 +201,12 @@ export default function SaveLoadPanel() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importing}
-                className={`${BTN_ZINC} disabled:opacity-50`}
+                style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+                className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
               >
-                {importing ? "Importing..." : "⬆ Import Save File"}
+                {importing ? "Importing..." : "\u2B06 Import Save File"}
               </button>
-              <p className="text-xs text-zinc-600">Load a .json save exported from this game.</p>
+              <p style={{ color: "var(--text-muted)" }} className="text-xs">Load a .json save exported from this game.</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -210,12 +215,12 @@ export default function SaveLoadPanel() {
                 onChange={handleImport}
               />
               {importError && (
-                <p className="text-xs text-red-400">{importError}</p>
+                <p style={{ color: "var(--danger)" }} className="text-xs">{importError}</p>
               )}
             </div>
           </div>
 
-          <div className="border-t border-zinc-800 pt-3 text-xs text-zinc-600">
+          <div style={{ borderColor: "var(--divider)", color: "var(--text-muted)" }} className="border-t pt-3 text-xs">
             <p>Import replaces your current game state. Consider saving to a slot first.</p>
           </div>
         </div>

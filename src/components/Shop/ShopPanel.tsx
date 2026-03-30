@@ -18,7 +18,6 @@ export default function ShopPanel() {
 
   const nextPrestigeBonus = calculatePrestigeBonus(prestigeCount + 1);
 
-  // Prestige requires at least 1 vehicle built and some rep
   const canPrestige = garage.length >= 1 && repPoints >= 10 && lifetimeScrapBucks >= 100;
 
   return (
@@ -26,10 +25,10 @@ export default function ShopPanel() {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {/* Stats */}
       <div className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+        <h2 style={{ color: "var(--text-heading)" }} className="text-sm font-semibold uppercase tracking-widest">
           Stats
         </h2>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border p-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <StatRow label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} />
             <StatRow label="Rep Points" value={formatNumber(repPoints)} />
@@ -43,14 +42,14 @@ export default function ShopPanel() {
         {/* Current bonuses */}
         {prestigeCount > 0 && (
           <>
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+            <h2 style={{ color: "var(--text-heading)" }} className="text-sm font-semibold uppercase tracking-widest">
               Prestige Bonuses
             </h2>
-            <div className="rounded-lg border border-amber-800/50 bg-amber-900/10 p-4">
+            <div style={{ background: "var(--accent-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <StatRow label="Scrap Multiplier" value={`×${prestigeBonus.scrapMultiplier.toFixed(1)}`} color="text-amber-400" />
-                <StatRow label="Luck Bonus" value={`+${(prestigeBonus.luckBonus * 100).toFixed(0)}%`} color="text-amber-400" />
-                <StatRow label="Rep Multiplier" value={`×${prestigeBonus.repMultiplier.toFixed(1)}`} color="text-amber-400" />
+                <StatRow label="Scrap Multiplier" value={`\u00d7${prestigeBonus.scrapMultiplier.toFixed(1)}`} accent />
+                <StatRow label="Luck Bonus" value={`+${(prestigeBonus.luckBonus * 100).toFixed(0)}%`} accent />
+                <StatRow label="Rep Multiplier" value={`\u00d7${prestigeBonus.repMultiplier.toFixed(1)}`} accent />
               </div>
             </div>
           </>
@@ -59,43 +58,50 @@ export default function ShopPanel() {
 
       {/* Actions */}
       <div className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+        <h2 style={{ color: "var(--text-heading)" }} className="text-sm font-semibold uppercase tracking-widest">
           Actions
         </h2>
 
         {/* Quick sell */}
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-          <div className="font-semibold text-white mb-1">Quick Sell</div>
-          <p className="text-sm text-zinc-400 mb-3">
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border p-4">
+          <div style={{ color: "var(--text-white)" }} className="font-semibold mb-1">Quick Sell</div>
+          <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
             {inventory.length} parts in inventory. Sell them all for instant Scrap Bucks.
           </p>
           <button
             onClick={sellAllJunk}
             disabled={inventory.length === 0}
-            className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+            className="rounded-lg border px-4 py-2 text-sm transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Sell All Parts
           </button>
         </div>
 
         {/* Prestige */}
-        <div className={`rounded-lg border p-4 ${canPrestige ? "border-amber-700 bg-amber-900/10" : "border-zinc-800 bg-zinc-900"}`}>
-          <div className="font-semibold text-white mb-1">
-            🔄 Scrap Reset (Prestige {prestigeCount + 1})
+        <div
+          style={{
+            background: canPrestige ? "var(--accent-bg)" : "var(--panel-bg)",
+            borderColor: canPrestige ? "var(--accent-border)" : "var(--panel-border)",
+          }}
+          className="rounded-lg border p-4"
+        >
+          <div style={{ color: "var(--text-white)" }} className="font-semibold mb-1">
+            &#128260; Scrap Reset (Prestige {prestigeCount + 1})
           </div>
-          <p className="text-sm text-zinc-400 mb-3">
+          <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
             Reset everything but keep permanent bonuses. Each prestige makes the early game faster
             and unlocks deeper mechanics.
           </p>
           {canPrestige ? (
-            <div className="mb-3 text-xs text-zinc-400">
-              <p className="text-amber-400 font-semibold mb-1">You will gain:</p>
-              <p>Scrap Multiplier: ×{nextPrestigeBonus.scrapMultiplier.toFixed(1)}</p>
+            <div style={{ color: "var(--text-secondary)" }} className="mb-3 text-xs">
+              <p style={{ color: "var(--accent)" }} className="font-semibold mb-1">You will gain:</p>
+              <p>Scrap Multiplier: \u00d7{nextPrestigeBonus.scrapMultiplier.toFixed(1)}</p>
               <p>Luck Bonus: +{(nextPrestigeBonus.luckBonus * 100).toFixed(0)}%</p>
-              <p>Rep Multiplier: ×{nextPrestigeBonus.repMultiplier.toFixed(1)}</p>
+              <p>Rep Multiplier: \u00d7{nextPrestigeBonus.repMultiplier.toFixed(1)}</p>
             </div>
           ) : (
-            <p className="mb-3 text-xs text-zinc-600">
+            <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
               Requirements: 1 vehicle built, 10 Rep, $100 lifetime Scrap Bucks
             </p>
           )}
@@ -106,7 +112,8 @@ export default function ShopPanel() {
               }
             }}
             disabled={!canPrestige}
-            className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
+            className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Scrap Reset
           </button>
@@ -115,7 +122,7 @@ export default function ShopPanel() {
     </div>
 
     {/* Save / Load / Export / Import */}
-    <div className="mt-2 border-t border-zinc-800 pt-6">
+    <div style={{ borderColor: "var(--divider)" }} className="mt-2 border-t pt-6">
       <SaveLoadPanel />
     </div>
     </>
@@ -125,16 +132,16 @@ export default function ShopPanel() {
 function StatRow({
   label,
   value,
-  color = "text-zinc-200",
+  accent,
 }: {
   label: string;
   value: string;
-  color?: string;
+  accent?: boolean;
 }) {
   return (
     <>
-      <span className="text-zinc-500">{label}</span>
-      <span className={`font-mono font-semibold ${color}`}>{value}</span>
+      <span style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span style={{ color: accent ? "var(--accent)" : "var(--text-white)" }} className="font-mono font-semibold">{value}</span>
     </>
   );
 }
