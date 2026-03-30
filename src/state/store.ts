@@ -296,6 +296,7 @@ function createActions(set: any, get: any) {
       // Pre-compute the outcome immediately so the UI can animate it
       const outcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier);
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
+      const racingVehicleId = vehicle.id; // capture for timeout callback
 
       set({
         isRacing: true,
@@ -348,13 +349,13 @@ function createActions(set: any, get: any) {
           if (newStreak === 5) newUnlockEvents.push("5 WINS! Unstoppable!");
           if (newStreak === 10) newUnlockEvents.push("10 WINS! LEGENDARY!");
 
-          // Apply vehicle wear
+          // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
-          const activeV = s.garage.find((v) => v.id === s.activeVehicleId);
-          const wearAmount = activeV ? calculateWear(activeV, outcome.result, wearReduction) : 0;
+          const racingV = s.garage.find((v) => v.id === racingVehicleId);
+          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction) : 0;
           const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension");
           const updatedGarage = s.garage.map((v) => {
-            if (v.id !== s.activeVehicleId) return v;
+            if (v.id !== racingVehicleId) return v;
             const newCond = Math.max(0, (v.condition ?? 100) - wearAmount);
             const vDef = getVehicleById(v.definitionId);
             return {
@@ -534,16 +535,13 @@ function createActions(set: any, get: any) {
             let newCond = v.condition ?? 100;
             if (vehicleWear) newCond = Math.max(0, newCond - vehicleWear);
             if (vehicleRepair) newCond = Math.min(100, newCond + vehicleRepair);
-            if (vehicleWear) {
-              const vDef = getVehicleById(v.definitionId);
-              return {
-                ...v,
-                condition: newCond,
-                totalRaces: (v.totalRaces ?? 0) + 1,
-                stats: vDef ? calculateStats(vDef, v.parts, newCond, handlingBonus) : v.stats,
-              };
-            }
-            return { ...v, condition: newCond };
+            const vDef = getVehicleById(v.definitionId);
+            return {
+              ...v,
+              condition: newCond,
+              totalRaces: vehicleWear ? (v.totalRaces ?? 0) + 1 : (v.totalRaces ?? 0),
+              stats: vDef ? calculateStats(vDef, v.parts, newCond, handlingBonus) : v.stats,
+            };
           });
         }
         return {
