@@ -9,11 +9,11 @@ import { useMemo, useState, useEffect } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
 
 const CONDITION_COLORS: Record<string, string> = {
-  rusted: "text-red-400",
-  worn: "text-orange-400",
-  decent: "text-yellow-400",
-  good: "text-green-400",
-  pristine: "text-cyan-400",
+  rusted: "#f87171",
+  worn: "#fb923c",
+  decent: "#facc15",
+  good: "#4ade80",
+  pristine: "#22d3ee",
 };
 
 const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
@@ -119,7 +119,10 @@ export default function ScavengePanel() {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {/* Location picker */}
       <div className="col-span-1 flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+        <h2
+          className="text-sm font-semibold uppercase tracking-widest"
+          style={{ color: "var(--text-heading)" }}
+        >
           Locations
         </h2>
         {/* Horizontal scroll on mobile, vertical stack on desktop */}
@@ -128,15 +131,16 @@ export default function ScavengePanel() {
             <button
               key={loc.id}
               onClick={() => setSelectedLocation(loc.id)}
-              className={`shrink-0 rounded-lg border p-3 text-left transition-colors lg:shrink ${
+              className="shrink-0 rounded-lg border p-3 text-left transition-colors lg:shrink"
+              style={
                 selectedLocationId === loc.id
-                  ? "border-orange-500 bg-orange-500/10"
-                  : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
-              }`}
+                  ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)" }
+                  : { borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
+              }
             >
-              <div className="font-semibold text-white text-sm">{loc.name}</div>
-              <div className="mt-0.5 text-xs text-zinc-400 hidden lg:block">{loc.description}</div>
-              <div className="mt-1 text-xs text-zinc-500">
+              <div className="font-semibold text-sm" style={{ color: "var(--text-white)" }}>{loc.name}</div>
+              <div className="mt-0.5 text-xs hidden lg:block" style={{ color: "var(--text-secondary)" }}>{loc.description}</div>
+              <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
                 T{loc.tier} · {loc.maxPartsPerScavenge} parts
               </div>
             </button>
@@ -146,10 +150,11 @@ export default function ScavengePanel() {
         {lockedLocations.map((loc) => (
           <div
             key={loc.id}
-            className="hidden lg:block rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 opacity-50"
+            className="hidden lg:block rounded-lg border p-3 opacity-50"
+            style={{ borderColor: "var(--divider)", background: "var(--panel-bg)" }}
           >
-            <div className="font-semibold text-zinc-500">🔒 {loc.name}</div>
-            <div className="mt-1 text-xs text-zinc-600">
+            <div className="font-semibold" style={{ color: "var(--text-muted)" }}>🔒 {loc.name}</div>
+            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
               {loc.unlockCost > repPoints
                 ? `Need ${loc.unlockCost} Rep (you have ${Math.floor(repPoints)})`
                 : "Unlocks with reputation"}
@@ -163,23 +168,28 @@ export default function ScavengePanel() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleScavenge}
-            className={`rounded-lg bg-orange-600 px-5 py-2 font-semibold text-white text-sm transition-all hover:bg-orange-500 active:bg-orange-700 ${
+            className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all ${
               isScavengeAnimating ? "scale-90" : "scale-100"
             }`}
+            style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
           >
             Scavenge!
           </button>
           {autoScavengeUnlocked && (
-            <span className="rounded bg-blue-500/20 px-2 py-1 text-xs text-blue-400">
+            <span
+              className="rounded px-2 py-1 text-xs"
+              style={{ background: "var(--accent-bg)", color: "var(--info)" }}
+            >
               Auto
             </span>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-zinc-400">{inventory.length} items</span>
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
             {inventory.length > 0 && (
               <button
                 onClick={sellAllJunk}
-                className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-300 transition-colors hover:border-zinc-400 hover:text-white"
+                className="rounded border px-2 py-1 text-xs transition-colors"
+                style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
               >
                 Sell All
               </button>
@@ -188,13 +198,22 @@ export default function ScavengePanel() {
         </div>
 
         {inventory.length === 0 ? (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 text-center text-zinc-500 text-sm">
+          <div
+            className="rounded-lg border p-6 text-center text-sm"
+            style={{ borderColor: "var(--divider)", background: "var(--panel-bg)", color: "var(--text-muted)" }}
+          >
             Your inventory is empty. Hit Scavenge to find parts.
           </div>
         ) : (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900">
+          <div
+            className="rounded-lg border"
+            style={{ borderColor: "var(--divider)", background: "var(--panel-bg)" }}
+          >
             {/* Desktop table header */}
-            <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 border-b border-zinc-800 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            <div
+              className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wider"
+              style={{ borderColor: "var(--divider)", color: "var(--text-muted)" }}
+            >
               <span>Part</span>
               <span>Condition</span>
               <span>Qty</span>
@@ -205,31 +224,39 @@ export default function ScavengePanel() {
               {groups.map((group) => {
                 const def = getPartById(group.definitionId);
                 if (!def) return null;
+                const condColor = CONDITION_COLORS[group.condition] ?? "var(--text-secondary)";
                 return (
                   <div
                     key={group.key}
-                    className={`flex items-center justify-between gap-2 border-b border-zinc-800/50 px-3 py-1.5 last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-x-4 sm:px-4 sm:py-2 ${
+                    className={`flex items-center justify-between gap-2 border-b px-3 py-1.5 last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-x-4 sm:px-4 sm:py-2 ${
                       newPartKeys.has(group.key) ? "animate-fade-up" : ""
                     } ${
                       newPartKeys.has(group.key) && (group.condition === "pristine" || group.condition === "good")
                         ? "animate-pulse-gold"
                         : ""
                     }`}
+                    style={{ borderColor: "var(--divider)" }}
                   >
                     <div className="min-w-0">
-                      <span className="text-sm text-white">{def.name}</span>
+                      <span className="text-sm" style={{ color: "var(--text-white)" }}>{def.name}</span>
                       {group.count > 1 && (
-                        <span className="ml-1 text-xs text-zinc-500">x{group.count}</span>
+                        <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>x{group.count}</span>
                       )}
-                      <span className={`ml-1.5 text-xs font-mono sm:hidden ${CONDITION_COLORS[group.condition] ?? "text-zinc-400"}`}>
+                      <span
+                        className="ml-1.5 text-xs font-mono sm:hidden"
+                        style={{ color: condColor }}
+                      >
                         {CONDITION_SHORT[group.condition] ?? group.condition}
                       </span>
                     </div>
-                    <span className={`hidden sm:inline text-xs font-mono ${CONDITION_COLORS[group.condition] ?? "text-zinc-400"}`}>
+                    <span
+                      className="hidden sm:inline text-xs font-mono"
+                      style={{ color: condColor }}
+                    >
                       {capitalize(group.condition)}
                     </span>
-                    <span className="hidden sm:inline text-xs font-mono text-zinc-400">{group.count}</span>
-                    <span className="font-mono text-xs text-green-400 shrink-0">${formatNumber(group.unitValue)}</span>
+                    <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
+                    <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {refurbBenchUnlocked && group.condition !== "rusted" && group.condition !== "pristine" && (() => {
                         const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
@@ -239,7 +266,8 @@ export default function ScavengePanel() {
                           <button
                             onClick={() => refurbishPart(group.parts[0].id)}
                             disabled={scrapBucks < refurbInfo.cost}
-                            className="text-xs text-cyan-500 transition-colors hover:text-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{ color: "var(--info)" }}
                             title={`Refurbish to ${capitalize(refurbInfo.newCondition)} — $${refurbInfo.cost}`}
                           >
                             Fix ${refurbInfo.cost}
@@ -248,7 +276,8 @@ export default function ScavengePanel() {
                       })()}
                       <button
                         onClick={() => sellPart(group.parts[0].id)}
-                        className="text-xs text-zinc-500 transition-colors hover:text-red-400"
+                        className="text-xs transition-colors"
+                        style={{ color: "var(--text-muted)" }}
                       >
                         Sell 1
                       </button>

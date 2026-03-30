@@ -23,6 +23,418 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "dev",      label: "Dev"      },
 ];
 
+const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
+
+// ─── Theme CSS custom properties ─────────────────────────────────────────────
+// These cascade into all content panels so they can use var(--panel-bg) etc.
+const THEME_VARS: Record<Theme, Record<string, string>> = {
+  grease: {
+    "--panel-bg": "#181008",
+    "--panel-border": "#3a2510",
+    "--panel-border-active": "#c83e0c",
+    "--text-primary": "#d4b896",
+    "--text-secondary": "#8a7560",
+    "--text-muted": "#4a3520",
+    "--text-heading": "#c4872a",
+    "--text-white": "#e8d8c4",
+    "--accent": "#c83e0c",
+    "--accent-secondary": "#c4872a",
+    "--accent-bg": "rgba(200,62,12,.1)",
+    "--accent-border": "rgba(200,62,12,.4)",
+    "--btn-primary-bg": "#c83e0c",
+    "--btn-primary-text": "#fff",
+    "--btn-primary-hover": "#d4501e",
+    "--btn-border": "#5a4228",
+    "--btn-border-hover": "#8a7560",
+    "--success": "#6aaa3a",
+    "--warning": "#c4872a",
+    "--danger": "#e05c1a",
+    "--info": "#6aaa3a",
+    "--input-bg": "#1a0c04",
+    "--input-border": "#3a2510",
+    "--input-focus": "#c83e0c",
+    "--divider": "#2a1c0a",
+  },
+  neon: {
+    "--panel-bg": "rgba(0,20,30,.6)",
+    "--panel-border": "rgba(0,229,255,.12)",
+    "--panel-border-active": "#00e5ff",
+    "--text-primary": "#c0d8e0",
+    "--text-secondary": "rgba(0,229,255,.55)",
+    "--text-muted": "rgba(0,229,255,.25)",
+    "--text-heading": "#00e5ff",
+    "--text-white": "#e0f0f4",
+    "--accent": "#00e5ff",
+    "--accent-secondary": "#ff0090",
+    "--accent-bg": "rgba(0,229,255,.1)",
+    "--accent-border": "rgba(0,229,255,.4)",
+    "--btn-primary-bg": "#00e5ff",
+    "--btn-primary-text": "#000",
+    "--btn-primary-hover": "#33ecff",
+    "--btn-border": "rgba(0,229,255,.25)",
+    "--btn-border-hover": "rgba(0,229,255,.55)",
+    "--success": "#00e5ff",
+    "--warning": "#ff0090",
+    "--danger": "#ff0090",
+    "--info": "rgba(0,229,255,.7)",
+    "--input-bg": "rgba(0,20,30,.8)",
+    "--input-border": "rgba(0,229,255,.15)",
+    "--input-focus": "#00e5ff",
+    "--divider": "rgba(0,229,255,.08)",
+  },
+  prestige: {
+    "--panel-bg": "rgba(12,12,24,.8)",
+    "--panel-border": "rgba(184,151,90,.12)",
+    "--panel-border-active": "#b8975a",
+    "--text-primary": "#c8c0d0",
+    "--text-secondary": "rgba(184,151,90,.55)",
+    "--text-muted": "rgba(184,151,90,.25)",
+    "--text-heading": "#b8975a",
+    "--text-white": "#e0d8e8",
+    "--accent": "#b8975a",
+    "--accent-secondary": "rgba(200,192,208,.7)",
+    "--accent-bg": "rgba(184,151,90,.08)",
+    "--accent-border": "rgba(184,151,90,.4)",
+    "--btn-primary-bg": "#b8975a",
+    "--btn-primary-text": "#080810",
+    "--btn-primary-hover": "#c9a86b",
+    "--btn-border": "rgba(184,151,90,.2)",
+    "--btn-border-hover": "rgba(184,151,90,.5)",
+    "--success": "#b8975a",
+    "--warning": "rgba(200,192,208,.6)",
+    "--danger": "rgba(184,151,90,.5)",
+    "--info": "rgba(184,151,90,.55)",
+    "--input-bg": "rgba(12,12,24,.9)",
+    "--input-border": "rgba(184,151,90,.12)",
+    "--input-focus": "#b8975a",
+    "--divider": "rgba(184,151,90,.08)",
+  },
+  rustbelt: {
+    "--panel-bg": "#140c08",
+    "--panel-border": "#2a1a0a",
+    "--panel-border-active": "#b44a1a",
+    "--text-primary": "#b8a090",
+    "--text-secondary": "#8a6a40",
+    "--text-muted": "#5a3a20",
+    "--text-heading": "#b44a1a",
+    "--text-white": "#d8c8b8",
+    "--accent": "#b44a1a",
+    "--accent-secondary": "#c87030",
+    "--accent-bg": "rgba(180,74,26,.1)",
+    "--accent-border": "rgba(180,74,26,.4)",
+    "--btn-primary-bg": "#b44a1a",
+    "--btn-primary-text": "#fff",
+    "--btn-primary-hover": "#c85a2a",
+    "--btn-border": "#5a3a20",
+    "--btn-border-hover": "#8a6a40",
+    "--success": "#6a8a3a",
+    "--warning": "#c87030",
+    "--danger": "#b44a1a",
+    "--info": "#8a6a40",
+    "--input-bg": "#0c0806",
+    "--input-border": "#2a1a0a",
+    "--input-focus": "#b44a1a",
+    "--divider": "#2a1a0a",
+  },
+  arctic: {
+    "--panel-bg": "rgba(6,10,16,.8)",
+    "--panel-border": "rgba(72,184,232,.1)",
+    "--panel-border-active": "#48b8e8",
+    "--text-primary": "#b0c8d8",
+    "--text-secondary": "rgba(72,184,232,.55)",
+    "--text-muted": "rgba(72,184,232,.25)",
+    "--text-heading": "#48b8e8",
+    "--text-white": "#d8e8f0",
+    "--accent": "#48b8e8",
+    "--accent-secondary": "#88d0f0",
+    "--accent-bg": "rgba(72,184,232,.08)",
+    "--accent-border": "rgba(72,184,232,.4)",
+    "--btn-primary-bg": "#48b8e8",
+    "--btn-primary-text": "#060a10",
+    "--btn-primary-hover": "#60c8f0",
+    "--btn-border": "rgba(72,184,232,.2)",
+    "--btn-border-hover": "rgba(72,184,232,.55)",
+    "--success": "#48b8e8",
+    "--warning": "#88d0f0",
+    "--danger": "#e87068",
+    "--info": "#88d0f0",
+    "--input-bg": "rgba(6,10,16,.9)",
+    "--input-border": "rgba(72,184,232,.1)",
+    "--input-focus": "#48b8e8",
+    "--divider": "rgba(72,184,232,.06)",
+  },
+  vaporwave: {
+    "--panel-bg": "rgba(26,0,48,.7)",
+    "--panel-border": "rgba(185,103,255,.12)",
+    "--panel-border-active": "#ff71ce",
+    "--text-primary": "#e0b0f0",
+    "--text-secondary": "rgba(185,103,255,.55)",
+    "--text-muted": "rgba(185,103,255,.25)",
+    "--text-heading": "#ff71ce",
+    "--text-white": "#f0d0ff",
+    "--accent": "#ff71ce",
+    "--accent-secondary": "#01cdfe",
+    "--accent-bg": "rgba(255,113,206,.08)",
+    "--accent-border": "rgba(255,113,206,.4)",
+    "--btn-primary-bg": "#ff71ce",
+    "--btn-primary-text": "#1a0030",
+    "--btn-primary-hover": "#ff8dd8",
+    "--btn-border": "rgba(185,103,255,.25)",
+    "--btn-border-hover": "rgba(185,103,255,.55)",
+    "--success": "#01cdfe",
+    "--warning": "#ff71ce",
+    "--danger": "#ff71ce",
+    "--info": "#b967ff",
+    "--input-bg": "rgba(26,0,48,.9)",
+    "--input-border": "rgba(185,103,255,.15)",
+    "--input-focus": "#ff71ce",
+    "--divider": "rgba(185,103,255,.08)",
+  },
+  tactical: {
+    "--panel-bg": "#0c0e0a",
+    "--panel-border": "rgba(74,138,40,.15)",
+    "--panel-border-active": "#4a8a28",
+    "--text-primary": "#8a9a78",
+    "--text-secondary": "rgba(74,138,40,.55)",
+    "--text-muted": "rgba(74,138,40,.25)",
+    "--text-heading": "#4a8a28",
+    "--text-white": "#b8c8a8",
+    "--accent": "#4a8a28",
+    "--accent-secondary": "#c8a848",
+    "--accent-bg": "rgba(74,138,40,.08)",
+    "--accent-border": "rgba(74,138,40,.4)",
+    "--btn-primary-bg": "#4a8a28",
+    "--btn-primary-text": "#0a0c08",
+    "--btn-primary-hover": "#5a9a38",
+    "--btn-border": "rgba(74,138,40,.2)",
+    "--btn-border-hover": "rgba(74,138,40,.55)",
+    "--success": "#4a8a28",
+    "--warning": "#c8a848",
+    "--danger": "#c84828",
+    "--info": "#c8a848",
+    "--input-bg": "#0a0c08",
+    "--input-border": "rgba(74,138,40,.15)",
+    "--input-focus": "#4a8a28",
+    "--divider": "rgba(74,138,40,.1)",
+  },
+  sunset: {
+    "--panel-bg": "#160a08",
+    "--panel-border": "#3a1810",
+    "--panel-border-active": "#e85020",
+    "--text-primary": "#d8b0a0",
+    "--text-secondary": "#8a5040",
+    "--text-muted": "#6a4030",
+    "--text-heading": "#e85020",
+    "--text-white": "#f0d8d0",
+    "--accent": "#e85020",
+    "--accent-secondary": "#a830a0",
+    "--accent-bg": "rgba(232,80,32,.1)",
+    "--accent-border": "rgba(232,80,32,.4)",
+    "--btn-primary-bg": "#e85020",
+    "--btn-primary-text": "#fff",
+    "--btn-primary-hover": "#f06030",
+    "--btn-border": "#6a4030",
+    "--btn-border-hover": "#8a5040",
+    "--success": "#6aaa3a",
+    "--warning": "#c03860",
+    "--danger": "#e85020",
+    "--info": "#a830a0",
+    "--input-bg": "#120808",
+    "--input-border": "#3a1810",
+    "--input-focus": "#e85020",
+    "--divider": "#2a1208",
+  },
+  deepsix: {
+    "--panel-bg": "rgba(2,8,16,.8)",
+    "--panel-border": "rgba(0,184,156,.1)",
+    "--panel-border-active": "#00b89c",
+    "--text-primary": "#68a8b8",
+    "--text-secondary": "rgba(0,184,156,.55)",
+    "--text-muted": "rgba(0,184,156,.25)",
+    "--text-heading": "#00b89c",
+    "--text-white": "#b0d8e0",
+    "--accent": "#00b89c",
+    "--accent-secondary": "#2060d0",
+    "--accent-bg": "rgba(0,184,156,.08)",
+    "--accent-border": "rgba(0,184,156,.4)",
+    "--btn-primary-bg": "#00b89c",
+    "--btn-primary-text": "#020810",
+    "--btn-primary-hover": "#10c8ac",
+    "--btn-border": "rgba(0,184,156,.2)",
+    "--btn-border-hover": "rgba(0,184,156,.55)",
+    "--success": "#00b89c",
+    "--warning": "#2060d0",
+    "--danger": "#c84848",
+    "--info": "#2060d0",
+    "--input-bg": "rgba(2,8,16,.9)",
+    "--input-border": "rgba(0,184,156,.1)",
+    "--input-focus": "#00b89c",
+    "--divider": "rgba(0,184,156,.06)",
+  },
+  bloodmoon: {
+    "--panel-bg": "#0e0606",
+    "--panel-border": "rgba(192,16,32,.15)",
+    "--panel-border-active": "#c01020",
+    "--text-primary": "#a08080",
+    "--text-secondary": "#6a3838",
+    "--text-muted": "#4a2020",
+    "--text-heading": "#c01020",
+    "--text-white": "#d0b0b0",
+    "--accent": "#c01020",
+    "--accent-secondary": "#801020",
+    "--accent-bg": "rgba(192,16,32,.08)",
+    "--accent-border": "rgba(192,16,32,.4)",
+    "--btn-primary-bg": "#c01020",
+    "--btn-primary-text": "#fff",
+    "--btn-primary-hover": "#d02030",
+    "--btn-border": "#4a2020",
+    "--btn-border-hover": "#6a3838",
+    "--success": "#6a8a3a",
+    "--warning": "#c87030",
+    "--danger": "#c01020",
+    "--info": "#801020",
+    "--input-bg": "#0a0404",
+    "--input-border": "rgba(192,16,32,.12)",
+    "--input-focus": "#c01020",
+    "--divider": "rgba(192,16,32,.1)",
+  },
+  sakura: {
+    "--panel-bg": "#140a10",
+    "--panel-border": "rgba(232,112,152,.1)",
+    "--panel-border-active": "#e87098",
+    "--text-primary": "#d0b8c8",
+    "--text-secondary": "rgba(232,112,152,.55)",
+    "--text-muted": "rgba(232,112,152,.25)",
+    "--text-heading": "#e87098",
+    "--text-white": "#f0d8e8",
+    "--accent": "#e87098",
+    "--accent-secondary": "#88c088",
+    "--accent-bg": "rgba(232,112,152,.08)",
+    "--accent-border": "rgba(232,112,152,.4)",
+    "--btn-primary-bg": "#e87098",
+    "--btn-primary-text": "#100810",
+    "--btn-primary-hover": "#f080a8",
+    "--btn-border": "rgba(232,112,152,.2)",
+    "--btn-border-hover": "rgba(232,112,152,.55)",
+    "--success": "#88c088",
+    "--warning": "#e87098",
+    "--danger": "#e05060",
+    "--info": "#88c088",
+    "--input-bg": "#100810",
+    "--input-border": "rgba(232,112,152,.1)",
+    "--input-focus": "#e87098",
+    "--divider": "rgba(232,112,152,.06)",
+  },
+  outlaw: {
+    "--panel-bg": "#120a06",
+    "--panel-border": "#3a2010",
+    "--panel-border-active": "#c88830",
+    "--text-primary": "#c0a880",
+    "--text-secondary": "#8a6838",
+    "--text-muted": "#6a5030",
+    "--text-heading": "#c88830",
+    "--text-white": "#e0d0b0",
+    "--accent": "#c88830",
+    "--accent-secondary": "#a08848",
+    "--accent-bg": "rgba(200,136,48,.1)",
+    "--accent-border": "rgba(200,136,48,.4)",
+    "--btn-primary-bg": "#c88830",
+    "--btn-primary-text": "#0e0a06",
+    "--btn-primary-hover": "#d89840",
+    "--btn-border": "#6a5030",
+    "--btn-border-hover": "#8a6838",
+    "--success": "#6a8a3a",
+    "--warning": "#d8a850",
+    "--danger": "#c85020",
+    "--info": "#a08848",
+    "--input-bg": "#0e0a06",
+    "--input-border": "#3a2010",
+    "--input-focus": "#c88830",
+    "--divider": "#2a1c0c",
+  },
+  chrome: {
+    "--panel-bg": "#0e0e10",
+    "--panel-border": "rgba(208,216,224,.1)",
+    "--panel-border-active": "#d0d8e0",
+    "--text-primary": "#b0b8c0",
+    "--text-secondary": "rgba(208,216,224,.55)",
+    "--text-muted": "rgba(208,216,224,.2)",
+    "--text-heading": "#d0d8e0",
+    "--text-white": "#e0e4e8",
+    "--accent": "#d0d8e0",
+    "--accent-secondary": "#5878a8",
+    "--accent-bg": "rgba(208,216,224,.06)",
+    "--accent-border": "rgba(208,216,224,.3)",
+    "--btn-primary-bg": "#d0d8e0",
+    "--btn-primary-text": "#0a0a0c",
+    "--btn-primary-hover": "#e0e4e8",
+    "--btn-border": "rgba(208,216,224,.15)",
+    "--btn-border-hover": "rgba(208,216,224,.4)",
+    "--success": "#5878a8",
+    "--warning": "#c8a848",
+    "--danger": "#c85050",
+    "--info": "#5878a8",
+    "--input-bg": "#0a0a0c",
+    "--input-border": "rgba(208,216,224,.1)",
+    "--input-focus": "#d0d8e0",
+    "--divider": "rgba(208,216,224,.08)",
+  },
+  terminal: {
+    "--panel-bg": "rgba(0,8,0,.8)",
+    "--panel-border": "#185018",
+    "--panel-border-active": "#40d840",
+    "--text-primary": "#30b830",
+    "--text-secondary": "#208020",
+    "--text-muted": "#185018",
+    "--text-heading": "#40d840",
+    "--text-white": "#80e880",
+    "--accent": "#40d840",
+    "--accent-secondary": "#30a030",
+    "--accent-bg": "rgba(64,216,64,.08)",
+    "--accent-border": "rgba(64,216,64,.4)",
+    "--btn-primary-bg": "#40d840",
+    "--btn-primary-text": "#000800",
+    "--btn-primary-hover": "#50e850",
+    "--btn-border": "#208020",
+    "--btn-border-hover": "#30b830",
+    "--success": "#40d840",
+    "--warning": "#b8b820",
+    "--danger": "#d84040",
+    "--info": "#30a030",
+    "--input-bg": "rgba(0,4,0,.8)",
+    "--input-border": "#185018",
+    "--input-focus": "#40d840",
+    "--divider": "#185018",
+  },
+  sandstorm: {
+    "--panel-bg": "#140e08",
+    "--panel-border": "#3a2810",
+    "--panel-border-active": "#d89030",
+    "--text-primary": "#c0a878",
+    "--text-secondary": "#8a6838",
+    "--text-muted": "#6a5028",
+    "--text-heading": "#d89030",
+    "--text-white": "#e8d8b8",
+    "--accent": "#d89030",
+    "--accent-secondary": "#a06020",
+    "--accent-bg": "rgba(216,144,48,.08)",
+    "--accent-border": "rgba(216,144,48,.4)",
+    "--btn-primary-bg": "#d89030",
+    "--btn-primary-text": "#100c06",
+    "--btn-primary-hover": "#e8a040",
+    "--btn-border": "#6a5028",
+    "--btn-border-hover": "#8a6838",
+    "--success": "#6a8a3a",
+    "--warning": "#d89030",
+    "--danger": "#c85020",
+    "--info": "#a06020",
+    "--input-bg": "#100c06",
+    "--input-border": "#3a2810",
+    "--input-focus": "#d89030",
+    "--divider": "#2a1c08",
+  },
+};
+
 // ─── Shared store hook ─────────────────────────────────────────────────────────
 function useHUDData() {
   const scrapBucks   = useGameStore((s) => s.scrapBucks);
@@ -46,7 +458,7 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Share Tech Mono', monospace", background: "#0f0a04", minHeight: "100vh", color: "#d4b896", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.grease as React.CSSProperties, fontFamily: "'Share Tech Mono', monospace", background: "#0f0a04", minHeight: "100vh", color: "#d4b896", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap');
         .gm { font-family: 'Bebas Neue', cursive; }
@@ -58,9 +470,6 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
         .gm-tab-dev-on { color: #f0b020 !important; border-bottom-color: #f0b020 !important; }
         .gm-stripe { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0, rgba(255,255,255,.015) 1px, transparent 1px, transparent 8px); }
         .gm-panel { background: #181008; border: 1px solid #3a2510; border-top-color: #503518; }
-        /* Override panel bg inside grease shell */
-        .gm-content .rounded-lg { background: #181008 !important; border-color: #3a2510 !important; }
-        .gm-content h2, .gm-content h3 { color: #c4872a !important; }
       `}</style>
 
       {/* HUD */}
@@ -109,19 +518,22 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
         })}
         {autoScavengeUnlocked && (
           <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".6rem", color: "#4a3520", marginRight: ".5rem", letterSpacing: ".12em" }}>
-            <span style={{ color: "#c83e0c" }}>◉</span> AUTO
+            <span style={{ color: "#c83e0c" }}>&#9673;</span> AUTO
           </div>
         )}
       </nav>
 
       {/* Content */}
-      <main className="gm-content" style={{ maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
+      <main style={{ maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
         {children}
       </main>
 
       {/* Footer */}
       <footer style={{ borderTop: "1px solid #2a1c0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span style={{ fontSize: ".6rem", color: "#3a2510", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span style={{ fontSize: ".6rem", color: "#3a2510", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span style={{ fontSize: ".5rem", color: "#2a1c0a", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -136,7 +548,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Rajdhani', sans-serif", background: "#000", minHeight: "100vh", color: "#c0d8e0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.neon as React.CSSProperties, fontFamily: "'Rajdhani', sans-serif", background: "#000", minHeight: "100vh", color: "#c0d8e0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
         .mc { font-family: 'Orbitron', sans-serif; }
@@ -201,7 +613,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
         })}
         {autoScavengeUnlocked && (
           <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".55rem", color: "rgba(0,229,255,.3)", marginRight: ".5rem", fontFamily: "'Orbitron', sans-serif", fontWeight: 700, letterSpacing: ".12em" }}>
-            <span style={{ color: "#00e5ff", textShadow: "0 0 8px #00e5ff" }}>●</span> AUTO
+            <span style={{ color: "#00e5ff", textShadow: "0 0 8px #00e5ff" }}>&#9679;</span> AUTO
           </div>
         )}
       </nav>
@@ -213,7 +625,10 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,229,255,.08)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.15)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -228,7 +643,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Lato', sans-serif", background: "#080810", minHeight: "100vh", color: "#c8c0d0", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.prestige as React.CSSProperties, fontFamily: "'Lato', sans-serif", background: "#080810", minHeight: "100vh", color: "#c8c0d0", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
         .pc { font-family: 'Playfair Display', serif; }
@@ -298,7 +713,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
         })}
         {autoScavengeUnlocked && (
           <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".52rem", color: "rgba(184,151,90,.25)", marginRight: ".5rem", fontFamily: "'Lato', sans-serif", fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" }}>
-            <span style={{ color: "rgba(184,151,90,.5)" }}>◆</span> Auto
+            <span style={{ color: "rgba(184,151,90,.5)" }}>&#9670;</span> Auto
           </div>
         )}
       </nav>
@@ -310,7 +725,10 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ borderTop: "1px solid rgba(184,151,90,.08)", padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.2)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.2)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
+          <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.15)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -325,7 +743,7 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Libre Baskerville', serif", background: "#0e0a06", minHeight: "100vh", color: "#c0a880", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.outlaw as React.CSSProperties, fontFamily: "'Libre Baskerville', serif", background: "#0e0a06", minHeight: "100vh", color: "#c0a880", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Rye&family=Libre+Baskerville:wght@400;700&display=swap');
         .ol { font-family: 'Rye', cursive; }
@@ -398,7 +816,10 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ borderTop: "2px solid #2a1c0c", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="ol" style={{ fontSize: ".5rem", color: "#4a3820", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="ol" style={{ fontSize: ".5rem", color: "#4a3820", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
+          <span style={{ fontSize: ".42rem", color: "#3a2810", letterSpacing: ".1em", fontFamily: "'Libre Baskerville', serif" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -413,7 +834,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", background: "#0a0a0c", minHeight: "100vh", color: "#b0b8c0", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.chrome as React.CSSProperties, fontFamily: "'Inter', sans-serif", background: "#0a0a0c", minHeight: "100vh", color: "#b0b8c0", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;700;900&family=Inter:wght@300;400;500;600&display=swap');
         .cr { font-family: 'Exo 2', sans-serif; }
@@ -490,7 +911,10 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <div className="cr-chrome-line" />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.15)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.15)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
+          <span className="cr" style={{ fontSize: ".4rem", color: "rgba(208,216,224,.1)", letterSpacing: ".15em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -505,7 +929,7 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Fira Code', monospace", background: "#000800", minHeight: "100vh", color: "#30b830", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.terminal as React.CSSProperties, fontFamily: "'Fira Code', monospace", background: "#000800", minHeight: "100vh", color: "#30b830", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=VT323&family=Fira+Code:wght@400;500;600&display=swap');
         .tm { font-family: 'VT323', monospace; }
@@ -587,7 +1011,10 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid #185018", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="tm" style={{ fontSize: ".85rem", color: "#185018" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="tm" style={{ fontSize: ".85rem", color: "#185018" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
+          <span className="tm" style={{ fontSize: ".7rem", color: "#103010" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -602,7 +1029,7 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Barlow', sans-serif", background: "#100c06", minHeight: "100vh", color: "#c0a878", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.sandstorm as React.CSSProperties, fontFamily: "'Barlow', sans-serif", background: "#100c06", minHeight: "100vh", color: "#c0a878", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&display=swap');
         .sd { font-family: 'Teko', sans-serif; }
@@ -682,7 +1109,10 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <div className="sd-rally-stripe" style={{ flexShrink: 0 }} />
       <footer style={{ position: "relative", zIndex: 10, padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="sd" style={{ fontSize: ".75rem", color: "#4a3818", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="sd" style={{ fontSize: ".75rem", color: "#4a3818", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
+          <span className="sd" style={{ fontSize: ".6rem", color: "#3a2810", letterSpacing: ".1em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -697,7 +1127,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Quicksand', sans-serif", background: "#120808", minHeight: "100vh", color: "#d8b0a0", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.sunset as React.CSSProperties, fontFamily: "'Quicksand', sans-serif", background: "#120808", minHeight: "100vh", color: "#d8b0a0", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Quicksand:wght@400;500;600;700&display=swap');
         .ss { font-family: 'Permanent Marker', cursive; }
@@ -773,7 +1203,10 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <div style={{ height: 2, background: "linear-gradient(90deg, #e85020 0%, #c03860 50%, #a830a0 100%)", opacity: 0.3, flexShrink: 0 }} />
       <footer style={{ padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="ss" style={{ fontSize: ".55rem", color: "#4a2820", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="ss" style={{ fontSize: ".55rem", color: "#4a2820", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
+          <span style={{ fontSize: ".45rem", color: "#3a1810", letterSpacing: ".1em", fontFamily: "'Quicksand', sans-serif" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -788,7 +1221,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Exo 2', sans-serif", background: "#020810", minHeight: "100vh", color: "#68a8b8", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.deepsix as React.CSSProperties, fontFamily: "'Exo 2', sans-serif", background: "#020810", minHeight: "100vh", color: "#68a8b8", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Exo+2:wght@300;400;500;600;700&display=swap');
         .ds { font-family: 'Audiowide', cursive; }
@@ -869,7 +1302,10 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,184,156,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.18)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.18)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
+          <span className="ds" style={{ fontSize: ".4rem", color: "rgba(0,184,156,.12)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -884,7 +1320,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Crimson Text', serif", background: "#0a0404", minHeight: "100vh", color: "#a08080", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.bloodmoon as React.CSSProperties, fontFamily: "'Crimson Text', serif", background: "#0a0404", minHeight: "100vh", color: "#a08080", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Crimson+Text:wght@400;600;700&display=swap');
         .bm { font-family: 'Creepster', cursive; }
@@ -960,7 +1396,10 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(192,16,32,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="bm" style={{ fontSize: ".55rem", color: "#3a1818", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="bm" style={{ fontSize: ".55rem", color: "#3a1818", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
+          <span style={{ fontSize: ".45rem", color: "#2a1010", letterSpacing: ".1em", fontFamily: "'Crimson Text', serif" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -975,7 +1414,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Noto Sans JP', sans-serif", background: "#100810", minHeight: "100vh", color: "#d0b8c8", display: "flex", flexDirection: "column" }}>
+    <div style={{ ...THEME_VARS.sakura as React.CSSProperties, fontFamily: "'Noto Sans JP', sans-serif", background: "#100810", minHeight: "100vh", color: "#d0b8c8", display: "flex", flexDirection: "column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+JP:wght@300;400;500;600&display=swap');
         .sk { font-family: 'Zen Maru Gothic', serif; }
@@ -1055,7 +1494,10 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(232,112,152,.1) 30%, rgba(136,192,136,.06) 70%, transparent)", flexShrink: 0 }} />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.18)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.18)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
+          <span style={{ fontSize: ".42rem", color: "rgba(232,112,152,.12)", letterSpacing: ".1em", fontFamily: "'Noto Sans JP', sans-serif" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -1070,7 +1512,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'IBM Plex Mono', monospace", background: "#0c0806", minHeight: "100vh", color: "#b8a090", display: "flex", flexDirection: "column", position: "relative" }}>
+    <div style={{ ...THEME_VARS.rustbelt as React.CSSProperties, fontFamily: "'IBM Plex Mono', monospace", background: "#0c0806", minHeight: "100vh", color: "#b8a090", display: "flex", flexDirection: "column", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
         .rb { font-family: 'Russo One', sans-serif; }
@@ -1145,7 +1587,10 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "2px solid #2a1a0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
+          <span style={{ fontSize: ".45rem", color: "#2a1a0a", letterSpacing: ".1em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -1160,7 +1605,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Nunito Sans', sans-serif", background: "#060a10", minHeight: "100vh", color: "#b0c8d8", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.arctic as React.CSSProperties, fontFamily: "'Nunito Sans', sans-serif", background: "#060a10", minHeight: "100vh", color: "#b0c8d8", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Michroma&family=Nunito+Sans:wght@400;600;700;800&display=swap');
         .ar { font-family: 'Michroma', sans-serif; }
@@ -1238,7 +1683,10 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(72,184,232,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.18)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.18)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
+          <span className="ar" style={{ fontSize: ".38rem", color: "rgba(72,184,232,.12)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -1253,7 +1701,7 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Space Mono', monospace", background: "#1a0030", minHeight: "100vh", color: "#e0b0f0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+    <div style={{ ...THEME_VARS.vaporwave as React.CSSProperties, fontFamily: "'Space Mono', monospace", background: "#1a0030", minHeight: "100vh", color: "#e0b0f0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap');
         .vw { font-family: 'Press Start 2P', cursive; }
@@ -1339,7 +1787,10 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.8)", padding: ".65rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
+          <span className="vw" style={{ fontSize: ".32rem", color: "rgba(185,103,255,.12)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>
@@ -1354,7 +1805,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
   const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
 
   return (
-    <div style={{ fontFamily: "'Source Code Pro', monospace", background: "#0a0c08", minHeight: "100vh", color: "#8a9a78", display: "flex", flexDirection: "column", position: "relative" }}>
+    <div style={{ ...THEME_VARS.tactical as React.CSSProperties, fontFamily: "'Source Code Pro', monospace", background: "#0a0c08", minHeight: "100vh", color: "#8a9a78", display: "flex", flexDirection: "column", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Source+Code+Pro:wght@400;500;600;700&display=swap');
         .tc { font-family: 'Black Ops One', cursive; }
@@ -1436,7 +1887,10 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(74,138,40,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.2)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.2)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
+          <span style={{ fontSize: ".42rem", color: "rgba(74,138,40,.12)", letterSpacing: ".1em", fontFamily: "'Source Code Pro', monospace" }}>v{BUILD_VERSION}</span>
+        </div>
         <ThemeSwitcher />
       </footer>
     </div>

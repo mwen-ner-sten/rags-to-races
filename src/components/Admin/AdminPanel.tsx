@@ -9,16 +9,10 @@ import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
 
-const SECTION = "rounded-lg border border-zinc-700 bg-zinc-900 p-4 flex flex-col gap-3";
-const LABEL = "text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1";
-const BTN =
-  "rounded px-3 py-1.5 text-xs font-semibold transition-colors";
-const BTN_ORANGE = `${BTN} bg-orange-600 text-white hover:bg-orange-500`;
-const BTN_RED = `${BTN} bg-red-800 text-white hover:bg-red-700`;
-const BTN_ZINC = `${BTN} border border-zinc-600 text-zinc-300 hover:border-zinc-400 hover:text-white`;
-const BTN_AMBER = `${BTN} bg-amber-700 text-white hover:bg-amber-600`;
-const INPUT =
-  "rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm text-white w-28 focus:outline-none focus:border-orange-500";
+const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
+
+const SECTION = "rounded-lg border p-4 flex flex-col gap-3";
+const LABEL = "text-xs font-semibold uppercase tracking-wider mb-1";
 
 const QUICK_SCRAP = [100, 1_000, 10_000, 100_000];
 const QUICK_REP = [5, 10, 50, 100];
@@ -50,7 +44,6 @@ export default function AdminPanel() {
   const devSetAutoUnlocks = useGameStore((s) => s.devSetAutoUnlocks);
   const devResetSave = useGameStore((s) => s.devResetSave);
 
-  // Local state for controlled inputs
   const [scrapInput, setScrapInput] = useState("");
   const [repInput, setRepInput] = useState("");
   const [prestigeInput, setPrestigeInput] = useState(String(prestigeCount));
@@ -73,7 +66,7 @@ export default function AdminPanel() {
     const count = Math.max(1, parseInt(partCount) || 1);
     devAddPartsToInventory([defId], partCondition, count);
     const def = PART_DEFINITIONS.find((p) => p.id === defId);
-    log(`Added ${count}× ${def?.name ?? defId} (${partCondition})`);
+    log(`Added ${count}\u00d7 ${def?.name ?? defId} (${partCondition})`);
   }
 
   function handleAddAllParts() {
@@ -85,70 +78,89 @@ export default function AdminPanel() {
   function handleAddOneOfEverything() {
     const ids = PART_DEFINITIONS.map((p) => p.id);
     devAddPartsToInventory(ids, partCondition, 1);
-    log(`Added 1× every part (${partCondition}) — ${ids.length} total`);
+    log(`Added 1\u00d7 every part (${partCondition}) \u2014 ${ids.length} total`);
   }
+
+  // Reusable button styles using CSS vars
+  const btnPrimary = { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" };
+  const btnOutline = { borderColor: "var(--btn-border)", color: "var(--text-primary)" };
+  const btnDanger = { background: "var(--danger)", color: "var(--btn-primary-text)" };
+  const btnAccent = { background: "var(--accent)", color: "var(--btn-primary-text)" };
 
   return (
     <div className="flex flex-col gap-2">
       {/* Warning banner */}
-      <div className="rounded-lg border border-yellow-700 bg-yellow-900/20 px-4 py-2 text-xs text-yellow-400">
-        ⚠ Dev Panel — for development & testing only. Changes are saved to localStorage.
+      <div
+        style={{ background: "rgba(196,180,58,.08)", borderColor: "rgba(196,180,58,.3)", color: "var(--warning)" }}
+        className="rounded-lg border px-4 py-2 text-xs"
+      >
+        &#9888; Dev Panel \u2014 for development & testing only. Changes are saved to localStorage.
+      </div>
+
+      {/* Version info */}
+      <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border px-4 py-2 flex items-center justify-between">
+        <span style={{ color: "var(--text-muted)" }} className="text-xs uppercase tracking-wider">Build Version</span>
+        <span style={{ color: "var(--accent)" }} className="text-xs font-mono font-semibold">v{BUILD_VERSION}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 
-        {/* ── Currency ── */}
-        <div className={SECTION}>
-          <p className={LABEL}>Currency</p>
+        {/* Currency */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION}>
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Currency</p>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-zinc-500">
-              Scrap Bucks: <span className="text-green-400 font-mono">${formatNumber(scrapBucks)}</span>
+            <span style={{ color: "var(--text-muted)" }} className="text-xs">
+              Scrap Bucks: <span style={{ color: "var(--success)" }} className="font-mono">${formatNumber(scrapBucks)}</span>
             </span>
             <div className="flex gap-1 flex-wrap">
               {QUICK_SCRAP.map((n) => (
-                <button key={n} onClick={() => { devAddScrapBucks(n); log(`+$${formatNumber(n)} Scrap Bucks`); }} className={BTN_ZINC}>
+                <button key={n} onClick={() => { devAddScrapBucks(n); log(`+$${formatNumber(n)} Scrap Bucks`); }} style={btnOutline} className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80">
                   +${formatNumber(n)}
                 </button>
               ))}
             </div>
             <div className="flex gap-2 mt-1">
               <input
-                className={INPUT}
+                style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
+                className="rounded border px-2 py-1 text-sm w-28 focus:outline-none"
                 placeholder="Set to..."
                 value={scrapInput}
                 onChange={(e) => setScrapInput(e.target.value)}
               />
               <button
                 onClick={() => { const v = parseFloat(scrapInput); if (!isNaN(v)) { devSetScrapBucks(v); log(`Set Scrap Bucks = $${formatNumber(v)}`); setScrapInput(""); } }}
-                className={BTN_ORANGE}
+                style={btnPrimary}
+                className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
               >
                 Set
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-800">
-            <span className="text-xs text-zinc-500">
-              Rep Points: <span className="text-blue-400 font-mono">{formatNumber(repPoints)}</span>
+          <div style={{ borderColor: "var(--divider)" }} className="flex flex-col gap-1.5 pt-2 border-t">
+            <span style={{ color: "var(--text-muted)" }} className="text-xs">
+              Rep Points: <span style={{ color: "var(--info)" }} className="font-mono">{formatNumber(repPoints)}</span>
             </span>
             <div className="flex gap-1 flex-wrap">
               {QUICK_REP.map((n) => (
-                <button key={n} onClick={() => { devAddRepPoints(n); log(`+${n} Rep`); }} className={BTN_ZINC}>
+                <button key={n} onClick={() => { devAddRepPoints(n); log(`+${n} Rep`); }} style={btnOutline} className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80">
                   +{n} Rep
                 </button>
               ))}
             </div>
             <div className="flex gap-2 mt-1">
               <input
-                className={INPUT}
+                style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
+                className="rounded border px-2 py-1 text-sm w-28 focus:outline-none"
                 placeholder="Set to..."
                 value={repInput}
                 onChange={(e) => setRepInput(e.target.value)}
               />
               <button
                 onClick={() => { const v = parseFloat(repInput); if (!isNaN(v)) { devSetRepPoints(v); log(`Set Rep = ${formatNumber(v)}`); setRepInput(""); } }}
-                className={BTN_ORANGE}
+                style={btnPrimary}
+                className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
               >
                 Set
               </button>
@@ -156,78 +168,93 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {/* ── Unlocks ── */}
-        <div className={SECTION}>
-          <p className={LABEL}>Unlocks</p>
+        {/* Unlocks */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION}>
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Unlocks</p>
 
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => { devUnlockAll(); log("Unlocked everything"); }} className={BTN_ORANGE}>
+            <button onClick={() => { devUnlockAll(); log("Unlocked everything"); }} style={btnPrimary} className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90">
               Unlock All
             </button>
-            <button onClick={() => { devLockAll(); log("Reset to locked state"); }} className={BTN_ZINC}>
+            <button onClick={() => { devLockAll(); log("Reset to locked state"); }} style={btnOutline} className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80">
               Lock All
             </button>
           </div>
 
-          <div className="pt-2 border-t border-zinc-800 flex flex-col gap-1.5">
-            <p className="text-xs text-zinc-500">Automations</p>
+          <div style={{ borderColor: "var(--divider)" }} className="pt-2 border-t flex flex-col gap-1.5">
+            <p style={{ color: "var(--text-muted)" }} className="text-xs">Automations</p>
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => { devSetAutoUnlocks(true, autoRaceUnlocked); log("Auto-scavenge ON"); }}
-                className={autoScavengeUnlocked ? BTN_ORANGE : BTN_ZINC}
+                style={autoScavengeUnlocked ? btnPrimary : btnOutline}
+                className={`rounded ${autoScavengeUnlocked ? "" : "border"} px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80`}
               >
-                Auto-Scavenge {autoScavengeUnlocked ? "✓" : "off"}
+                Auto-Scavenge {autoScavengeUnlocked ? "\u2713" : "off"}
               </button>
               <button
                 onClick={() => { devSetAutoUnlocks(autoScavengeUnlocked, true); log("Auto-race ON"); }}
-                className={autoRaceUnlocked ? BTN_ORANGE : BTN_ZINC}
+                style={autoRaceUnlocked ? btnPrimary : btnOutline}
+                className={`rounded ${autoRaceUnlocked ? "" : "border"} px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80`}
               >
-                Auto-Race {autoRaceUnlocked ? "✓" : "off"}
+                Auto-Race {autoRaceUnlocked ? "\u2713" : "off"}
               </button>
               <button
                 onClick={() => { devSetAutoUnlocks(false, false); log("Automations OFF"); }}
-                className={BTN_ZINC}
+                style={btnOutline}
+                className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
               >
                 Disable Both
               </button>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-zinc-800 flex flex-col gap-1.5">
-            <p className="text-xs text-zinc-500">
+          <div style={{ borderColor: "var(--divider)" }} className="pt-2 border-t flex flex-col gap-1.5">
+            <p style={{ color: "var(--text-muted)" }} className="text-xs">
               Locations: {unlockedLocationIds.length}/{LOCATION_DEFINITIONS.length}
             </p>
             <div className="flex flex-wrap gap-1">
               {LOCATION_DEFINITIONS.map((l) => (
                 <span
                   key={l.id}
-                  className={`text-xs rounded px-1.5 py-0.5 ${unlockedLocationIds.includes(l.id) ? "bg-green-900/40 text-green-400" : "bg-zinc-800 text-zinc-600"}`}
+                  style={{
+                    background: unlockedLocationIds.includes(l.id) ? "rgba(92,184,92,.12)" : "var(--panel-bg)",
+                    color: unlockedLocationIds.includes(l.id) ? "var(--success)" : "var(--text-muted)",
+                  }}
+                  className="text-xs rounded px-1.5 py-0.5"
                 >
                   {l.name}
                 </span>
               ))}
             </div>
-            <p className="text-xs text-zinc-500 mt-1">
+            <p style={{ color: "var(--text-muted)" }} className="text-xs mt-1">
               Circuits: {unlockedCircuitIds.length}/{CIRCUIT_DEFINITIONS.length}
             </p>
             <div className="flex flex-wrap gap-1">
               {CIRCUIT_DEFINITIONS.map((c) => (
                 <span
                   key={c.id}
-                  className={`text-xs rounded px-1.5 py-0.5 ${unlockedCircuitIds.includes(c.id) ? "bg-green-900/40 text-green-400" : "bg-zinc-800 text-zinc-600"}`}
+                  style={{
+                    background: unlockedCircuitIds.includes(c.id) ? "rgba(92,184,92,.12)" : "var(--panel-bg)",
+                    color: unlockedCircuitIds.includes(c.id) ? "var(--success)" : "var(--text-muted)",
+                  }}
+                  className="text-xs rounded px-1.5 py-0.5"
                 >
                   {c.name}
                 </span>
               ))}
             </div>
-            <p className="text-xs text-zinc-500 mt-1">
+            <p style={{ color: "var(--text-muted)" }} className="text-xs mt-1">
               Vehicles: {unlockedVehicleIds.length}/{VEHICLE_DEFINITIONS.length}
             </p>
             <div className="flex flex-wrap gap-1">
               {VEHICLE_DEFINITIONS.map((v) => (
                 <span
                   key={v.id}
-                  className={`text-xs rounded px-1.5 py-0.5 ${unlockedVehicleIds.includes(v.id) ? "bg-green-900/40 text-green-400" : "bg-zinc-800 text-zinc-600"}`}
+                  style={{
+                    background: unlockedVehicleIds.includes(v.id) ? "rgba(92,184,92,.12)" : "var(--panel-bg)",
+                    color: unlockedVehicleIds.includes(v.id) ? "var(--success)" : "var(--text-muted)",
+                  }}
+                  className="text-xs rounded px-1.5 py-0.5"
                 >
                   T{v.tier} {v.name}
                 </span>
@@ -236,13 +263,13 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {/* ── Parts & Garage ── */}
-        <div className={SECTION}>
-          <p className={LABEL}>Inventory & Garage</p>
+        {/* Parts & Garage */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION}>
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Inventory & Garage</p>
 
           <div className="flex flex-col gap-2">
-            <p className="text-xs text-zinc-500">
-              Inventory: {inventory.length} parts &nbsp;·&nbsp; Garage: {garage.length} vehicles
+            <p style={{ color: "var(--text-muted)" }} className="text-xs">
+              Inventory: {inventory.length} parts &nbsp;\u00b7&nbsp; Garage: {garage.length} vehicles
             </p>
 
             {/* Category picker */}
@@ -251,7 +278,8 @@ export default function AdminPanel() {
                 <button
                   key={cat}
                   onClick={() => { setPartCategory(cat); setPartId(""); }}
-                  className={cat === partCategory ? BTN_ORANGE : BTN_ZINC}
+                  style={cat === partCategory ? btnPrimary : btnOutline}
+                  className={`rounded ${cat === partCategory ? "" : "border"} px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80`}
                 >
                   {cat}
                 </button>
@@ -260,7 +288,8 @@ export default function AdminPanel() {
 
             {/* Part picker */}
             <select
-              className="rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm text-white focus:outline-none focus:border-orange-500"
+              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
+              className="rounded border px-2 py-1 text-sm focus:outline-none"
               value={partId || filteredParts[0]?.id}
               onChange={(e) => setPartId(e.target.value)}
             >
@@ -277,7 +306,8 @@ export default function AdminPanel() {
                 <button
                   key={c}
                   onClick={() => setPartCondition(c)}
-                  className={c === partCondition ? BTN_ORANGE : BTN_ZINC}
+                  style={c === partCondition ? btnPrimary : btnOutline}
+                  className={`rounded ${c === partCondition ? "" : "border"} px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80`}
                 >
                   {c}
                 </button>
@@ -286,45 +316,46 @@ export default function AdminPanel() {
 
             <div className="flex gap-2 items-center">
               <input
-                className={INPUT}
+                style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)", width: "60px" }}
+                className="rounded border px-2 py-1 text-sm focus:outline-none"
                 type="number"
                 min={1}
                 max={50}
                 value={partCount}
                 onChange={(e) => setPartCount(e.target.value)}
-                style={{ width: "60px" }}
               />
-              <button onClick={handleAddParts} className={BTN_ORANGE}>
+              <button onClick={handleAddParts} style={btnPrimary} className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90">
                 Add {selectedPartDef?.name ?? "Part"}
               </button>
             </div>
 
             <div className="flex gap-2 flex-wrap">
-              <button onClick={handleAddAllParts} className={BTN_ZINC}>
+              <button onClick={handleAddAllParts} style={btnOutline} className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80">
                 Add All {partCategory}s
               </button>
-              <button onClick={handleAddOneOfEverything} className={BTN_ZINC}>
+              <button onClick={handleAddOneOfEverything} style={btnOutline} className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80">
                 One of Everything
               </button>
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-zinc-800">
-              <button onClick={() => { devClearInventory(); log("Cleared inventory"); }} className={BTN_RED}>
+            <div style={{ borderColor: "var(--divider)" }} className="flex gap-2 pt-2 border-t">
+              <button onClick={() => { devClearInventory(); log("Cleared inventory"); }} style={btnDanger} className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90">
                 Clear Inventory
               </button>
-              <button onClick={() => { devClearGarage(); log("Cleared garage"); }} className={BTN_RED}>
+              <button onClick={() => { devClearGarage(); log("Cleared garage"); }} style={btnDanger} className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90">
                 Clear Garage
               </button>
             </div>
           </div>
         </div>
 
-        {/* ── Prestige ── */}
-        <div className={SECTION}>
-          <p className={LABEL}>Prestige</p>
+        {/* Prestige */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION}>
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Prestige</p>
           <div className="flex gap-2 items-center">
             <input
-              className={INPUT}
+              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
+              className="rounded border px-2 py-1 text-sm w-28 focus:outline-none"
               type="number"
               min={0}
               max={20}
@@ -339,44 +370,46 @@ export default function AdminPanel() {
                   log(`Set prestige = ${v}`);
                 }
               }}
-              className={BTN_AMBER}
+              style={btnAccent}
+              className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
             >
               Set Prestige
             </button>
           </div>
-          <p className="text-xs text-zinc-600">
+          <p style={{ color: "var(--text-muted)" }} className="text-xs">
             Adjusts prestige bonuses without resetting game state.
           </p>
         </div>
 
-        {/* ── Danger zone ── */}
-        <div className={`${SECTION} border-red-900`}>
-          <p className={`${LABEL} text-red-400`}>Danger Zone</p>
+        {/* Danger zone */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--danger)" }} className={SECTION}>
+          <p style={{ color: "var(--danger)" }} className={LABEL}>Danger Zone</p>
           <button
             onClick={() => {
               if (confirm("Full reset? This clears all progress including prestige.")) {
                 devResetSave();
-                log("🔴 Full save reset");
+                log("\ud83d\udd34 Full save reset");
               }
             }}
-            className={BTN_RED}
+            style={btnDanger}
+            className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
           >
             Full Save Reset
           </button>
-          <p className="text-xs text-zinc-600">
-            Wipes everything — scrap, rep, inventory, garage, prestige.
+          <p style={{ color: "var(--text-muted)" }} className="text-xs">
+            Wipes everything \u2014 scrap, rep, inventory, garage, prestige.
           </p>
         </div>
 
-        {/* ── Log ── */}
-        <div className={SECTION}>
-          <p className={LABEL}>Action Log</p>
+        {/* Log */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION}>
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Action Log</p>
           {addLog.length === 0 ? (
-            <p className="text-xs text-zinc-600">No actions yet.</p>
+            <p style={{ color: "var(--text-muted)" }} className="text-xs">No actions yet.</p>
           ) : (
             <div className="flex flex-col gap-1">
               {addLog.map((entry, i) => (
-                <span key={i} className="font-mono text-xs text-zinc-400">
+                <span key={i} style={{ color: "var(--text-secondary)" }} className="font-mono text-xs">
                   {entry}
                 </span>
               ))}
