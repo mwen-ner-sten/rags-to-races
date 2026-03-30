@@ -10,7 +10,6 @@ import AdminPanel from "@/components/Admin/AdminPanel";
 import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import CommunityPanel from "@/components/Community/CommunityPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
-import CommunityPanel from "@/components/Community/CommunityPanel";
 import ToastContainer from "@/components/effects/Toast";
 import { useGameStore } from "@/state/store";
 import { computeTick, TICK_MS } from "@/engine/tick";
