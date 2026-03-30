@@ -54,7 +54,7 @@ export interface CommunityChallenge {
   id: string;
   name: string;
   description: string;
-  rule: (run: CommunityRun) => boolean;
+  rule: (run: Omit<CommunityRun, "id" | "submittedAt">) => boolean;
 }
 
 const DAILY_MODIFIERS = [

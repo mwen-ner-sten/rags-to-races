@@ -9,11 +9,12 @@ import ShopPanel from "@/components/Shop/ShopPanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
 import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import CommunityPanel from "@/components/Community/CommunityPanel";
+import SettingsPanel from "@/components/Settings/SettingsPanel";
 import ToastContainer from "@/components/effects/Toast";
 import { useGameStore } from "@/state/store";
 import { computeTick, TICK_MS } from "@/engine/tick";
 
-type TabId = "junkyard" | "garage" | "race" | "community" | "workshop" | "shop" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "community" | "workshop" | "shop" | "settings" | "dev";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
@@ -56,6 +57,7 @@ export default function Home() {
         {activeTab === "community" && <CommunityPanel />}
         {activeTab === "workshop" && <WorkshopPanel />}
         {activeTab === "shop"     && <ShopPanel />}
+        {activeTab === "settings" && <SettingsPanel />}
         {activeTab === "dev"      && <AdminPanel />}
       </ThemeShell>
     </>
