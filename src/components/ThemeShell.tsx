@@ -4,9 +4,7 @@ import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
-import ThemeSwitcher from "./ThemeSwitcher";
-
-type TabId = "junkyard" | "garage" | "race" | "workshop" | "shop" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "workshop" | "shop" | "settings" | "dev";
 
 interface Props {
   activeTab: TabId;
@@ -20,6 +18,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "race",     label: "Race"     },
   { id: "workshop", label: "Workshop" },
   { id: "shop",     label: "Shop"     },
+  { id: "settings", label: "Settings" },
   { id: "dev",      label: "Dev"      },
 ];
 
@@ -534,7 +533,8 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".6rem", color: "#3a2510", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
           <span style={{ fontSize: ".5rem", color: "#2a1c0a", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -629,7 +629,8 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
           <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
           <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.15)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -729,7 +730,8 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.2)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
           <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.15)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -820,7 +822,8 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ol" style={{ fontSize: ".5rem", color: "#4a3820", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
           <span style={{ fontSize: ".42rem", color: "#3a2810", letterSpacing: ".1em", fontFamily: "'Libre Baskerville', serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -915,7 +918,8 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
           <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.15)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
           <span className="cr" style={{ fontSize: ".4rem", color: "rgba(208,216,224,.1)", letterSpacing: ".15em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1015,7 +1019,8 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
           <span className="tm" style={{ fontSize: ".85rem", color: "#185018" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
           <span className="tm" style={{ fontSize: ".7rem", color: "#103010" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1113,7 +1118,8 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
           <span className="sd" style={{ fontSize: ".75rem", color: "#4a3818", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
           <span className="sd" style={{ fontSize: ".6rem", color: "#3a2810", letterSpacing: ".1em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1207,7 +1213,8 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ss" style={{ fontSize: ".55rem", color: "#4a2820", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
           <span style={{ fontSize: ".45rem", color: "#3a1810", letterSpacing: ".1em", fontFamily: "'Quicksand', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1306,7 +1313,8 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.18)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
           <span className="ds" style={{ fontSize: ".4rem", color: "rgba(0,184,156,.12)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1400,7 +1408,8 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
           <span className="bm" style={{ fontSize: ".55rem", color: "#3a1818", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
           <span style={{ fontSize: ".45rem", color: "#2a1010", letterSpacing: ".1em", fontFamily: "'Crimson Text', serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1498,7 +1507,8 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
           <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.18)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
           <span style={{ fontSize: ".42rem", color: "rgba(232,112,152,.12)", letterSpacing: ".1em", fontFamily: "'Noto Sans JP', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1591,7 +1601,8 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
           <span style={{ fontSize: ".45rem", color: "#2a1a0a", letterSpacing: ".1em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1687,7 +1698,8 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.18)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
           <span className="ar" style={{ fontSize: ".38rem", color: "rgba(72,184,232,.12)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1791,7 +1803,8 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
           <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
           <span className="vw" style={{ fontSize: ".32rem", color: "rgba(185,103,255,.12)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
@@ -1891,7 +1904,8 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.2)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
           <span style={{ fontSize: ".42rem", color: "rgba(74,138,40,.12)", letterSpacing: ".1em", fontFamily: "'Source Code Pro', monospace" }}>v{BUILD_VERSION}</span>
         </div>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
       </footer>
     </div>
   );
