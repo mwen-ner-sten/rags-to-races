@@ -1,14 +1,17 @@
+import type { CoreSlot } from "./parts";
+
+export interface SlotConfig {
+  slot: CoreSlot;
+  required: boolean;
+  acceptableParts: string[];   // part definition IDs that fit this slot
+}
+
 export interface VehicleDefinition {
   id: string;
   name: string;
   tier: number;
   description: string;
-  requiredParts: {
-    engine: string[];   // acceptable engine part ids
-    wheel: string[];
-    frame: string[];
-    fuel: string[];
-  };
+  slots: SlotConfig[];
   baseStats: {
     speed: number;
     handling: number;
@@ -27,12 +30,10 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Push Mower",
     tier: 0,
     description: "A barely-functional push mower you found at the curb. It goes... forward. Sometimes.",
-    requiredParts: {
-      engine: ["engine_small", "engine_lawn"],
-      wheel: ["wheel_busted", "wheel_basic"],
-      frame: ["frame_scrap", "frame_mower"],
-      fuel: ["fuel_gas_can", "fuel_tank_small"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_small", "engine_lawn"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_busted", "wheel_basic"] },
+    ],
     baseStats: { speed: 5, handling: 3, reliability: 4, weight: 40 },
     unlockCondition: "Start",
     buildCost: 0,
@@ -44,12 +45,11 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Riding Mower",
     tier: 1,
     description: "You sit down on this one. Luxury.",
-    requiredParts: {
-      engine: ["engine_lawn", "engine_v4"],
-      wheel: ["wheel_basic", "wheel_sport"],
-      frame: ["frame_mower", "frame_kart"],
-      fuel: ["fuel_tank_small", "fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_lawn", "engine_v4"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_basic", "wheel_sport"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_mower", "frame_kart"] },
+    ],
     baseStats: { speed: 15, handling: 8, reliability: 12, weight: 80 },
     unlockCondition: "Build from scavenged parts",
     buildCost: 25,
@@ -61,12 +61,12 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Go-Kart",
     tier: 2,
     description: "A proper go-kart chassis welded together from salvage. Surprisingly quick.",
-    requiredParts: {
-      engine: ["engine_v4", "engine_v6"],
-      wheel: ["wheel_basic", "wheel_sport"],
-      frame: ["frame_kart", "frame_steel"],
-      fuel: ["fuel_tank_small", "fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_v4", "engine_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_basic", "wheel_sport"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_kart", "frame_steel"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_small", "fuel_tank_large"] },
+    ],
     baseStats: { speed: 35, handling: 30, reliability: 20, weight: 120 },
     unlockCondition: "Win Backyard Circuit",
     buildCost: 80,
@@ -78,12 +78,13 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Beater Car",
     tier: 3,
     description: "Four wheels, an engine that (mostly) starts, and a prayer. You're racing now.",
-    requiredParts: {
-      engine: ["engine_v4", "engine_v6"],
-      wheel: ["wheel_basic", "wheel_sport"],
-      frame: ["frame_steel"],
-      fuel: ["fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_v4", "engine_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_basic", "wheel_sport"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_steel"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: false, acceptableParts: ["elec_none", "elec_basic", "elec_ecu"] },
+    ],
     baseStats: { speed: 60, handling: 35, reliability: 30, weight: 900 },
     unlockCondition: "Reputation Level 5",
     buildCost: 200,
@@ -95,12 +96,14 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Street Racer",
     tier: 4,
     description: "A proper road car with performance mods. People notice when you pull up.",
-    requiredParts: {
-      engine: ["engine_v6", "engine_v8"],
-      wheel: ["wheel_sport", "wheel_racing"],
-      frame: ["frame_steel", "frame_carbon"],
-      fuel: ["fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_v6", "engine_v8"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_sport", "wheel_racing"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_steel", "frame_carbon"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: false, acceptableParts: ["elec_basic", "elec_ecu"] },
+      { slot: "drivetrain", required: true, acceptableParts: ["drive_chain", "drive_manual"] },
+    ],
     baseStats: { speed: 110, handling: 65, reliability: 45, weight: 1100 },
     unlockCondition: "First engine swap",
     buildCost: 600,
@@ -112,12 +115,15 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Rally Car",
     tier: 5,
     description: "Built for any terrain. Dirt, gravel, tarmac — it doesn't care.",
-    requiredParts: {
-      engine: ["engine_v6", "engine_v8", "engine_turbo_v6"],
-      wheel: ["wheel_sport", "wheel_racing"],
-      frame: ["frame_steel", "frame_carbon"],
-      fuel: ["fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_v6", "engine_v8", "engine_turbo_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_sport", "wheel_racing"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_steel", "frame_carbon"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: false, acceptableParts: ["elec_ecu", "elec_racing"] },
+      { slot: "drivetrain", required: true, acceptableParts: ["drive_manual", "drive_sequential"] },
+      { slot: "suspension", required: true, acceptableParts: ["susp_leaf", "susp_coilovers"] },
+    ],
     baseStats: { speed: 160, handling: 90, reliability: 60, weight: 1200 },
     unlockCondition: "Win Regional Circuit",
     buildCost: 1500,
@@ -129,12 +135,16 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Stock Car",
     tier: 6,
     description: "Go left. Go left. Go left. Go left. Go left.",
-    requiredParts: {
-      engine: ["engine_v8", "engine_turbo_v6"],
-      wheel: ["wheel_racing"],
-      frame: ["frame_steel", "frame_carbon"],
-      fuel: ["fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_v8", "engine_turbo_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_racing"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_steel", "frame_carbon"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: false, acceptableParts: ["elec_ecu", "elec_racing"] },
+      { slot: "drivetrain", required: true, acceptableParts: ["drive_sequential", "drive_dualclutch"] },
+      { slot: "exhaust", required: true, acceptableParts: ["exhaust_straight", "exhaust_headers"] },
+      { slot: "suspension", required: true, acceptableParts: ["susp_coilovers", "susp_adjustable"] },
+    ],
     baseStats: { speed: 220, handling: 70, reliability: 80, weight: 1450 },
     unlockCondition: "Reputation Level 20",
     buildCost: 4000,
@@ -146,12 +156,17 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Prototype Racer",
     tier: 7,
     description: "Barely street legal. Actually not street legal.",
-    requiredParts: {
-      engine: ["engine_turbo_v6"],
-      wheel: ["wheel_racing"],
-      frame: ["frame_carbon"],
-      fuel: ["fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_turbo_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_racing"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_carbon"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: true, acceptableParts: ["elec_racing"] },
+      { slot: "drivetrain", required: true, acceptableParts: ["drive_sequential", "drive_dualclutch"] },
+      { slot: "exhaust", required: true, acceptableParts: ["exhaust_headers", "exhaust_titanium"] },
+      { slot: "suspension", required: true, acceptableParts: ["susp_adjustable", "susp_active"] },
+      { slot: "aero", required: true, acceptableParts: ["aero_spoiler", "aero_diffuser", "aero_carbon"] },
+    ],
     baseStats: { speed: 320, handling: 140, reliability: 65, weight: 700 },
     unlockCondition: "Blueprints + rare parts",
     buildCost: 12000,
@@ -163,12 +178,17 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     name: "Supercar",
     tier: 8,
     description: "Built from scrap. Won on a world stage. The rags-to-races story.",
-    requiredParts: {
-      engine: ["engine_turbo_v6"],
-      wheel: ["wheel_racing"],
-      frame: ["frame_carbon"],
-      fuel: ["fuel_tank_large"],
-    },
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_turbo_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_racing"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_carbon"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: true, acceptableParts: ["elec_racing"] },
+      { slot: "drivetrain", required: true, acceptableParts: ["drive_dualclutch"] },
+      { slot: "exhaust", required: true, acceptableParts: ["exhaust_titanium"] },
+      { slot: "suspension", required: true, acceptableParts: ["susp_active"] },
+      { slot: "aero", required: true, acceptableParts: ["aero_diffuser", "aero_carbon"] },
+    ],
     baseStats: { speed: 450, handling: 200, reliability: 85, weight: 1050 },
     unlockCondition: "Win National Circuit",
     buildCost: 40000,
@@ -179,6 +199,16 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
 
 export function getVehicleById(id: string): VehicleDefinition | undefined {
   return VEHICLE_DEFINITIONS.find((v) => v.id === id);
+}
+
+/** Get the slot config for a specific slot on a vehicle */
+export function getSlotConfig(vehicleDef: VehicleDefinition, slot: CoreSlot): SlotConfig | undefined {
+  return vehicleDef.slots.find((s) => s.slot === slot);
+}
+
+/** Get all core slot names for a vehicle */
+export function getVehicleSlots(vehicleDef: VehicleDefinition): CoreSlot[] {
+  return vehicleDef.slots.map((s) => s.slot);
 }
 
 // ── Vehicle wear & repair constants ──────────────────────────────────────────

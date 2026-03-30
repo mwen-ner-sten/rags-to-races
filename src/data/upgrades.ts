@@ -153,6 +153,19 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     effect: { type: "no_swap_degrade", valuePerLevel: 1 },
     unlockRequirement: { workshopUpgradeId: "toolkit" },
   },
+
+  // ── Add-On ──
+  {
+    id: "addon_bench",
+    name: "Add-On Bench",
+    description: "Unlocks attaching and detaching add-ons on built vehicles.",
+    category: "building",
+    maxLevel: 1,
+    baseCost: 150,
+    costScaling: 1,
+    effect: { type: "unlock_addon_manage", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 8 },
+  },
 ];
 
 export function getUpgradeById(id: string): UpgradeDefinition | undefined {

@@ -1,4 +1,5 @@
-import { getPartById, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition, type CoreSlot } from "@/data/parts";
+import { getAddonById } from "@/data/addons";
 import type { VehicleDefinition } from "@/data/vehicles";
 import { CONDITION_PENALTY_THRESHOLD, REPAIR_COST_BASE, REPAIR_COST_PER_POINT_PER_TIER } from "@/data/vehicles";
 import type { ScavengedPart } from "./scavenge";
@@ -12,15 +13,15 @@ export interface VehicleStats {
   performance: number;
 }
 
+export interface InstalledPart {
+  part: ScavengedPart;
+  addons: ScavengedPart[];
+}
+
 export interface BuiltVehicle {
   id: string;
   definitionId: string;
-  parts: {
-    engine: ScavengedPart;
-    wheel: ScavengedPart;
-    frame: ScavengedPart;
-    fuel: ScavengedPart;
-  };
+  parts: Record<string, InstalledPart>;  // keyed by CoreSlot
   stats: VehicleStats;
   builtAt: number;
   condition: number;    // 0-100, starts at 100
@@ -33,19 +34,33 @@ export function calculateStats(
   vehicleCondition: number = 100,
   handlingBonusPct: number = 0,
 ): VehicleStats {
-  const slots = [parts.engine, parts.wheel, parts.frame, parts.fuel] as ScavengedPart[];
-
   let bonusPower = 0;
   let bonusReliability = 0;
+  let bonusHandling = 0;
   let totalWeight = vehicleDef.baseStats.weight;
 
-  for (const part of slots) {
-    const def = getPartById(part.definitionId);
+  for (const slotConfig of vehicleDef.slots) {
+    const installed = parts[slotConfig.slot];
+    if (!installed) continue;
+
+    const def = getPartById(installed.part.definitionId);
     if (!def) continue;
-    const mult = CONDITION_MULTIPLIERS[part.condition as PartCondition];
+    const mult = CONDITION_MULTIPLIERS[installed.part.condition as PartCondition];
     bonusPower += (def.basePower + def.baseReliability * 0.3) * mult;
     bonusReliability += def.baseReliability * mult;
     totalWeight += def.baseWeight;
+
+    // Add-on contributions
+    for (const addon of installed.addons) {
+      const addonDef = getAddonById(addon.definitionId);
+      if (!addonDef) continue;
+      const addonMult = CONDITION_MULTIPLIERS[addon.condition as PartCondition];
+      bonusPower += (addonDef.statBonuses.power ?? 0) * addonMult;
+      bonusReliability += (addonDef.statBonuses.reliability ?? 0) * addonMult;
+      bonusHandling += (addonDef.statBonuses.handling ?? 0) * addonMult;
+      // Weight is a physical property, not scaled by condition
+      totalWeight += addonDef.statBonuses.weight ?? 0;
+    }
   }
 
   // Condition penalty: below threshold, stats degrade linearly (1.0 → 0.3 at condition 0)
@@ -56,7 +71,7 @@ export function calculateStats(
 
   const weightPenalty = Math.max(0, (totalWeight - vehicleDef.baseStats.weight) / 50);
   const speed = Math.max(1, (vehicleDef.baseStats.speed + bonusPower - weightPenalty) * conditionMultiplier);
-  const rawHandling = (vehicleDef.baseStats.handling + bonusPower * 0.2) * conditionMultiplier;
+  const rawHandling = (vehicleDef.baseStats.handling + bonusPower * 0.2 + bonusHandling) * conditionMultiplier;
   const handling = Math.max(1, rawHandling * (1 + handlingBonusPct));
   const reliability = Math.max(1, vehicleDef.baseStats.reliability + bonusReliability);
   const weight = totalWeight;
@@ -108,7 +123,14 @@ export function calculateRefurbishCost(
 
   const newCondition = CONDITIONS[currentIdx + 1];
   const partDef = getPartById(part.definitionId);
-  if (!partDef) return null;
+  if (!partDef) {
+    // Might be an add-on — use addon scrap value
+    const addonDef = getAddonById(part.definitionId);
+    if (!addonDef) return null;
+    const baseCost = CONDITION_REPAIR_COST[newCondition] + Math.floor(addonDef.scrapValue * 0.5);
+    const finalCost = Math.max(1, Math.floor(baseCost * Math.max(0, 1 - costReduction)));
+    return { cost: finalCost, newCondition };
+  }
 
   const baseCost = CONDITION_REPAIR_COST[newCondition] + Math.floor(partDef.scrapValue * 0.5);
   const finalCost = Math.max(1, Math.floor(baseCost * Math.max(0, 1 - costReduction)));
