@@ -4,9 +4,7 @@ import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
-import ThemeSwitcher from "./ThemeSwitcher";
-
-type TabId = "junkyard" | "garage" | "race" | "workshop" | "shop" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "workshop" | "shop" | "settings" | "dev";
 
 interface Props {
   activeTab: TabId;
@@ -20,6 +18,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "race",     label: "Race"     },
   { id: "workshop", label: "Workshop" },
   { id: "shop",     label: "Shop"     },
+  { id: "settings", label: "Settings" },
   { id: "dev",      label: "Dev"      },
 ];
 
@@ -122,7 +121,7 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid #2a1c0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span style={{ fontSize: ".6rem", color: "#3a2510", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -214,7 +213,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,229,255,.08)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -311,7 +310,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid rgba(184,151,90,.08)", padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.2)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -399,7 +398,7 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "2px solid #2a1c0c", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="ol" style={{ fontSize: ".5rem", color: "#4a3820", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -491,7 +490,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
       <div className="cr-chrome-line" />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.15)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -588,7 +587,7 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid #185018", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="tm" style={{ fontSize: ".85rem", color: "#185018" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -683,7 +682,7 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
       <div className="sd-rally-stripe" style={{ flexShrink: 0 }} />
       <footer style={{ position: "relative", zIndex: 10, padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="sd" style={{ fontSize: ".75rem", color: "#4a3818", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -774,7 +773,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
       <div style={{ height: 2, background: "linear-gradient(90deg, #e85020 0%, #c03860 50%, #a830a0 100%)", opacity: 0.3, flexShrink: 0 }} />
       <footer style={{ padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="ss" style={{ fontSize: ".55rem", color: "#4a2820", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -870,7 +869,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,184,156,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.18)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -961,7 +960,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(192,16,32,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="bm" style={{ fontSize: ".55rem", color: "#3a1818", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -1056,7 +1055,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(232,112,152,.1) 30%, rgba(136,192,136,.06) 70%, transparent)", flexShrink: 0 }} />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.18)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -1146,7 +1145,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "2px solid #2a1a0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -1239,7 +1238,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(72,184,232,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.18)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -1340,7 +1339,7 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.8)", padding: ".65rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );
@@ -1437,7 +1436,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(74,138,40,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.2)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
-        <ThemeSwitcher />
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
       </footer>
     </div>
   );

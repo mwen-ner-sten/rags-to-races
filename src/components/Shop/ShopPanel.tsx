@@ -3,7 +3,6 @@
 import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import { calculatePrestigeBonus } from "@/engine/prestige";
-import SaveLoadPanel from "./SaveLoadPanel";
 
 export default function ShopPanel() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -114,10 +113,6 @@ export default function ShopPanel() {
       </div>
     </div>
 
-    {/* Save / Load / Export / Import */}
-    <div className="mt-2 border-t border-zinc-800 pt-6">
-      <SaveLoadPanel />
-    </div>
     </>
   );
 }
