@@ -1,6 +1,6 @@
 "use client";
 
-import { useGameStore } from "@/state/store";
+import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { calculateRefurbishCost } from "@/engine/build";
@@ -232,7 +232,8 @@ export default function ScavengePanel() {
                     <span className="font-mono text-xs text-green-400 shrink-0">${formatNumber(group.unitValue)}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {refurbBenchUnlocked && group.condition !== "rusted" && group.condition !== "pristine" && (() => {
-                        const refurbInfo = calculateRefurbishCost(group.parts[0], 0);
+                        const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
+                        const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
                         if (!refurbInfo) return null;
                         return (
                           <button
