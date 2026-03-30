@@ -9,10 +9,10 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
 import type { RaceEvent } from "@/engine/raceEvents";
 
-const RESULT_COLORS = {
-  win: "text-green-400",
-  loss: "text-yellow-400",
-  dnf: "text-red-400",
+const RESULT_STYLES: Record<string, React.CSSProperties> = {
+  win: { color: "var(--success)" },
+  loss: { color: "var(--warning)" },
+  dnf: { color: "var(--danger)" },
 };
 
 // ── Live Race View ──────────────────────────────────────────────────────
@@ -55,16 +55,22 @@ function LiveRaceView({
   const totalRacers = 8;
 
   return (
-    <div className="rounded-lg border border-orange-500/30 bg-zinc-900 p-4 space-y-3">
+    <div
+      className="rounded-lg p-4 space-y-3"
+      style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--accent-border)", background: "var(--panel-bg)" }}
+    >
       {/* Position indicator */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          <span
+            className="text-xs font-semibold uppercase tracking-wider"
+            style={{ color: "var(--text-muted)" }}
+          >
             Position
           </span>
-          <span className="font-mono text-lg font-bold text-orange-400">
+          <span className="font-mono text-lg font-bold" style={{ color: "var(--accent)" }}>
             P{position}
-            <span className="text-zinc-600 text-sm">/{totalRacers}</span>
+            <span className="text-sm" style={{ color: "var(--text-muted)" }}>/{totalRacers}</span>
           </span>
         </div>
         {/* Position bar */}
@@ -76,12 +82,15 @@ function LiveRaceView({
               <div
                 key={pos}
                 className={`h-6 flex-1 rounded text-xs font-mono flex items-center justify-center transition-all duration-300 ${
-                  isPlayer
-                    ? "bg-orange-500 text-white font-bold scale-110 shadow-lg shadow-orange-500/30"
-                    : pos < position
-                      ? "bg-zinc-700 text-zinc-500"
-                      : "bg-zinc-800 text-zinc-600"
+                  isPlayer ? "font-bold scale-110 shadow-lg" : ""
                 }`}
+                style={
+                  isPlayer
+                    ? { background: "var(--accent)", color: "var(--btn-primary-text)" }
+                    : pos < position
+                      ? { background: "var(--panel-border)", color: "var(--text-muted)" }
+                      : { background: "var(--panel-bg)", color: "var(--text-muted)" }
+                }
               >
                 {isPlayer ? "YOU" : `P${pos}`}
               </div>
@@ -94,15 +103,19 @@ function LiveRaceView({
       {currentEvent && (
         <div
           key={currentEvent.timeOffset}
-          className="animate-fade-up rounded-md bg-zinc-800/60 px-3 py-2"
+          className="animate-fade-up rounded-md px-3 py-2"
+          style={{ background: "var(--panel-bg)" }}
         >
-          <span className={`text-sm font-medium ${
-            currentEvent.type === "finish" ? "text-white font-bold" :
-            currentEvent.type === "position_change" ? "text-orange-300" :
-            currentEvent.type === "mechanical" ? "text-red-400" :
-            currentEvent.type === "close_call" ? "text-yellow-300" :
-            "text-zinc-300"
-          }`}>
+          <span
+            className={`text-sm font-medium ${currentEvent.type === "finish" ? "font-bold" : ""}`}
+            style={
+              currentEvent.type === "finish" ? { color: "var(--text-white)" } :
+              currentEvent.type === "position_change" ? { color: "var(--accent)" } :
+              currentEvent.type === "mechanical" ? { color: "var(--danger)" } :
+              currentEvent.type === "close_call" ? { color: "var(--warning)" } :
+              { color: "var(--text-heading)" }
+            }
+          >
             {currentEvent.commentary}
           </span>
         </div>
@@ -110,10 +123,10 @@ function LiveRaceView({
 
       {/* Progress bar (track) */}
       <div className="relative">
-        <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+        <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--panel-bg)" }}>
           <div
-            className="h-full rounded-full bg-gradient-to-r from-orange-600 to-orange-400 transition-all duration-100"
-            style={{ width: `${progress * 100}%` }}
+            className="h-full rounded-full transition-all duration-100"
+            style={{ width: `${progress * 100}%`, background: "linear-gradient(to right, var(--btn-primary-bg), var(--accent))" }}
           />
         </div>
         {/* Car emoji riding along */}
@@ -146,21 +159,33 @@ function OddsDisplay({
     [performance, reliability, difficulty, prestigeBonus],
   );
 
-  const winColor = odds.winChance >= 0.5 ? "text-green-400" : odds.winChance >= 0.2 ? "text-yellow-400" : "text-red-400";
-  const dnfColor = odds.dnfChance <= 0.05 ? "text-green-400" : odds.dnfChance <= 0.15 ? "text-yellow-400" : "text-red-400";
+  const winStyle: React.CSSProperties = odds.winChance >= 0.5
+    ? { color: "var(--success)" }
+    : odds.winChance >= 0.2
+      ? { color: "var(--warning)" }
+      : { color: "var(--danger)" };
+
+  const dnfStyle: React.CSSProperties = odds.dnfChance <= 0.05
+    ? { color: "var(--success)" }
+    : odds.dnfChance <= 0.15
+      ? { color: "var(--warning)" }
+      : { color: "var(--danger)" };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-zinc-800/50 px-3 py-1.5 text-xs">
-      <span className="text-zinc-500">Odds:</span>
-      <span className={`font-semibold ${winColor}`}>
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md px-3 py-1.5 text-xs"
+      style={{ background: "var(--panel-bg)" }}
+    >
+      <span style={{ color: "var(--text-muted)" }}>Odds:</span>
+      <span className="font-semibold" style={winStyle}>
         {Math.round(odds.winChance * 100)}% Win
       </span>
-      <span className="text-zinc-600">·</span>
-      <span className={`${winColor} font-medium`}>{odds.oddsLabel}</span>
+      <span style={{ color: "var(--text-muted)" }}>·</span>
+      <span className="font-medium" style={winStyle}>{odds.oddsLabel}</span>
       {odds.dnfChance > 0 && (
         <>
-          <span className="text-zinc-600">·</span>
-          <span className={dnfColor}>
+          <span style={{ color: "var(--text-muted)" }}>·</span>
+          <span style={dnfStyle}>
             {Math.round(odds.dnfChance * 100)}% DNF Risk
           </span>
         </>
@@ -174,18 +199,26 @@ function OddsDisplay({
 function StreakDisplay({ streak, best }: { streak: number; best: number }) {
   if (streak === 0 && best === 0) return null;
 
-  const intensity = streak >= 5 ? "text-red-400 animate-pulse-fire" : streak >= 3 ? "text-orange-400" : "text-yellow-500";
+  const intensityStyle: React.CSSProperties = streak >= 5
+    ? { color: "var(--danger)" }
+    : streak >= 3
+      ? { color: "var(--accent)" }
+      : { color: "var(--warning)" };
+
   const fires = streak >= 10 ? "🔥🔥🔥" : streak >= 5 ? "🔥🔥" : streak >= 1 ? "🔥" : "";
 
   return (
     <div className="flex items-center gap-2 text-xs">
       {streak > 0 && (
-        <span className={`font-bold ${intensity}`}>
+        <span
+          className={`font-bold ${streak >= 5 ? "animate-pulse-fire" : ""}`}
+          style={intensityStyle}
+        >
           {fires} {streak}W Streak
         </span>
       )}
       {best > 0 && (
-        <span className="text-zinc-600">
+        <span style={{ color: "var(--text-muted)" }}>
           Best: {best}W
         </span>
       )}
@@ -274,7 +307,10 @@ export default function RacePanel() {
 
       {/* Circuit selector */}
       <div className="col-span-1 flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+        <h2
+          className="text-sm font-semibold uppercase tracking-widest"
+          style={{ color: "var(--text-heading)" }}
+        >
           Circuits
         </h2>
         <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-x-visible lg:pb-0">
@@ -282,29 +318,34 @@ export default function RacePanel() {
             <button
               key={circuit.id}
               onClick={() => setSelectedCircuit(circuit.id)}
-              className={`shrink-0 rounded-lg border p-2.5 sm:p-3 text-left transition-colors lg:shrink ${
+              className="shrink-0 rounded-lg p-2.5 sm:p-3 text-left transition-colors lg:shrink"
+              style={
                 selectedCircuitId === circuit.id
-                  ? "border-orange-500 bg-orange-500/10"
-                  : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
-              }`}
+                  ? { borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border-active)", background: "var(--accent-bg)" }
+                  : { borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
+              }
             >
-              <div className="font-semibold text-white text-sm">{circuit.name}</div>
-              <div className="mt-0.5 text-xs text-zinc-400 hidden lg:block">{circuit.description}</div>
-              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-zinc-500">
+              <div className="font-semibold text-sm" style={{ color: "var(--text-white)" }}>{circuit.name}</div>
+              <div className="mt-0.5 text-xs hidden lg:block" style={{ color: "var(--text-heading)" }}>{circuit.description}</div>
+              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
                 <span>${formatNumber(circuit.entryFee)}</span>
                 <span>Prize: ${formatNumber(circuit.rewardBase)}</span>
                 <span>+{circuit.repReward} Rep</span>
               </div>
-              <div className="mt-0.5 text-xs text-zinc-600">
+              <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
                 T{circuit.minVehicleTier}+ vehicle
               </div>
             </button>
           ))}
         </div>
         {lockedCircuits.map((circuit) => (
-          <div key={circuit.id} className="hidden lg:block rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 opacity-50">
-            <div className="font-semibold text-zinc-500">🔒 {circuit.name}</div>
-            <div className="mt-1 text-xs text-zinc-600">
+          <div
+            key={circuit.id}
+            className="hidden lg:block rounded-lg p-3 opacity-50"
+            style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
+          >
+            <div className="font-semibold" style={{ color: "var(--text-muted)" }}>🔒 {circuit.name}</div>
+            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
               Need {circuit.unlockRepCost} Rep to unlock
             </div>
           </div>
@@ -315,39 +356,52 @@ export default function RacePanel() {
       <div className="col-span-1 lg:col-span-2 flex flex-col gap-3 sm:gap-4">
         {/* Active vehicle info */}
         {activeVehicle && activeVehicleDef ? (
-          <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 sm:p-4">
+          <div
+            className="rounded-lg p-3 sm:p-4"
+            style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
+          >
             <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-500">Racing with</span>
-              <span className="font-semibold text-white text-sm">
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Racing with</span>
+              <span className="font-semibold text-sm" style={{ color: "var(--text-white)" }}>
                 T{activeVehicleDef.tier} {activeVehicleDef.name}
               </span>
             </div>
-            <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-zinc-400 sm:flex sm:gap-4">
+            <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs sm:flex sm:gap-4" style={{ color: "var(--text-heading)" }}>
               <span>Spd: {Math.floor(activeVehicle.stats.speed)}</span>
               <span>Hnd: {Math.floor(activeVehicle.stats.handling)}</span>
               <span>Rel: {Math.floor(activeVehicle.stats.reliability)}</span>
-              <span className="font-semibold text-orange-400">
+              <span className="font-semibold" style={{ color: "var(--accent)" }}>
                 Perf: {Math.floor(activeVehicle.stats.performance)}
               </span>
-              <span className={`font-semibold ${
-                vehicleCondition > 70 ? "text-green-400" : vehicleCondition > 30 ? "text-yellow-400" : "text-red-400"
-              }`}>
+              <span
+                className="font-semibold"
+                style={
+                  vehicleCondition > 70
+                    ? { color: "var(--success)" }
+                    : vehicleCondition > 30
+                      ? { color: "var(--warning)" }
+                      : { color: "var(--danger)" }
+                }
+              >
                 Cond: {vehicleCondition}%
               </span>
             </div>
             {vehicleCondition <= 0 && (
-              <div className="mt-1.5 text-xs font-semibold text-red-400">
+              <div className="mt-1.5 text-xs font-semibold" style={{ color: "var(--danger)" }}>
                 Vehicle is broken! Repair it in the Garage tab.
               </div>
             )}
             {vehicleCondition > 0 && vehicleCondition <= 30 && (
-              <div className="mt-1.5 text-xs text-yellow-400">
+              <div className="mt-1.5 text-xs" style={{ color: "var(--warning)" }}>
                 Your vehicle is falling apart! Consider repairing.
               </div>
             )}
           </div>
         ) : (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3 sm:p-4 text-sm text-zinc-500">
+          <div
+            className="rounded-lg p-3 sm:p-4 text-sm"
+            style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)", color: "var(--text-muted)" }}
+          >
             No active vehicle. Build one in the Garage tab.
           </div>
         )}
@@ -367,18 +421,22 @@ export default function RacePanel() {
           <button
             onClick={enterRace}
             disabled={!canEnter}
-            className="rounded-lg bg-orange-600 px-6 py-2.5 font-bold text-white text-sm transition-all hover:bg-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+            className="rounded-lg px-6 py-2.5 font-bold text-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+            style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
           >
             {isRacing ? "Racing..." : "Enter Race"}
           </button>
           {autoRaceUnlocked && !isRacing && (
-            <span className="rounded bg-blue-500/20 px-2 py-1 text-xs text-blue-400">
+            <span
+              className="rounded px-2 py-1 text-xs"
+              style={{ background: "rgba(59,130,246,.2)", color: "var(--info)" }}
+            >
               Auto-race
             </span>
           )}
           <StreakDisplay streak={winStreak} best={bestWinStreak} />
           {selectedCircuit && !canEnter && !isRacing && (
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
               {!activeVehicle
                 ? "No vehicle"
                 : vehicleCondition <= 0
@@ -404,16 +462,18 @@ export default function RacePanel() {
         {/* Last result */}
         {!isRacing && lastRaceOutcome && (
           <div
-            className={`rounded-lg border p-4 ${resultAnimClass} ${
+            className={`rounded-lg p-4 ${resultAnimClass}`}
+            style={
               lastRaceOutcome.result === "win"
-                ? "border-green-800 bg-green-900/20"
+                ? { borderWidth: 1, borderStyle: "solid", borderColor: "var(--success)", background: "rgba(92,184,92,.12)" }
                 : lastRaceOutcome.result === "dnf"
-                ? "border-red-800 bg-red-900/20"
-                : "border-yellow-800 bg-yellow-900/20"
-            }`}
+                ? { borderWidth: 1, borderStyle: "solid", borderColor: "var(--danger)", background: "rgba(224,92,92,.12)" }
+                : { borderWidth: 1, borderStyle: "solid", borderColor: "var(--warning)", background: "rgba(234,179,8,.12)" }
+            }
           >
             <div
-              className={`mb-2 font-bold text-lg ${RESULT_COLORS[lastRaceOutcome.result]}`}
+              className="mb-2 font-bold text-lg"
+              style={RESULT_STYLES[lastRaceOutcome.result]}
             >
               {lastRaceOutcome.result === "win"
                 ? "🏆 WIN"
@@ -422,12 +482,19 @@ export default function RacePanel() {
                 : `P${lastRaceOutcome.position}/${lastRaceOutcome.totalRacers}`}
             </div>
             {lastRaceOutcome.log.map((line, i) => (
-              <div key={i} className={`text-sm text-zinc-300 ${i === 0 ? "" : "animate-fade-up"}`}>
+              <div
+                key={i}
+                className={`text-sm ${i === 0 ? "" : "animate-fade-up"}`}
+                style={{ color: "var(--text-heading)" }}
+              >
                 {line}
               </div>
             ))}
             {lastRaceOutcome.scrapsEarned > 0 && (
-              <div className="mt-2 inline-block animate-number-pop font-mono text-sm font-bold text-green-400">
+              <div
+                className="mt-2 inline-block animate-number-pop font-mono text-sm font-bold"
+                style={{ color: "var(--success)" }}
+              >
                 +${formatNumber(lastRaceOutcome.scrapsEarned)}
               </div>
             )}
@@ -437,20 +504,24 @@ export default function RacePanel() {
         {/* Race history */}
         {raceHistory.length > 1 && (
           <div>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            <h3
+              className="mb-2 text-xs font-semibold uppercase tracking-wider"
+              style={{ color: "var(--text-muted)" }}
+            >
               History
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {raceHistory.slice(1).map((r, i) => (
                 <span
                   key={i}
-                  className={`rounded px-2 py-0.5 text-xs font-mono ${
+                  className="rounded px-2 py-0.5 text-xs font-mono"
+                  style={
                     r.result === "win"
-                      ? "bg-green-900/30 text-green-400"
+                      ? { background: "rgba(92,184,92,.12)", color: "var(--success)" }
                       : r.result === "dnf"
-                      ? "bg-red-900/30 text-red-400"
-                      : "bg-zinc-800 text-zinc-400"
-                  }`}
+                      ? { background: "rgba(224,92,92,.12)", color: "var(--danger)" }
+                      : { background: "var(--panel-bg)", color: "var(--text-heading)" }
+                  }
                   title={r.log[0]}
                 >
                   {r.result === "win" ? "W" : r.result === "dnf" ? "X" : `P${r.position}`}
@@ -461,10 +532,10 @@ export default function RacePanel() {
         )}
 
         {/* Rep display */}
-        <div className="text-sm text-zinc-500">
-          Rep Points: <span className="font-semibold text-blue-400">{Math.floor(repPoints)}</span>
+        <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+          Rep Points: <span className="font-semibold" style={{ color: "var(--info)" }}>{Math.floor(repPoints)}</span>
           {repPoints >= 8 && !autoRaceUnlocked && (
-            <span className="ml-2 text-xs text-zinc-600">(Auto-scavenge unlocks at 8 Rep)</span>
+            <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>(Auto-scavenge unlocks at 8 Rep)</span>
           )}
         </div>
       </div>
