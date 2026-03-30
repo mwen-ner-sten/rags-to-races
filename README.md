@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rags to Races
+
+An incremental game where you garbage-pick your way from a busted lawnmower to a racing empire.
+
+## Overview
+
+Rags to Races is a browser-based idle/incremental game built with Next.js. Start by scavenging parts from curbside trash, assemble them into ramshackle vehicles, and race your way up through increasingly competitive circuits — from backyard derbies to the world championship.
+
+**Core loop:** Scavenge → Build → Race → Upgrade → Prestige → Repeat
+
+## Features
+
+- **Progressive scavenging** — Unlock 6 locations from curbside trash to military scrapyards as your reputation grows
+- **Vehicle building** — Assemble parts into vehicles ranging from push mowers to full racing machines
+- **Racing simulation** — Compete across 5 circuit tiers with dynamic race events, DNF risks, and win streaks
+- **Workshop upgrades** — 20+ upgrades across scavenging, building, racing, and maintenance categories
+- **Vehicle wear & repair** — Parts degrade over races; manage condition or risk breakdowns
+- **Prestige system** — Reset with permanent bonuses that scale with each prestige cycle
+- **Auto-play mechanics** — Unlock auto-scavenge and auto-race as you progress
+- **15+ themes** — Swap between visual skins like grease, neon, prestige, and more
+- **Mobile-responsive** — Full bottom-nav mobile layout
+- **Persistent saves** — Game state auto-saves to localStorage
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to play.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- [Next.js](https://nextjs.org) 16 — React framework
+- [React](https://react.dev) 19 — UI library
+- [TypeScript](https://www.typescriptlang.org) — Type safety
+- [Zustand](https://zustand.docs.pmnd.rs) — State management with localStorage persistence
+- [Tailwind CSS](https://tailwindcss.com) 4 — Styling
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/            # Next.js App Router (main page + design showcase)
+├── components/     # UI panels (Junkyard, Garage, Race, Workshop, Shop, Settings, Admin)
+├── engine/         # Game logic (tick, scavenge, race, build, prestige)
+├── data/           # Content definitions (vehicles, parts, locations, circuits, upgrades, themes)
+├── state/          # Zustand store
+├── hooks/          # Custom React hooks
+└── utils/          # Formatting, RNG, save/load helpers
+```
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[MIT](LICENSE)
