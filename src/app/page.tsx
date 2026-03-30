@@ -8,6 +8,7 @@ import RacePanel from "@/components/RaceTrack/RacePanel";
 import ShopPanel from "@/components/Shop/ShopPanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
 import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
+import CommunityPanel from "@/components/Community/CommunityPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import CommunityPanel from "@/components/Community/CommunityPanel";
 import ToastContainer from "@/components/effects/Toast";
