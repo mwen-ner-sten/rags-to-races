@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
+import type { VehicleDefinition } from "@/data/vehicles";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { calculateRepairCost } from "@/engine/build";
+import type { BuiltVehicle } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
-
-const SLOTS = ["engine", "wheel", "frame", "fuel"] as const;
-type Slot = (typeof SLOTS)[number];
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted: "#f87171",
@@ -84,22 +83,21 @@ export default function GaragePanel() {
   const buildReduction = _getUpgradeEffectValue(useGameStore.getState(), "bargain_builder");
   const actualBuildCost = pendingDef ? Math.max(0, Math.floor(pendingDef.buildCost * (1 - buildReduction))) : 0;
 
-  const canBuild =
-    pendingDef &&
-    pendingBuildParts.engine &&
-    pendingBuildParts.wheel &&
-    pendingBuildParts.frame &&
-    pendingBuildParts.fuel &&
+  const canBuild = pendingDef &&
+    pendingDef.slots.every((s) => !s.required || pendingBuildParts[s.slot]) &&
     scrapBucks >= actualBuildCost;
 
-  function eligibleGroups(slot: Slot): PartGroup[] {
+  function eligibleGroups(slot: string): PartGroup[] {
     if (!pendingDef) return [];
-    const allowed = pendingDef.requiredParts[slot];
-    const eligible = inventory.filter((p) => allowed.includes(p.definitionId));
+    const slotCfg = pendingDef.slots.find((s) => s.slot === slot);
+    if (!slotCfg) return [];
+    const eligible = inventory.filter((p) =>
+      p.type !== "addon" && slotCfg.acceptableParts.includes(p.definitionId),
+    );
     return groupParts(eligible);
   }
 
-  function isGroupSelected(group: PartGroup, slot: Slot): boolean {
+  function isGroupSelected(group: PartGroup, slot: string): boolean {
     const sel = pendingBuildParts[slot];
     return sel ? group.parts.some((p) => p.id === sel.id) : false;
   }
@@ -146,7 +144,8 @@ export default function GaragePanel() {
             </div>
 
             <div className="flex flex-col gap-2">
-              {SLOTS.map((slot) => {
+              {pendingDef.slots.map((slotCfg) => {
+                const slot = slotCfg.slot;
                 const selectedPart = pendingBuildParts[slot];
                 const groups = eligibleGroups(slot);
                 const totalCount = groups.reduce((n, g) => n + g.parts.length, 0);
@@ -161,7 +160,7 @@ export default function GaragePanel() {
                         className="text-xs font-semibold uppercase tracking-wider"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        {slot}
+                        {slot}{!slotCfg.required && " (optional)"}
                       </span>
                       <span className="text-xs" style={{ color: "var(--text-muted)" }}>{totalCount} parts</span>
                     </div>
@@ -283,7 +282,7 @@ function VehicleCard({
   repairVehicle,
   swapPart,
 }: {
-  vehicle: import("@/engine/build").BuiltVehicle;
+  vehicle: BuiltVehicle;
   isActive: boolean;
   scrapBucks: number;
   inventory: ScavengedPart[];
@@ -292,16 +291,18 @@ function VehicleCard({
   setActiveVehicle: (id: string) => void;
   sellVehicle: (id: string) => void;
   repairVehicle: (id: string) => void;
-  swapPart: (vehicleId: string, slot: "engine" | "wheel" | "frame" | "fuel", newPart: ScavengedPart) => void;
+  swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
 }) {
-  const [swapSlot, setSwapSlot] = useState<Slot | null>(null);
+  const [swapSlot, setSwapSlot] = useState<string | null>(null);
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
   if (!def) return null;
 
   const condition = vehicle.condition ?? 100;
-  const mult = CONDITION_MULTIPLIERS[vehicle.parts.engine.condition];
-  const engineDef = getPartById(vehicle.parts.engine.definitionId);
+  const engineInstalled = vehicle.parts["engine"];
+  const enginePart = engineInstalled?.part;
+  const mult = enginePart ? CONDITION_MULTIPLIERS[enginePart.condition] : 1;
+  const engineDef = enginePart ? getPartById(enginePart.definitionId) : null;
 
   // Repair cost
   const repairReduction = _getUpgradeEffectValue({ workshopLevels } as import("@/state/store").GameState, "budget_repairs");
@@ -339,11 +340,13 @@ function VehicleCard({
               </span>
             )}
           </div>
-          <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-            <span style={{ color: CONDITION_COLORS[vehicle.parts.engine.condition] ?? undefined }}>
-              {engineDef?.name} ({CONDITION_SHORT[vehicle.parts.engine.condition] ?? vehicle.parts.engine.condition})
-            </span>
-          </div>
+          {enginePart && (
+            <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              <span style={{ color: CONDITION_COLORS[enginePart.condition] ?? undefined }}>
+                {engineDef?.name} ({CONDITION_SHORT[enginePart.condition] ?? enginePart.condition})
+              </span>
+            </div>
+          )}
           <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs sm:flex sm:gap-4">
             <StatBadge label="Spd" value={Math.floor(vehicle.stats.speed)} />
             <StatBadge label="Hnd" value={Math.floor(vehicle.stats.handling)} />
@@ -411,9 +414,11 @@ function VehicleCard({
       {toolkitUnlocked && (
         <div className="mt-2">
           <div className="flex flex-wrap gap-1">
-            {SLOTS.map((slot) => {
-              const part = vehicle.parts[slot];
-              const partDef = getPartById(part.definitionId);
+            {def.slots.map((slotCfg) => {
+              const slot = slotCfg.slot;
+              const installed = vehicle.parts[slot];
+              if (!installed) return null;
+              const partDef = getPartById(installed.part.definitionId);
               return (
                 <button
                   key={slot}
@@ -426,19 +431,19 @@ function VehicleCard({
                   }
                 >
                   {slot}: {partDef?.name ?? "?"}{" "}
-                  <span style={{ color: CONDITION_COLORS[part.condition] ?? undefined }}>
-                    {CONDITION_SHORT[part.condition] ?? ""}
+                  <span style={{ color: CONDITION_COLORS[installed.part.condition] ?? undefined }}>
+                    {CONDITION_SHORT[installed.part.condition] ?? ""}
                   </span>
                 </button>
               );
             })}
           </div>
-          {swapSlot && (
+          {swapSlot && vehicle.parts[swapSlot] && (
             <SwapPartPicker
               vehicleId={vehicle.id}
               vehicleDef={def}
               slot={swapSlot}
-              currentPart={vehicle.parts[swapSlot]}
+              currentPart={vehicle.parts[swapSlot].part}
               inventory={inventory}
               swapPart={swapPart}
               onDone={() => setSwapSlot(null)}
@@ -462,15 +467,18 @@ function SwapPartPicker({
   onDone,
 }: {
   vehicleId: string;
-  vehicleDef: import("@/data/vehicles").VehicleDefinition;
-  slot: Slot;
+  vehicleDef: VehicleDefinition;
+  slot: string;
   currentPart: ScavengedPart;
   inventory: ScavengedPart[];
-  swapPart: (vehicleId: string, slot: Slot, newPart: ScavengedPart) => void;
+  swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   onDone: () => void;
 }) {
-  const allowed = vehicleDef.requiredParts[slot];
-  const eligible = inventory.filter((p) => allowed.includes(p.definitionId));
+  const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
+  if (!slotCfg) return null;
+  const eligible = inventory.filter((p) =>
+    p.type !== "addon" && slotCfg.acceptableParts.includes(p.definitionId),
+  );
   const groups = groupParts(eligible);
 
   if (groups.length === 0) {
