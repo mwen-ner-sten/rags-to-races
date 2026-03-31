@@ -107,10 +107,10 @@ export default function CommunityPanel() {
     }
     const encoded = exportBuildString({
       vehicleDefinitionId: activeVehicle.definitionId,
-      engineDefinitionId: activeVehicle.parts.engine.definitionId,
-      wheelDefinitionId: activeVehicle.parts.wheel.definitionId,
-      frameDefinitionId: activeVehicle.parts.frame.definitionId,
-      fuelDefinitionId: activeVehicle.parts.fuel.definitionId,
+      engineDefinitionId: activeVehicle.parts["engine"]?.part.definitionId ?? "",
+      wheelDefinitionId: activeVehicle.parts["wheel"]?.part.definitionId ?? "",
+      frameDefinitionId: activeVehicle.parts["frame"]?.part.definitionId ?? "",
+      fuelDefinitionId: activeVehicle.parts["fuel"]?.part.definitionId ?? "",
     });
     await navigator.clipboard.writeText(encoded);
     setStatus("Build string copied.");
