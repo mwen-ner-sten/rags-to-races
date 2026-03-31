@@ -8,19 +8,30 @@ import type { RaceOutcome } from "@/engine/race";
 import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus } from "@/engine/prestige";
 import type { PartCondition, CoreSlot } from "@/data/parts";
+import { CONDITIONS } from "@/data/parts";
 import type { InstalledPart } from "@/engine/build";
 import type { GearSlot } from "@/data/gear";
 import { getGearById, DEFAULT_EQUIPPED_GEAR, DEFAULT_OWNED_GEAR } from "@/data/gear";
 import { getGearBonuses } from "@/engine/gear";
 import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
-import { scavenge } from "@/engine/scavenge";
+import { scavenge, makePartId } from "@/engine/scavenge";
 import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition } from "@/engine/build";
 import { simulateRace, calculateWear } from "@/engine/race";
+import { decomposePart, decomposeMany } from "@/engine/decompose";
 import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
 import { getVehicleById } from "@/data/vehicles";
 import { getUpgradeById, getUpgradeCost } from "@/data/upgrades";
+import { INITIAL_MATERIALS, type MaterialType } from "@/data/materials";
+import type { DealerListing } from "@/data/dealer";
+import { generateDealerBoard, shouldRefreshDealer, DEALER_UNLOCK_REP } from "@/data/dealer";
+import { CHALLENGE_DEFINITIONS, SNAPSHOT_TRACKING_KEYS, type ChallengeRewardType } from "@/data/challenges";
+import { calculateEnhancementCost, canAffordEnhancement, ARTIFACT_FORGE_COST, ARTIFACT_FORGE_TOKEN_COST } from "@/data/enhancement";
+import type { CraftRecipe } from "@/data/craftRecipes";
+import { canAffordRecipe } from "@/data/craftRecipes";
+import { PART_DEFINITIONS } from "@/data/parts";
+import { randInt } from "@/utils/random";
 
 export interface GameState {
   // Currency
@@ -84,6 +95,33 @@ export interface GameState {
   // Vehicle build counter (for unique IDs)
   _vehicleIdCounter: number;
 
+  // ── New systems ─────────────────────────────────────────────────────────────
+
+  /** Salvage materials (persists through prestige) */
+  materials: Record<MaterialType, number>;
+
+  /** Forge Tokens — used in Artifact Forge (persists through prestige) */
+  forgeTokens: number;
+
+  /** Dealer board listings (refreshes every 30 ticks when unlocked) */
+  dealerBoard: DealerListing[];
+
+  /** Current game tick (increments each tick for dealer refresh) */
+  gameTick: number;
+
+  /** Completed challenge IDs */
+  completedChallenges: string[];
+
+  /** Progress tracking for active challenges (cumulative counters) */
+  challengeProgress: Record<string, number>;
+
+  // Lifetime stats (for challenge tracking, persist through prestige)
+  lifetimeTotalDecomposed: number;
+  lifetimeTotalEnhanced: number;
+  lifetimeTotalTradeUps: number;
+  lifetimeTotalRaceSalvage: number;
+  highestConditionReached: number; // index into CONDITIONS
+
   // Actions
   manualScavenge: () => void;
   sellPart: (partId: string) => void;
@@ -107,6 +145,18 @@ export interface GameState {
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
   applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => void;
+
+  // ── New system actions ───────────────────────────────────────────────────────
+  decomposePart: (partId: string) => void;
+  decomposeAllJunk: () => void;
+  enhancePart: (partId: string) => void;
+  forgePart: (partId: string) => void;
+  craftPart: (recipe: CraftRecipe) => void;
+  tradeUpParts: (partIds: [string, string, string]) => void;
+  buyFromDealer: (listingId: string) => void;
+  refreshDealer: () => void;
+  convertScrapToMaterial: (material: MaterialType) => void;
+  purchaseFatigueDrink: () => void;
 
   // Dev / admin actions
   devSetScrapBucks: (amount: number) => void;
@@ -158,6 +208,19 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     unlockedCircuitIds: ["backyard_derby"],
     unlockedVehicleIds: ["push_mower"],
     _vehicleIdCounter: 0,
+    // New systems — defaults used on fresh game start.
+    // On prestige, these are overridden explicitly to preserve cross-prestige fields.
+    materials: { ...INITIAL_MATERIALS },
+    forgeTokens: 0,
+    dealerBoard: [],
+    gameTick: 0,
+    completedChallenges: [],
+    challengeProgress: {},
+    lifetimeTotalDecomposed: 0,
+    lifetimeTotalEnhanced: 0,
+    lifetimeTotalTradeUps: 0,
+    lifetimeTotalRaceSalvage: 0,
+    highestConditionReached: 0,
   };
 }
 
@@ -177,6 +240,30 @@ export function _getUpgradeEffectValue(state: GameState, upgradeId: string): num
 export function calculateFatigue(lifetimeRaces: number): number {
   if (lifetimeRaces <= 0) return 0;
   return Math.min(99, Math.floor(25 * Math.log2(1 + lifetimeRaces / 25)));
+}
+
+/**
+ * Check all challenge definitions against the current progress snapshot.
+ * Returns newly-completed challenge IDs and their combined rewards.
+ */
+function checkChallenges(
+  state: Pick<GameState, "completedChallenges">,
+  progress: Record<string, number>,
+  alreadyCompleted: string[],
+): { completed: string[]; rewards: ChallengeRewardType[] } {
+  const completed: string[] = [];
+  const rewards: ChallengeRewardType[] = [];
+
+  for (const challenge of CHALLENGE_DEFINITIONS) {
+    if (alreadyCompleted.includes(challenge.id) || completed.includes(challenge.id)) continue;
+    const current = progress[challenge.trackingKey] ?? 0;
+    if (current >= challenge.target) {
+      completed.push(challenge.id);
+      rewards.push(...challenge.rewards);
+    }
+  }
+
+  return { completed, rewards };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -328,7 +415,19 @@ function createActions(set: any, get: any) {
 
       // Pre-compute the outcome immediately so the UI can animate it
       const gb = getGearBonuses(state.equippedGear);
-      const outcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, state.fatigue, gb.race_performance_pct, gb.race_dnf_reduction);
+      // Scavenger's Eye upgrade increases salvage drop chance and max condition
+      const scavengerEyeLevel = _getUpgradeLevel(state, "scavengers_eye");
+      const salvageDropChance = scavengerEyeLevel >= 1 ? 0.30 : 0.15;
+      const salvageMaxCondition = scavengerEyeLevel >= 1 ? 2 : 1;
+      const outcome = simulateRace(
+        vehicle, circuit,
+        state.prestigeBonus.scrapMultiplier,
+        state.fatigue,
+        gb.race_performance_pct,
+        gb.race_dnf_reduction,
+        salvageDropChance,
+        salvageMaxCondition,
+      );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
 
@@ -429,12 +528,40 @@ function createActions(set: any, get: any) {
           const newLifetimeRaces = s.lifetimeRaces + 1;
           const newFatigue = calculateFatigue(newLifetimeRaces);
 
+          // Salvage drop and forge token from race
+          const newInventory = outcome.salvageDrop
+            ? [...s.inventory, outcome.salvageDrop]
+            : s.inventory;
+          const newForgeTokens = s.forgeTokens + (outcome.forgeTokenDrop ? 1 : 0);
+          const newRaceSalvage = s.lifetimeTotalRaceSalvage + (outcome.salvageDrop ? 1 : 0);
+
+          // Challenge tracking for win streaks, fatigue, lifetimeRaces
+          const newChallengeProgress = {
+            ...s.challengeProgress,
+            winStreak: newStreak,
+            fatigue: newFatigue,
+            lifetimeRaces: newLifetimeRaces,
+            totalRaceSalvage: newRaceSalvage,
+          };
+          const { completed: newCompleted, rewards } = checkChallenges(s, newChallengeProgress, s.completedChallenges);
+          const challengeScrap = rewards.reduce((acc, r) => acc + (r.type === "scrap" ? r.amount : 0), 0);
+          const challengeMatRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
+          const challengeTokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+          const newMaterials = { ...s.materials };
+          for (const mr of challengeMatRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+
+          // Dealer board auto-refresh
+          const newTick = s.gameTick + 1;
+          const newDealerBoard = (s.repPoints >= DEALER_UNLOCK_REP && shouldRefreshDealer(s.dealerBoard, newTick))
+            ? generateDealerBoard(newRep, newTick)
+            : s.dealerBoard;
+
           return {
             isRacing: false,
             lastRaceOutcome: outcome,
             raceHistory: [outcome, ...s.raceHistory].slice(0, 20),
-            scrapBucks: s.scrapBucks + finalScraps,
-            lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps,
+            scrapBucks: s.scrapBucks + finalScraps + challengeScrap,
+            lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps + challengeScrap,
             repPoints: newRep,
             unlockedCircuitIds: newUnlockedCircuits,
             unlockedLocationIds: newUnlockedLocations,
@@ -450,6 +577,14 @@ function createActions(set: any, get: any) {
             garage: updatedGarage,
             lifetimeRaces: newLifetimeRaces,
             fatigue: newFatigue,
+            inventory: newInventory,
+            forgeTokens: newForgeTokens + challengeTokenRewards.reduce((t, r) => t + r.amount, 0),
+            lifetimeTotalRaceSalvage: newRaceSalvage,
+            challengeProgress: newChallengeProgress,
+            completedChallenges: [...s.completedChallenges, ...newCompleted],
+            materials: newMaterials,
+            gameTick: newTick,
+            dealerBoard: newDealerBoard,
           };
         });
       }, circuit.raceDuration);
@@ -603,9 +738,17 @@ function createActions(set: any, get: any) {
     prestige: () => {
       const state = get() as GameState;
       const kept = doPrestige(state.prestigeCount);
+      const newPrestigeCount = kept.prestigeCount;
+      const newProgress = { ...state.challengeProgress, prestigeCount: newPrestigeCount };
+      const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
+      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
+      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+      const newMaterials = { ...state.materials };
+      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+
       set({
         ...initialState(),
-        prestigeCount: kept.prestigeCount,
+        prestigeCount: newPrestigeCount,
         prestigeBonus: kept.bonuses,
         workshopLevels: {},
         unlockedVehicleIds: ["push_mower"],
@@ -616,6 +759,22 @@ function createActions(set: any, get: any) {
         // Gear persists through prestige
         equippedGear: state.equippedGear,
         ownedGearIds: state.ownedGearIds,
+        // New systems: materials, tokens, challenges persist
+        materials: newMaterials,
+        forgeTokens: state.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        completedChallenges: [...state.completedChallenges, ...completed],
+        challengeProgress: {
+          ...newProgress,
+          // Reset per-run trackers
+          fatigueDrinksPurchased: 0,
+        },
+        lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
+        lifetimeTotalEnhanced: state.lifetimeTotalEnhanced,
+        lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
+        lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
+        highestConditionReached: state.highestConditionReached,
+        dealerBoard: [],
+        gameTick: 0,
       });
     },
 
@@ -652,6 +811,302 @@ function createActions(set: any, get: any) {
           fatigue: newFatigue,
         };
       });
+    },
+
+    // ── Challenge helpers ────────────────────────────────────────────────────
+
+    // Internal helper: check and award challenges based on current state snapshot.
+    // Called after any state-changing action that could complete a challenge.
+
+    // ── New system actions ───────────────────────────────────────────────────
+
+    decomposePart: (partId: string) => {
+      const state = get() as GameState;
+      const part = state.inventory.find((p) => p.id === partId);
+      if (!part) return;
+
+      const result = decomposePart(part, state.fatigue);
+      if (!result) return;
+
+      const newMaterials = { ...state.materials };
+      for (const [mat, qty] of Object.entries(result.materials) as [MaterialType, number][]) {
+        newMaterials[mat] = (newMaterials[mat] ?? 0) + qty;
+      }
+
+      const newDecomposed = state.lifetimeTotalDecomposed + 1;
+      const newProgress = { ...state.challengeProgress, totalDecomposed: newDecomposed };
+      const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
+      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
+      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
+      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+
+      set((s: GameState) => ({
+        inventory: s.inventory.filter((p) => p.id !== partId),
+        materials: newMaterials,
+        lifetimeTotalDecomposed: newDecomposed,
+        challengeProgress: newProgress,
+        completedChallenges: [...s.completedChallenges, ...completed],
+        scrapBucks: s.scrapBucks + scrapReward,
+        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+      }));
+    },
+
+    decomposeAllJunk: () => {
+      const state = get() as GameState;
+      const cost = 50;
+      if (state.scrapBucks < cost) return;
+      const junk = state.inventory.filter((p) => p.condition === "rusted" || p.condition === "worn");
+      if (junk.length === 0) return;
+
+      const { materials: matYield, count } = decomposeMany(junk, state.fatigue);
+      const newMaterials = { ...state.materials };
+      for (const [mat, qty] of Object.entries(matYield) as [MaterialType, number][]) {
+        newMaterials[mat] = (newMaterials[mat] ?? 0) + qty;
+      }
+      const junkIds = new Set(junk.map((p) => p.id));
+      const newDecomposed = state.lifetimeTotalDecomposed + count;
+      const newProgress = { ...state.challengeProgress, totalDecomposed: newDecomposed };
+      const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
+      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
+      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
+      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+
+      set((s: GameState) => ({
+        inventory: s.inventory.filter((p) => !junkIds.has(p.id)),
+        materials: newMaterials,
+        scrapBucks: s.scrapBucks - cost + scrapReward,
+        lifetimeTotalDecomposed: newDecomposed,
+        challengeProgress: newProgress,
+        completedChallenges: [...s.completedChallenges, ...completed],
+        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+      }));
+    },
+
+    enhancePart: (partId: string) => {
+      const state = get() as GameState;
+      if (_getUpgradeLevel(state, "tuning_bench") < 1) return;
+      const part = state.inventory.find((p) => p.id === partId);
+      if (!part) return;
+      const condIdx = CONDITIONS.indexOf(part.condition as PartCondition);
+      if (condIdx < 0 || condIdx >= 7) return; // can't enhance beyond mythic (artifact = forge)
+
+      // Look up part category
+      const def = PART_DEFINITIONS.find((d) => d.id === part.definitionId);
+      if (!def) return;
+
+      const targetIdx = condIdx + 1;
+      const cost = calculateEnhancementCost(targetIdx, def.category, state.fatigue);
+      if (!cost) return;
+      if (!canAffordEnhancement(cost, state.materials)) return;
+
+      const newMaterials = { ...state.materials };
+      for (const [mat, qty] of Object.entries(cost) as [MaterialType, number][]) {
+        newMaterials[mat] = Math.max(0, (newMaterials[mat] ?? 0) - qty);
+      }
+      const newCondition = CONDITIONS[targetIdx] as PartCondition;
+      const newHighest = Math.max(state.highestConditionReached, targetIdx);
+      const newEnhanced = state.lifetimeTotalEnhanced + 1;
+      const newProgress = {
+        ...state.challengeProgress,
+        totalEnhanced: newEnhanced,
+        highestConditionReached: newHighest,
+      };
+      const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
+      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
+      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
+      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+
+      set((s: GameState) => ({
+        inventory: s.inventory.map((p) => p.id !== partId ? p : { ...p, condition: newCondition }),
+        materials: newMaterials,
+        highestConditionReached: newHighest,
+        lifetimeTotalEnhanced: newEnhanced,
+        challengeProgress: newProgress,
+        completedChallenges: [...s.completedChallenges, ...completed],
+        scrapBucks: s.scrapBucks + scrapReward,
+        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+      }));
+    },
+
+    forgePart: (partId: string) => {
+      const state = get() as GameState;
+      if (_getUpgradeLevel(state, "artifact_forge") < 1) return;
+      const part = state.inventory.find((p) => p.id === partId);
+      if (!part || part.condition !== "mythic") return;
+      if (state.forgeTokens < ARTIFACT_FORGE_TOKEN_COST) return;
+      if (!canAffordEnhancement(ARTIFACT_FORGE_COST, state.materials)) return;
+
+      const newMaterials = { ...state.materials };
+      for (const [mat, qty] of Object.entries(ARTIFACT_FORGE_COST) as [MaterialType, number][]) {
+        newMaterials[mat] = Math.max(0, (newMaterials[mat] ?? 0) - qty);
+      }
+      const newHighest = Math.max(state.highestConditionReached, 8);
+      const newProgress = { ...state.challengeProgress, highestConditionReached: newHighest };
+      const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
+      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
+      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+
+      set((s: GameState) => ({
+        inventory: s.inventory.map((p) => p.id !== partId ? p : { ...p, condition: "artifact" as PartCondition }),
+        materials: newMaterials,
+        forgeTokens: s.forgeTokens - ARTIFACT_FORGE_TOKEN_COST + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        highestConditionReached: newHighest,
+        challengeProgress: newProgress,
+        completedChallenges: [...s.completedChallenges, ...completed],
+        scrapBucks: s.scrapBucks + scrapReward,
+      }));
+    },
+
+    craftPart: (recipe: CraftRecipe) => {
+      const state = get() as GameState;
+      if (_getUpgradeLevel(state, "parts_bin") < 1) return;
+      if (!canAffordRecipe(recipe, state.materials)) return;
+
+      // Pick a random part definition from the recipe's category at T0/T1
+      const eligible = PART_DEFINITIONS.filter(
+        (d) => d.category === recipe.category && d.minTier <= 1,
+      );
+      if (eligible.length === 0) return;
+      const def = eligible[randInt(0, eligible.length - 1)];
+
+      const newPart: ScavengedPart = {
+        id: makePartId(),
+        definitionId: def.id,
+        condition: recipe.resultCondition as PartCondition,
+        foundAt: "craft_bench",
+        type: "part",
+      };
+
+      const newMaterials = { ...state.materials };
+      for (const [mat, qty] of Object.entries(recipe.cost) as [MaterialType, number][]) {
+        newMaterials[mat] = Math.max(0, (newMaterials[mat] ?? 0) - qty);
+      }
+
+      set((s: GameState) => ({
+        inventory: [...s.inventory, newPart],
+        materials: newMaterials,
+      }));
+    },
+
+    tradeUpParts: (partIds: [string, string, string]) => {
+      const state = get() as GameState;
+      if (_getUpgradeLevel(state, "parts_trader") < 1) return;
+
+      const parts = partIds.map((id) => state.inventory.find((p) => p.id === id)).filter(Boolean) as ScavengedPart[];
+      if (parts.length !== 3) return;
+
+      // All 3 must be same category and same condition
+      const condition = parts[0].condition as PartCondition;
+      const condIdx = CONDITIONS.indexOf(condition);
+      if (condIdx < 0 || condIdx >= 5) return; // trade-up caps at polished (5)
+
+      const defs = parts.map((p) => PART_DEFINITIONS.find((d) => d.id === p.definitionId));
+      if (defs.some((d) => !d)) return;
+      const category = defs[0]!.category;
+      if (!defs.every((d) => d?.category === category)) return;
+      if (!parts.every((p) => p.condition === condition)) return;
+
+      const targetCondition = CONDITIONS[condIdx + 1] as PartCondition;
+      const eligible = PART_DEFINITIONS.filter((d) => d.category === category && d.minTier <= 1);
+      if (eligible.length === 0) return;
+      const def = eligible[randInt(0, eligible.length - 1)];
+
+      const newPart: ScavengedPart = {
+        id: makePartId(),
+        definitionId: def.id,
+        condition: targetCondition,
+        foundAt: "trade_up",
+        type: "part",
+      };
+
+      const usedIds = new Set(partIds);
+      const newTradeUps = state.lifetimeTotalTradeUps + 1;
+      const newProgress = { ...state.challengeProgress, totalTradeUps: newTradeUps };
+      const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
+      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
+      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
+      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+      const newMaterials = { ...state.materials };
+      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+
+      set((s: GameState) => ({
+        inventory: [...s.inventory.filter((p) => !usedIds.has(p.id)), newPart],
+        lifetimeTotalTradeUps: newTradeUps,
+        challengeProgress: newProgress,
+        completedChallenges: [...s.completedChallenges, ...completed],
+        scrapBucks: s.scrapBucks + scrapReward,
+        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        materials: newMaterials,
+      }));
+    },
+
+    buyFromDealer: (listingId: string) => {
+      const state = get() as GameState;
+      if (state.repPoints < DEALER_UNLOCK_REP) return;
+      const listing = state.dealerBoard.find((l) => l.id === listingId);
+      if (!listing) return;
+      if (state.scrapBucks < listing.price) return;
+
+      const newPart: ScavengedPart = {
+        id: makePartId(),
+        definitionId: listing.definitionId,
+        condition: listing.condition as PartCondition,
+        foundAt: "dealer",
+        type: "part",
+      };
+
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - listing.price,
+        inventory: [...s.inventory, newPart],
+        dealerBoard: s.dealerBoard.filter((l) => l.id !== listingId),
+      }));
+    },
+
+    refreshDealer: () => {
+      const state = get() as GameState;
+      const cost = 300;
+      if (state.scrapBucks < cost) return;
+      if (state.repPoints < DEALER_UNLOCK_REP) return;
+      const newBoard = generateDealerBoard(state.repPoints, state.gameTick);
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - cost,
+        dealerBoard: newBoard,
+      }));
+    },
+
+    convertScrapToMaterial: (material: MaterialType) => {
+      const state = get() as GameState;
+      const cost = 200;
+      const yield_ = 5;
+      // Only basic materials can be purchased with scrap
+      const basicMaterials: MaterialType[] = ["metalScrap", "rubberCompound", "greaseSludge"];
+      if (!basicMaterials.includes(material)) return;
+      if (state.scrapBucks < cost) return;
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - cost,
+        materials: { ...s.materials, [material]: (s.materials[material] ?? 0) + yield_ },
+      }));
+    },
+
+    purchaseFatigueDrink: () => {
+      const state = get() as GameState;
+      const cost = 500;
+      const maxPurchasesPerRun = 3;
+      const purchased = state.challengeProgress["fatigueDrinksPurchased"] ?? 0;
+      if (purchased >= maxPurchasesPerRun) return;
+      if (state.scrapBucks < cost) return;
+      if (state.fatigue <= 0) return;
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - cost,
+        fatigue: Math.max(0, s.fatigue - 10),
+        challengeProgress: {
+          ...s.challengeProgress,
+          fatigueDrinksPurchased: purchased + 1,
+        },
+      }));
     },
 
     // ── Dev / admin actions ──────────────────────────────────────────────────
@@ -776,6 +1231,18 @@ export const useGameStore = create<GameState>()(
         equippedGear: state.equippedGear,
         ownedGearIds: state.ownedGearIds,
         pendingBuildVehicleId: state.pendingBuildVehicleId,
+        // New systems (all persist)
+        materials: state.materials,
+        forgeTokens: state.forgeTokens,
+        dealerBoard: state.dealerBoard,
+        gameTick: state.gameTick,
+        completedChallenges: state.completedChallenges,
+        challengeProgress: state.challengeProgress,
+        lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
+        lifetimeTotalEnhanced: state.lifetimeTotalEnhanced,
+        lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
+        lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
+        highestConditionReached: state.highestConditionReached,
       }),
     },
   ),

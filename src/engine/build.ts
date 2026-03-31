@@ -123,7 +123,9 @@ export function calculateRefurbishCost(
   costReduction: number,
 ): { cost: number; newCondition: PartCondition } | null {
   const currentIdx = CONDITIONS.indexOf(part.condition as PartCondition);
-  if (currentIdx <= 0 || currentIdx >= CONDITIONS.length - 1) return null;
+  // Refurbishment bench caps at "good" (index 3). Reaching pristine requires the Enhancement system.
+  const REFURB_CAP = 3;
+  if (currentIdx <= 0 || currentIdx >= REFURB_CAP) return null;
 
   const newCondition = CONDITIONS[currentIdx + 1];
   const partDef = getPartById(part.definitionId);

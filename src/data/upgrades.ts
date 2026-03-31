@@ -166,6 +166,65 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     effect: { type: "unlock_addon_manage", valuePerLevel: 1 },
     unlockRequirement: { repPoints: 8 },
   },
+
+  // ── New: Decomposition & Enhancement ────────────────────────────────────────
+  {
+    id: "tuning_bench",
+    name: "Tuning Bench",
+    description: "Unlocks part enhancement — spend salvage materials to upgrade a part's condition tier.",
+    category: "building",
+    maxLevel: 1,
+    baseCost: 1500,
+    costScaling: 1,
+    effect: { type: "unlock_enhancement", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 5000 },
+  },
+  {
+    id: "parts_bin",
+    name: "Parts Bin",
+    description: "Unlocks salvage crafting — spend materials to fabricate a random part in any category.",
+    category: "building",
+    maxLevel: 1,
+    baseCost: 3000,
+    costScaling: 1,
+    effect: { type: "unlock_crafting", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 15000 },
+  },
+  {
+    id: "parts_trader",
+    name: "Parts Trader",
+    description: "Unlocks the trade-up system — combine 3 parts of the same category and condition into 1 of the next tier.",
+    category: "building",
+    maxLevel: 1,
+    baseCost: 8000,
+    costScaling: 1,
+    effect: { type: "unlock_tradeup", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 50000 },
+  },
+  {
+    id: "artifact_forge",
+    name: "Artifact Forge",
+    description: "Unlocks the Artifact Forge — spend a Forge Token and rare materials to push Mythic parts to Artifact tier.",
+    category: "building",
+    maxLevel: 1,
+    baseCost: 50000,
+    costScaling: 1,
+    effect: { type: "unlock_artifact_forge", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 150000 },
+  },
+
+  // ── New: Scavenging enhancements ─────────────────────────────────────────────
+  {
+    id: "scavengers_eye",
+    name: "Scavenger's Eye",
+    description: "Race salvage drop chance increases to 30% and max condition improves to Decent.",
+    category: "scavenging",
+    maxLevel: 1,
+    baseCost: 2500,
+    costScaling: 1,
+    effect: { type: "salvage_drop_upgrade", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 10000 },
+  },
 ];
 
 export function getUpgradeById(id: string): UpgradeDefinition | undefined {
