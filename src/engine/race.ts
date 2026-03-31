@@ -45,8 +45,10 @@ export function calculateOdds(
   reliability: number,
   difficulty: number,
   prestigeBonus: number = 1,
+  fatigue: number = 0,
 ): { winChance: number; dnfChance: number; oddsLabel: string } {
-  const effectivePerformance = performance * prestigeBonus;
+  const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
+  const effectivePerformance = performance * prestigeBonus * fatigueMult;
   const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2)));
   const dnfChance = Math.max(0, 0.3 - reliability / 200);
 
@@ -66,6 +68,7 @@ export function simulateRace(
   vehicle: BuiltVehicle,
   circuit: CircuitDefinition,
   prestigeBonus: number = 1,
+  fatigue: number = 0,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
@@ -84,8 +87,9 @@ export function simulateRace(
     };
   }
 
-  // Win chance: performance vs difficulty
-  const effectivePerformance = performance * prestigeBonus;
+  // Win chance: performance vs difficulty (fatigue reduces effective performance)
+  const fatigueMult = 1 - fatigue * 0.005;
+  const effectivePerformance = performance * prestigeBonus * fatigueMult;
   const difficultyThreshold = circuit.difficulty * 2;
   const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / difficultyThreshold));
 
@@ -117,6 +121,7 @@ export function calculateWear(
   vehicle: BuiltVehicle,
   result: RaceResult,
   wearReductionPct: number,
+  fatigue: number = 0,
 ): number {
   let wear = BASE_WEAR_PER_RACE;
   if (result === "dnf") wear += DNF_WEAR_BONUS;
@@ -129,6 +134,9 @@ export function calculateWear(
 
   // Workshop upgrade reduction
   wear *= Math.max(0, 1 - wearReductionPct);
+
+  // Fatigue increases wear (tired mechanic = sloppier work)
+  wear *= (1 + fatigue * 0.008);
 
   return Math.round(Math.max(1, wear));
 }

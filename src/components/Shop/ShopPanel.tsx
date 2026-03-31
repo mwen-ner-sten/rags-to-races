@@ -12,12 +12,13 @@ export default function ShopPanel() {
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
   const garage = useGameStore((s) => s.garage);
   const inventory = useGameStore((s) => s.inventory);
+  const fatigue = useGameStore((s) => s.fatigue);
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const prestige = useGameStore((s) => s.prestige);
 
   const nextPrestigeBonus = calculatePrestigeBonus(prestigeCount + 1);
 
-  const canPrestige = garage.length >= 1 && repPoints >= 10 && lifetimeScrapBucks >= 100;
+  const canPrestige = garage.length >= 1 && repPoints >= 25 && lifetimeScrapBucks >= 500;
 
   return (
     <>
@@ -92,6 +93,15 @@ export default function ShopPanel() {
             Reset everything but keep permanent bonuses. Each prestige makes the early game faster
             and unlocks deeper mechanics.
           </p>
+          {fatigue > 25 && (
+            <p style={{ color: fatigue > 75 ? "var(--danger)" : fatigue > 50 ? "var(--warning)" : "var(--text-secondary)" }} className="text-sm mb-3 italic">
+              {fatigue > 75
+                ? "Your mechanic can barely keep their eyes open. A fresh start would do wonders."
+                : fatigue > 50
+                  ? "Exhaustion is taking its toll. Consider a fresh start."
+                  : "Your mechanic is getting tired..."}
+            </p>
+          )}
           {canPrestige ? (
             <div style={{ color: "var(--text-secondary)" }} className="mb-3 text-xs">
               <p style={{ color: "var(--accent)" }} className="font-semibold mb-1">You will gain:</p>
@@ -101,7 +111,7 @@ export default function ShopPanel() {
             </div>
           ) : (
             <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-              Requirements: 1 vehicle built, 10 Rep, $100 lifetime Scrap Bucks
+              Requirements: 1 vehicle built, 25 Rep, $500 lifetime Scrap Bucks
             </p>
           )}
           <button

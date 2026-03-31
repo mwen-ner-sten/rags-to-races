@@ -19,10 +19,12 @@ export function makePartId(): string {
 export function scavenge(
   location: LocationDefinition,
   luckBonus: number = 0,   // 0–1 additive to rarityBias
+  fatigue: number = 0,     // 0–99 fatigue penalty
 ): ScavengedPart[] {
   const count = randInt(1, location.maxPartsPerScavenge);
   const results: ScavengedPart[] = [];
-  const effectiveRarity = Math.min(1, location.rarityBias + luckBonus);
+  const fatiguePenalty = fatigue * 0.005; // at 50 fatigue: -0.25 rarity
+  const effectiveRarity = Math.max(0, Math.min(1, location.rarityBias + luckBonus - fatiguePenalty));
 
   for (let i = 0; i < count; i++) {
     // Pick category by drop rate weights
