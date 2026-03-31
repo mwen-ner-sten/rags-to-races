@@ -14,6 +14,7 @@ export const THEMES: ThemeEntry[] = [
   { id: "prestige",  label: "Prestige",   color: "#b8975a", bg: "#080810", border: "rgba(184,151,90,.4)" },
   { id: "vaporwave", label: "Vapor",      color: "#ff71ce", bg: "#1a0030", border: "rgba(255,113,206,.4)" },
   { id: "terminal",  label: "Terminal",   color: "#40d840", bg: "#000800", border: "rgba(64,216,64,.4)"   },
+  { id: "midnight",  label: "Midnight",  color: "#3b82f6", bg: "#080c18", border: "rgba(59,130,246,.4)"  },
 ];
 
 // Hidden themes — kept for future use, not shown in settings

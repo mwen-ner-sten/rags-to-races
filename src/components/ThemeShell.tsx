@@ -433,6 +433,33 @@ const THEME_VARS: Record<Theme, Record<string, string>> = {
     "--input-focus": "#d89030",
     "--divider": "#2a1c08",
   },
+  midnight: {
+    "--panel-bg": "rgba(8,14,30,.75)",
+    "--panel-border": "rgba(59,130,246,.18)",
+    "--panel-border-active": "#3b82f6",
+    "--text-primary": "#b0c4dc",
+    "--text-secondary": "rgba(59,130,246,.6)",
+    "--text-muted": "rgba(59,130,246,.42)",
+    "--text-heading": "#3b82f6",
+    "--text-white": "#d8e4f0",
+    "--accent": "#3b82f6",
+    "--accent-secondary": "#f59e0b",
+    "--accent-bg": "rgba(59,130,246,.1)",
+    "--accent-border": "rgba(59,130,246,.4)",
+    "--btn-primary-bg": "#3b82f6",
+    "--btn-primary-text": "#080c18",
+    "--btn-primary-hover": "#5b9af6",
+    "--btn-border": "rgba(59,130,246,.28)",
+    "--btn-border-hover": "rgba(59,130,246,.5)",
+    "--success": "#34d399",
+    "--warning": "#f59e0b",
+    "--danger": "#ef4444",
+    "--info": "rgba(59,130,246,.75)",
+    "--input-bg": "rgba(8,12,24,.9)",
+    "--input-border": "rgba(59,130,246,.2)",
+    "--input-focus": "#3b82f6",
+    "--divider": "rgba(59,130,246,.15)",
+  },
 };
 
 // ─── Shared store hook ─────────────────────────────────────────────────────────
@@ -1913,6 +1940,111 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// MIDNIGHT — late-night street racing
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function MidnightShell({ activeTab, setActiveTab, children }: Props) {
+  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+
+  return (
+    <div style={{ ...THEME_VARS.midnight as React.CSSProperties, fontFamily: "'IBM Plex Mono', monospace", background: "#080c18", minHeight: "100vh", color: "#b0c4dc", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+        .mn { font-family: 'Chakra Petch', sans-serif; }
+        .mn-asphalt { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: repeating-linear-gradient(0deg, rgba(59,130,246,.012) 0, rgba(59,130,246,.012) 1px, transparent 1px, transparent 6px); }
+        .mn-headlights { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 30% 110%, rgba(59,130,246,.06) 0%, transparent 45%), radial-gradient(ellipse at 70% 110%, rgba(245,158,11,.04) 0%, transparent 40%); }
+        .mn-glow-b { text-shadow: 0 0 10px rgba(59,130,246,.6), 0 0 25px rgba(59,130,246,.2); }
+        .mn-glow-a { text-shadow: 0 0 10px rgba(245,158,11,.6), 0 0 25px rgba(245,158,11,.2); }
+        .mn-tab { font-family: 'Chakra Petch', sans-serif; font-size: .7rem; font-weight: 600; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.3rem; border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(59,130,246,.4); transition: all .14s; text-transform: uppercase; }
+        .mn-tab:hover { color: rgba(59,130,246,.7); }
+        .mn-tab-on { color: #3b82f6 !important; border-bottom-color: #3b82f6 !important; text-shadow: 0 0 10px rgba(59,130,246,.5); }
+        .mn-tab-dev { margin-left: auto; color: rgba(245,158,11,.35) !important; }
+        .mn-tab-dev:hover { color: rgba(245,158,11,.6) !important; }
+        .mn-tab-dev-on { color: #f59e0b !important; border-bottom-color: #f59e0b !important; text-shadow: 0 0 10px rgba(245,158,11,.5); }
+        .mn-stat-label { font-family: 'Chakra Petch', sans-serif; font-size: .5rem; font-weight: 600; letter-spacing: .18em; color: rgba(59,130,246,.5); text-transform: uppercase; }
+        .mn-speed-line { height: 2px; background: linear-gradient(90deg, transparent, rgba(59,130,246,.4) 20%, #3b82f6 50%, rgba(59,130,246,.4) 80%, transparent); }
+      `}</style>
+
+      <div className="mn-asphalt" />
+      <div className="mn-headlights" />
+
+      {/* Speed line accent */}
+      <div className="mn-speed-line" style={{ position: "relative", zIndex: 10, flexShrink: 0 }} />
+
+      {/* HUD */}
+      <header style={{ position: "relative", zIndex: 10, background: "rgba(8,12,24,.85)", borderBottom: "1px solid rgba(59,130,246,.12)", padding: ".7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(4px)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div>
+            <div className="mn mn-glow-b" style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: ".06em", color: "#3b82f6", lineHeight: 1 }}>RAGS TO RACES</div>
+            {prestigeCount > 0 && (
+              <div style={{ fontSize: ".5rem", color: "#f59e0b", letterSpacing: ".2em", marginTop: ".1rem", fontFamily: "'Chakra Petch', sans-serif", fontWeight: 600 }}>PRESTIGE {prestigeCount}</div>
+            )}
+          </div>
+          <div style={{ width: 1, height: 30, background: "rgba(59,130,246,.15)" }} />
+          <div className="mn" style={{ fontSize: ".55rem", color: "rgba(59,130,246,.45)", letterSpacing: ".2em", fontWeight: 600 }}>LIGHTS OUT. SEND IT.</div>
+        </div>
+        <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+          <div style={{ textAlign: "right" }}>
+            <div className="mn mn-glow-b" style={{ fontSize: "1.15rem", fontWeight: 700, color: "#3b82f6", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
+            <div className="mn-stat-label">SCRAP BUCKS</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div className="mn mn-glow-a" style={{ fontSize: "1.15rem", fontWeight: 700, color: "#f59e0b", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
+            <div className="mn-stat-label" style={{ color: "rgba(245,158,11,.45)" }}>REP</div>
+          </div>
+          {vehicleDef && activeVehicle && (
+            <div style={{ textAlign: "right" }}>
+              <div className="mn" style={{ fontSize: "1.1rem", fontWeight: 600, color: "#d8e4f0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+              <div className="mn-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Tabs */}
+      <nav style={{ position: "relative", zIndex: 10, background: "rgba(6,10,20,.7)", borderBottom: "1px solid rgba(59,130,246,.08)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
+        {TABS.map((t) => {
+          const isDev = t.id === "dev";
+          const isOn  = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`mn-tab${isDev ? " mn-tab-dev" : ""}${isOn ? (isDev ? " mn-tab-dev-on" : " mn-tab-on") : ""}`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+        {autoScavengeUnlocked && (
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".55rem", color: "rgba(59,130,246,.45)", marginRight: ".5rem", fontFamily: "'Chakra Petch', sans-serif", fontWeight: 600, letterSpacing: ".12em" }}>
+            <span style={{ color: "#3b82f6", textShadow: "0 0 8px rgba(59,130,246,.6)" }}>&#9679;</span> AUTO
+          </div>
+        )}
+      </nav>
+
+      {/* Content */}
+      <main style={{ position: "relative", zIndex: 10, maxWidth: 1152, width: "100%", margin: "0 auto", flex: 1, padding: "1.5rem" }}>
+        {children}
+      </main>
+
+      {/* Speed line accent */}
+      <div className="mn-speed-line" style={{ position: "relative", zIndex: 10, flexShrink: 0 }} />
+
+      {/* Footer */}
+      <footer style={{ position: "relative", zIndex: 10, background: "rgba(8,12,24,.85)", padding: ".65rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <span className="mn" style={{ fontSize: ".52rem", color: "rgba(59,130,246,.45)", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · LIGHTS OUT. SEND IT.</span>
+          <span style={{ fontSize: ".45rem", color: "rgba(59,130,246,.35)", letterSpacing: ".12em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
+        </div>
+        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+
+      </footer>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Router — picks shell based on theme
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1932,6 +2064,7 @@ export default function ThemeShell(props: Props) {
   if (theme === "rustbelt")   return <RustBeltShell   {...props} />;
   if (theme === "arctic")     return <ArcticShell     {...props} />;
   if (theme === "vaporwave")  return <VaporwaveShell  {...props} />;
+  if (theme === "midnight")   return <MidnightShell   {...props} />;
   if (theme === "tactical")   return <TacticalShell   {...props} />;
   return <GreaseShell {...props} />;
 }
