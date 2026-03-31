@@ -17,13 +17,6 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
-const CONDITION_SHORT: Record<string, string> = {
-  rusted: "Rst",
-  worn: "Wrn",
-  decent: "Dec",
-  good: "Gd",
-  pristine: "Pri",
-};
 
 interface InventoryGroup {
   key: string;
@@ -238,23 +231,11 @@ export default function ScavengePanel() {
                     style={{ borderColor: "var(--divider)" }}
                   >
                     <div className="min-w-0">
-                      <span className="text-sm" style={{ color: "var(--text-white)" }}>{def.name}</span>
+                      <span className="text-sm" style={{ color: condColor }}>{def.name}</span>
                       {group.count > 1 && (
                         <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>x{group.count}</span>
                       )}
-                      <span
-                        className="ml-1.5 text-xs font-mono sm:hidden"
-                        style={{ color: condColor }}
-                      >
-                        {CONDITION_SHORT[group.condition] ?? group.condition}
-                      </span>
                     </div>
-                    <span
-                      className="hidden sm:inline text-xs font-mono"
-                      style={{ color: condColor }}
-                    >
-                      {capitalize(group.condition)}
-                    </span>
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
