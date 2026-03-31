@@ -19,10 +19,10 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
     tier: 0,
     description: "Somebody's junk is your treasure. Usually still junk though.",
     unlockCost: 0,
-    scavengeTime: 2000,
+    scavengeTime: 3000,
     partDropRates: { engine: 1, wheel: 2, frame: 1, electronics: 0.5, fuel: 1, drivetrain: 0, exhaust: 0.3, suspension: 0, aero: 0, misc: 4 },
     rarityBias: 0.1,
-    maxPartsPerScavenge: 2,
+    maxPartsPerScavenge: 1,
   },
   {
     id: "neighborhood_yards",

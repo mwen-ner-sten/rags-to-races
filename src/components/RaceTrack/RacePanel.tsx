@@ -4,6 +4,7 @@ import { useGameStore } from "@/state/store";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateOdds } from "@/engine/race";
+import { getGearBonuses } from "@/engine/gear";
 import { formatNumber } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
@@ -149,16 +150,20 @@ function OddsDisplay({
   difficulty,
   prestigeBonus,
   fatigue,
+  gearPerformanceBonus,
+  gearDnfReduction,
 }: {
   performance: number;
   reliability: number;
   difficulty: number;
   prestigeBonus: number;
   fatigue: number;
+  gearPerformanceBonus: number;
+  gearDnfReduction: number;
 }) {
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue),
-    [performance, reliability, difficulty, prestigeBonus, fatigue],
+    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction),
+    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction],
   );
 
   const winStyle: React.CSSProperties = odds.winChance >= 0.5
@@ -247,6 +252,7 @@ export default function RacePanel() {
   const bestWinStreak = useGameStore((s) => s.bestWinStreak);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
   const fatigue = useGameStore((s) => s.fatigue);
+  const equippedGear = useGameStore((s) => s.equippedGear);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
 
@@ -285,6 +291,7 @@ export default function RacePanel() {
   const activeVehicleDef = activeVehicle
     ? VEHICLE_DEFINITIONS.find((v) => v.id === activeVehicle.definitionId)
     : null;
+  const gb = useMemo(() => getGearBonuses(equippedGear), [equippedGear]);
 
   const unlockedCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
     unlockedCircuitIds.includes(c.id),
@@ -417,6 +424,8 @@ export default function RacePanel() {
             difficulty={selectedCircuit.difficulty}
             prestigeBonus={prestigeBonus.scrapMultiplier}
             fatigue={fatigue}
+            gearPerformanceBonus={gb.race_performance_pct}
+            gearDnfReduction={gb.race_dnf_reduction}
           />
         )}
 

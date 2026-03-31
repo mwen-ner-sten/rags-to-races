@@ -8,12 +8,13 @@ import RacePanel from "@/components/RaceTrack/RacePanel";
 import ShopPanel from "@/components/Shop/ShopPanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
 import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
+import LockerPanel from "@/components/Locker/LockerPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import ToastContainer from "@/components/effects/Toast";
 import { useGameStore } from "@/state/store";
 import { computeTick, TICK_MS } from "@/engine/tick";
 
-type TabId = "junkyard" | "garage" | "race" | "workshop" | "shop" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "settings" | "dev";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
@@ -53,6 +54,7 @@ export default function Home() {
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
         {activeTab === "race"     && <RacePanel />}
+        {activeTab === "locker"    && <LockerPanel />}
         {activeTab === "workshop" && <WorkshopPanel />}
         {activeTab === "shop"     && <ShopPanel />}
         {activeTab === "settings" && <SettingsPanel />}

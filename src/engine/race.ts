@@ -46,11 +46,13 @@ export function calculateOdds(
   difficulty: number,
   prestigeBonus: number = 1,
   fatigue: number = 0,
+  gearPerformanceBonus: number = 0,
+  gearDnfReduction: number = 0,
 ): { winChance: number; dnfChance: number; oddsLabel: string } {
   const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
-  const effectivePerformance = performance * prestigeBonus * fatigueMult;
+  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus);
   const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2)));
-  const dnfChance = Math.max(0, 0.3 - reliability / 200);
+  const dnfChance = Math.max(0, 0.3 - reliability / 200 - gearDnfReduction);
 
   // Convert to odds format (e.g., 2:1, 5:1)
   let oddsLabel: string;
@@ -69,13 +71,15 @@ export function simulateRace(
   circuit: CircuitDefinition,
   prestigeBonus: number = 1,
   fatigue: number = 0,
+  gearPerformanceBonus: number = 0,
+  gearDnfReduction: number = 0,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
 
-  // DNF chance based on reliability
+  // DNF chance based on reliability (gear reduces DNF chance)
   const reliabilityScore = vehicle.stats.reliability;
-  const dnfChance = Math.max(0, 0.3 - reliabilityScore / 200);
+  const dnfChance = Math.max(0, 0.3 - reliabilityScore / 200 - gearDnfReduction);
   if (Math.random() < dnfChance) {
     return {
       result: "dnf",
@@ -87,9 +91,9 @@ export function simulateRace(
     };
   }
 
-  // Win chance: performance vs difficulty (fatigue reduces effective performance)
+  // Win chance: performance vs difficulty (fatigue reduces effective performance, gear boosts)
   const fatigueMult = 1 - fatigue * 0.005;
-  const effectivePerformance = performance * prestigeBonus * fatigueMult;
+  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus);
   const difficultyThreshold = circuit.difficulty * 2;
   const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / difficultyThreshold));
 
@@ -122,6 +126,7 @@ export function calculateWear(
   result: RaceResult,
   wearReductionPct: number,
   fatigue: number = 0,
+  gearWearReduction: number = 0,
 ): number {
   let wear = BASE_WEAR_PER_RACE;
   if (result === "dnf") wear += DNF_WEAR_BONUS;
@@ -132,8 +137,8 @@ export function calculateWear(
     wear *= Math.max(0.3, 1 - reliabilityBonus);
   }
 
-  // Workshop upgrade reduction
-  wear *= Math.max(0, 1 - wearReductionPct);
+  // Workshop upgrade + gear reduction
+  wear *= Math.max(0, 1 - wearReductionPct - gearWearReduction);
 
   // Fatigue increases wear (tired mechanic = sloppier work)
   wear *= (1 + fatigue * 0.008);

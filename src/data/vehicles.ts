@@ -36,7 +36,7 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     ],
     baseStats: { speed: 5, handling: 3, reliability: 4, weight: 40 },
     unlockCondition: "Start",
-    buildCost: 0,
+    buildCost: 10,
     sellValue: 10,
     raceTiers: [0],
   },

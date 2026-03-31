@@ -22,11 +22,14 @@ export function scavenge(
   location: LocationDefinition,
   luckBonus: number = 0,   // 0–1 additive to rarityBias
   fatigue: number = 0,     // 0–99 fatigue penalty
+  gearLuckBonus: number = 0,   // gear scavenge_luck_bonus (can be negative for T0 penalties)
+  gearYieldBonus: number = 0,  // gear scavenge_yield_pct
 ): ScavengedPart[] {
-  const count = randInt(1, location.maxPartsPerScavenge);
+  const baseCount = randInt(1, location.maxPartsPerScavenge);
+  const count = Math.max(1, Math.round(baseCount * (1 + gearYieldBonus)));
   const results: ScavengedPart[] = [];
   const fatiguePenalty = fatigue * 0.005; // at 50 fatigue: -0.25 rarity
-  const effectiveRarity = Math.max(0, Math.min(1, location.rarityBias + luckBonus - fatiguePenalty));
+  const effectiveRarity = Math.max(0, Math.min(1, location.rarityBias + luckBonus + gearLuckBonus - fatiguePenalty));
 
   for (let i = 0; i < count; i++) {
     // Pick category by drop rate weights
@@ -50,7 +53,7 @@ export function scavenge(
     });
 
     // Secondary roll: chance to also drop an add-on for this slot category
-    const addonChance = 0.05 + location.tier * 0.05; // 5% at T0, 30% at T5
+    const addonChance = 0.03 + location.tier * 0.05; // 3% at T0, 28% at T5
     if (Math.random() < addonChance) {
       const slotCategory = def.category as CoreSlot;
       const eligibleAddons = ADDON_DEFINITIONS.filter(
