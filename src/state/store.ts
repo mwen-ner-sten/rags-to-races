@@ -70,6 +70,8 @@ export interface GameState {
   pendingBuildVehicleId: string | null;
 
   // Unlocks
+  introCompleted: boolean;
+  unlockedFeatureIds: string[];
   unlockedLocationIds: string[];
   unlockedCircuitIds: string[];
   unlockedVehicleIds: string[];
@@ -96,6 +98,7 @@ export interface GameState {
   purchaseUpgrade: (upgradeId: string) => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
+  completeIntro: () => void;
   prestige: () => void;
   applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => void;
 
@@ -143,6 +146,8 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     workshopLevels: {},
     pendingBuildParts: {},
     pendingBuildVehicleId: "push_mower",
+    introCompleted: false,
+    unlockedFeatureIds: ["intro"],
     unlockedLocationIds: ["curbside"],
     unlockedCircuitIds: ["backyard_derby"],
     unlockedVehicleIds: ["push_mower"],
@@ -170,6 +175,16 @@ export function calculateFatigue(lifetimeRaces: number): number {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createActions(set: any, get: any) {
+  const unlockFeature = (state: GameState, featureId: string, message: string): Pick<GameState, "unlockedFeatureIds" | "unlockEvents"> => {
+    if (state.unlockedFeatureIds.includes(featureId)) {
+      return { unlockedFeatureIds: state.unlockedFeatureIds, unlockEvents: state.unlockEvents };
+    }
+    return {
+      unlockedFeatureIds: [...state.unlockedFeatureIds, featureId],
+      unlockEvents: [...state.unlockEvents, message],
+    };
+  };
+
   return {
     manualScavenge: () => {
       const state = get() as GameState;
@@ -183,9 +198,17 @@ function createActions(set: any, get: any) {
         const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
-      set((s: GameState) => ({
-        inventory: [...s.inventory, ...parts],
-      }));
+      set((s: GameState) => {
+        const nextInventory = [...s.inventory, ...parts];
+        const unlocks = nextInventory.length > 0
+          ? unlockFeature(s, "garage", "Garage Unlocked! Time to bolt parts together.")
+          : { unlockedFeatureIds: s.unlockedFeatureIds, unlockEvents: s.unlockEvents };
+        return {
+          inventory: nextInventory,
+          unlockedFeatureIds: unlocks.unlockedFeatureIds,
+          unlockEvents: unlocks.unlockEvents,
+        };
+      });
     },
 
     sellPart: (partId: string) => {
@@ -265,7 +288,20 @@ function createActions(set: any, get: any) {
       const built = buildVehicle(vehicleDef, builtParts, _vehicleIdCounter);
 
       set((s: GameState) => ({
-        garage: [...s.garage, built],
+        ...((() => {
+          const nextGarage = [...s.garage, built];
+          const unlockRace = unlockFeature(s, "race", "Race Unlocked! Get that machine on the track.");
+          const unlockWorkshop = unlockFeature(
+            { ...s, unlockedFeatureIds: unlockRace.unlockedFeatureIds, unlockEvents: unlockRace.unlockEvents },
+            "workshop",
+            "Workshop Unlocked! Fine-tune your junkyard engineering.",
+          );
+          return {
+            garage: nextGarage,
+            unlockedFeatureIds: unlockWorkshop.unlockedFeatureIds,
+            unlockEvents: unlockWorkshop.unlockEvents,
+          };
+        })()),
         inventory: s.inventory.filter((p) => !usedPartIds.has(p.id)),
         scrapBucks: s.scrapBucks - actualBuildCost,
         _vehicleIdCounter: s._vehicleIdCounter + 1,
@@ -360,6 +396,12 @@ function createActions(set: any, get: any) {
             newUnlockEvents.push("Go-Kart Blueprint Unlocked!");
           }
 
+          let newUnlockedFeatures = s.unlockedFeatureIds;
+          if (newRep >= 5 && !newUnlockedFeatures.includes("community")) {
+            newUnlockedFeatures = [...newUnlockedFeatures, "community"];
+            newUnlockEvents.push("Community Unlocked! Rivals and fans are starting to notice.");
+          }
+
           // Auto-unlock notifications
           if (!s.autoScavengeUnlocked && newRep >= 15) newUnlockEvents.push("Auto-Scavenge Enabled! Parts collect themselves now.");
           if (!s.autoRaceUnlocked && newRep >= 30) newUnlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
@@ -407,6 +449,7 @@ function createActions(set: any, get: any) {
             unlockedCircuitIds: newUnlockedCircuits,
             unlockedLocationIds: newUnlockedLocations,
             unlockedVehicleIds: newUnlockedVehicles,
+            unlockedFeatureIds: newUnlockedFeatures,
             autoRaceUnlocked: s.autoRaceUnlocked || newRep >= 30,
             autoScavengeUnlocked: s.autoScavengeUnlocked || newRep >= 15,
             raceEvents: [],
@@ -541,6 +584,17 @@ function createActions(set: any, get: any) {
       }));
     },
 
+    completeIntro: () => {
+      set((s: GameState) => {
+        if (s.introCompleted) return s;
+        return {
+          introCompleted: true,
+          unlockedFeatureIds: [...s.unlockedFeatureIds, "junkyard", "shop", "settings"],
+          unlockEvents: [...s.unlockEvents, "Intro Complete! Scavenge your first parts to unlock the Garage."],
+        };
+      });
+    },
+
     prestige: () => {
       const state = get() as GameState;
       const kept = doPrestige(state.prestigeCount);
@@ -622,6 +676,8 @@ function createActions(set: any, get: any) {
         import("@/data/circuits").then(({ CIRCUIT_DEFINITIONS }) => {
           import("@/data/vehicles").then(({ VEHICLE_DEFINITIONS }) => {
             set({
+              introCompleted: true,
+              unlockedFeatureIds: ["intro", "junkyard", "garage", "race", "community", "workshop", "shop", "settings", "dev"],
               unlockedLocationIds: LOCATION_DEFINITIONS.map((l) => l.id),
               unlockedCircuitIds: CIRCUIT_DEFINITIONS.map((c) => c.id),
               unlockedVehicleIds: VEHICLE_DEFINITIONS.map((v) => v.id),
@@ -635,6 +691,8 @@ function createActions(set: any, get: any) {
 
     devLockAll: () => {
       set({
+        introCompleted: false,
+        unlockedFeatureIds: ["intro"],
         unlockedLocationIds: ["curbside"],
         unlockedCircuitIds: ["backyard_derby"],
         unlockedVehicleIds: ["push_mower"],
@@ -700,6 +758,8 @@ export const useGameStore = create<GameState>()(
         selectedCircuitId: state.selectedCircuitId,
         autoScavengeUnlocked: state.autoScavengeUnlocked,
         autoRaceUnlocked: state.autoRaceUnlocked,
+        introCompleted: state.introCompleted,
+        unlockedFeatureIds: state.unlockedFeatureIds,
         unlockedLocationIds: state.unlockedLocationIds,
         unlockedCircuitIds: state.unlockedCircuitIds,
         unlockedVehicleIds: state.unlockedVehicleIds,
