@@ -54,11 +54,15 @@ export interface GameState {
   selectedLocationId: string;
   isScavenging: boolean;
   autoScavengeUnlocked: boolean;
+  /** Counts manual scavenge button clicks; auto-scavenge unlocks at 100 */
+  manualScavengeClicks: number;
 
   // Racing
   selectedCircuitId: string;
   isRacing: boolean;
   autoRaceUnlocked: boolean;
+  /** Tick counter toward next auto-race fire (0 to raceTicksNeeded-1) */
+  raceTickProgress: number;
   lastRaceOutcome: RaceOutcome | null;
   raceHistory: RaceOutcome[];
   raceEvents: RaceEvent[];
@@ -109,6 +113,9 @@ export interface GameState {
   /** Current game tick (increments each tick for dealer refresh) */
   gameTick: number;
 
+  /** Epoch ms of the last tick; used to compute offline catch-up time */
+  lastActiveTimestamp: number;
+
   /** Completed challenge IDs */
   completedChallenges: string[];
 
@@ -144,7 +151,7 @@ export interface GameState {
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
-  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => void;
+  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number) => void;
 
   // ── New system actions ───────────────────────────────────────────────────────
   decomposePart: (partId: string) => void;
@@ -186,9 +193,11 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     selectedLocationId: "curbside",
     isScavenging: false,
     autoScavengeUnlocked: false,
+    manualScavengeClicks: 0,
     selectedCircuitId: "backyard_derby",
     isRacing: false,
     autoRaceUnlocked: false,
+    raceTickProgress: 0,
     lastRaceOutcome: null,
     raceHistory: [],
     raceEvents: [],
@@ -214,6 +223,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     forgeTokens: 0,
     dealerBoard: [],
     gameTick: 0,
+    lastActiveTimestamp: 0,
     completedChallenges: [],
     challengeProgress: {},
     lifetimeTotalDecomposed: 0,
@@ -282,9 +292,18 @@ function createActions(set: any, get: any) {
         const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
-      set((s: GameState) => ({
-        inventory: [...s.inventory, ...parts],
-      }));
+      set((s: GameState) => {
+        const newClicks = s.manualScavengeClicks + 1;
+        const justUnlocked = !s.autoScavengeUnlocked && newClicks >= 100;
+        return {
+          inventory: [...s.inventory, ...parts],
+          manualScavengeClicks: newClicks,
+          autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
+          unlockEvents: justUnlocked
+            ? [...s.unlockEvents, "Auto-Scavenge Enabled! Parts collect themselves now."]
+            : s.unlockEvents,
+        };
+      });
     },
 
     sellPart: (partId: string) => {
@@ -494,9 +513,7 @@ function createActions(set: any, get: any) {
             newUnlockEvents.push("Supercar Blueprint Unlocked! The rags-to-races dream is real.");
           }
 
-          // Auto-unlock notifications
-          if (!s.autoScavengeUnlocked && newRep >= 3000) newUnlockEvents.push("Auto-Scavenge Enabled! Parts collect themselves now.");
-          if (!s.autoRaceUnlocked && newRep >= 8000) newUnlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
+          // (Auto-scavenge unlocks at 100 manual clicks; auto-race unlocks after first prestige)
 
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
@@ -756,6 +773,16 @@ function createActions(set: any, get: any) {
         unlockedCircuitIds: ["backyard_derby"],
         fatigue: 0,
         lifetimeRaces: 0,
+        // Auto-race unlocks permanently after first prestige
+        autoRaceUnlocked: newPrestigeCount >= 1,
+        // Auto-scavenge must be re-earned each run via clicks
+        autoScavengeUnlocked: false,
+        manualScavengeClicks: 0,
+        raceTickProgress: 0,
+        // Notify on first prestige unlock
+        unlockEvents: newPrestigeCount === 1
+          ? ["Auto-Race Enabled! Your scrap heap races itself!"]
+          : [],
         // Gear persists through prestige
         equippedGear: state.equippedGear,
         ownedGearIds: state.ownedGearIds,
@@ -778,7 +805,7 @@ function createActions(set: any, get: any) {
       });
     },
 
-    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => {
+    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number) => {
       set((s: GameState) => {
         let updatedGarage = s.garage;
         if ((vehicleWear || vehicleRepair) && s.activeVehicleId) {
@@ -809,6 +836,8 @@ function createActions(set: any, get: any) {
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
           fatigue: newFatigue,
+          raceTickProgress: newRaceTickProgress ?? s.raceTickProgress,
+          lastActiveTimestamp: Date.now(),
         };
       });
     },
@@ -1217,7 +1246,9 @@ export const useGameStore = create<GameState>()(
         selectedLocationId: state.selectedLocationId,
         selectedCircuitId: state.selectedCircuitId,
         autoScavengeUnlocked: state.autoScavengeUnlocked,
+        manualScavengeClicks: state.manualScavengeClicks,
         autoRaceUnlocked: state.autoRaceUnlocked,
+        raceTickProgress: state.raceTickProgress,
         unlockedLocationIds: state.unlockedLocationIds,
         unlockedCircuitIds: state.unlockedCircuitIds,
         unlockedVehicleIds: state.unlockedVehicleIds,
@@ -1236,6 +1267,7 @@ export const useGameStore = create<GameState>()(
         forgeTokens: state.forgeTokens,
         dealerBoard: state.dealerBoard,
         gameTick: state.gameTick,
+        lastActiveTimestamp: state.lastActiveTimestamp,
         completedChallenges: state.completedChallenges,
         challengeProgress: state.challengeProgress,
         lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,

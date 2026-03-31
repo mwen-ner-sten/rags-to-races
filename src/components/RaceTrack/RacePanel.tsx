@@ -5,6 +5,7 @@ import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateOdds } from "@/engine/race";
 import { getGearBonuses } from "@/engine/gear";
+import { RACE_TICKS_DEFAULT } from "@/engine/tick";
 import { formatNumber } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
@@ -246,6 +247,9 @@ export default function RacePanel() {
   const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
   const raceHistory = useGameStore((s) => s.raceHistory);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
+  const raceTickProgress = useGameStore((s) => s.raceTickProgress);
+  const prestigeCount = useGameStore((s) => s.prestigeCount);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
   const raceEvents = useGameStore((s) => s.raceEvents);
   const raceStartTime = useGameStore((s) => s.raceStartTime);
   const winStreak = useGameStore((s) => s.winStreak);
@@ -255,6 +259,12 @@ export default function RacePanel() {
   const equippedGear = useGameStore((s) => s.equippedGear);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
+
+  // Compute how many ticks are needed between auto-races
+  const raceTicksNeeded = Math.max(
+    1,
+    RACE_TICKS_DEFAULT - (workshopLevels["pit_crew"] ?? 0),
+  );
 
   // Track when result changes to trigger confetti/shake via Zustand subscription
   const [confettiKey, setConfettiKey] = useState<number | null>(null);
@@ -439,13 +449,39 @@ export default function RacePanel() {
           >
             {isRacing ? "Racing..." : "Enter Race"}
           </button>
-          {autoRaceUnlocked && !isRacing && (
-            <span
-              className="rounded px-2 py-1 text-xs"
-              style={{ background: "rgba(59,130,246,.2)", color: "var(--info)" }}
-            >
-              Auto-race
+          {!autoRaceUnlocked && prestigeCount === 0 && (
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Auto-Race unlocks after first Prestige
             </span>
+          )}
+          {autoRaceUnlocked && !isRacing && (
+            <div className="flex items-center gap-2">
+              <span
+                className="rounded px-2 py-1 text-xs"
+                style={{ background: "rgba(59,130,246,.2)", color: "var(--info)" }}
+              >
+                Auto-race
+              </span>
+              {raceTicksNeeded > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="h-1.5 w-16 rounded-full overflow-hidden"
+                    style={{ background: "var(--divider)" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.round((raceTickProgress / raceTicksNeeded) * 100)}%`,
+                        background: "var(--info)",
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {raceTickProgress}/{raceTicksNeeded}
+                  </span>
+                </div>
+              )}
+            </div>
           )}
           <StreakDisplay streak={winStreak} best={bestWinStreak} />
           {selectedCircuit && !canEnter && !isRacing && (
@@ -547,8 +583,8 @@ export default function RacePanel() {
         {/* Rep display */}
         <div className="text-sm" style={{ color: "var(--text-muted)" }}>
           Rep Points: <span className="font-semibold" style={{ color: "var(--info)" }}>{Math.floor(repPoints)}</span>
-          {repPoints >= 8 && !autoRaceUnlocked && (
-            <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>(Auto-scavenge unlocks at 8 Rep)</span>
+          {!autoRaceUnlocked && prestigeCount === 0 && (
+            <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>(Auto-Race unlocks after first Prestige)</span>
           )}
         </div>
       </div>

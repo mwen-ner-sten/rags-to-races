@@ -213,6 +213,41 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     unlockRequirement: { repPoints: 150000 },
   },
 
+  // ── Efficiency (Tick Speed) ──────────────────────────────────────────────────
+  {
+    id: "tick_accelerator",
+    name: "Speed Dial",
+    description: "Reduces the global tick interval by 2s per level (max 7 levels: 15s → 1s).",
+    category: "maintenance",
+    maxLevel: 7,
+    baseCost: 500,
+    costScaling: 2.5,
+    effect: { type: "tick_speed_reduction_ms", valuePerLevel: 2000 },
+    unlockRequirement: { repPoints: 500 },
+  },
+  {
+    id: "overclocked_tick",
+    name: "Overclocked Engine",
+    description: "Further reduces tick interval by 0.5s per level (requires Speed Dial maxed, min 0.1s).",
+    category: "maintenance",
+    maxLevel: 18,
+    baseCost: 5000,
+    costScaling: 1.8,
+    effect: { type: "tick_speed_reduction_ms", valuePerLevel: 500 },
+    unlockRequirement: { workshopUpgradeId: "tick_accelerator" },
+  },
+  {
+    id: "pit_crew",
+    name: "Pit Crew",
+    description: "Reduces the ticks needed between auto-races by 1 per level (default 3 ticks, min 1).",
+    category: "racing",
+    maxLevel: 2,
+    baseCost: 2000,
+    costScaling: 3.0,
+    effect: { type: "race_tick_reduction", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 2000 },
+  },
+
   // ── New: Scavenging enhancements ─────────────────────────────────────────────
   {
     id: "scavengers_eye",
