@@ -9,6 +9,9 @@ import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus } from "@/engine/prestige";
 import type { PartCondition, CoreSlot } from "@/data/parts";
 import type { InstalledPart } from "@/engine/build";
+import type { GearSlot } from "@/data/gear";
+import { getGearById, DEFAULT_EQUIPPED_GEAR, DEFAULT_OWNED_GEAR } from "@/data/gear";
+import { getGearBonuses } from "@/engine/gear";
 import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge } from "@/engine/scavenge";
@@ -62,6 +65,10 @@ export interface GameState {
   // Unlock notifications (transient)
   unlockEvents: string[];
 
+  // Gear (persists through prestige)
+  equippedGear: Record<GearSlot, string>;
+  ownedGearIds: string[];
+
   // Workshop upgrades
   workshopLevels: Record<string, number>;
 
@@ -94,6 +101,8 @@ export interface GameState {
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   refurbishPart: (partId: string) => void;
   purchaseUpgrade: (upgradeId: string) => void;
+  purchaseGear: (gearId: string) => void;
+  equipGear: (gearId: string) => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
@@ -140,6 +149,8 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     fatigue: 0,
     lifetimeRaces: 0,
     unlockEvents: [],
+    equippedGear: { ...DEFAULT_EQUIPPED_GEAR },
+    ownedGearIds: [...DEFAULT_OWNED_GEAR],
     workshopLevels: {},
     pendingBuildParts: {},
     pendingBuildVehicleId: "push_mower",
@@ -178,9 +189,10 @@ function createActions(set: any, get: any) {
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue;
-      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue);
+      const gb = getGearBonuses(state.equippedGear);
+      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue);
+        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       set((s: GameState) => ({
@@ -192,12 +204,13 @@ function createActions(set: any, get: any) {
       const state = get() as GameState;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
+      const gb = getGearBonuses(state.equippedGear);
       // Import inline to avoid circular — scrap value from definition
       import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
         const def = getPartById(part.definitionId);
         if (!def) return;
         const mult = CONDITION_MULTIPLIERS[part.condition];
-        const value = Math.floor(def.scrapValue * mult);
+        const value = Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
         set((s: GameState) => ({
           inventory: s.inventory.filter((p) => p.id !== partId),
           scrapBucks: s.scrapBucks + value,
@@ -209,12 +222,13 @@ function createActions(set: any, get: any) {
     sellAllJunk: () => {
       import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
         const state = get() as GameState;
+        const gb = getGearBonuses(state.equippedGear);
         let total = 0;
         for (const part of state.inventory) {
           const def = getPartById(part.definitionId);
           if (!def) continue;
           const mult = CONDITION_MULTIPLIERS[part.condition];
-          total += Math.floor(def.scrapValue * mult);
+          total += Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
         }
         set((s: GameState) => ({
           inventory: [],
@@ -247,7 +261,8 @@ function createActions(set: any, get: any) {
         if (slotCfg.required && !pendingBuildParts[slotCfg.slot]) return;
       }
 
-      const buildReduction = _getUpgradeEffectValue(state, "bargain_builder");
+      const gb = getGearBonuses(state.equippedGear);
+      const buildReduction = _getUpgradeEffectValue(state, "bargain_builder") + gb.build_cost_reduction_pct;
       const actualBuildCost = Math.max(0, Math.floor(vehicleDef.buildCost * (1 - buildReduction)));
       if (state.scrapBucks < actualBuildCost) return;
 
@@ -316,7 +331,8 @@ function createActions(set: any, get: any) {
       if ((vehicle.condition ?? 100) <= 0) return;
 
       // Pre-compute the outcome immediately so the UI can animate it
-      const outcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, state.fatigue);
+      const gb = getGearBonuses(state.equippedGear);
+      const outcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, state.fatigue, gb.race_performance_pct, gb.race_dnf_reduction);
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
 
@@ -374,8 +390,8 @@ function createActions(set: any, get: any) {
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
           const racingV = s.garage.find((v) => v.id === racingVehicleId);
-          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction, s.fatigue) : 0;
-          const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension");
+          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction, s.fatigue, gb.race_wear_reduction_pct) : 0;
+          const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gb.race_handling_pct;
           const updatedGarage = s.garage.map((v) => {
             if (v.id !== racingVehicleId) return v;
             const newCond = Math.max(0, (v.condition ?? 100) - wearAmount);
@@ -390,9 +406,13 @@ function createActions(set: any, get: any) {
 
           // Apply consolation sponsor bonus
           const consolationBonus = _getUpgradeEffectValue(s, "consolation_sponsor");
-          const finalScraps = outcome.result !== "win" && consolationBonus > 0
+          let finalScraps = outcome.result !== "win" && consolationBonus > 0
             ? Math.floor(outcome.scrapsEarned * (1 + consolationBonus))
             : outcome.scrapsEarned;
+          // Gear race scrap bonus
+          if (gb.race_scrap_bonus_pct > 0) {
+            finalScraps = Math.floor(finalScraps * (1 + gb.race_scrap_bonus_pct));
+          }
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
           const newFatigue = calculateFatigue(newLifetimeRaces);
@@ -433,10 +453,11 @@ function createActions(set: any, get: any) {
       if (!vehicle || (vehicle.condition ?? 100) >= 100) return;
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
-      const reduction = _getUpgradeEffectValue(state, "budget_repairs");
+      const gb = getGearBonuses(state.equippedGear);
+      const reduction = _getUpgradeEffectValue(state, "budget_repairs") + gb.repair_cost_reduction_pct;
       const cost = calculateRepairCost(vehicleDef, vehicle.condition ?? 100, 100, reduction, state.fatigue);
       if (state.scrapBucks < cost) return;
-      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension");
+      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gb.race_handling_pct;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
         garage: s.garage.map((v) => v.id !== vehicleId ? v : {
@@ -468,7 +489,8 @@ function createActions(set: any, get: any) {
       if (!slotCfg || !slotCfg.acceptableParts.includes(newPart.definitionId)) return;
 
       const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: installed.addons } };
-      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension");
+      const gbSwap = getGearBonuses(state.equippedGear);
+      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gbSwap.race_handling_pct;
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 
       set((s: GameState) => ({
@@ -489,7 +511,8 @@ function createActions(set: any, get: any) {
       if (_getUpgradeLevel(state, "refurbishment_bench") < 1) return;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
-      const reduction = _getUpgradeEffectValue(state, "cheap_refurb");
+      const gb = getGearBonuses(state.equippedGear);
+      const reduction = _getUpgradeEffectValue(state, "cheap_refurb") + gb.refurb_cost_reduction_pct;
       const result = calculateRefurbishCost(part, reduction);
       if (!result) return;
       if (state.scrapBucks < result.cost) return;
@@ -525,6 +548,30 @@ function createActions(set: any, get: any) {
       }));
     },
 
+    purchaseGear: (gearId: string) => {
+      const state = get() as GameState;
+      const def = getGearById(gearId);
+      if (!def) return;
+      if (state.ownedGearIds.includes(gearId)) return;
+      if (def.unlockRequirement?.repPoints && state.repPoints < def.unlockRequirement.repPoints) return;
+      if (state.scrapBucks < def.cost) return;
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - def.cost,
+        ownedGearIds: [...s.ownedGearIds, gearId],
+        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
+      }));
+    },
+
+    equipGear: (gearId: string) => {
+      const state = get() as GameState;
+      if (!state.ownedGearIds.includes(gearId)) return;
+      const def = getGearById(gearId);
+      if (!def) return;
+      set((s: GameState) => ({
+        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
+      }));
+    },
+
     unlockLocation: (locationId: string) => {
       set((s: GameState) => ({
         unlockedLocationIds: s.unlockedLocationIds.includes(locationId)
@@ -554,6 +601,9 @@ function createActions(set: any, get: any) {
         unlockedCircuitIds: ["backyard_derby"],
         fatigue: 0,
         lifetimeRaces: 0,
+        // Gear persists through prestige
+        equippedGear: state.equippedGear,
+        ownedGearIds: state.ownedGearIds,
       });
     },
 
@@ -561,7 +611,8 @@ function createActions(set: any, get: any) {
       set((s: GameState) => {
         let updatedGarage = s.garage;
         if ((vehicleWear || vehicleRepair) && s.activeVehicleId) {
-          const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension");
+          const gbTick = getGearBonuses(s.equippedGear);
+          const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
           updatedGarage = s.garage.map((v) => {
             if (v.id !== s.activeVehicleId) return v;
             let newCond = v.condition ?? 100;
@@ -710,6 +761,8 @@ export const useGameStore = create<GameState>()(
         fatigue: state.fatigue,
         lifetimeRaces: state.lifetimeRaces,
         workshopLevels: state.workshopLevels,
+        equippedGear: state.equippedGear,
+        ownedGearIds: state.ownedGearIds,
         pendingBuildVehicleId: state.pendingBuildVehicleId,
       }),
     },

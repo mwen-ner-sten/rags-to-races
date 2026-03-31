@@ -23,7 +23,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     maxVehicleTier: 1,
     difficulty: 15,
     entryFee: 0,
-    rewardBase: 15,
+    rewardBase: 10,
     repReward: 1,
     unlockRepCost: 0,
     raceDuration: 3000,
