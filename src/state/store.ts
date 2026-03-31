@@ -7,7 +7,8 @@ import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
 import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus } from "@/engine/prestige";
-import type { PartCondition } from "@/data/parts";
+import type { PartCondition, CoreSlot } from "@/data/parts";
+import type { InstalledPart } from "@/engine/build";
 import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge } from "@/engine/scavenge";
@@ -65,12 +66,7 @@ export interface GameState {
   workshopLevels: Record<string, number>;
 
   // Build UI state
-  pendingBuildParts: {
-    engine: ScavengedPart | null;
-    wheel: ScavengedPart | null;
-    frame: ScavengedPart | null;
-    fuel: ScavengedPart | null;
-  };
+  pendingBuildParts: Record<string, ScavengedPart | null>;
   pendingBuildVehicleId: string | null;
 
   // Unlocks
@@ -86,7 +82,7 @@ export interface GameState {
   sellPart: (partId: string) => void;
   sellAllJunk: () => void;
   setPendingVehicle: (vehicleId: string) => void;
-  setPendingPart: (slot: "engine" | "wheel" | "frame" | "fuel", part: ScavengedPart | null) => void;
+  setPendingPart: (slot: string, part: ScavengedPart | null) => void;
   buildSelectedVehicle: () => void;
   setActiveVehicle: (vehicleId: string) => void;
   sellVehicle: (vehicleId: string) => void;
@@ -95,7 +91,7 @@ export interface GameState {
   enterRace: () => void;
   clearUnlockEvents: () => void;
   repairVehicle: (vehicleId: string) => void;
-  swapPart: (vehicleId: string, slot: "engine" | "wheel" | "frame" | "fuel", newPart: ScavengedPart) => void;
+  swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   refurbishPart: (partId: string) => void;
   purchaseUpgrade: (upgradeId: string) => void;
   unlockLocation: (locationId: string) => void;
@@ -145,7 +141,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lifetimeRaces: 0,
     unlockEvents: [],
     workshopLevels: {},
-    pendingBuildParts: { engine: null, wheel: null, frame: null, fuel: null },
+    pendingBuildParts: {},
     pendingBuildVehicleId: "push_mower",
     unlockedLocationIds: ["curbside"],
     unlockedCircuitIds: ["backyard_derby"],
@@ -229,10 +225,10 @@ function createActions(set: any, get: any) {
     },
 
     setPendingVehicle: (vehicleId: string) => {
-      set({ pendingBuildVehicleId: vehicleId, pendingBuildParts: { engine: null, wheel: null, frame: null, fuel: null } });
+      set({ pendingBuildVehicleId: vehicleId, pendingBuildParts: {} });
     },
 
-    setPendingPart: (slot: "engine" | "wheel" | "frame" | "fuel", part: ScavengedPart | null) => {
+    setPendingPart: (slot: string, part: ScavengedPart | null) => {
       set((s: GameState) => ({
         pendingBuildParts: { ...s.pendingBuildParts, [slot]: part },
       }));
@@ -242,25 +238,38 @@ function createActions(set: any, get: any) {
       const state = get() as GameState;
       const { pendingBuildVehicleId, pendingBuildParts, _vehicleIdCounter } = state;
       if (!pendingBuildVehicleId) return;
-      const { engine, wheel, frame, fuel } = pendingBuildParts;
-      if (!engine || !wheel || !frame || !fuel) return;
 
       const vehicleDef = getVehicleById(pendingBuildVehicleId);
       if (!vehicleDef) return;
+
+      // Validate all required slots are filled
+      for (const slotCfg of vehicleDef.slots) {
+        if (slotCfg.required && !pendingBuildParts[slotCfg.slot]) return;
+      }
 
       const buildReduction = _getUpgradeEffectValue(state, "bargain_builder");
       const actualBuildCost = Math.max(0, Math.floor(vehicleDef.buildCost * (1 - buildReduction)));
       if (state.scrapBucks < actualBuildCost) return;
 
-      const usedPartIds = new Set([engine.id, wheel.id, frame.id, fuel.id]);
-      const built = buildVehicle(vehicleDef, { engine, wheel, frame, fuel }, _vehicleIdCounter);
+      // Build InstalledPart records and collect used part IDs
+      const usedPartIds = new Set<string>();
+      const builtParts: Record<string, InstalledPart> = {};
+      for (const slotCfg of vehicleDef.slots) {
+        const part = pendingBuildParts[slotCfg.slot];
+        if (part) {
+          usedPartIds.add(part.id);
+          builtParts[slotCfg.slot] = { part, addons: [] };
+        }
+      }
+
+      const built = buildVehicle(vehicleDef, builtParts, _vehicleIdCounter);
 
       set((s: GameState) => ({
         garage: [...s.garage, built],
         inventory: s.inventory.filter((p) => !usedPartIds.has(p.id)),
         scrapBucks: s.scrapBucks - actualBuildCost,
         _vehicleIdCounter: s._vehicleIdCounter + 1,
-        pendingBuildParts: { engine: null, wheel: null, frame: null, fuel: null },
+        pendingBuildParts: {},
         activeVehicleId: s.activeVehicleId ?? built.id,
         // Unlock riding mower after first build
         unlockedVehicleIds: s.unlockedVehicleIds.includes("riding_mower")
@@ -438,13 +447,15 @@ function createActions(set: any, get: any) {
       }));
     },
 
-    swapPart: (vehicleId: string, slot: "engine" | "wheel" | "frame" | "fuel", newPart: ScavengedPart) => {
+    swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => {
       const state = get() as GameState;
       if (_getUpgradeLevel(state, "toolkit") < 1) return;
       const vehicle = state.garage.find((v) => v.id === vehicleId);
       if (!vehicle) return;
 
-      const oldPart = vehicle.parts[slot];
+      const installed = vehicle.parts[slot];
+      if (!installed) return;
+      const oldPart = installed.part;
       const noDegrade = _getUpgradeLevel(state, "gentle_swap") >= 1;
       const returnedPart: ScavengedPart = noDegrade ? oldPart : {
         ...oldPart,
@@ -453,9 +464,10 @@ function createActions(set: any, get: any) {
 
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
-      if (!vehicleDef.requiredParts[slot].includes(newPart.definitionId)) return;
+      const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
+      if (!slotCfg || !slotCfg.acceptableParts.includes(newPart.definitionId)) return;
 
-      const newParts = { ...vehicle.parts, [slot]: newPart };
+      const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: installed.addons } };
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension");
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 
@@ -641,6 +653,7 @@ function createActions(set: any, get: any) {
               definitionId: defId,
               condition: condition as ScavengedPart["condition"],
               foundAt: "dev_panel",
+              type: "part",
             });
           }
         }

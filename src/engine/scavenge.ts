@@ -1,13 +1,15 @@
 import { PART_DEFINITIONS, type PartCondition } from "@/data/parts";
+import { ADDON_DEFINITIONS } from "@/data/addons";
 import type { LocationDefinition } from "@/data/locations";
 import { weightedPick, rollCondition, randInt } from "@/utils/random";
-import type { PartCategory } from "@/data/parts";
+import type { PartCategory, CoreSlot } from "@/data/parts";
 
 export interface ScavengedPart {
   id: string;                 // unique instance id
-  definitionId: string;       // references PartDefinition
+  definitionId: string;       // references PartDefinition OR AddOnDefinition
   condition: PartCondition;
   foundAt: string;            // location id
+  type: "part" | "addon";     // discriminator
 }
 
 let _instanceCounter = 0;
@@ -15,7 +17,7 @@ export function makePartId(): string {
   return `part_${Date.now()}_${_instanceCounter++}`;
 }
 
-/** Scavenge a location once and return found parts */
+/** Scavenge a location once and return found parts (and possibly add-ons) */
 export function scavenge(
   location: LocationDefinition,
   luckBonus: number = 0,   // 0–1 additive to rarityBias
@@ -44,7 +46,27 @@ export function scavenge(
       definitionId: def.id,
       condition: rollCondition(effectiveRarity),
       foundAt: location.id,
+      type: "part",
     });
+
+    // Secondary roll: chance to also drop an add-on for this slot category
+    const addonChance = 0.05 + location.tier * 0.05; // 5% at T0, 30% at T5
+    if (Math.random() < addonChance) {
+      const slotCategory = def.category as CoreSlot;
+      const eligibleAddons = ADDON_DEFINITIONS.filter(
+        (a) => a.targetSlot === slotCategory && a.minTier <= location.tier,
+      );
+      if (eligibleAddons.length > 0) {
+        const addonDef = eligibleAddons[randInt(0, eligibleAddons.length - 1)];
+        results.push({
+          id: makePartId(),
+          definitionId: addonDef.id,
+          condition: rollCondition(effectiveRarity),
+          foundAt: location.id,
+          type: "addon",
+        });
+      }
+    }
   }
 
   return results;
