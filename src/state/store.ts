@@ -366,6 +366,13 @@ function createActions(set: any, get: any) {
           if (newRep >= 35000 && !newUnlockedVehicles.includes("street_racer")) { newUnlockedVehicles.push("street_racer"); newUnlockEvents.push("Street Racer Blueprint Unlocked!"); }
           if (newRep >= 100000 && !newUnlockedVehicles.includes("stock_car")) { newUnlockedVehicles.push("stock_car"); newUnlockEvents.push("Stock Car Blueprint Unlocked!"); }
 
+          // Win streak
+          const newStreak = outcome.result === "win" ? s.winStreak + 1 : 0;
+          const newBestStreak = Math.max(s.bestWinStreak, newStreak);
+          if (newStreak === 3) newUnlockEvents.push("3-Win Streak! You're on fire!");
+          if (newStreak === 5) newUnlockEvents.push("5 WINS! Unstoppable!");
+          if (newStreak === 10) newUnlockEvents.push("10 WINS! LEGENDARY!");
+
           // Unlock vehicles by race achievement
           if (outcome.result === "win" && s.selectedCircuitId === "backyard_derby" && !newUnlockedVehicles.includes("riding_mower")) {
             newUnlockedVehicles.push("riding_mower");
@@ -391,13 +398,6 @@ function createActions(set: any, get: any) {
           // Auto-unlock notifications
           if (!s.autoScavengeUnlocked && newRep >= 3000) newUnlockEvents.push("Auto-Scavenge Enabled! Parts collect themselves now.");
           if (!s.autoRaceUnlocked && newRep >= 8000) newUnlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
-
-          // Win streak
-          const newStreak = outcome.result === "win" ? s.winStreak + 1 : 0;
-          const newBestStreak = Math.max(s.bestWinStreak, newStreak);
-          if (newStreak === 3) newUnlockEvents.push("3-Win Streak! You're on fire!");
-          if (newStreak === 5) newUnlockEvents.push("5 WINS! Unstoppable!");
-          if (newStreak === 10) newUnlockEvents.push("10 WINS! LEGENDARY!");
 
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
