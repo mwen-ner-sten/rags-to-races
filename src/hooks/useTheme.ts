@@ -2,14 +2,14 @@
 
 import { create } from "zustand";
 
-export type Theme = "grease" | "neon" | "prestige" | "rustbelt" | "arctic" | "vaporwave" | "tactical" | "sunset" | "deepsix" | "bloodmoon" | "sakura" | "outlaw" | "chrome" | "terminal" | "sandstorm";
+export type Theme = "grease" | "neon" | "prestige" | "rustbelt" | "arctic" | "vaporwave" | "tactical" | "sunset" | "deepsix" | "bloodmoon" | "sakura" | "outlaw" | "chrome" | "terminal" | "sandstorm" | "midnight";
 
 const STORAGE_KEY = "rags-to-races-theme";
 
 function readStored(): Theme {
   if (typeof window === "undefined") return "grease";
   const v = localStorage.getItem(STORAGE_KEY);
-  if (v === "grease" || v === "neon" || v === "prestige" || v === "rustbelt" || v === "arctic" || v === "vaporwave" || v === "tactical" || v === "sunset" || v === "deepsix" || v === "bloodmoon" || v === "sakura" || v === "outlaw" || v === "chrome" || v === "terminal" || v === "sandstorm") return v;
+  if (v === "grease" || v === "neon" || v === "prestige" || v === "rustbelt" || v === "arctic" || v === "vaporwave" || v === "tactical" || v === "sunset" || v === "deepsix" || v === "bloodmoon" || v === "sakura" || v === "outlaw" || v === "chrome" || v === "terminal" || v === "sandstorm" || v === "midnight") return v;
   return "grease";
 }
 
