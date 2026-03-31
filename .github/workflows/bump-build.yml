@@ -1,0 +1,42 @@
+name: Bump Build Number
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  bump-build:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+
+      - name: Bump build counter
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = '.build-counter.json';
+            const now = new Date();
+            const date = now.getFullYear() + '.' +
+              String(now.getMonth() + 1).padStart(2, '0') + '.' +
+              String(now.getDate()).padStart(2, '0');
+            let build = 1;
+            try {
+              const prev = JSON.parse(fs.readFileSync(path, 'utf-8'));
+              if (prev.date === date) build = (prev.build ?? 0) + 1;
+            } catch {}
+            fs.writeFileSync(path, JSON.stringify({ date, build }, null, 2) + '\n');
+            console.log('Build version: ' + date + '.' + build);
+          "
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .build-counter.json
+          git diff --staged --quiet || git commit -m "chore: bump build counter [skip ci]"
+          git push origin main
