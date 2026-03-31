@@ -7,7 +7,7 @@ import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
 import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus } from "@/engine/prestige";
-import type { PartCondition, CoreSlot } from "@/data/parts";
+import type { PartCondition } from "@/data/parts";
 import type { InstalledPart } from "@/engine/build";
 import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
@@ -18,6 +18,8 @@ import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
 import { getVehicleById } from "@/data/vehicles";
 import { getUpgradeById, getUpgradeCost } from "@/data/upgrades";
+
+export type GameFeature = "junkyard" | "garage" | "race" | "community" | "workshop" | "shop";
 
 export interface GameState {
   // Currency
@@ -73,6 +75,8 @@ export interface GameState {
   unlockedLocationIds: string[];
   unlockedCircuitIds: string[];
   unlockedVehicleIds: string[];
+  introCompleted: boolean;
+  unlockedFeatures: Record<GameFeature, boolean>;
 
   // Vehicle build counter (for unique IDs)
   _vehicleIdCounter: number;
@@ -96,6 +100,7 @@ export interface GameState {
   purchaseUpgrade: (upgradeId: string) => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
+  completeIntro: () => void;
   prestige: () => void;
   applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => void;
 
@@ -146,6 +151,15 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     unlockedLocationIds: ["curbside"],
     unlockedCircuitIds: ["backyard_derby"],
     unlockedVehicleIds: ["push_mower"],
+    introCompleted: false,
+    unlockedFeatures: {
+      junkyard: false,
+      garage: false,
+      race: false,
+      community: false,
+      workshop: false,
+      shop: false,
+    },
     _vehicleIdCounter: 0,
   };
 }
@@ -265,6 +279,21 @@ function createActions(set: any, get: any) {
       const built = buildVehicle(vehicleDef, builtParts, _vehicleIdCounter);
 
       set((s: GameState) => ({
+        ...(s.unlockedFeatures.race
+          ? {}
+          : {
+              unlockedFeatures: {
+                ...s.unlockedFeatures,
+                race: true,
+                community: true,
+                workshop: true,
+                shop: true,
+              },
+              unlockEvents: [
+                ...s.unlockEvents,
+                "World unlocked: Race Track, Community, Workshop, and Shop are now open.",
+              ],
+            }),
         garage: [...s.garage, built],
         inventory: s.inventory.filter((p) => !usedPartIds.has(p.id)),
         scrapBucks: s.scrapBucks - actualBuildCost,
@@ -541,6 +570,18 @@ function createActions(set: any, get: any) {
       }));
     },
 
+    completeIntro: () => {
+      set((s: GameState) => ({
+        introCompleted: true,
+        unlockedFeatures: {
+          ...s.unlockedFeatures,
+          junkyard: true,
+          garage: true,
+        },
+        unlockEvents: [...s.unlockEvents, "Intro complete! Junkyard and Garage are now unlocked."],
+      }));
+    },
+
     prestige: () => {
       const state = get() as GameState;
       const kept = doPrestige(state.prestigeCount);
@@ -552,6 +593,15 @@ function createActions(set: any, get: any) {
         unlockedVehicleIds: ["push_mower"],
         unlockedLocationIds: ["curbside"],
         unlockedCircuitIds: ["backyard_derby"],
+        introCompleted: false,
+        unlockedFeatures: {
+          junkyard: false,
+          garage: false,
+          race: false,
+          community: false,
+          workshop: false,
+          shop: false,
+        },
         fatigue: 0,
         lifetimeRaces: 0,
       });
@@ -625,6 +675,15 @@ function createActions(set: any, get: any) {
               unlockedLocationIds: LOCATION_DEFINITIONS.map((l) => l.id),
               unlockedCircuitIds: CIRCUIT_DEFINITIONS.map((c) => c.id),
               unlockedVehicleIds: VEHICLE_DEFINITIONS.map((v) => v.id),
+              introCompleted: true,
+              unlockedFeatures: {
+                junkyard: true,
+                garage: true,
+                race: true,
+                community: true,
+                workshop: true,
+                shop: true,
+              },
               autoScavengeUnlocked: true,
               autoRaceUnlocked: true,
             });
@@ -638,6 +697,15 @@ function createActions(set: any, get: any) {
         unlockedLocationIds: ["curbside"],
         unlockedCircuitIds: ["backyard_derby"],
         unlockedVehicleIds: ["push_mower"],
+        introCompleted: false,
+        unlockedFeatures: {
+          junkyard: false,
+          garage: false,
+          race: false,
+          community: false,
+          workshop: false,
+          shop: false,
+        },
         autoScavengeUnlocked: false,
         autoRaceUnlocked: false,
       });
@@ -703,6 +771,8 @@ export const useGameStore = create<GameState>()(
         unlockedLocationIds: state.unlockedLocationIds,
         unlockedCircuitIds: state.unlockedCircuitIds,
         unlockedVehicleIds: state.unlockedVehicleIds,
+        introCompleted: state.introCompleted,
+        unlockedFeatures: state.unlockedFeatures,
         _vehicleIdCounter: state._vehicleIdCounter,
         raceHistory: state.raceHistory,
         winStreak: state.winStreak,
