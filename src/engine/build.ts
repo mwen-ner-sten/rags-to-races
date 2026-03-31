@@ -123,8 +123,8 @@ export function calculateRefurbishCost(
   costReduction: number,
 ): { cost: number; newCondition: PartCondition } | null {
   const currentIdx = CONDITIONS.indexOf(part.condition as PartCondition);
-  // Refurbishment bench only works up to pristine (index 3). Polished+ requires Enhancement.
-  const REFURB_CAP = 3; // "good" → "pristine" is the last refurb step
+  // Refurbishment bench caps at "good" (index 3). Reaching pristine requires the Enhancement system.
+  const REFURB_CAP = 3;
   if (currentIdx <= 0 || currentIdx >= REFURB_CAP) return null;
 
   const newCondition = CONDITIONS[currentIdx + 1];
