@@ -7,7 +7,7 @@ import type { VehicleDefinition } from "@/data/vehicles";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { calculateRepairCost } from "@/engine/build";
 import type { BuiltVehicle } from "@/engine/build";
-import { formatNumber, capitalize } from "@/utils/format";
+import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -19,13 +19,6 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
-const CONDITION_SHORT: Record<string, string> = {
-  rusted: "Rst",
-  worn: "Wrn",
-  decent: "Dec",
-  good: "Gd",
-  pristine: "Pri",
-};
 
 interface PartGroup {
   key: string;
@@ -190,9 +183,8 @@ export default function GaragePanel() {
                                   : { borderColor: "var(--panel-border)", color: "var(--text-secondary)" }
                               }
                             >
-                              {def.name}{" "}
                               <span style={{ color: CONDITION_COLORS[group.condition] ?? "var(--text-secondary)" }}>
-                                {CONDITION_SHORT[group.condition] ?? group.condition}
+                                {def.name}
                               </span>
                               {group.parts.length > 1 && (
                                 <span className="ml-0.5" style={{ color: "var(--text-muted)" }}>
@@ -206,9 +198,8 @@ export default function GaragePanel() {
                     )}
                     {selectedPart && (
                       <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                        {getPartById(selectedPart.definitionId)?.name} —{" "}
                         <span style={{ color: CONDITION_COLORS[selectedPart.condition] ?? undefined }}>
-                          {capitalize(selectedPart.condition)}
+                          {getPartById(selectedPart.definitionId)?.name}
                         </span>
                       </p>
                     )}
@@ -347,7 +338,7 @@ function VehicleCard({
           {enginePart && (
             <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
               <span style={{ color: CONDITION_COLORS[enginePart.condition] ?? undefined }}>
-                {engineDef?.name} ({CONDITION_SHORT[enginePart.condition] ?? enginePart.condition})
+                {engineDef?.name}
               </span>
             </div>
           )}
@@ -434,9 +425,9 @@ function VehicleCard({
                       : { borderColor: "var(--panel-border)", color: "var(--text-muted)" }
                   }
                 >
-                  {slot}: {partDef?.name ?? "?"}{" "}
+                  {slot}:{" "}
                   <span style={{ color: CONDITION_COLORS[installed.part.condition] ?? undefined }}>
-                    {CONDITION_SHORT[installed.part.condition] ?? ""}
+                    {partDef?.name ?? "?"}
                   </span>
                 </button>
               );
@@ -502,7 +493,7 @@ function SwapPartPicker({
       style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
     >
       <div className="mb-1 text-xs" style={{ color: "var(--text-muted)" }}>
-        Swap {slot} (current: {getPartById(currentPart.definitionId)?.name} {CONDITION_SHORT[currentPart.condition]})
+        Swap {slot} (current: <span style={{ color: CONDITION_COLORS[currentPart.condition] ?? undefined }}>{getPartById(currentPart.definitionId)?.name}</span>)
       </div>
       <div className="flex flex-wrap gap-1">
         {groups.map((group) => {
@@ -518,9 +509,8 @@ function SwapPartPicker({
               className="rounded border px-1.5 py-0.5 text-xs transition-colors"
               style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
             >
-              {partDef.name}{" "}
               <span style={{ color: CONDITION_COLORS[group.condition] ?? undefined }}>
-                {CONDITION_SHORT[group.condition]}
+                {partDef.name}
               </span>
               {group.parts.length > 1 && <span className="ml-0.5" style={{ color: "var(--text-muted)" }}>x{group.parts.length}</span>}
             </button>
