@@ -34,7 +34,7 @@ const THEME_VARS: Record<Theme, Record<string, string>> = {
     "--panel-border-active": "#c83e0c",
     "--text-primary": "#d4b896",
     "--text-secondary": "#8a7560",
-    "--text-muted": "#4a3520",
+    "--text-muted": "#6a5030",
     "--text-heading": "#c4872a",
     "--text-white": "#e8d8c4",
     "--accent": "#c83e0c",
@@ -115,7 +115,7 @@ const THEME_VARS: Record<Theme, Record<string, string>> = {
     "--panel-border-active": "#b44a1a",
     "--text-primary": "#b8a090",
     "--text-secondary": "#8a6a40",
-    "--text-muted": "#5a3a20",
+    "--text-muted": "#7a5230",
     "--text-heading": "#b44a1a",
     "--text-white": "#d8c8b8",
     "--accent": "#b44a1a",
@@ -276,8 +276,8 @@ const THEME_VARS: Record<Theme, Record<string, string>> = {
     "--panel-border": "rgba(192,16,32,.15)",
     "--panel-border-active": "#c01020",
     "--text-primary": "#a08080",
-    "--text-secondary": "#6a3838",
-    "--text-muted": "#4a2020",
+    "--text-secondary": "#8a5050",
+    "--text-muted": "#6a3535",
     "--text-heading": "#c01020",
     "--text-white": "#d0b0b0",
     "--accent": "#c01020",
@@ -384,8 +384,8 @@ const THEME_VARS: Record<Theme, Record<string, string>> = {
     "--panel-border": "#185018",
     "--panel-border-active": "#40d840",
     "--text-primary": "#30b830",
-    "--text-secondary": "#208020",
-    "--text-muted": "#185018",
+    "--text-secondary": "#30a030",
+    "--text-muted": "#287028",
     "--text-heading": "#40d840",
     "--text-white": "#80e880",
     "--accent": "#40d840",
@@ -462,10 +462,10 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap');
         .gm { font-family: 'Bebas Neue', cursive; }
-        .gm-tab { font-family: 'Bebas Neue', cursive; font-size: 1rem; letter-spacing: .08em; cursor: pointer; padding: .7rem 1.4rem; border-bottom: 2.5px solid transparent; transition: all .12s; color: #5a4228; background: none; border-top: none; border-left: none; border-right: none; }
+        .gm-tab { font-family: 'Bebas Neue', cursive; font-size: 1rem; letter-spacing: .08em; cursor: pointer; padding: .7rem 1.4rem; border-bottom: 2.5px solid transparent; transition: all .12s; color: #7a5a38; background: none; border-top: none; border-left: none; border-right: none; }
         .gm-tab:hover { color: #c4872a; }
         .gm-tab-on { color: #c83e0c !important; border-bottom-color: #c83e0c !important; }
-        .gm-tab-dev { margin-left: auto; color: #4a3520 !important; }
+        .gm-tab-dev { margin-left: auto; color: #6a4a30 !important; }
         .gm-tab-dev:hover { color: #c4872a !important; }
         .gm-tab-dev-on { color: #f0b020 !important; border-bottom-color: #f0b020 !important; }
         .gm-stripe { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0, rgba(255,255,255,.015) 1px, transparent 1px, transparent 8px); }
@@ -481,21 +481,21 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
               P{prestigeCount}
             </span>
           )}
-          <span style={{ fontSize: ".58rem", color: "#3a2510", letterSpacing: ".2em" }}>BUILT FROM GARBAGE</span>
+          <span style={{ fontSize: ".58rem", color: "#5a3a20", letterSpacing: ".2em" }}>BUILT FROM GARBAGE</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
           <div style={{ textAlign: "right" }}>
             <div className="gm" style={{ fontSize: "1.25rem", color: "#c4872a", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div style={{ fontSize: ".55rem", color: "#4a3520", letterSpacing: ".18em" }}>SCRAP BUCKS</div>
+            <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>SCRAP BUCKS</div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="gm" style={{ fontSize: "1.25rem", color: "#6aaa3a", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div style={{ fontSize: ".55rem", color: "#4a3520", letterSpacing: ".18em" }}>REP</div>
+            <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
               <div className="gm" style={{ fontSize: "1.25rem", color: "#c83e0c", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div style={{ fontSize: ".55rem", color: "#4a3520", letterSpacing: ".18em" }}>{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
         </div>
@@ -517,7 +517,7 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".6rem", color: "#4a3520", marginRight: ".5rem", letterSpacing: ".12em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".6rem", color: "#6a5030", marginRight: ".5rem", letterSpacing: ".12em" }}>
             <span style={{ color: "#c83e0c" }}>&#9673;</span> AUTO
           </div>
         )}
@@ -531,8 +531,8 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid #2a1c0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".6rem", color: "#3a2510", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
-          <span style={{ fontSize: ".5rem", color: "#2a1c0a", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".6rem", color: "#5a3a20", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span style={{ fontSize: ".5rem", color: "#4a3520", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -556,13 +556,13 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
         .mc-scanlines { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: repeating-linear-gradient(0deg, rgba(0,229,255,.018) 0, rgba(0,229,255,.018) 1px, transparent 1px, transparent 3px); }
         .mc-glow-c { text-shadow: 0 0 12px rgba(0,229,255,.7), 0 0 30px rgba(0,229,255,.3); }
         .mc-glow-m { text-shadow: 0 0 12px rgba(255,0,144,.7), 0 0 30px rgba(255,0,144,.3); }
-        .mc-tab { font-family: 'Orbitron', sans-serif; font-size: .62rem; font-weight: 700; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(0,229,255,.25); transition: all .14s; text-transform: uppercase; }
+        .mc-tab { font-family: 'Orbitron', sans-serif; font-size: .62rem; font-weight: 700; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(0,229,255,.45); transition: all .14s; text-transform: uppercase; }
         .mc-tab:hover { color: rgba(0,229,255,.7); }
         .mc-tab-on { color: #00e5ff !important; border-bottom-color: #00e5ff !important; text-shadow: 0 0 10px rgba(0,229,255,.6); }
-        .mc-tab-dev { margin-left: auto; color: rgba(255,0,144,.2) !important; }
+        .mc-tab-dev { margin-left: auto; color: rgba(255,0,144,.4) !important; }
         .mc-tab-dev:hover { color: rgba(255,0,144,.6) !important; }
         .mc-tab-dev-on { color: #ff0090 !important; border-bottom-color: #ff0090 !important; text-shadow: 0 0 10px rgba(255,0,144,.6); }
-        .mc-stat-label { font-family: 'Orbitron', sans-serif; font-size: .48rem; font-weight: 700; letter-spacing: .18em; color: rgba(0,229,255,.35); }
+        .mc-stat-label { font-family: 'Orbitron', sans-serif; font-size: .48rem; font-weight: 700; letter-spacing: .18em; color: rgba(0,229,255,.5); }
       `}</style>
 
       <div className="mc-scanlines" />
@@ -577,7 +577,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
             )}
           </div>
           <div style={{ width: 1, height: 32, background: "rgba(0,229,255,.15)" }} />
-          <div style={{ fontSize: ".55rem", color: "rgba(0,229,255,.3)", letterSpacing: ".2em", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>MIDNIGHT CIRCUIT</div>
+          <div style={{ fontSize: ".55rem", color: "rgba(0,229,255,.45)", letterSpacing: ".2em", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>MIDNIGHT CIRCUIT</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
@@ -586,7 +586,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="mc" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ff0090", letterSpacing: ".06em", textShadow: "0 0 12px rgba(255,0,144,.6)" }}>{formatNumber(repPoints)}</div>
-            <div className="mc-stat-label" style={{ color: "rgba(255,0,144,.35)" }}>REP</div>
+            <div className="mc-stat-label" style={{ color: "rgba(255,0,144,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -613,7 +613,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".55rem", color: "rgba(0,229,255,.3)", marginRight: ".5rem", fontFamily: "'Orbitron', sans-serif", fontWeight: 700, letterSpacing: ".12em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".55rem", color: "rgba(0,229,255,.45)", marginRight: ".5rem", fontFamily: "'Orbitron', sans-serif", fontWeight: 700, letterSpacing: ".12em" }}>
             <span style={{ color: "#00e5ff", textShadow: "0 0 8px #00e5ff" }}>&#9679;</span> AUTO
           </div>
         )}
@@ -627,8 +627,8 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,229,255,.08)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
-          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.15)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.35)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.25)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -649,14 +649,14 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
         .pc { font-family: 'Playfair Display', serif; }
-        .pc-tab { font-family: 'Lato', sans-serif; font-size: .65rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; padding: .9rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(184,151,90,.25); transition: all .15s; }
-        .pc-tab:hover { color: rgba(184,151,90,.65); }
+        .pc-tab { font-family: 'Lato', sans-serif; font-size: .65rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; padding: .9rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(184,151,90,.45); transition: all .15s; }
+        .pc-tab:hover { color: rgba(184,151,90,.7); }
         .pc-tab-on { color: #b8975a !important; border-bottom-color: #b8975a !important; }
-        .pc-tab-dev { margin-left: auto; color: rgba(184,151,90,.15) !important; }
-        .pc-tab-dev:hover { color: rgba(184,151,90,.4) !important; }
+        .pc-tab-dev { margin-left: auto; color: rgba(184,151,90,.35) !important; }
+        .pc-tab-dev:hover { color: rgba(184,151,90,.55) !important; }
         .pc-tab-dev-on { color: rgba(184,151,90,.7) !important; border-bottom-color: rgba(184,151,90,.7) !important; }
         .pc-rule { width: 1px; background: rgba(184,151,90,.15); height: 28px; }
-        .pc-stat-label { font-family: 'Lato', sans-serif; font-size: .52rem; font-weight: 700; letter-spacing: .2em; color: rgba(184,151,90,.35); text-transform: uppercase; }
+        .pc-stat-label { font-family: 'Lato', sans-serif; font-size: .52rem; font-weight: 700; letter-spacing: .2em; color: rgba(184,151,90,.5); text-transform: uppercase; }
       `}</style>
 
       {/* HUD */}
@@ -671,7 +671,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
             )}
           </div>
           <div className="pc-rule" />
-          <div style={{ fontSize: ".5rem", color: "rgba(184,151,90,.2)", letterSpacing: ".25em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>The Collector&apos;s Edition</div>
+          <div style={{ fontSize: ".5rem", color: "rgba(184,151,90,.4)", letterSpacing: ".25em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>The Collector&apos;s Edition</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
@@ -714,8 +714,8 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".52rem", color: "rgba(184,151,90,.25)", marginRight: ".5rem", fontFamily: "'Lato', sans-serif", fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" }}>
-            <span style={{ color: "rgba(184,151,90,.5)" }}>&#9670;</span> Auto
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".52rem", color: "rgba(184,151,90,.4)", marginRight: ".5rem", fontFamily: "'Lato', sans-serif", fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" }}>
+            <span style={{ color: "rgba(184,151,90,.6)" }}>&#9670;</span> Auto
           </div>
         )}
       </nav>
@@ -728,8 +728,8 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid rgba(184,151,90,.08)", padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.2)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
-          <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.15)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.35)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
+          <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.25)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -750,13 +750,13 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Rye&family=Libre+Baskerville:wght@400;700&display=swap');
         .ol { font-family: 'Rye', cursive; }
-        .ol-tab { font-family: 'Rye', cursive; font-size: .72rem; letter-spacing: .06em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: #6a5030; background: none; border-top: none; border-left: none; border-right: none; }
+        .ol-tab { font-family: 'Rye', cursive; font-size: .72rem; letter-spacing: .06em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: #8a6838; background: none; border-top: none; border-left: none; border-right: none; }
         .ol-tab:hover { color: #c88830; }
         .ol-tab-on { color: #c88830 !important; border-bottom-color: #c88830 !important; }
-        .ol-tab-dev { margin-left: auto; color: #4a3820 !important; }
+        .ol-tab-dev { margin-left: auto; color: #6a5030 !important; }
         .ol-tab-dev:hover { color: #c88830 !important; }
         .ol-tab-dev-on { color: #d8a850 !important; border-bottom-color: #d8a850 !important; }
-        .ol-stat-label { font-family: 'Rye', cursive; font-size: .48rem; letter-spacing: .15em; color: #6a5030; text-transform: uppercase; }
+        .ol-stat-label { font-family: 'Rye', cursive; font-size: .48rem; letter-spacing: .15em; color: #8a6838; text-transform: uppercase; }
         .ol-wanted { border: 3px double #884020; outline: 1px solid #6a3818; outline-offset: 3px; }
         .ol-paper { background-image: radial-gradient(ellipse at 50% 0%, rgba(200,136,48,.06) 0%, transparent 70%), repeating-linear-gradient(0deg, rgba(192,168,128,.02) 0, rgba(192,168,128,.02) 1px, transparent 1px, transparent 6px); }
       `}</style>
@@ -820,8 +820,8 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "2px solid #2a1c0c", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ol" style={{ fontSize: ".5rem", color: "#4a3820", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
-          <span style={{ fontSize: ".42rem", color: "#3a2810", letterSpacing: ".1em", fontFamily: "'Libre Baskerville', serif" }}>v{BUILD_VERSION}</span>
+          <span className="ol" style={{ fontSize: ".5rem", color: "#6a5030", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
+          <span style={{ fontSize: ".42rem", color: "#5a4020", letterSpacing: ".1em", fontFamily: "'Libre Baskerville', serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -842,13 +842,13 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;700;900&family=Inter:wght@300;400;500;600&display=swap');
         .cr { font-family: 'Exo 2', sans-serif; }
-        .cr-tab { font-family: 'Exo 2', sans-serif; font-size: .62rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; padding: .8rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(208,216,224,.2); transition: all .14s; }
-        .cr-tab:hover { color: rgba(208,216,224,.55); }
+        .cr-tab { font-family: 'Exo 2', sans-serif; font-size: .62rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; padding: .8rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(208,216,224,.4); transition: all .14s; }
+        .cr-tab:hover { color: rgba(208,216,224,.65); }
         .cr-tab-on { color: #d0d8e0 !important; border-bottom-color: #d0d8e0 !important; }
-        .cr-tab-dev { margin-left: auto; color: rgba(88,120,168,.2) !important; }
-        .cr-tab-dev:hover { color: rgba(88,120,168,.55) !important; }
+        .cr-tab-dev { margin-left: auto; color: rgba(88,120,168,.4) !important; }
+        .cr-tab-dev:hover { color: rgba(88,120,168,.6) !important; }
         .cr-tab-dev-on { color: #5878a8 !important; border-bottom-color: #5878a8 !important; }
-        .cr-stat-label { font-family: 'Exo 2', sans-serif; font-size: .48rem; font-weight: 600; letter-spacing: .2em; color: rgba(176,184,192,.3); text-transform: uppercase; }
+        .cr-stat-label { font-family: 'Exo 2', sans-serif; font-size: .48rem; font-weight: 600; letter-spacing: .2em; color: rgba(176,184,192,.5); text-transform: uppercase; }
         .cr-chrome-line { height: 1px; background: linear-gradient(90deg, transparent, rgba(208,216,224,.15) 20%, rgba(208,216,224,.25) 50%, rgba(208,216,224,.15) 80%, transparent); }
         .cr-sheen { background-image: linear-gradient(135deg, rgba(208,216,224,.03) 0%, transparent 40%, rgba(88,120,168,.03) 70%, transparent 100%); }
       `}</style>
@@ -863,7 +863,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
             )}
           </div>
           <div style={{ width: 1, height: 28, background: "rgba(208,216,224,.1)" }} />
-          <div className="cr" style={{ fontSize: ".5rem", color: "rgba(208,216,224,.2)", letterSpacing: ".25em", fontWeight: 500 }}>PURE MACHINE</div>
+          <div className="cr" style={{ fontSize: ".5rem", color: "rgba(208,216,224,.35)", letterSpacing: ".25em", fontWeight: 500 }}>PURE MACHINE</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
@@ -872,7 +872,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="cr" style={{ fontSize: "1.15rem", fontWeight: 700, color: "#5878a8", letterSpacing: ".06em" }}>{formatNumber(repPoints)}</div>
-            <div className="cr-stat-label" style={{ color: "rgba(88,120,168,.35)" }}>REP</div>
+            <div className="cr-stat-label" style={{ color: "rgba(88,120,168,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -900,7 +900,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(208,216,224,.25)", marginRight: ".5rem", fontFamily: "'Exo 2', sans-serif", fontWeight: 600, letterSpacing: ".14em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(208,216,224,.4)", marginRight: ".5rem", fontFamily: "'Exo 2', sans-serif", fontWeight: 600, letterSpacing: ".14em" }}>
             <span style={{ color: "#d0d8e0" }}>◈</span> AUTO
           </div>
         )}
@@ -916,8 +916,8 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
       <div className="cr-chrome-line" />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.15)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
-          <span className="cr" style={{ fontSize: ".4rem", color: "rgba(208,216,224,.1)", letterSpacing: ".15em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
+          <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.3)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
+          <span className="cr" style={{ fontSize: ".4rem", color: "rgba(208,216,224,.2)", letterSpacing: ".15em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -947,10 +947,10 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
         .tm-tab { font-family: 'VT323', monospace; font-size: 1rem; letter-spacing: .06em; cursor: pointer; padding: .65rem 1.2rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: #208020; transition: all .1s; }
         .tm-tab:hover { color: #40d840; text-shadow: 0 0 8px rgba(64,216,64,.4); }
         .tm-tab-on { color: #40d840 !important; border-bottom-color: #40d840 !important; text-shadow: 0 0 10px rgba(64,216,64,.6); }
-        .tm-tab-dev { margin-left: auto; color: #185018 !important; }
+        .tm-tab-dev { margin-left: auto; color: #287028 !important; }
         .tm-tab-dev:hover { color: #30a030 !important; }
         .tm-tab-dev-on { color: #30a030 !important; border-bottom-color: #30a030 !important; text-shadow: 0 0 10px rgba(48,160,48,.5); }
-        .tm-stat-label { font-family: 'VT323', monospace; font-size: .75rem; letter-spacing: .1em; color: #208020; }
+        .tm-stat-label { font-family: 'VT323', monospace; font-size: .75rem; letter-spacing: .1em; color: #30a030; }
         .tm-glow { text-shadow: 0 0 8px rgba(64,216,64,.6), 0 0 20px rgba(64,216,64,.2); }
       `}</style>
 
@@ -967,7 +967,7 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
               [P{prestigeCount}]
             </span>
           )}
-          <span className="tm" style={{ fontSize: ".9rem", color: "#208020" }}>&gt; RUN RACE.EXE</span>
+          <span className="tm" style={{ fontSize: ".9rem", color: "#30a030" }}>&gt; RUN RACE.EXE</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
           <div style={{ textAlign: "right" }}>
@@ -1017,8 +1017,8 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid #185018", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="tm" style={{ fontSize: ".85rem", color: "#185018" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
-          <span className="tm" style={{ fontSize: ".7rem", color: "#103010" }}>v{BUILD_VERSION}</span>
+          <span className="tm" style={{ fontSize: ".85rem", color: "#287028" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
+          <span className="tm" style={{ fontSize: ".7rem", color: "#206020" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1041,13 +1041,13 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
         .sd { font-family: 'Teko', sans-serif; }
         .sd-dust { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(216,144,48,.04) 0%, transparent 30%, transparent 70%, rgba(160,96,32,.06) 100%), radial-gradient(ellipse at 80% 20%, rgba(216,144,48,.05) 0%, transparent 50%); }
         .sd-stripe { background-image: repeating-linear-gradient(90deg, rgba(216,144,48,.04) 0, rgba(216,144,48,.04) 3px, transparent 3px, transparent 40px); }
-        .sd-tab { font-family: 'Teko', sans-serif; font-size: 1.05rem; font-weight: 600; letter-spacing: .1em; cursor: pointer; padding: .6rem 1.3rem; border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: #6a5028; transition: all .12s; text-transform: uppercase; }
+        .sd-tab { font-family: 'Teko', sans-serif; font-size: 1.05rem; font-weight: 600; letter-spacing: .1em; cursor: pointer; padding: .6rem 1.3rem; border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: #8a6838; transition: all .12s; text-transform: uppercase; }
         .sd-tab:hover { color: #d89030; }
         .sd-tab-on { color: #d89030 !important; border-bottom-color: #d89030 !important; }
-        .sd-tab-dev { margin-left: auto; color: #4a3818 !important; }
+        .sd-tab-dev { margin-left: auto; color: #6a5028 !important; }
         .sd-tab-dev:hover { color: #a06020 !important; }
         .sd-tab-dev-on { color: #a06020 !important; border-bottom-color: #a06020 !important; }
-        .sd-stat-label { font-family: 'Teko', sans-serif; font-size: .7rem; font-weight: 500; letter-spacing: .18em; color: #6a5028; text-transform: uppercase; }
+        .sd-stat-label { font-family: 'Teko', sans-serif; font-size: .7rem; font-weight: 500; letter-spacing: .18em; color: #8a6838; text-transform: uppercase; }
         .sd-rally-stripe { height: 3px; background: linear-gradient(90deg, #d89030 0%, #d89030 30%, #a06020 30%, #a06020 35%, transparent 35%); }
       `}</style>
 
@@ -1101,7 +1101,7 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".75rem", color: "#6a5028", marginRight: ".5rem", fontFamily: "'Teko', sans-serif", fontWeight: 600, letterSpacing: ".12em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".75rem", color: "#8a6838", marginRight: ".5rem", fontFamily: "'Teko', sans-serif", fontWeight: 600, letterSpacing: ".12em" }}>
             <span style={{ color: "#d89030" }}>◉</span> AUTO
           </div>
         )}
@@ -1116,8 +1116,8 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
       <div className="sd-rally-stripe" style={{ flexShrink: 0 }} />
       <footer style={{ position: "relative", zIndex: 10, padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="sd" style={{ fontSize: ".75rem", color: "#4a3818", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
-          <span className="sd" style={{ fontSize: ".6rem", color: "#3a2810", letterSpacing: ".1em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
+          <span className="sd" style={{ fontSize: ".75rem", color: "#6a5028", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
+          <span className="sd" style={{ fontSize: ".6rem", color: "#5a4020", letterSpacing: ".1em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1138,13 +1138,13 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Quicksand:wght@400;500;600;700&display=swap');
         .ss { font-family: 'Permanent Marker', cursive; }
-        .ss-tab { font-family: 'Permanent Marker', cursive; font-size: .85rem; letter-spacing: .06em; cursor: pointer; padding: .7rem 1.4rem; border-bottom: 2.5px solid transparent; transition: all .12s; color: #6a4030; background: none; border-top: none; border-left: none; border-right: none; }
+        .ss-tab { font-family: 'Permanent Marker', cursive; font-size: .85rem; letter-spacing: .06em; cursor: pointer; padding: .7rem 1.4rem; border-bottom: 2.5px solid transparent; transition: all .12s; color: #8a5840; background: none; border-top: none; border-left: none; border-right: none; }
         .ss-tab:hover { color: #e85020; }
         .ss-tab-on { color: #e85020 !important; border-bottom-color: #e85020 !important; text-shadow: 0 0 12px rgba(232,80,32,.4); }
-        .ss-tab-dev { margin-left: auto; color: #4a2820 !important; }
+        .ss-tab-dev { margin-left: auto; color: #6a4030 !important; }
         .ss-tab-dev:hover { color: #a830a0 !important; }
         .ss-tab-dev-on { color: #a830a0 !important; border-bottom-color: #a830a0 !important; text-shadow: 0 0 12px rgba(168,48,160,.4); }
-        .ss-stat-label { font-family: 'Quicksand', sans-serif; font-size: .52rem; font-weight: 700; letter-spacing: .18em; color: #6a4030; text-transform: uppercase; }
+        .ss-stat-label { font-family: 'Quicksand', sans-serif; font-size: .52rem; font-weight: 700; letter-spacing: .18em; color: #8a5840; text-transform: uppercase; }
         .ss-warm-glow { background: radial-gradient(ellipse at 50% 0%, rgba(232,80,32,.06) 0%, transparent 60%); }
       `}</style>
 
@@ -1166,7 +1166,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="ss" style={{ fontSize: "1.25rem", color: "#a830a0" }}>{formatNumber(repPoints)}</div>
-            <div className="ss-stat-label" style={{ color: "#5a2858" }}>REP</div>
+            <div className="ss-stat-label" style={{ color: "#7a3870" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -1196,7 +1196,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#6a4030", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Quicksand', sans-serif", fontWeight: 700 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#8a5840", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Quicksand', sans-serif", fontWeight: 700 }}>
             <span style={{ color: "#e85020" }}>◉</span> AUTO
           </div>
         )}
@@ -1211,8 +1211,8 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
       <div style={{ height: 2, background: "linear-gradient(90deg, #e85020 0%, #c03860 50%, #a830a0 100%)", opacity: 0.3, flexShrink: 0 }} />
       <footer style={{ padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ss" style={{ fontSize: ".55rem", color: "#4a2820", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
-          <span style={{ fontSize: ".45rem", color: "#3a1810", letterSpacing: ".1em", fontFamily: "'Quicksand', sans-serif" }}>v{BUILD_VERSION}</span>
+          <span className="ss" style={{ fontSize: ".55rem", color: "#6a4030", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
+          <span style={{ fontSize: ".45rem", color: "#5a3020", letterSpacing: ".1em", fontFamily: "'Quicksand', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1239,13 +1239,13 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
         @keyframes ds-rise { 0% { background-position: 0 0, 0 0, 0 0; } 100% { background-position: 0 -480px, 0 -600px, 0 -360px; } }
         .ds-glow-t { text-shadow: 0 0 10px rgba(0,184,156,.5), 0 0 25px rgba(0,184,156,.2); }
         .ds-glow-b { text-shadow: 0 0 10px rgba(32,96,208,.5), 0 0 25px rgba(32,96,208,.2); }
-        .ds-tab { font-family: 'Audiowide', cursive; font-size: .65rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(0,184,156,.25); transition: all .14s; text-transform: uppercase; }
-        .ds-tab:hover { color: rgba(0,184,156,.65); }
+        .ds-tab { font-family: 'Audiowide', cursive; font-size: .65rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(0,184,156,.45); transition: all .14s; text-transform: uppercase; }
+        .ds-tab:hover { color: rgba(0,184,156,.7); }
         .ds-tab-on { color: #00b89c !important; border-bottom-color: #00b89c !important; text-shadow: 0 0 10px rgba(0,184,156,.5); }
-        .ds-tab-dev { margin-left: auto; color: rgba(32,96,208,.2) !important; }
-        .ds-tab-dev:hover { color: rgba(32,96,208,.6) !important; }
+        .ds-tab-dev { margin-left: auto; color: rgba(32,96,208,.4) !important; }
+        .ds-tab-dev:hover { color: rgba(32,96,208,.65) !important; }
         .ds-tab-dev-on { color: #2060d0 !important; border-bottom-color: #2060d0 !important; text-shadow: 0 0 10px rgba(32,96,208,.5); }
-        .ds-stat-label { font-family: 'Audiowide', cursive; font-size: .48rem; letter-spacing: .16em; color: rgba(0,184,156,.3); text-transform: uppercase; }
+        .ds-stat-label { font-family: 'Audiowide', cursive; font-size: .48rem; letter-spacing: .16em; color: rgba(0,184,156,.45); text-transform: uppercase; }
       `}</style>
 
       <div className="ds-shimmer" />
@@ -1261,7 +1261,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
             )}
           </div>
           <div style={{ width: 1, height: 30, background: "rgba(0,184,156,.15)" }} />
-          <div style={{ fontSize: ".5rem", color: "rgba(0,184,156,.25)", letterSpacing: ".2em", fontFamily: "'Audiowide', cursive" }}>SUBMERGED</div>
+          <div style={{ fontSize: ".5rem", color: "rgba(0,184,156,.4)", letterSpacing: ".2em", fontFamily: "'Audiowide', cursive" }}>SUBMERGED</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
@@ -1270,7 +1270,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="ds ds-glow-b" style={{ fontSize: "1.15rem", color: "#2060d0", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="ds-stat-label" style={{ color: "rgba(32,96,208,.3)" }}>REP</div>
+            <div className="ds-stat-label" style={{ color: "rgba(32,96,208,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -1297,7 +1297,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(0,184,156,.25)", marginRight: ".5rem", fontFamily: "'Audiowide', cursive", letterSpacing: ".12em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(0,184,156,.4)", marginRight: ".5rem", fontFamily: "'Audiowide', cursive", letterSpacing: ".12em" }}>
             <span style={{ color: "#00b89c", textShadow: "0 0 8px rgba(0,184,156,.6)" }}>●</span> AUTO
           </div>
         )}
@@ -1311,8 +1311,8 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,184,156,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.18)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
-          <span className="ds" style={{ fontSize: ".4rem", color: "rgba(0,184,156,.12)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
+          <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.32)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
+          <span className="ds" style={{ fontSize: ".4rem", color: "rgba(0,184,156,.22)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1336,13 +1336,13 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
         .bm-vignette { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(10,4,4,.8) 100%); }
         .bm-drip { border-bottom: 3px solid #c01020; box-shadow: inset 0 -6px 12px -4px rgba(192,16,32,.15); background-image: radial-gradient(ellipse at 15% 100%, rgba(192,16,32,.12) 0%, transparent 30%), radial-gradient(ellipse at 45% 100%, rgba(128,16,32,.1) 0%, transparent 20%), radial-gradient(ellipse at 75% 100%, rgba(192,16,32,.08) 0%, transparent 25%); }
         .bm-glow { text-shadow: 0 0 12px rgba(192,16,32,.6), 0 0 30px rgba(192,16,32,.2); }
-        .bm-tab { font-family: 'Creepster', cursive; font-size: .9rem; letter-spacing: .08em; cursor: pointer; padding: .7rem 1.3rem; border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: #4a2020; transition: all .12s; }
+        .bm-tab { font-family: 'Creepster', cursive; font-size: .9rem; letter-spacing: .08em; cursor: pointer; padding: .7rem 1.3rem; border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: #6a3030; transition: all .12s; }
         .bm-tab:hover { color: #c01020; }
         .bm-tab-on { color: #c01020 !important; border-bottom-color: #c01020 !important; text-shadow: 0 0 10px rgba(192,16,32,.5); }
-        .bm-tab-dev { margin-left: auto; color: #3a1818 !important; }
+        .bm-tab-dev { margin-left: auto; color: #5a2828 !important; }
         .bm-tab-dev:hover { color: #801020 !important; }
         .bm-tab-dev-on { color: #801020 !important; border-bottom-color: #801020 !important; text-shadow: 0 0 10px rgba(128,16,32,.4); }
-        .bm-stat-label { font-family: 'Crimson Text', serif; font-size: .52rem; font-weight: 700; letter-spacing: .16em; color: #4a2020; text-transform: uppercase; }
+        .bm-stat-label { font-family: 'Crimson Text', serif; font-size: .52rem; font-weight: 700; letter-spacing: .16em; color: #6a3535; text-transform: uppercase; }
       `}</style>
 
       <div className="bm-vignette" />
@@ -1356,7 +1356,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
               P{prestigeCount}
             </span>
           )}
-          <span className="bm" style={{ fontSize: ".7rem", color: "#4a2020", letterSpacing: ".15em" }}>DEAD HEAT</span>
+          <span className="bm" style={{ fontSize: ".7rem", color: "#6a3030", letterSpacing: ".15em" }}>DEAD HEAT</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
           <div style={{ textAlign: "right" }}>
@@ -1365,7 +1365,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="bm" style={{ fontSize: "1.25rem", color: "#801020", textShadow: "0 0 8px rgba(128,16,32,.4)" }}>{formatNumber(repPoints)}</div>
-            <div className="bm-stat-label" style={{ color: "#3a1818" }}>REP</div>
+            <div className="bm-stat-label" style={{ color: "#5a2828" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -1392,7 +1392,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#4a2020", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Creepster', cursive" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#6a3535", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Creepster', cursive" }}>
             <span style={{ color: "#c01020", textShadow: "0 0 6px rgba(192,16,32,.5)" }}>☠</span> AUTO
           </div>
         )}
@@ -1406,8 +1406,8 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(192,16,32,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="bm" style={{ fontSize: ".55rem", color: "#3a1818", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
-          <span style={{ fontSize: ".45rem", color: "#2a1010", letterSpacing: ".1em", fontFamily: "'Crimson Text', serif" }}>v{BUILD_VERSION}</span>
+          <span className="bm" style={{ fontSize: ".55rem", color: "#5a2828", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
+          <span style={{ fontSize: ".45rem", color: "#4a2020", letterSpacing: ".1em", fontFamily: "'Crimson Text', serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1429,13 +1429,13 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
         @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+JP:wght@300;400;500;600&display=swap');
         .sk { font-family: 'Zen Maru Gothic', serif; }
         .sk-petal { background: radial-gradient(ellipse at 30% 20%, rgba(232,112,152,.03) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(136,192,136,.02) 0%, transparent 50%); }
-        .sk-tab { font-family: 'Zen Maru Gothic', serif; font-size: .72rem; font-weight: 500; letter-spacing: .08em; cursor: pointer; padding: .8rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(232,112,152,.25); transition: all .18s ease; }
-        .sk-tab:hover { color: rgba(232,112,152,.6); }
+        .sk-tab { font-family: 'Zen Maru Gothic', serif; font-size: .72rem; font-weight: 500; letter-spacing: .08em; cursor: pointer; padding: .8rem 1.3rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(232,112,152,.45); transition: all .18s ease; }
+        .sk-tab:hover { color: rgba(232,112,152,.7); }
         .sk-tab-on { color: #e87098 !important; border-bottom-color: #e87098 !important; }
-        .sk-tab-dev { margin-left: auto; color: rgba(136,192,136,.2) !important; }
-        .sk-tab-dev:hover { color: rgba(136,192,136,.55) !important; }
+        .sk-tab-dev { margin-left: auto; color: rgba(136,192,136,.4) !important; }
+        .sk-tab-dev:hover { color: rgba(136,192,136,.6) !important; }
         .sk-tab-dev-on { color: #88c088 !important; border-bottom-color: #88c088 !important; }
-        .sk-stat-label { font-family: 'Noto Sans JP', sans-serif; font-size: .48rem; font-weight: 500; letter-spacing: .18em; color: rgba(232,112,152,.3); text-transform: uppercase; }
+        .sk-stat-label { font-family: 'Noto Sans JP', sans-serif; font-size: .48rem; font-weight: 500; letter-spacing: .18em; color: rgba(232,112,152,.45); text-transform: uppercase; }
         .sk-thin-border { border: 1px solid rgba(232,112,152,.08); }
       `}</style>
 
@@ -1451,7 +1451,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
             )}
           </div>
           <div style={{ width: 1, height: 28, background: "rgba(232,112,152,.1)" }} />
-          <div className="sk" style={{ fontSize: ".6rem", color: "rgba(232,112,152,.25)", letterSpacing: ".15em", fontWeight: 500 }}>花見レース</div>
+          <div className="sk" style={{ fontSize: ".6rem", color: "rgba(232,112,152,.4)", letterSpacing: ".15em", fontWeight: 500 }}>花見レース</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
@@ -1460,7 +1460,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="sk" style={{ fontSize: "1.2rem", color: "#88c088", fontWeight: 700, letterSpacing: ".02em" }}>{formatNumber(repPoints)}</div>
-            <div className="sk-stat-label" style={{ color: "rgba(136,192,136,.3)" }}>REP</div>
+            <div className="sk-stat-label" style={{ color: "rgba(136,192,136,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -1490,7 +1490,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(232,112,152,.25)", marginRight: ".5rem", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 500, letterSpacing: ".12em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(232,112,152,.4)", marginRight: ".5rem", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 500, letterSpacing: ".12em" }}>
             <span style={{ color: "#e87098" }}>❀</span> AUTO
           </div>
         )}
@@ -1505,8 +1505,8 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(232,112,152,.1) 30%, rgba(136,192,136,.06) 70%, transparent)", flexShrink: 0 }} />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.18)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
-          <span style={{ fontSize: ".42rem", color: "rgba(232,112,152,.12)", letterSpacing: ".1em", fontFamily: "'Noto Sans JP', sans-serif" }}>v{BUILD_VERSION}</span>
+          <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.32)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
+          <span style={{ fontSize: ".42rem", color: "rgba(232,112,152,.22)", letterSpacing: ".1em", fontFamily: "'Noto Sans JP', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1527,13 +1527,13 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
         .rb { font-family: 'Russo One', sans-serif; }
-        .rb-tab { font-family: 'Russo One', sans-serif; font-size: .72rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: #5a3a20; background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
+        .rb-tab { font-family: 'Russo One', sans-serif; font-size: .72rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: #7a5230; background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
         .rb-tab:hover { color: #b44a1a; }
         .rb-tab-on { color: #b44a1a !important; border-bottom-color: #b44a1a !important; text-shadow: 0 0 8px rgba(180,74,26,.4); }
-        .rb-tab-dev { margin-left: auto; color: #3a2210 !important; }
+        .rb-tab-dev { margin-left: auto; color: #5a3a20 !important; }
         .rb-tab-dev:hover { color: #7a3a1a !important; }
         .rb-tab-dev-on { color: #c87030 !important; border-bottom-color: #c87030 !important; }
-        .rb-stat-label { font-family: 'IBM Plex Mono', monospace; font-size: .5rem; font-weight: 600; letter-spacing: .18em; color: #5a3a20; text-transform: uppercase; }
+        .rb-stat-label { font-family: 'IBM Plex Mono', monospace; font-size: .5rem; font-weight: 600; letter-spacing: .18em; color: #7a5230; text-transform: uppercase; }
         .rb-rust-overlay { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 20% 50%, rgba(180,74,26,.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(122,58,26,.08) 0%, transparent 40%), radial-gradient(ellipse at 60% 80%, rgba(180,74,26,.04) 0%, transparent 45%); }
         .rb-grit { background-image: repeating-linear-gradient(90deg, rgba(180,74,26,.02) 0, rgba(180,74,26,.02) 1px, transparent 1px, transparent 4px), repeating-linear-gradient(0deg, rgba(122,58,26,.015) 0, rgba(122,58,26,.015) 1px, transparent 1px, transparent 6px); }
       `}</style>
@@ -1549,7 +1549,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
               P{prestigeCount}
             </span>
           )}
-          <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".22em", fontWeight: 600 }}>CORRODED BUT RUNNING</span>
+          <span style={{ fontSize: ".55rem", color: "#5a3a20", letterSpacing: ".22em", fontWeight: 600 }}>CORRODED BUT RUNNING</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
           <div style={{ textAlign: "right" }}>
@@ -1585,7 +1585,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#5a3a20", marginRight: ".5rem", letterSpacing: ".12em", fontWeight: 600 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#7a5230", marginRight: ".5rem", letterSpacing: ".12em", fontWeight: 600 }}>
             <span style={{ color: "#b44a1a", textShadow: "0 0 6px rgba(180,74,26,.5)" }}>&#9673;</span> AUTO
           </div>
         )}
@@ -1599,8 +1599,8 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "2px solid #2a1a0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".55rem", color: "#3a2210", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
-          <span style={{ fontSize: ".45rem", color: "#2a1a0a", letterSpacing: ".1em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".55rem", color: "#5a3a20", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
+          <span style={{ fontSize: ".45rem", color: "#4a2a10", letterSpacing: ".1em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1621,13 +1621,13 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Michroma&family=Nunito+Sans:wght@400;600;700;800&display=swap');
         .ar { font-family: 'Michroma', sans-serif; }
-        .ar-tab { font-family: 'Michroma', sans-serif; font-size: .58rem; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; transition: all .14s; color: rgba(72,184,232,.2); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
-        .ar-tab:hover { color: rgba(72,184,232,.55); }
+        .ar-tab { font-family: 'Michroma', sans-serif; font-size: .58rem; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; transition: all .14s; color: rgba(72,184,232,.4); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
+        .ar-tab:hover { color: rgba(72,184,232,.65); }
         .ar-tab-on { color: #48b8e8 !important; border-bottom-color: #48b8e8 !important; text-shadow: 0 0 10px rgba(72,184,232,.4); }
-        .ar-tab-dev { margin-left: auto; color: rgba(136,208,240,.15) !important; }
-        .ar-tab-dev:hover { color: rgba(136,208,240,.45) !important; }
+        .ar-tab-dev { margin-left: auto; color: rgba(136,208,240,.35) !important; }
+        .ar-tab-dev:hover { color: rgba(136,208,240,.55) !important; }
         .ar-tab-dev-on { color: #88d0f0 !important; border-bottom-color: #88d0f0 !important; text-shadow: 0 0 8px rgba(136,208,240,.4); }
-        .ar-stat-label { font-family: 'Michroma', sans-serif; font-size: .45rem; letter-spacing: .18em; color: rgba(72,184,232,.3); text-transform: uppercase; }
+        .ar-stat-label { font-family: 'Michroma', sans-serif; font-size: .45rem; letter-spacing: .18em; color: rgba(72,184,232,.45); text-transform: uppercase; }
         .ar-frost { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse at 30% 0%, rgba(136,208,240,.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 100%, rgba(72,184,232,.04) 0%, transparent 45%), radial-gradient(ellipse at 50% 50%, rgba(200,230,255,.02) 0%, transparent 60%); }
         .ar-shimmer { pointer-events: none; position: fixed; inset: 0; z-index: 1; background: linear-gradient(135deg, transparent 40%, rgba(200,230,255,.015) 45%, transparent 50%, transparent 55%, rgba(136,208,240,.01) 60%, transparent 65%); }
         .ar-glow { text-shadow: 0 0 10px rgba(72,184,232,.5), 0 0 25px rgba(72,184,232,.2); }
@@ -1646,7 +1646,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
             )}
           </div>
           <div style={{ width: 1, height: 28, background: "rgba(72,184,232,.12)" }} />
-          <div style={{ fontSize: ".48rem", color: "rgba(72,184,232,.25)", letterSpacing: ".22em", fontFamily: "'Michroma', sans-serif" }}>COLD START</div>
+          <div style={{ fontSize: ".48rem", color: "rgba(72,184,232,.4)", letterSpacing: ".22em", fontFamily: "'Michroma', sans-serif" }}>COLD START</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <div style={{ textAlign: "right" }}>
@@ -1655,7 +1655,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="ar" style={{ fontSize: "1.05rem", color: "#88d0f0", letterSpacing: ".06em" }}>{formatNumber(repPoints)}</div>
-            <div className="ar-stat-label" style={{ color: "rgba(136,208,240,.3)" }}>REP</div>
+            <div className="ar-stat-label" style={{ color: "rgba(136,208,240,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -1682,7 +1682,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".5rem", color: "rgba(72,184,232,.25)", marginRight: ".5rem", fontFamily: "'Michroma', sans-serif", letterSpacing: ".12em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".5rem", color: "rgba(72,184,232,.4)", marginRight: ".5rem", fontFamily: "'Michroma', sans-serif", letterSpacing: ".12em" }}>
             <span style={{ color: "#48b8e8", textShadow: "0 0 8px rgba(72,184,232,.6)" }}>&#10052;</span> AUTO
           </div>
         )}
@@ -1696,8 +1696,8 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(72,184,232,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.18)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
-          <span className="ar" style={{ fontSize: ".38rem", color: "rgba(72,184,232,.12)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+          <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.32)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
+          <span className="ar" style={{ fontSize: ".38rem", color: "rgba(72,184,232,.22)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1718,11 +1718,11 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap');
         .vw { font-family: 'Press Start 2P', cursive; }
-        .vw-tab { font-family: 'Press Start 2P', cursive; font-size: .48rem; letter-spacing: .06em; cursor: pointer; padding: .9rem 1.1rem; border-bottom: 2px solid transparent; transition: all .14s; color: rgba(255,113,206,.2); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
-        .vw-tab:hover { color: rgba(255,113,206,.6); text-shadow: 0 0 8px rgba(255,113,206,.3); }
+        .vw-tab { font-family: 'Press Start 2P', cursive; font-size: .48rem; letter-spacing: .06em; cursor: pointer; padding: .9rem 1.1rem; border-bottom: 2px solid transparent; transition: all .14s; color: rgba(255,113,206,.4); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
+        .vw-tab:hover { color: rgba(255,113,206,.7); text-shadow: 0 0 8px rgba(255,113,206,.3); }
         .vw-tab-on { color: #ff71ce !important; border-bottom-color: #ff71ce !important; text-shadow: 0 0 12px rgba(255,113,206,.6), 0 0 24px rgba(255,113,206,.2) !important; }
-        .vw-tab-dev { margin-left: auto; color: rgba(185,103,255,.15) !important; }
-        .vw-tab-dev:hover { color: rgba(185,103,255,.5) !important; }
+        .vw-tab-dev { margin-left: auto; color: rgba(185,103,255,.35) !important; }
+        .vw-tab-dev:hover { color: rgba(185,103,255,.6) !important; }
         .vw-tab-dev-on { color: #b967ff !important; border-bottom-color: #b967ff !important; text-shadow: 0 0 12px rgba(185,103,255,.6) !important; }
         .vw-stat-label { font-family: 'Space Mono', monospace; font-size: .5rem; font-weight: 700; letter-spacing: .15em; color: rgba(185,103,255,.4); text-transform: uppercase; }
         .vw-glow-pink { text-shadow: 0 0 10px rgba(255,113,206,.6), 0 0 25px rgba(255,113,206,.25); }
@@ -1784,7 +1784,7 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".45rem", color: "rgba(1,205,254,.3)", marginRight: ".5rem", fontFamily: "'Press Start 2P', cursive", letterSpacing: ".1em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".45rem", color: "rgba(1,205,254,.45)", marginRight: ".5rem", fontFamily: "'Press Start 2P', cursive", letterSpacing: ".1em" }}>
             <span style={{ color: "#01cdfe", textShadow: "0 0 8px #01cdfe" }}>&#9830;</span> AUTO
           </div>
         )}
@@ -1801,8 +1801,8 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.8)", padding: ".65rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.2)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
-          <span className="vw" style={{ fontSize: ".32rem", color: "rgba(185,103,255,.12)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
+          <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.35)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
+          <span className="vw" style={{ fontSize: ".32rem", color: "rgba(185,103,255,.22)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1823,13 +1823,13 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Source+Code+Pro:wght@400;500;600;700&display=swap');
         .tc { font-family: 'Black Ops One', cursive; }
-        .tc-tab { font-family: 'Black Ops One', cursive; font-size: .65rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: rgba(74,138,40,.25); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
-        .tc-tab:hover { color: rgba(74,138,40,.6); }
+        .tc-tab { font-family: 'Black Ops One', cursive; font-size: .65rem; letter-spacing: .1em; cursor: pointer; padding: .75rem 1.3rem; border-bottom: 2px solid transparent; transition: all .12s; color: rgba(74,138,40,.45); background: none; border-top: none; border-left: none; border-right: none; text-transform: uppercase; }
+        .tc-tab:hover { color: rgba(74,138,40,.7); }
         .tc-tab-on { color: #4a8a28 !important; border-bottom-color: #4a8a28 !important; text-shadow: 0 0 8px rgba(74,138,40,.4); }
-        .tc-tab-dev { margin-left: auto; color: rgba(200,168,72,.15) !important; }
-        .tc-tab-dev:hover { color: rgba(200,168,72,.5) !important; }
+        .tc-tab-dev { margin-left: auto; color: rgba(200,168,72,.35) !important; }
+        .tc-tab-dev:hover { color: rgba(200,168,72,.6) !important; }
         .tc-tab-dev-on { color: #c8a848 !important; border-bottom-color: #c8a848 !important; text-shadow: 0 0 8px rgba(200,168,72,.4); }
-        .tc-stat-label { font-family: 'Source Code Pro', monospace; font-size: .5rem; font-weight: 600; letter-spacing: .18em; color: rgba(74,138,40,.35); text-transform: uppercase; }
+        .tc-stat-label { font-family: 'Source Code Pro', monospace; font-size: .5rem; font-weight: 600; letter-spacing: .18em; color: rgba(74,138,40,.5); text-transform: uppercase; }
         .tc-bracket { position: relative; }
         .tc-bracket::before, .tc-bracket::after { content: ''; position: absolute; width: 12px; height: 12px; border-color: rgba(74,138,40,.25); border-style: solid; }
         .tc-bracket::before { top: 0; left: 0; border-width: 2px 0 0 2px; }
@@ -1852,7 +1852,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
               LVL {prestigeCount}
             </span>
           )}
-          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.3)", letterSpacing: ".22em", fontWeight: 600 }}>OPERATION SCRAPYARD</span>
+          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.45)", letterSpacing: ".22em", fontWeight: 600 }}>OPERATION SCRAPYARD</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
           <div style={{ textAlign: "right" }}>
@@ -1861,7 +1861,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="tc" style={{ fontSize: "1.1rem", color: "#c8a848", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="tc-stat-label" style={{ color: "rgba(200,168,72,.35)" }}>REP</div>
+            <div className="tc-stat-label" style={{ color: "rgba(200,168,72,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
             <div style={{ textAlign: "right" }}>
@@ -1888,7 +1888,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
           );
         })}
         {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".55rem", color: "rgba(74,138,40,.3)", marginRight: ".5rem", fontFamily: "'Source Code Pro', monospace", fontWeight: 600, letterSpacing: ".12em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".55rem", color: "rgba(74,138,40,.45)", marginRight: ".5rem", fontFamily: "'Source Code Pro', monospace", fontWeight: 600, letterSpacing: ".12em" }}>
             <span style={{ color: "#4a8a28", textShadow: "0 0 6px rgba(74,138,40,.5)" }}>&#9654;</span> AUTO
           </div>
         )}
@@ -1902,8 +1902,8 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(74,138,40,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.2)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
-          <span style={{ fontSize: ".42rem", color: "rgba(74,138,40,.12)", letterSpacing: ".1em", fontFamily: "'Source Code Pro', monospace" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.35)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
+          <span style={{ fontSize: ".42rem", color: "rgba(74,138,40,.22)", letterSpacing: ".1em", fontFamily: "'Source Code Pro', monospace" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
