@@ -531,8 +531,8 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid #2a1c0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".6rem", color: "#5a3a20", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
-          <span style={{ fontSize: ".5rem", color: "#4a3520", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".6rem", color: "#7a5a38", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span style={{ fontSize: ".5rem", color: "#6a4a28", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -627,8 +627,8 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,229,255,.08)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.35)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
-          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.25)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.45)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.35)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -728,8 +728,8 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid rgba(184,151,90,.08)", padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.35)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
-          <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.25)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.45)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
+          <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.35)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -820,8 +820,8 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ borderTop: "2px solid #2a1c0c", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ol" style={{ fontSize: ".5rem", color: "#6a5030", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
-          <span style={{ fontSize: ".42rem", color: "#5a4020", letterSpacing: ".1em", fontFamily: "'Libre Baskerville', serif" }}>v{BUILD_VERSION}</span>
+          <span className="ol" style={{ fontSize: ".5rem", color: "#8a6838", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
+          <span style={{ fontSize: ".42rem", color: "#7a5830", letterSpacing: ".1em", fontFamily: "'Libre Baskerville', serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -916,8 +916,8 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
       <div className="cr-chrome-line" />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.3)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
-          <span className="cr" style={{ fontSize: ".4rem", color: "rgba(208,216,224,.2)", letterSpacing: ".15em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
+          <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.4)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
+          <span className="cr" style={{ fontSize: ".4rem", color: "rgba(208,216,224,.32)", letterSpacing: ".15em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1017,8 +1017,8 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid #185018", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="tm" style={{ fontSize: ".85rem", color: "#287028" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
-          <span className="tm" style={{ fontSize: ".7rem", color: "#206020" }}>v{BUILD_VERSION}</span>
+          <span className="tm" style={{ fontSize: ".85rem", color: "#38a038" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
+          <span className="tm" style={{ fontSize: ".7rem", color: "#308030" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1116,8 +1116,8 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
       <div className="sd-rally-stripe" style={{ flexShrink: 0 }} />
       <footer style={{ position: "relative", zIndex: 10, padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="sd" style={{ fontSize: ".75rem", color: "#6a5028", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
-          <span className="sd" style={{ fontSize: ".6rem", color: "#5a4020", letterSpacing: ".1em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
+          <span className="sd" style={{ fontSize: ".75rem", color: "#8a6838", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
+          <span className="sd" style={{ fontSize: ".6rem", color: "#7a5830", letterSpacing: ".1em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1211,8 +1211,8 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
       <div style={{ height: 2, background: "linear-gradient(90deg, #e85020 0%, #c03860 50%, #a830a0 100%)", opacity: 0.3, flexShrink: 0 }} />
       <footer style={{ padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ss" style={{ fontSize: ".55rem", color: "#6a4030", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
-          <span style={{ fontSize: ".45rem", color: "#5a3020", letterSpacing: ".1em", fontFamily: "'Quicksand', sans-serif" }}>v{BUILD_VERSION}</span>
+          <span className="ss" style={{ fontSize: ".55rem", color: "#8a5840", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
+          <span style={{ fontSize: ".45rem", color: "#7a4838", letterSpacing: ".1em", fontFamily: "'Quicksand', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1311,8 +1311,8 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,184,156,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.32)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
-          <span className="ds" style={{ fontSize: ".4rem", color: "rgba(0,184,156,.22)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
+          <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.42)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
+          <span className="ds" style={{ fontSize: ".4rem", color: "rgba(0,184,156,.35)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1406,8 +1406,8 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(192,16,32,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="bm" style={{ fontSize: ".55rem", color: "#5a2828", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
-          <span style={{ fontSize: ".45rem", color: "#4a2020", letterSpacing: ".1em", fontFamily: "'Crimson Text', serif" }}>v{BUILD_VERSION}</span>
+          <span className="bm" style={{ fontSize: ".55rem", color: "#7a3838", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
+          <span style={{ fontSize: ".45rem", color: "#6a3030", letterSpacing: ".1em", fontFamily: "'Crimson Text', serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1505,8 +1505,8 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
       <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(232,112,152,.1) 30%, rgba(136,192,136,.06) 70%, transparent)", flexShrink: 0 }} />
       <footer style={{ padding: ".65rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.32)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
-          <span style={{ fontSize: ".42rem", color: "rgba(232,112,152,.22)", letterSpacing: ".1em", fontFamily: "'Noto Sans JP', sans-serif" }}>v{BUILD_VERSION}</span>
+          <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.42)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
+          <span style={{ fontSize: ".42rem", color: "rgba(232,112,152,.35)", letterSpacing: ".1em", fontFamily: "'Noto Sans JP', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1599,8 +1599,8 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "2px solid #2a1a0a", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".55rem", color: "#5a3a20", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
-          <span style={{ fontSize: ".45rem", color: "#4a2a10", letterSpacing: ".1em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".55rem", color: "#7a5230", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
+          <span style={{ fontSize: ".45rem", color: "#6a4220", letterSpacing: ".1em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1696,8 +1696,8 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(72,184,232,.06)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.32)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
-          <span className="ar" style={{ fontSize: ".38rem", color: "rgba(72,184,232,.22)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+          <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.42)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
+          <span className="ar" style={{ fontSize: ".38rem", color: "rgba(72,184,232,.35)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1801,8 +1801,8 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.8)", padding: ".65rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.35)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
-          <span className="vw" style={{ fontSize: ".32rem", color: "rgba(185,103,255,.22)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
+          <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.45)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
+          <span className="vw" style={{ fontSize: ".32rem", color: "rgba(185,103,255,.35)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
@@ -1902,8 +1902,8 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(74,138,40,.1)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.35)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
-          <span style={{ fontSize: ".42rem", color: "rgba(74,138,40,.22)", letterSpacing: ".1em", fontFamily: "'Source Code Pro', monospace" }}>v{BUILD_VERSION}</span>
+          <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.45)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
+          <span style={{ fontSize: ".42rem", color: "rgba(74,138,40,.35)", letterSpacing: ".1em", fontFamily: "'Source Code Pro', monospace" }}>v{BUILD_VERSION}</span>
         </div>
         <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
 
