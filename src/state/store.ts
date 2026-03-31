@@ -20,6 +20,9 @@ import { getVehicleById } from "@/data/vehicles";
 import { getUpgradeById, getUpgradeCost } from "@/data/upgrades";
 
 export interface GameState {
+  // Intro / onboarding
+  introCompleted: boolean;
+
   // Currency
   scrapBucks: number;
   repPoints: number;
@@ -98,6 +101,7 @@ export interface GameState {
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
   applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => void;
+  completeIntro: () => void;
 
   // Dev / admin actions
   devSetScrapBucks: (amount: number) => void;
@@ -116,6 +120,7 @@ export interface GameState {
 
 function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>> {
   return {
+    introCompleted: false,
     scrapBucks: 0,
     repPoints: 0,
     lifetimeScrapBucks: 0,
@@ -591,6 +596,10 @@ function createActions(set: any, get: any) {
       });
     },
 
+    completeIntro: () => {
+      set({ introCompleted: true });
+    },
+
     // ── Dev / admin actions ──────────────────────────────────────────────────
 
     devSetScrapBucks: (amount: number) => {
@@ -688,6 +697,7 @@ export const useGameStore = create<GameState>()(
     {
       name: "rags-to-races-save",
       partialize: (state) => ({
+        introCompleted: state.introCompleted,
         scrapBucks: state.scrapBucks,
         repPoints: state.repPoints,
         lifetimeScrapBucks: state.lifetimeScrapBucks,
