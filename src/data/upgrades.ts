@@ -38,7 +38,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     description: "Find +1 extra part per scavenge.",
     category: "scavenging",
     maxLevel: 3,
-    baseCost: 120,
+    baseCost: 200,
     costScaling: 3.0,
     effect: { type: "scavenge_extra_parts", valuePerLevel: 1 },
   },

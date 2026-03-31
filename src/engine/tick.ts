@@ -1,6 +1,7 @@
 import type { GameState } from "@/state/store";
 import { _getUpgradeEffectValue } from "@/state/store";
 import { scavenge } from "./scavenge";
+import { getGearBonuses } from "./gear";
 import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
 import { simulateRace, calculateWear } from "./race";
@@ -27,17 +28,19 @@ export function computeTick(state: GameState): TickResult {
     vehicleRepairAmount: 0,
   };
 
-  // Auto-scavenge (with workshop upgrade bonuses)
+  const gearBonuses = getGearBonuses(state.equippedGear);
+
+  // Auto-scavenge (with workshop upgrade bonuses + gear bonuses)
   if (state.autoScavengeUnlocked && state.selectedLocationId) {
     const location = getLocationById(state.selectedLocationId);
     if (location) {
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue ?? 0;
-      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue);
+      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gearBonuses.scavenge_luck_bonus, gearBonuses.scavenge_yield_pct);
       // Add extra parts from Deep Pockets
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue);
+        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gearBonuses.scavenge_luck_bonus, gearBonuses.scavenge_yield_pct);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       result.partsFound = parts;
@@ -61,7 +64,7 @@ export function computeTick(state: GameState): TickResult {
       // Only race if vehicle is functional and can afford entry
       if (vehicleCondition > 0 && state.scrapBucks >= circuit.entryFee) {
         const fatigue = state.fatigue ?? 0;
-        result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue);
+        result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction);
 
         // Apply consolation sponsor bonus
         const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");
@@ -69,12 +72,16 @@ export function computeTick(state: GameState): TickResult {
         if (result.raceOutcome.result !== "win" && consolationBonus > 0) {
           scraps = Math.floor(scraps * (1 + consolationBonus));
         }
+        // Gear race scrap bonus
+        if (gearBonuses.race_scrap_bonus_pct > 0) {
+          scraps = Math.floor(scraps * (1 + gearBonuses.race_scrap_bonus_pct));
+        }
         result.scrapsEarned += scraps - circuit.entryFee;
         result.repEarned += result.raceOutcome.repEarned;
 
-        // Calculate wear
+        // Calculate wear (workshop + gear reduction)
         const wearReduction = _getUpgradeEffectValue(state, "reinforced_chassis");
-        result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction, fatigue);
+        result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction, fatigue, gearBonuses.race_wear_reduction_pct);
       }
     }
   }
