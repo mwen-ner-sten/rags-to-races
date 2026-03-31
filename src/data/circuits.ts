@@ -39,7 +39,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 15,
     rewardBase: 60,
     repReward: 3,
-    unlockRepCost: 18,
+    unlockRepCost: 5000,
     raceDuration: 4000,
   },
   {
@@ -53,7 +53,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 100,
     rewardBase: 500,
     repReward: 10,
-    unlockRepCost: 50,
+    unlockRepCost: 50000,
     raceDuration: 5000,
   },
   {
@@ -67,7 +67,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 800,
     rewardBase: 4000,
     repReward: 30,
-    unlockRepCost: 130,
+    unlockRepCost: 200000,
     raceDuration: 6000,
   },
   {
@@ -81,7 +81,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 8000,
     rewardBase: 35000,
     repReward: 100,
-    unlockRepCost: 350,
+    unlockRepCost: 600000,
     raceDuration: 8000,
   },
 ];
