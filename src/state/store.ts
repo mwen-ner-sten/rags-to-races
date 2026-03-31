@@ -65,6 +65,9 @@ export interface GameState {
   // Workshop upgrades
   workshopLevels: Record<string, number>;
 
+  // Intro
+  introCompleted: boolean;
+
   // Build UI state
   pendingBuildParts: Record<string, ScavengedPart | null>;
   pendingBuildVehicleId: string | null;
@@ -98,6 +101,7 @@ export interface GameState {
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
   applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number) => void;
+  completeIntro: () => void;
 
   // Dev / admin actions
   devSetScrapBucks: (amount: number) => void;
@@ -141,6 +145,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lifetimeRaces: 0,
     unlockEvents: [],
     workshopLevels: {},
+    introCompleted: false,
     pendingBuildParts: {},
     pendingBuildVehicleId: "push_mower",
     unlockedLocationIds: ["curbside"],
@@ -549,6 +554,7 @@ function createActions(set: any, get: any) {
         prestigeCount: kept.prestigeCount,
         prestigeBonus: kept.bonuses,
         workshopLevels: {},
+        introCompleted: state.introCompleted,
         unlockedVehicleIds: ["push_mower"],
         unlockedLocationIds: ["curbside"],
         unlockedCircuitIds: ["backyard_derby"],
@@ -589,6 +595,10 @@ function createActions(set: any, get: any) {
           fatigue: newFatigue,
         };
       });
+    },
+
+    completeIntro: () => {
+      set({ introCompleted: true });
     },
 
     // ── Dev / admin actions ──────────────────────────────────────────────────
@@ -711,6 +721,7 @@ export const useGameStore = create<GameState>()(
         lifetimeRaces: state.lifetimeRaces,
         workshopLevels: state.workshopLevels,
         pendingBuildVehicleId: state.pendingBuildVehicleId,
+        introCompleted: state.introCompleted,
       }),
     },
   ),
