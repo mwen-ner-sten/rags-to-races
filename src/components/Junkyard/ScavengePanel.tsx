@@ -213,7 +213,7 @@ export default function ScavengePanel() {
               <span>Value</span>
               <span></span>
             </div>
-            <div className="max-h-72 sm:max-h-96 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+            <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll">
               {groups.map((group) => {
                 const def = getPartById(group.definitionId);
                 if (!def) return null;
