@@ -353,22 +353,22 @@ function createActions(set: any, get: any) {
           const newUnlockEvents = [...s.unlockEvents];
 
           // Unlock circuits by rep
-          if (newRep >= 18 && !newUnlockedCircuits.includes("dirt_track")) { newUnlockedCircuits.push("dirt_track"); newUnlockEvents.push("Dirt Track Unlocked! Real gravel, real glory."); }
-          if (newRep >= 50 && !newUnlockedCircuits.includes("regional_circuit")) { newUnlockedCircuits.push("regional_circuit"); newUnlockEvents.push("Regional Circuit Unlocked! Somebody brought a trailer."); }
-          if (newRep >= 130 && !newUnlockedCircuits.includes("national_circuit")) { newUnlockedCircuits.push("national_circuit"); newUnlockEvents.push("National Circuit Unlocked! Corporate sponsors. Cameras."); }
-          if (newRep >= 350 && !newUnlockedCircuits.includes("world_championship")) { newUnlockedCircuits.push("world_championship"); newUnlockEvents.push("World Championship Unlocked! The big leagues."); }
+          if (newRep >= 5000 && !newUnlockedCircuits.includes("dirt_track")) { newUnlockedCircuits.push("dirt_track"); newUnlockEvents.push("Dirt Track Unlocked! Real gravel, real glory."); }
+          if (newRep >= 50000 && !newUnlockedCircuits.includes("regional_circuit")) { newUnlockedCircuits.push("regional_circuit"); newUnlockEvents.push("Regional Circuit Unlocked! Somebody brought a trailer."); }
+          if (newRep >= 200000 && !newUnlockedCircuits.includes("national_circuit")) { newUnlockedCircuits.push("national_circuit"); newUnlockEvents.push("National Circuit Unlocked! Corporate sponsors. Cameras."); }
+          if (newRep >= 600000 && !newUnlockedCircuits.includes("world_championship")) { newUnlockedCircuits.push("world_championship"); newUnlockEvents.push("World Championship Unlocked! The big leagues."); }
 
           // Unlock locations by rep
-          if (newRep >= 8 && !newUnlockedLocations.includes("neighborhood_yards")) { newUnlockedLocations.push("neighborhood_yards"); newUnlockEvents.push("New Location: Neighborhood Yards!"); }
-          if (newRep >= 35 && !newUnlockedLocations.includes("local_junkyard")) { newUnlockedLocations.push("local_junkyard"); newUnlockEvents.push("New Location: Local Junkyard — better parts await!"); }
-          if (newRep >= 100 && !newUnlockedLocations.includes("salvage_auction")) { newUnlockedLocations.push("salvage_auction"); newUnlockEvents.push("New Location: Salvage Auction!"); }
-          if (newRep >= 250 && !newUnlockedLocations.includes("industrial_surplus")) { newUnlockedLocations.push("industrial_surplus"); newUnlockEvents.push("New Location: Industrial Surplus!"); }
-          if (newRep >= 600 && !newUnlockedLocations.includes("military_scrapyard")) { newUnlockedLocations.push("military_scrapyard"); newUnlockEvents.push("New Location: Military Scrapyard!"); }
+          if (newRep >= 8000 && !newUnlockedLocations.includes("neighborhood_yards")) { newUnlockedLocations.push("neighborhood_yards"); newUnlockEvents.push("New Location: Neighborhood Yards!"); }
+          if (newRep >= 35000 && !newUnlockedLocations.includes("local_junkyard")) { newUnlockedLocations.push("local_junkyard"); newUnlockEvents.push("New Location: Local Junkyard — better parts await!"); }
+          if (newRep >= 120000 && !newUnlockedLocations.includes("salvage_auction")) { newUnlockedLocations.push("salvage_auction"); newUnlockEvents.push("New Location: Salvage Auction!"); }
+          if (newRep >= 400000 && !newUnlockedLocations.includes("industrial_surplus")) { newUnlockedLocations.push("industrial_surplus"); newUnlockEvents.push("New Location: Industrial Surplus!"); }
+          if (newRep >= 1000000 && !newUnlockedLocations.includes("military_scrapyard")) { newUnlockedLocations.push("military_scrapyard"); newUnlockEvents.push("New Location: Military Scrapyard!"); }
 
           // Unlock vehicles by rep
-          if (newRep >= 8 && !newUnlockedVehicles.includes("beater_car")) { newUnlockedVehicles.push("beater_car"); newUnlockEvents.push("Beater Car Blueprint Unlocked!"); }
-          if (newRep >= 35 && !newUnlockedVehicles.includes("street_racer")) { newUnlockedVehicles.push("street_racer"); newUnlockEvents.push("Street Racer Blueprint Unlocked!"); }
-          if (newRep >= 120 && !newUnlockedVehicles.includes("stock_car")) { newUnlockedVehicles.push("stock_car"); newUnlockEvents.push("Stock Car Blueprint Unlocked!"); }
+          if (newRep >= 8000 && !newUnlockedVehicles.includes("beater_car")) { newUnlockedVehicles.push("beater_car"); newUnlockEvents.push("Beater Car Blueprint Unlocked!"); }
+          if (newRep >= 35000 && !newUnlockedVehicles.includes("street_racer")) { newUnlockedVehicles.push("street_racer"); newUnlockEvents.push("Street Racer Blueprint Unlocked!"); }
+          if (newRep >= 100000 && !newUnlockedVehicles.includes("stock_car")) { newUnlockedVehicles.push("stock_car"); newUnlockEvents.push("Stock Car Blueprint Unlocked!"); }
 
           // Unlock go-kart after winning backyard derby
           if (outcome.result === "win" && s.selectedCircuitId === "backyard_derby" && !newUnlockedVehicles.includes("go_kart")) {
@@ -377,8 +377,8 @@ function createActions(set: any, get: any) {
           }
 
           // Auto-unlock notifications
-          if (!s.autoScavengeUnlocked && newRep >= 15) newUnlockEvents.push("Auto-Scavenge Enabled! Parts collect themselves now.");
-          if (!s.autoRaceUnlocked && newRep >= 30) newUnlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
+          if (!s.autoScavengeUnlocked && newRep >= 3000) newUnlockEvents.push("Auto-Scavenge Enabled! Parts collect themselves now.");
+          if (!s.autoRaceUnlocked && newRep >= 8000) newUnlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
 
           // Win streak
           const newStreak = outcome.result === "win" ? s.winStreak + 1 : 0;
@@ -427,8 +427,8 @@ function createActions(set: any, get: any) {
             unlockedCircuitIds: newUnlockedCircuits,
             unlockedLocationIds: newUnlockedLocations,
             unlockedVehicleIds: newUnlockedVehicles,
-            autoRaceUnlocked: s.autoRaceUnlocked || newRep >= 30,
-            autoScavengeUnlocked: s.autoScavengeUnlocked || newRep >= 15,
+            autoRaceUnlocked: s.autoRaceUnlocked || newRep >= 8000,
+            autoScavengeUnlocked: s.autoScavengeUnlocked || newRep >= 3000,
             raceEvents: [],
             raceStartTime: null,
             precomputedOutcome: null,
