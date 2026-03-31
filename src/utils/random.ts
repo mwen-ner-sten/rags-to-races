@@ -17,20 +17,27 @@ export function weightedPick<T extends string>(weights: Record<T, number>): T {
   return entries[entries.length - 1][0];
 }
 
-/** Roll a part condition based on location rarity bias (0–1) */
-export function rollCondition(rarityBias: number): PartCondition {
-  // rarityBias=0 → mostly rusted; rarityBias=1 → mostly pristine
-  // Uses weighted distribution: low bias heavily favors rusted/worn
+/**
+ * Roll a part condition based on location rarity bias (0–1).
+ * @param rarityBias - 0=mostly rusted, 1=best available condition
+ * @param maxConditionIndex - upper bound (inclusive) on the condition index that can be rolled.
+ *   Defaults to 3 (good) to enforce scavenge caps. Pass a higher value for high-tier locations.
+ */
+export function rollCondition(rarityBias: number, maxConditionIndex: number = 3): PartCondition {
+  // Clamp maxConditionIndex to valid range
+  const cap = Math.min(Math.max(0, maxConditionIndex), CONDITIONS.length - 1);
+  const pool = CONDITIONS.slice(0, cap + 1);
+
   const r = Math.random();
 
-  // Skew the roll toward lower conditions when rarityBias is low
+  // Skew the roll toward lower conditions when rarityBias is low.
   // At bias=0: exponent ~4 (very skewed toward 0), bias=0.5: ~2, bias=1: ~1 (uniform)
   const exponent = 1 + 3 * (1 - rarityBias);
   const skewed = Math.pow(r, exponent);
 
-  // Map skewed value (0-1) to condition index (0-4)
-  const idx = Math.min(Math.floor(skewed * CONDITIONS.length), CONDITIONS.length - 1);
-  return CONDITIONS[idx];
+  // Map skewed value (0-1) to condition index within the allowed pool
+  const idx = Math.min(Math.floor(skewed * pool.length), pool.length - 1);
+  return pool[idx];
 }
 
 /** Returns true with given probability (0–1) */

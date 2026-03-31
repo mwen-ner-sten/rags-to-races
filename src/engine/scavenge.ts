@@ -1,4 +1,4 @@
-import { PART_DEFINITIONS, type PartCondition } from "@/data/parts";
+import { PART_DEFINITIONS, getScavengeCap, type PartCondition } from "@/data/parts";
 import { ADDON_DEFINITIONS } from "@/data/addons";
 import type { LocationDefinition } from "@/data/locations";
 import { weightedPick, rollCondition, randInt } from "@/utils/random";
@@ -31,6 +31,9 @@ export function scavenge(
   const fatiguePenalty = fatigue * 0.005; // at 50 fatigue: -0.25 rarity
   const effectiveRarity = Math.max(0, Math.min(1, location.rarityBias + luckBonus + gearLuckBonus - fatiguePenalty));
 
+  // Enforce quality cap based on location tier — scavenging never yields legendary+
+  const conditionCap = getScavengeCap(location.tier);
+
   for (let i = 0; i < count; i++) {
     // Pick category by drop rate weights
     const category = weightedPick(location.partDropRates as Record<PartCategory, number>);
@@ -47,7 +50,7 @@ export function scavenge(
     results.push({
       id: makePartId(),
       definitionId: def.id,
-      condition: rollCondition(effectiveRarity),
+      condition: rollCondition(effectiveRarity, conditionCap),
       foundAt: location.id,
       type: "part",
     });
@@ -64,7 +67,7 @@ export function scavenge(
         results.push({
           id: makePartId(),
           definitionId: addonDef.id,
-          condition: rollCondition(effectiveRarity),
+          condition: rollCondition(effectiveRarity, conditionCap),
           foundAt: location.id,
           type: "addon",
         });

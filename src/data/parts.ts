@@ -1,4 +1,13 @@
-export type PartCondition = "rusted" | "worn" | "decent" | "good" | "pristine";
+export type PartCondition =
+  | "rusted"     // index 0 — scavengeable
+  | "worn"       // index 1 — scavengeable
+  | "decent"     // index 2 — scavengeable
+  | "good"       // index 3 — scavengeable, T0 cap
+  | "pristine"   // index 4 — T1+ scavenge cap; enhancement gate
+  | "polished"   // index 5 — enhancement only
+  | "legendary"  // index 6 — enhancement only (rare materials)
+  | "mythic"     // index 7 — enhancement only (mythic materials)
+  | "artifact";  // index 8 — Artifact Forge only
 
 export type CoreSlot =
   | "engine" | "wheel" | "frame" | "fuel"
@@ -24,31 +33,83 @@ export interface PartDefinition {
   minTier: number;       // minimum location tier to find it
 }
 
-export const CONDITIONS: PartCondition[] = ["rusted", "worn", "decent", "good", "pristine"];
+export const CONDITIONS: PartCondition[] = [
+  "rusted", "worn", "decent", "good", "pristine",
+  "polished", "legendary", "mythic", "artifact",
+];
 
+/** Stat multiplier applied to a part's base stats based on its condition */
 export const CONDITION_MULTIPLIERS: Record<PartCondition, number> = {
-  rusted: 0.3,
-  worn: 0.55,
-  decent: 0.75,
-  good: 0.9,
-  pristine: 1.0,
+  rusted:    0.30,
+  worn:      0.50,
+  decent:    0.70,
+  good:      0.85,
+  pristine:  1.00,
+  polished:  1.20,
+  legendary: 1.45,
+  mythic:    1.75,
+  artifact:  2.10,
 };
 
+/**
+ * Scrap cost to refurbish a part to this condition (via Refurbishment Bench).
+ * Refurbishment only goes up to pristine — polished+ requires Enhancement.
+ */
 export const CONDITION_REPAIR_COST: Record<PartCondition, number> = {
-  rusted: 0,
-  worn: 5,
-  decent: 15,
-  good: 40,
-  pristine: 0, // already pristine
+  rusted:    0,
+  worn:      5,
+  decent:    15,
+  good:      40,
+  pristine:  0,   // cap for refurbishment bench
+  polished:  0,   // enhancement only
+  legendary: 0,   // enhancement only
+  mythic:    0,   // enhancement only
+  artifact:  0,   // forge only
 };
 
 /** How many add-on slots a core part gets based on its condition */
 export const CONDITION_ADDON_SLOTS: Record<PartCondition, number> = {
-  rusted: 0,
-  worn: 0,
-  decent: 1,
-  good: 1,
-  pristine: 2,
+  rusted:    0,
+  worn:      0,
+  decent:    1,
+  good:      1,
+  pristine:  2,
+  polished:  2,
+  legendary: 3,
+  mythic:    3,
+  artifact:  4,
+};
+
+/**
+ * Maximum condition index reachable by scavenging at a given location tier.
+ * Index maps to CONDITIONS array (0=rusted, 3=good, 4=pristine, 5=polished).
+ * Legendary+ (6+) is never obtainable through scavenging.
+ */
+export const SCAVENGE_CONDITION_CAP_BY_LOCATION_TIER: Record<number, number> = {
+  0: 3,  // T0: max "good"
+  1: 4,  // T1: max "pristine"
+  2: 5,  // T2: max "polished"
+  3: 5,  // T3: max "polished"
+  4: 5,  // T4: max "polished"
+  5: 5,  // T5: max "polished"
+};
+
+/** Returns the condition cap index for a given location tier */
+export function getScavengeCap(locationTier: number): number {
+  return SCAVENGE_CONDITION_CAP_BY_LOCATION_TIER[locationTier] ?? 5;
+}
+
+/** Display labels for each condition (for UI) */
+export const CONDITION_LABELS: Record<PartCondition, string> = {
+  rusted:    "Rusted",
+  worn:      "Worn",
+  decent:    "Decent",
+  good:      "Good",
+  pristine:  "Pristine",
+  polished:  "Polished",
+  legendary: "Legendary",
+  mythic:    "Mythic",
+  artifact:  "Artifact",
 };
 
 export const PART_DEFINITIONS: PartDefinition[] = [
