@@ -4,6 +4,7 @@ import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS } from "@/data/parts";
 import type { PartCondition } from "@/data/parts";
+import { getAddonById } from "@/data/addons";
 import { calculateRefurbishCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
@@ -30,6 +31,9 @@ interface InventoryGroup {
   count: number;
   unitValue: number;
   parts: ScavengedPart[];
+  name: string;
+  slot: string;
+  partType: "part" | "addon";
 }
 
 function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
@@ -38,15 +42,21 @@ function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
     const key = `${p.definitionId}:${p.condition}`;
     let g = map.get(key);
     if (!g) {
-      const def = getPartById(p.definitionId);
+      const defPart = p.type === "part" ? getPartById(p.definitionId) : undefined;
+      const defAddon = !defPart ? getAddonById(p.definitionId) : undefined;
+      const src = defPart ?? defAddon;
+      if (!src) continue;
       const mult = CONDITION_MULTIPLIERS[p.condition as keyof typeof CONDITION_MULTIPLIERS];
       g = {
         key,
         definitionId: p.definitionId,
         condition: p.condition,
         count: 0,
-        unitValue: def ? Math.floor(def.scrapValue * mult) : 0,
+        unitValue: Math.floor(src.scrapValue * mult),
         parts: [],
+        name: src.name,
+        slot: defPart ? defPart.category : defAddon!.targetSlot,
+        partType: defPart ? "part" : "addon",
       };
       map.set(key, g);
     }
@@ -56,7 +66,7 @@ function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
   return Array.from(map.values()).sort((a, b) => {
     const ci = CONDITION_ORDER.indexOf(a.condition) - CONDITION_ORDER.indexOf(b.condition);
     if (ci !== 0) return ci;
-    return (getPartById(a.definitionId)?.name ?? "").localeCompare(getPartById(b.definitionId)?.name ?? "");
+    return a.name.localeCompare(b.name);
   });
 }
 
@@ -252,12 +262,10 @@ export default function ScavengePanel() {
               <span>Condition</span>
               <span>Qty</span>
               <span>Value</span>
-              <span></span>
+              <span>Actions</span>
             </div>
             <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll">
               {groups.map((group) => {
-                const def = getPartById(group.definitionId);
-                if (!def) return null;
                 const condColor = CONDITION_COLORS[group.condition] ?? "var(--text-secondary)";
                 return (
                   <div
@@ -271,16 +279,28 @@ export default function ScavengePanel() {
                     }`}
                     style={{ borderColor: "var(--divider)" }}
                   >
-                    <div className="min-w-0">
-                      <span className="text-sm" style={{ color: condColor }}>{def.name}</span>
-                      {group.count > 1 && (
-                        <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>x{group.count}</span>
+                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                      <span className="text-sm" style={{ color: condColor }}>{group.name}</span>
+                      {group.partType === "addon" ? (
+                        <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--warning)", color: "var(--warning)" }}>
+                          +{capitalize(group.slot)}
+                        </span>
+                      ) : group.slot === "misc" ? (
+                        <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--btn-border)", color: "var(--text-muted)" }}>
+                          Scrap
+                        </span>
+                      ) : (
+                        <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--info)", color: "var(--info)" }}>
+                          {capitalize(group.slot)}
+                        </span>
                       )}
+                      <span className="text-xs sm:hidden" style={{ color: "var(--text-muted)" }}>{capitalize(group.condition)}</span>
                     </div>
+                    <span className="hidden sm:inline text-xs font-mono" style={{ color: condColor }}>{capitalize(group.condition)}</span>
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {refurbBenchUnlocked && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
+                      {refurbBenchUnlocked && group.partType === "part" && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
                         const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
                         const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
                         if (!refurbInfo) return null;
