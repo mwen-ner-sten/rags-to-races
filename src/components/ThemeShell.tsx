@@ -25,6 +25,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
+const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
 // ─── Theme CSS custom properties ─────────────────────────────────────────────
 // These cascade into all content panels so they can use var(--panel-bg) etc.
@@ -532,7 +533,7 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ background: "#0d0803", borderBottom: "1px solid #2a1c0a", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -629,7 +630,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "rgba(0,0,0,.6)", borderBottom: "1px solid rgba(0,229,255,.08)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -731,7 +732,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ background: "#060610", borderBottom: "1px solid rgba(184,151,90,.08)", display: "flex", padding: "0 2rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -824,7 +825,7 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ background: "#0b0804", borderBottom: "2px solid #2a1c0c", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -919,7 +920,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ background: "#09090b", borderBottom: "none", display: "flex", padding: "0 2rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1023,7 +1024,7 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "rgba(0,4,0,.7)", borderBottom: "1px solid #185018", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1122,7 +1123,7 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "#0c0a04", borderBottom: "1px solid #2a1c08", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1218,7 +1219,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ background: "#0c0504", borderBottom: "1px solid #2a1208", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1320,7 +1321,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "rgba(2,8,16,.6)", borderBottom: "1px solid rgba(0,184,156,.06)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1416,7 +1417,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "#080303", borderBottom: "1px solid rgba(192,16,32,.12)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1515,7 +1516,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ background: "#0c060a", borderBottom: "1px solid rgba(232,112,152,.06)", display: "flex", padding: "0 2rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1611,7 +1612,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "#0a0705", borderBottom: "1px solid #2a1a0a", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1709,7 +1710,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "rgba(6,10,16,.8)", borderBottom: "1px solid rgba(72,184,232,.06)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1812,7 +1813,7 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "rgba(26,0,48,.6)", borderBottom: "1px solid rgba(185,103,255,.08)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -1917,7 +1918,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "#090b07", borderBottom: "1px solid rgba(74,138,40,.1)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
@@ -2020,7 +2021,7 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
 
       {/* Tabs */}
       <nav style={{ position: "relative", zIndex: 10, background: "rgba(6,10,20,.7)", borderBottom: "1px solid rgba(59,130,246,.08)", display: "flex", padding: "0 1.5rem", flexShrink: 0 }}>
-        {TABS.map((t) => {
+        {TABS.filter(t => SHOW_DEV_TAB || t.id !== "dev").map((t) => {
           const isDev = t.id === "dev";
           const isOn  = activeTab === t.id;
           return (
