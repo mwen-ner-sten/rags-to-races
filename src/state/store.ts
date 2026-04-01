@@ -143,6 +143,8 @@ export interface GameState {
   manualScavenge: () => void;
   sellPart: (partId: string) => void;
   sellAllJunk: () => void;
+  sellAllScrap: () => void;
+  sellBelowQuality: (threshold: PartCondition) => void;
   setPendingVehicle: (vehicleId: string) => void;
   setPendingPart: (slot: string, part: ScavengedPart | null) => void;
   buildSelectedVehicle: () => void;
@@ -376,6 +378,63 @@ function createActions(set: any, get: any) {
           scrapBucks: s.scrapBucks + total,
           lifetimeScrapBucks: s.lifetimeScrapBucks + total,
         }));
+      });
+    },
+
+    sellAllScrap: () => {
+      import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
+        const state = get() as GameState;
+        const gb = getGearBonuses(state.equippedGear);
+        let total = 0;
+        const toSell: string[] = [];
+        for (const part of state.inventory) {
+          if (part.type !== "part") continue;
+          const def = getPartById(part.definitionId);
+          if (!def || def.category !== "misc") continue;
+          const mult = CONDITION_MULTIPLIERS[part.condition];
+          total += Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
+          toSell.push(part.id);
+        }
+        if (toSell.length === 0) return;
+        set((s: GameState) => ({
+          inventory: s.inventory.filter((p) => !toSell.includes(p.id)),
+          scrapBucks: s.scrapBucks + total,
+          lifetimeScrapBucks: s.lifetimeScrapBucks + total,
+        }));
+      });
+    },
+
+    sellBelowQuality: (threshold: PartCondition) => {
+      import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
+        import("@/data/addons").then(({ getAddonById }) => {
+          const state = get() as GameState;
+          const gb = getGearBonuses(state.equippedGear);
+          const thresholdIdx = CONDITIONS.indexOf(threshold);
+          let total = 0;
+          const toSell: string[] = [];
+          for (const part of state.inventory) {
+            if (CONDITIONS.indexOf(part.condition) >= thresholdIdx) continue;
+            let scrapValue = 0;
+            if (part.type === "part") {
+              const def = getPartById(part.definitionId);
+              if (!def) continue;
+              scrapValue = def.scrapValue;
+            } else {
+              const def = getAddonById(part.definitionId);
+              if (!def) continue;
+              scrapValue = def.scrapValue;
+            }
+            const mult = CONDITION_MULTIPLIERS[part.condition];
+            total += Math.floor(scrapValue * mult * (1 + gb.sell_value_bonus_pct));
+            toSell.push(part.id);
+          }
+          if (toSell.length === 0) return;
+          set((s: GameState) => ({
+            inventory: s.inventory.filter((p) => !toSell.includes(p.id)),
+            scrapBucks: s.scrapBucks + total,
+            lifetimeScrapBucks: s.lifetimeScrapBucks + total,
+          }));
+        });
       });
     },
 

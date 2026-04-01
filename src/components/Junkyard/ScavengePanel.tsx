@@ -2,7 +2,10 @@
 
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
-import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
+import type { PartCondition } from "@/data/parts";
+import { getAddonById } from "@/data/addons";
+import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateRefurbishCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
@@ -22,6 +25,19 @@ const CONDITION_COLORS: Record<string, string> = {
 
 const CONDITION_ORDER = ["artifact", "mythic", "legendary", "polished", "pristine", "good", "decent", "worn", "rusted"];
 
+const VEHICLE_USABLE_PART_IDS = new Set<string>(
+  VEHICLE_DEFINITIONS.flatMap((v) => v.slots.flatMap((s) => s.acceptableParts)),
+);
+
+function StatRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11 }}>
+      <span style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span style={{ color: "var(--text-primary)", fontFamily: "monospace" }}>{value}</span>
+    </div>
+  );
+}
+
 interface InventoryGroup {
   key: string;
   definitionId: string;
@@ -29,6 +45,9 @@ interface InventoryGroup {
   count: number;
   unitValue: number;
   parts: ScavengedPart[];
+  name: string;
+  slot: string;
+  partType: "part" | "addon";
 }
 
 function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
@@ -37,15 +56,21 @@ function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
     const key = `${p.definitionId}:${p.condition}`;
     let g = map.get(key);
     if (!g) {
-      const def = getPartById(p.definitionId);
+      const defPart = p.type === "part" ? getPartById(p.definitionId) : undefined;
+      const defAddon = !defPart ? getAddonById(p.definitionId) : undefined;
+      const src = defPart ?? defAddon;
+      if (!src) continue;
       const mult = CONDITION_MULTIPLIERS[p.condition as keyof typeof CONDITION_MULTIPLIERS];
       g = {
         key,
         definitionId: p.definitionId,
         condition: p.condition,
         count: 0,
-        unitValue: def ? Math.floor(def.scrapValue * mult) : 0,
+        unitValue: Math.floor(src.scrapValue * mult),
         parts: [],
+        name: src.name,
+        slot: defPart ? defPart.category : defAddon!.targetSlot,
+        partType: defPart ? "part" : "addon",
       };
       map.set(key, g);
     }
@@ -55,7 +80,7 @@ function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
   return Array.from(map.values()).sort((a, b) => {
     const ci = CONDITION_ORDER.indexOf(a.condition) - CONDITION_ORDER.indexOf(b.condition);
     if (ci !== 0) return ci;
-    return (getPartById(a.definitionId)?.name ?? "").localeCompare(getPartById(b.definitionId)?.name ?? "");
+    return a.name.localeCompare(b.name);
   });
 }
 
@@ -67,6 +92,8 @@ export default function ScavengePanel() {
   const manualScavenge = useGameStore((s) => s.manualScavenge);
   const sellPart = useGameStore((s) => s.sellPart);
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
+  const sellAllScrap = useGameStore((s) => s.sellAllScrap);
+  const sellBelowQuality = useGameStore((s) => s.sellBelowQuality);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
@@ -105,6 +132,13 @@ export default function ScavengePanel() {
     return () => { unsub(); if (clearTimer) clearTimeout(clearTimer); };
   }, []);
 
+  const [qualityThreshold, setQualityThreshold] = useState<PartCondition>("decent");
+  const [hoveredGroup, setHoveredGroup] = useState<{ group: InventoryGroup; x: number; y: number } | null>(null);
+  const hasScrap = useMemo(
+    () => inventory.some((p) => p.type === "part" && getPartById(p.definitionId)?.category === "misc"),
+    [inventory],
+  );
+
   // Scavenge button animation
   const [isScavengeAnimating, setIsScavengeAnimating] = useState(false);
   const handleScavenge = () => {
@@ -114,6 +148,7 @@ export default function ScavengePanel() {
   };
 
   return (
+    <>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {/* Location picker */}
       <div className="col-span-1 flex flex-col gap-3">
@@ -199,16 +234,44 @@ export default function ScavengePanel() {
               </span>
             </div>
           )}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
-            {inventory.length > 0 && (
+            {hasScrap && (
               <button
-                onClick={sellAllJunk}
+                onClick={sellAllScrap}
                 className="rounded border px-2 py-1 text-xs transition-colors"
                 style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
               >
-                Sell All
+                Sell Scrap
               </button>
+            )}
+            {inventory.length > 0 && (
+              <>
+                <select
+                  value={qualityThreshold}
+                  onChange={(e) => setQualityThreshold(e.target.value as PartCondition)}
+                  className="rounded border px-1 py-1 text-xs"
+                  style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)", background: "var(--panel-bg)" }}
+                >
+                  {CONDITIONS.slice(1).map((c) => (
+                    <option key={c} value={c}>{capitalize(c)}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => sellBelowQuality(qualityThreshold)}
+                  className="rounded border px-2 py-1 text-xs transition-colors"
+                  style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+                >
+                  Sell Below
+                </button>
+                <button
+                  onClick={sellAllJunk}
+                  className="rounded border px-2 py-1 text-xs transition-colors"
+                  style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+                >
+                  Sell All
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -234,12 +297,10 @@ export default function ScavengePanel() {
               <span>Condition</span>
               <span>Qty</span>
               <span>Value</span>
-              <span></span>
+              <span>Actions</span>
             </div>
-            <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll">
+            <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll" onMouseLeave={() => setHoveredGroup(null)}>
               {groups.map((group) => {
-                const def = getPartById(group.definitionId);
-                if (!def) return null;
                 const condColor = CONDITION_COLORS[group.condition] ?? "var(--text-secondary)";
                 return (
                   <div
@@ -252,17 +313,31 @@ export default function ScavengePanel() {
                         : ""
                     }`}
                     style={{ borderColor: "var(--divider)" }}
+                    onMouseEnter={(e) => setHoveredGroup({ group, x: e.clientX, y: e.clientY })}
+                    onMouseLeave={() => setHoveredGroup(null)}
                   >
-                    <div className="min-w-0">
-                      <span className="text-sm" style={{ color: condColor }}>{def.name}</span>
-                      {group.count > 1 && (
-                        <span className="ml-1 text-xs" style={{ color: "var(--text-muted)" }}>x{group.count}</span>
+                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                      <span className="text-sm" style={{ color: condColor }}>{group.name}</span>
+                      {group.partType === "addon" ? (
+                        <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--warning)", color: "var(--warning)" }}>
+                          +{capitalize(group.slot)}
+                        </span>
+                      ) : group.slot === "misc" || !VEHICLE_USABLE_PART_IDS.has(group.definitionId) ? (
+                        <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--btn-border)", color: "var(--text-muted)" }}>
+                          {group.slot === "misc" ? "Scrap" : capitalize(group.slot)}
+                        </span>
+                      ) : (
+                        <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--info)", color: "var(--info)" }}>
+                          {capitalize(group.slot)}
+                        </span>
                       )}
+                      <span className="text-xs sm:hidden" style={{ color: "var(--text-muted)" }}>{capitalize(group.condition)}</span>
                     </div>
+                    <span className="hidden sm:inline text-xs font-mono" style={{ color: condColor }}>{capitalize(group.condition)}</span>
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {refurbBenchUnlocked && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
+                      {refurbBenchUnlocked && group.partType === "part" && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
                         const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
                         const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
                         if (!refurbInfo) return null;
@@ -294,5 +369,67 @@ export default function ScavengePanel() {
         )}
       </div>
     </div>
+    {hoveredGroup && (() => {
+      const { group, x, y } = hoveredGroup;
+      const mult = CONDITION_MULTIPLIERS[group.condition as keyof typeof CONDITION_MULTIPLIERS] ?? 1;
+      const addonSlots = CONDITION_ADDON_SLOTS[group.condition as keyof typeof CONDITION_ADDON_SLOTS] ?? 0;
+      const defPart = group.partType === "part" ? getPartById(group.definitionId) : undefined;
+      const defAddon = group.partType === "addon" ? getAddonById(group.definitionId) : undefined;
+      const isUsable = group.slot !== "misc" && VEHICLE_USABLE_PART_IDS.has(group.definitionId);
+      const acceptedBy = defPart && isUsable
+        ? VEHICLE_DEFINITIONS.filter((v) => v.slots.some((s) => s.acceptableParts.includes(group.definitionId))).map((v) => v.name)
+        : [];
+      return (
+        <div
+          style={{
+            position: "fixed",
+            left: Math.min(x + 16, (typeof window !== "undefined" ? window.innerWidth : 800) - 224),
+            top: y - 8,
+            zIndex: 50,
+            width: 208,
+            background: "var(--panel-bg)",
+            border: "1px solid var(--panel-border)",
+            borderRadius: 6,
+            padding: "8px 10px",
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
+            {group.name}
+            <span style={{ fontWeight: 400, color: "var(--text-muted)" }}> · {capitalize(group.condition)}</span>
+          </div>
+          {defPart && (
+            <>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, marginBottom: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                {defPart.basePower > 0 && <StatRow label="Power" value={Math.round(defPart.basePower * mult)} />}
+                {defPart.baseReliability > 0 && <StatRow label="Reliability" value={Math.round(defPart.baseReliability * mult)} />}
+                <StatRow label="Weight" value={`${defPart.baseWeight}kg`} />
+                <StatRow label="Addon slots" value={addonSlots} />
+              </div>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, fontSize: 10 }}>
+                {isUsable && acceptedBy.length > 0
+                  ? <span style={{ color: "var(--text-muted)" }}>{acceptedBy.join(", ")}</span>
+                  : <span style={{ color: "var(--warning)" }}>Not accepted by any vehicle</span>
+                }
+              </div>
+            </>
+          )}
+          {defAddon && (
+            <>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, marginBottom: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                {(defAddon.statBonuses.power ?? 0) !== 0 && <StatRow label="Power" value={`+${Math.round(defAddon.statBonuses.power! * mult)}`} />}
+                {(defAddon.statBonuses.reliability ?? 0) !== 0 && <StatRow label="Reliability" value={`+${Math.round(defAddon.statBonuses.reliability! * mult)}`} />}
+                {(defAddon.statBonuses.handling ?? 0) !== 0 && <StatRow label="Handling" value={`+${Math.round(defAddon.statBonuses.handling! * mult)}`} />}
+                {(defAddon.statBonuses.weight ?? 0) !== 0 && <StatRow label="Weight" value={`${defAddon.statBonuses.weight! > 0 ? "+" : ""}${defAddon.statBonuses.weight}kg`} />}
+              </div>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, fontSize: 10, fontStyle: "italic", color: "var(--text-muted)" }}>
+                "{defAddon.flavorText}"
+              </div>
+            </>
+          )}
+        </div>
+      );
+    })()}
+    </>
   );
 }
