@@ -228,12 +228,12 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "overclocked_tick",
     name: "Overclocked Engine",
-    description: "Further reduces tick interval by 0.5s per level (requires Speed Dial maxed, min 0.1s).",
+    description: "Further reduces tick interval by 0.45s per level (1s → 0.55s → 0.1s min). Requires Speed Dial maxed.",
     category: "maintenance",
-    maxLevel: 18,
+    maxLevel: 2,
     baseCost: 5000,
-    costScaling: 1.8,
-    effect: { type: "tick_speed_reduction_ms", valuePerLevel: 500 },
+    costScaling: 2.0,
+    effect: { type: "tick_speed_reduction_ms", valuePerLevel: 450 },
     unlockRequirement: { workshopUpgradeId: "tick_accelerator" },
   },
   {
