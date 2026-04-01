@@ -4,6 +4,7 @@ import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
+import TickRing from "@/components/TickRing";
 type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "settings" | "dev";
 
 interface Props {
@@ -525,6 +526,7 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
               <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -621,6 +623,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
               <div className="mc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -719,6 +722,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
               </div>
             </>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -814,6 +818,7 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
               <div className="ol-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -907,6 +912,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
               <div className="cr-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
       <div className="cr-chrome-line" />
@@ -1011,6 +1017,7 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
               <div className="tm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1109,6 +1116,7 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
               <div className="sd-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1201,6 +1209,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
               <div className="ss-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1305,6 +1314,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
               <div className="ds-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1400,6 +1410,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
               <div className="bm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1495,6 +1506,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
               <div className="sk-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1593,6 +1605,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
               <div className="rb-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1690,6 +1703,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
               <div className="ar-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1792,6 +1806,7 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
               <div className="vw-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1896,6 +1911,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
               <div className="tc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
@@ -1998,6 +2014,7 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
               <div className="mn-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
             </div>
           )}
+          <TickRing />
         </div>
       </header>
 
