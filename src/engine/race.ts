@@ -124,6 +124,7 @@ export function simulateRace(
   gearDnfReduction: number = 0,
   salvageDropChance: number = 0.15,
   salvageMaxCondition: number = 1,
+  forgeTokenChanceBonus: number = 0,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
@@ -165,8 +166,8 @@ export function simulateRace(
     ? rollSalvageDrop(circuit, salvageDropChance, salvageMaxCondition)
     : null;
 
-  // Forge Token: very rare drop from high-tier circuit wins (tier 3+)
-  const forgeTokenDrop = won && circuit.tier >= 3 && chance(0.02);
+  // Forge Token: very rare drop from high-tier circuit wins (tier 3+); talent bonus additive
+  const forgeTokenDrop = won && circuit.tier >= 3 && chance(0.02 + forgeTokenChanceBonus);
 
   const log = [
     `Circuit: ${circuit.name}`,
