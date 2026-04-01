@@ -8,7 +8,7 @@ import { getAddonById } from "@/data/addons";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateRefurbishCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -141,11 +141,44 @@ export default function ScavengePanel() {
 
   // Scavenge button animation
   const [isScavengeAnimating, setIsScavengeAnimating] = useState(false);
-  const handleScavenge = () => {
+  const [isHolding, setIsHolding] = useState(false);
+  const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const computeHoldInterval = useCallback(() => {
+    const state = useGameStore.getState();
+    const steadyReduction = _getUpgradeEffectValue(state, "steady_hands");
+    const lightningReduction = _getUpgradeEffectValue(state, "lightning_fingers");
+    return Math.max(200, 2000 - steadyReduction - lightningReduction);
+  }, []);
+
+  const fireScavenge = useCallback(() => {
     setIsScavengeAnimating(true);
     manualScavenge();
-    setTimeout(() => setIsScavengeAnimating(false), 300);
-  };
+    setTimeout(() => setIsScavengeAnimating(false), 150);
+  }, [manualScavenge]);
+
+  const stopHold = useCallback(() => {
+    if (holdIntervalRef.current) { clearInterval(holdIntervalRef.current); holdIntervalRef.current = null; }
+    if (holdTimeoutRef.current) { clearTimeout(holdTimeoutRef.current); holdTimeoutRef.current = null; }
+    setIsHolding(false);
+  }, []);
+
+  const startHold = useCallback(() => {
+    // Initial click fires immediately
+    fireScavenge();
+    const interval = computeHoldInterval();
+    // After one interval delay, start repeating
+    holdTimeoutRef.current = setTimeout(() => {
+      setIsHolding(true);
+      holdIntervalRef.current = setInterval(() => {
+        fireScavenge();
+      }, interval);
+    }, interval);
+  }, [fireScavenge, computeHoldInterval]);
+
+  // Clean up on unmount
+  useEffect(() => () => { stopHold(); }, [stopHold]);
 
   return (
     <>
@@ -200,13 +233,21 @@ export default function ScavengePanel() {
       <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={handleScavenge}
-            className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all ${
+            onMouseDown={startHold}
+            onMouseUp={stopHold}
+            onMouseLeave={stopHold}
+            onTouchStart={startHold}
+            onTouchEnd={stopHold}
+            className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
               isScavengeAnimating ? "scale-90" : "scale-100"
-            }`}
-            style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+            } ${isHolding ? "ring-2 ring-offset-1" : ""}`}
+            style={{
+              background: "var(--btn-primary-bg)",
+              color: "var(--btn-primary-text)",
+              ...(isHolding ? { ringColor: "var(--info)" } : {}),
+            }}
           >
-            Scavenge!
+            {isHolding ? "Scavenging…" : "Scavenge!"}
           </button>
           {autoScavengeUnlocked ? (
             <span

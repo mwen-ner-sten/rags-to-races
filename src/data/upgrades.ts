@@ -339,6 +339,39 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     unlockRequirement: { repPoints: 2000 },
   },
 
+  // ── Hold-to-Scavenge ─────────────────────────────────────────────────────────
+  {
+    id: "steady_hands",
+    name: "Steady Hands",
+    description: "Hold the Scavenge button to repeat automatically. Each level speeds it up (–300 ms, base 2 s).",
+    category: "scavenging",
+    maxLevel: 5,
+    baseCost: 75,
+    costScaling: 2.0,
+    effect: { type: "hold_speed_reduction_ms", valuePerLevel: 300 },
+  },
+  {
+    id: "lightning_fingers",
+    name: "Lightning Fingers",
+    description: "Further reduces hold-scavenge interval by 100 ms per level.",
+    category: "scavenging",
+    maxLevel: 3,
+    baseCost: 500,
+    costScaling: 2.5,
+    effect: { type: "hold_speed_reduction_ms", valuePerLevel: 100 },
+    unlockRequirement: { workshopUpgradeId: "steady_hands" },
+  },
+  {
+    id: "thorough_search",
+    name: "Thorough Search",
+    description: "+10 % chance per level to double parts found on any scavenge (click or hold).",
+    category: "scavenging",
+    maxLevel: 5,
+    baseCost: 150,
+    costScaling: 2.5,
+    effect: { type: "scavenge_double_chance", valuePerLevel: 0.10 },
+  },
+
   // ── New: Scavenging enhancements ─────────────────────────────────────────────
   {
     id: "scavengers_eye",
