@@ -7,33 +7,45 @@ interface Step {
   icon: string;
   title: string;
   body: string;
+  tip?: string;
 }
 
 const STEPS: Step[] = [
   {
-    icon: "\u{1F527}",
-    title: "Welcome to Rags to Races!",
-    body: "You start with nothing but a junkyard. Scavenge parts, build vehicles, and race your way to glory.",
+    icon: "\u{1F3CE}\uFE0F",
+    title: "Welcome to Rags to Races",
+    body: "You've got nothing but the clothes on your back and a curb full of someone else's trash. Time to turn that garbage into glory.",
+    tip: "Built from garbage.",
   },
   {
-    icon: "\u{1F50D}",
-    title: "Scavenge Parts",
-    body: "Head to the Junkyard tab and click Scavenge to find parts. Parts come in different conditions \u2014 better condition means better stats. After 100 clicks, auto-scavenge kicks in!",
+    icon: "\u{1F5D1}\uFE0F",
+    title: "Scavenge the Curb",
+    body: "Open the Junkyard tab and hit the Scavenge button. You'll dig through curbside trash looking for anything useful \u2014 wheels, engines, random junk. Most of it's rusted, but hey, it's free.",
+    tip: "Better parts come from better locations. You'll unlock those with Rep.",
   },
   {
-    icon: "\u{1F697}",
-    title: "Build a Vehicle",
-    body: "Switch to the Garage tab. Pick a vehicle blueprint, fill its slots with parts from your inventory, and hit Build. Then Activate it for racing.",
+    icon: "\u{1F9F0}",
+    title: "Collect an Engine & a Wheel",
+    body: "Your first ride is a push mower \u2014 it needs one engine and one wheel. Keep scavenging until you find both. Higher condition parts give better stats, but anything will do for now.",
+    tip: "Parts come in conditions from Rusted (worst) to Artifact (best).",
   },
   {
-    icon: "\u{1F3C6}",
-    title: "Race for Glory",
-    body: "In the Race tab, pick a circuit and enter a race. Win to earn Scrap Bucks and Rep Points. Rep unlocks new locations, circuits, and vehicles.",
+    icon: "\u{1F6E0}\uFE0F",
+    title: "Build Your First Ride",
+    body: "Head to the Garage tab. Select the Push Mower, slot in your engine and wheel, and hit Build. It barely runs. It's beautiful. Activate it to set it as your racer.",
+    tip: "\"A barely-functional push mower you found at the curb. It goes... forward. Sometimes.\"",
   },
   {
-    icon: "\u2B50",
-    title: "Keep Climbing",
-    body: "Unlock the Workshop for upgrades, the Locker for gear, and eventually Prestige to reset with permanent bonuses. Good luck out there!",
+    icon: "\u{1F3C1}",
+    title: "Enter the Backyard Derby",
+    body: "Switch to the Race tab and enter the Backyard Derby \u2014 held in Clyde's back forty. Win to earn Scrap Bucks and Rep Points. Rep unlocks new locations, vehicles, and circuits.",
+    tip: "Prize: bragging rights and $20.",
+  },
+  {
+    icon: "\u{1F680}",
+    title: "From Curb to Championship",
+    body: "Scavenge better parts, build faster vehicles, and climb from backyard races to the World Championship. Unlock the Workshop for upgrades, the Locker for gear, and Prestige when you're ready to start over \u2014 stronger.",
+    tip: "The rags-to-races dream is real. Good luck out there.",
   },
 ];
 
@@ -50,7 +62,7 @@ export default function IntroWalkthrough() {
   return (
     <div
       className="fixed inset-0 z-[10000] flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
     >
       <div
         className="animate-fade-up mx-4 w-full max-w-md rounded-xl border p-6 shadow-2xl"
@@ -72,11 +84,22 @@ export default function IntroWalkthrough() {
 
         {/* Body */}
         <p
-          className="mb-6 text-center text-sm leading-relaxed"
+          className="mb-3 text-center text-sm leading-relaxed"
           style={{ color: "var(--text-secondary)" }}
         >
           {current.body}
         </p>
+
+        {/* Tip */}
+        {current.tip && (
+          <p
+            className="mb-5 text-center text-xs italic"
+            style={{ color: "var(--text-muted)" }}
+          >
+            {current.tip}
+          </p>
+        )}
+        {!current.tip && <div className="mb-5" />}
 
         {/* Step dots */}
         <div className="mb-4 flex items-center justify-center gap-1.5">
@@ -100,7 +123,7 @@ export default function IntroWalkthrough() {
             className="cursor-pointer text-xs underline opacity-60 transition-opacity hover:opacity-100"
             style={{ color: "var(--text-muted)" }}
           >
-            Skip
+            Skip intro
           </button>
 
           <div className="flex gap-2">
@@ -119,7 +142,7 @@ export default function IntroWalkthrough() {
               </button>
             )}
 
-            {/* Next / Get Started */}
+            {/* Next / Let's Go */}
             <button
               onClick={isLast ? dismissIntro : () => setStep(step + 1)}
               className="cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
@@ -128,7 +151,7 @@ export default function IntroWalkthrough() {
                 color: "var(--btn-primary-text)",
               }}
             >
-              {isLast ? "Get Started" : "Next"}
+              {isLast ? "Let\u2019s Go" : "Next"}
             </button>
           </div>
         </div>
