@@ -132,8 +132,8 @@ export interface GameState {
   /** Progress tracking for active challenges (cumulative counters) */
   challengeProgress: Record<string, number>;
 
-  /** Whether the player has seen (or skipped) the new-player intro walkthrough */
-  hasSeenIntro: boolean;
+  /** Guided tutorial step (-1 = complete/skipped, 0+ = active step) */
+  tutorialStep: number;
 
   // Lifetime stats (for challenge tracking, persist through prestige)
   lifetimeTotalDecomposed: number;
@@ -157,7 +157,8 @@ export interface GameState {
   setSelectedCircuit: (circuitId: string) => void;
   enterRace: () => void;
   clearUnlockEvents: () => void;
-  dismissIntro: () => void;
+  advanceTutorial: () => void;
+  skipTutorial: () => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   refurbishPart: (partId: string) => void;
@@ -259,7 +260,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lifetimeTotalTradeUps: 0,
     lifetimeTotalRaceSalvage: 0,
     highestConditionReached: 0,
-    hasSeenIntro: false,
+    tutorialStep: 0,
   };
 }
 
@@ -742,8 +743,13 @@ function createActions(set: any, get: any) {
       set({ unlockEvents: [] });
     },
 
-    dismissIntro: () => {
-      set({ hasSeenIntro: true });
+    advanceTutorial: () => {
+      const step = (get() as GameState).tutorialStep;
+      set({ tutorialStep: step >= 10 ? -1 : step + 1 });
+    },
+
+    skipTutorial: () => {
+      set({ tutorialStep: -1 });
     },
 
     repairVehicle: (vehicleId: string) => {
@@ -1064,7 +1070,7 @@ function createActions(set: any, get: any) {
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
-        hasSeenIntro: state.hasSeenIntro,
+        tutorialStep: state.tutorialStep,
         dealerBoard: [],
         gameTick: 0,
       });
@@ -1554,7 +1560,7 @@ export const useGameStore = create<GameState>()(
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
-        hasSeenIntro: state.hasSeenIntro,
+        tutorialStep: state.tutorialStep,
       }),
     },
   ),
