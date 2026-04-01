@@ -144,6 +144,7 @@ export default function ScavengePanel() {
   const [isHolding, setIsHolding] = useState(false);
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdActiveRef = useRef(false);
 
   const computeHoldInterval = useCallback(() => {
     const state = useGameStore.getState();
@@ -161,10 +162,14 @@ export default function ScavengePanel() {
   const stopHold = useCallback(() => {
     if (holdIntervalRef.current) { clearInterval(holdIntervalRef.current); holdIntervalRef.current = null; }
     if (holdTimeoutRef.current) { clearTimeout(holdTimeoutRef.current); holdTimeoutRef.current = null; }
+    holdActiveRef.current = false;
     setIsHolding(false);
   }, []);
 
   const startHold = useCallback(() => {
+    // Guard against duplicate fires (touch + mouse on mobile)
+    if (holdActiveRef.current) return;
+    holdActiveRef.current = true;
     // Initial click fires immediately
     fireScavenge();
     const interval = computeHoldInterval();
