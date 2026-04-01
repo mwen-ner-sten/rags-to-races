@@ -1,4 +1,4 @@
-export type UpgradeCategory = "scavenging" | "building" | "racing" | "maintenance";
+export type UpgradeCategory = "scavenging" | "building" | "racing" | "maintenance" | "gear_lab";
 
 export interface UpgradeEffect {
   type: string;
@@ -17,6 +17,7 @@ export interface UpgradeDefinition {
   unlockRequirement?: {
     repPoints?: number;
     workshopUpgradeId?: string;
+    workshopUpgradeIds?: string[];   // ALL of these must be ≥1
   };
 }
 
@@ -154,6 +155,96 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     unlockRequirement: { workshopUpgradeId: "toolkit" },
   },
 
+  // ── Gear Lab ──
+  {
+    id: "gear_scavenger",
+    name: "Gear Scavenger",
+    description: "Increases gear drop chance while scavenging (+2% per level).",
+    category: "gear_lab",
+    maxLevel: 5,
+    baseCost: 200,
+    costScaling: 2.2,
+    effect: { type: "gear_drop_rate_scavenge", valuePerLevel: 0.02 },
+    unlockRequirement: { repPoints: 3000 },
+  },
+  {
+    id: "trophy_hunter",
+    name: "Trophy Hunter",
+    description: "Increases gear drop chance from race wins (+3% per level).",
+    category: "gear_lab",
+    maxLevel: 5,
+    baseCost: 300,
+    costScaling: 2.5,
+    effect: { type: "gear_drop_rate_race", valuePerLevel: 0.03 },
+    unlockRequirement: { repPoints: 8000 },
+  },
+  {
+    id: "rarity_sense",
+    name: "Rarity Sense",
+    description: "Improves the rarity of dropped gear. Each level shifts odds toward better rarities.",
+    category: "gear_lab",
+    maxLevel: 3,
+    baseCost: 600,
+    costScaling: 2.8,
+    effect: { type: "gear_rarity_bonus", valuePerLevel: 1 },
+    unlockRequirement: { workshopUpgradeId: "gear_scavenger" },
+  },
+  {
+    id: "enhancement_mastery",
+    name: "Enhancement Mastery",
+    description: "Raises the max enhancement level for loot gear (+3 levels per upgrade).",
+    category: "gear_lab",
+    maxLevel: 3,
+    baseCost: 1000,
+    costScaling: 3.0,
+    effect: { type: "gear_max_enhance", valuePerLevel: 3 },
+    unlockRequirement: { workshopUpgradeId: "trophy_hunter" },
+  },
+  {
+    id: "mod_hunter",
+    name: "Mod Hunter",
+    description: "Increases the chance of finding gear mods (+0.5% per level).",
+    category: "gear_lab",
+    maxLevel: 3,
+    baseCost: 500,
+    costScaling: 2.5,
+    effect: { type: "mod_drop_rate_bonus", valuePerLevel: 0.005 },
+    unlockRequirement: { workshopUpgradeId: "gear_scavenger" },
+  },
+  {
+    id: "careful_modding",
+    name: "Careful Modding",
+    description: "Mods are preserved when removed from gear instead of being destroyed.",
+    category: "gear_lab",
+    maxLevel: 1,
+    baseCost: 2000,
+    costScaling: 1,
+    effect: { type: "no_mod_destroy_on_remove", valuePerLevel: 1 },
+    unlockRequirement: { workshopUpgradeId: "enhancement_mastery" },
+  },
+  {
+    id: "gear_recycler",
+    name: "Gear Recycler",
+    description: "Increases the scrap value you get from salvaging loot gear (+25% per level).",
+    category: "gear_lab",
+    maxLevel: 3,
+    baseCost: 400,
+    costScaling: 2.0,
+    effect: { type: "salvage_value_bonus", valuePerLevel: 0.25 },
+    unlockRequirement: { workshopUpgradeId: "gear_scavenger" },
+  },
+  {
+    id: "double_drop",
+    name: "Double Drop",
+    description: "Small chance to find two gear items at once (+5% per level).",
+    category: "gear_lab",
+    maxLevel: 3,
+    baseCost: 800,
+    costScaling: 3.0,
+    effect: { type: "gear_double_drop_chance", valuePerLevel: 0.05 },
+    unlockRequirement: { workshopUpgradeIds: ["gear_scavenger", "trophy_hunter"] },
+  },
+
   // ── Add-On ──
   {
     id: "addon_bench",
@@ -275,4 +366,5 @@ export const UPGRADE_CATEGORIES: { id: UpgradeCategory; label: string; icon: str
   { id: "building", label: "Building", icon: "🔧" },
   { id: "racing", label: "Racing", icon: "🏁" },
   { id: "maintenance", label: "Maintenance", icon: "🛠" },
+  { id: "gear_lab", label: "Gear Lab", icon: "✨" },
 ];

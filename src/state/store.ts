@@ -13,6 +13,10 @@ import type { InstalledPart } from "@/engine/build";
 import type { GearSlot } from "@/data/gear";
 import { getGearById, DEFAULT_EQUIPPED_GEAR, DEFAULT_OWNED_GEAR } from "@/data/gear";
 import { getGearBonuses } from "@/engine/gear";
+import type { LootGearItem, InstalledMod } from "@/data/lootGear";
+import { TALENT_NODES, getTalentNodeById } from "@/data/talentNodes";
+import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
+import { rollGearDrops } from "@/engine/gearDrop";
 import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
@@ -84,6 +88,12 @@ export interface GameState {
   equippedGear: Record<GearSlot, string>;
   ownedGearIds: string[];
 
+  // Loot gear (persists through prestige)
+  lootGearInventory: LootGearItem[];
+  equippedLootGear: Record<GearSlot, string | null>;
+  gearModInventory: InstalledMod[];
+  unlockedTalentNodes: string[];
+
   // Workshop upgrades
   workshopLevels: Record<string, number>;
 
@@ -148,10 +158,17 @@ export interface GameState {
   purchaseUpgrade: (upgradeId: string) => void;
   purchaseGear: (gearId: string) => void;
   equipGear: (gearId: string) => void;
+  equipLootGear: (lootGearId: string) => void;
+  unequipLootGear: (slot: GearSlot) => void;
+  enhanceLootGear: (lootGearId: string) => void;
+  salvageLootGear: (lootGearId: string) => void;
+  installMod: (lootGearId: string, modInstanceId: string) => void;
+  removeMod: (lootGearId: string, modIndex: number) => void;
+  unlockTalentNode: (nodeId: string) => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
-  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number) => void;
+  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[]) => void;
 
   // ── New system actions ───────────────────────────────────────────────────────
   decomposePart: (partId: string) => void;
@@ -210,6 +227,10 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     unlockEvents: [],
     equippedGear: { ...DEFAULT_EQUIPPED_GEAR },
     ownedGearIds: [...DEFAULT_OWNED_GEAR],
+    lootGearInventory: [],
+    equippedLootGear: { head: null, body: null, hands: null, feet: null, tool: null, accessory: null },
+    gearModInventory: [],
+    unlockedTalentNodes: [],
     workshopLevels: {},
     pendingBuildParts: {},
     pendingBuildVehicleId: "push_mower",
@@ -286,17 +307,31 @@ function createActions(set: any, get: any) {
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue;
-      const gb = getGearBonuses(state.equippedGear);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
       for (let i = 0; i < extraParts; i++) {
         const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
+      // Roll for gear/mod drops
+      const { gearDrops, modDrop } = rollGearDrops({
+        source: "scavenge",
+        sourceTier: location.tier,
+        sourceId: location.id,
+        winStreak: state.winStreak,
+        gearDropRateScavengeBonus: _getUpgradeEffectValue(state, "gear_scavenger"),
+        gearDropRateRaceBonus: _getUpgradeEffectValue(state, "trophy_hunter"),
+        rarityBonus: Math.floor(_getUpgradeEffectValue(state, "rarity_sense")),
+        doubleDropChance: _getUpgradeEffectValue(state, "double_drop"),
+        modDropRateBonus: _getUpgradeEffectValue(state, "mod_hunter"),
+      });
       set((s: GameState) => {
         const newClicks = s.manualScavengeClicks + 1;
         const justUnlocked = !s.autoScavengeUnlocked && newClicks >= 100;
         return {
           inventory: [...s.inventory, ...parts],
+          lootGearInventory: gearDrops.length > 0 ? [...s.lootGearInventory, ...gearDrops] : s.lootGearInventory,
+          gearModInventory: modDrop ? [...s.gearModInventory, modDrop] : s.gearModInventory,
           manualScavengeClicks: newClicks,
           autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
           unlockEvents: justUnlocked
@@ -310,7 +345,7 @@ function createActions(set: any, get: any) {
       const state = get() as GameState;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
-      const gb = getGearBonuses(state.equippedGear);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       // Import inline to avoid circular — scrap value from definition
       import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
         const def = getPartById(part.definitionId);
@@ -328,7 +363,7 @@ function createActions(set: any, get: any) {
     sellAllJunk: () => {
       import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
         const state = get() as GameState;
-        const gb = getGearBonuses(state.equippedGear);
+        const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
         let total = 0;
         for (const part of state.inventory) {
           const def = getPartById(part.definitionId);
@@ -367,7 +402,7 @@ function createActions(set: any, get: any) {
         if (slotCfg.required && !pendingBuildParts[slotCfg.slot]) return;
       }
 
-      const gb = getGearBonuses(state.equippedGear);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const buildReduction = _getUpgradeEffectValue(state, "bargain_builder") + gb.build_cost_reduction_pct;
       const actualBuildCost = Math.max(0, Math.floor(vehicleDef.buildCost * (1 - buildReduction)));
       if (state.scrapBucks < actualBuildCost) return;
@@ -433,7 +468,7 @@ function createActions(set: any, get: any) {
       if ((vehicle.condition ?? 100) <= 0) return;
 
       // Pre-compute the outcome immediately so the UI can animate it
-      const gb = getGearBonuses(state.equippedGear);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       // Scavenger's Eye upgrade increases salvage drop chance and max condition
       const scavengerEyeLevel = _getUpgradeLevel(state, "scavengers_eye");
       const salvageDropChance = scavengerEyeLevel >= 1 ? 0.30 : 0.15;
@@ -545,6 +580,33 @@ function createActions(set: any, get: any) {
           const newLifetimeRaces = s.lifetimeRaces + 1;
           const newFatigue = calculateFatigue(newLifetimeRaces);
 
+          // Gear drop roll from manual race
+          const raceVehicle = s.garage.find((v) => v.id === racingVehicleId);
+          const vehiclePerf = raceVehicle?.stats
+            ? raceVehicle.stats.speed / (circuit.difficulty || 1)
+            : 1;
+          const { gearDrops: raceGearDrops, modDrop: raceModDrop } = rollGearDrops({
+            source: "race",
+            sourceTier: circuit.tier,
+            sourceId: circuit.id,
+            raceResult: outcome.result,
+            winStreak: newStreak,
+            vehiclePerformance: vehiclePerf,
+            gearDropRateScavengeBonus: _getUpgradeEffectValue(s, "gear_scavenger"),
+            gearDropRateRaceBonus: _getUpgradeEffectValue(s, "trophy_hunter"),
+            rarityBonus: Math.floor(_getUpgradeEffectValue(s, "rarity_sense")),
+            doubleDropChance: _getUpgradeEffectValue(s, "double_drop"),
+            modDropRateBonus: _getUpgradeEffectValue(s, "mod_hunter"),
+          });
+          const newLootGearInventory = raceGearDrops.length > 0
+            ? [...s.lootGearInventory, ...raceGearDrops]
+            : s.lootGearInventory;
+          const newGearModInventory = raceModDrop
+            ? [...s.gearModInventory, raceModDrop]
+            : s.gearModInventory;
+          if (raceGearDrops.length > 0) newUnlockEvents.push(`Gear Drop: ${raceGearDrops.map((g) => g.name).join(", ")}!`);
+          if (raceModDrop) newUnlockEvents.push(`Mod Found: ${raceModDrop.name}!`);
+
           // Salvage drop and forge token from race
           const newInventory = outcome.salvageDrop
             ? [...s.inventory, outcome.salvageDrop]
@@ -594,6 +656,8 @@ function createActions(set: any, get: any) {
             garage: updatedGarage,
             lifetimeRaces: newLifetimeRaces,
             fatigue: newFatigue,
+            lootGearInventory: newLootGearInventory,
+            gearModInventory: newGearModInventory,
             inventory: newInventory,
             forgeTokens: newForgeTokens + challengeTokenRewards.reduce((t, r) => t + r.amount, 0),
             lifetimeTotalRaceSalvage: newRaceSalvage,
@@ -617,7 +681,7 @@ function createActions(set: any, get: any) {
       if (!vehicle || (vehicle.condition ?? 100) >= 100) return;
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
-      const gb = getGearBonuses(state.equippedGear);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const reduction = _getUpgradeEffectValue(state, "budget_repairs") + gb.repair_cost_reduction_pct;
       const cost = calculateRepairCost(vehicleDef, vehicle.condition ?? 100, 100, reduction, state.fatigue);
       if (state.scrapBucks < cost) return;
@@ -653,7 +717,7 @@ function createActions(set: any, get: any) {
       if (!slotCfg || !slotCfg.acceptableParts.includes(newPart.definitionId)) return;
 
       const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: installed.addons } };
-      const gbSwap = getGearBonuses(state.equippedGear);
+      const gbSwap = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gbSwap.race_handling_pct;
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 
@@ -675,7 +739,7 @@ function createActions(set: any, get: any) {
       if (_getUpgradeLevel(state, "refurbishment_bench") < 1) return;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
-      const gb = getGearBonuses(state.equippedGear);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const reduction = _getUpgradeEffectValue(state, "cheap_refurb") + gb.refurb_cost_reduction_pct;
       const result = calculateRefurbishCost(part, reduction);
       if (!result) return;
@@ -701,6 +765,11 @@ function createActions(set: any, get: any) {
         if (def.unlockRequirement.workshopUpgradeId) {
           const reqLevel = state.workshopLevels[def.unlockRequirement.workshopUpgradeId] ?? 0;
           if (reqLevel < 1) return;
+        }
+        if (def.unlockRequirement.workshopUpgradeIds) {
+          for (const reqId of def.unlockRequirement.workshopUpgradeIds) {
+            if ((state.workshopLevels[reqId] ?? 0) < 1) return;
+          }
         }
       }
 
@@ -733,6 +802,111 @@ function createActions(set: any, get: any) {
       if (!def) return;
       set((s: GameState) => ({
         equippedGear: { ...s.equippedGear, [def.slot]: gearId },
+      }));
+    },
+
+    equipLootGear: (lootGearId: string) => {
+      const state = get() as GameState;
+      const item = state.lootGearInventory.find((g) => g.id === lootGearId);
+      if (!item) return;
+      set((s: GameState) => ({
+        equippedLootGear: { ...s.equippedLootGear, [item.slot]: lootGearId },
+      }));
+    },
+
+    unequipLootGear: (slot: GearSlot) => {
+      set((s: GameState) => ({
+        equippedLootGear: { ...s.equippedLootGear, [slot]: null },
+      }));
+    },
+
+    enhanceLootGear: (lootGearId: string) => {
+      const state = get() as GameState;
+      const item = state.lootGearInventory.find((g) => g.id === lootGearId);
+      if (!item) return;
+      const masteryLevel = Math.floor(_getUpgradeEffectValue(state, "enhancement_mastery"));
+      const maxLevel = getMaxEnhancementLevel(masteryLevel);
+      if (item.enhancementLevel >= maxLevel) return;
+      const cost = getEnhancementCost(item);
+      if (state.scrapBucks < cost) return;
+      const newLevel = item.enhancementLevel + 1;
+      const newModSlots = getModSlots(newLevel);
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - cost,
+        lootGearInventory: s.lootGearInventory.map((g) =>
+          g.id !== lootGearId ? g : { ...g, enhancementLevel: newLevel, modSlots: newModSlots }
+        ),
+      }));
+    },
+
+    salvageLootGear: (lootGearId: string) => {
+      const state = get() as GameState;
+      const item = state.lootGearInventory.find((g) => g.id === lootGearId);
+      if (!item) return;
+      const salvageBonus = _getUpgradeEffectValue(state, "gear_recycler");
+      const value = getSalvageValue(item, salvageBonus);
+      // Return installed mods to inventory
+      const returnedMods = item.mods;
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks + value,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+        lootGearInventory: s.lootGearInventory.filter((g) => g.id !== lootGearId),
+        // Unequip if this item was equipped
+        equippedLootGear: s.equippedLootGear[item.slot] === lootGearId
+          ? { ...s.equippedLootGear, [item.slot]: null }
+          : s.equippedLootGear,
+        gearModInventory: [...s.gearModInventory, ...returnedMods],
+      }));
+    },
+
+    installMod: (lootGearId: string, modInstanceId: string) => {
+      const state = get() as GameState;
+      const item = state.lootGearInventory.find((g) => g.id === lootGearId);
+      if (!item) return;
+      if (item.mods.length >= item.modSlots) return;
+      const mod = state.gearModInventory.find((m) => m.id === modInstanceId);
+      if (!mod) return;
+      // Check mod is compatible with this slot
+      import("@/data/gearMods").then(({ getModTemplateById }) => {
+        const template = getModTemplateById(mod.templateId);
+        if (!template || !template.slots.includes(item.slot)) return;
+        set((s: GameState) => ({
+          lootGearInventory: s.lootGearInventory.map((g) =>
+            g.id !== lootGearId ? g : { ...g, mods: [...g.mods, mod] }
+          ),
+          gearModInventory: s.gearModInventory.filter((m) => m.id !== modInstanceId),
+        }));
+      });
+    },
+
+    removeMod: (lootGearId: string, modIndex: number) => {
+      const state = get() as GameState;
+      const item = state.lootGearInventory.find((g) => g.id === lootGearId);
+      if (!item || modIndex < 0 || modIndex >= item.mods.length) return;
+      const mod = item.mods[modIndex];
+      const preserveMod = _getUpgradeLevel(state, "careful_modding") >= 1;
+      set((s: GameState) => ({
+        lootGearInventory: s.lootGearInventory.map((g) =>
+          g.id !== lootGearId ? g : { ...g, mods: g.mods.filter((_, i) => i !== modIndex) }
+        ),
+        gearModInventory: preserveMod
+          ? [...s.gearModInventory, mod]
+          : s.gearModInventory,
+      }));
+    },
+
+    unlockTalentNode: (nodeId: string) => {
+      const state = get() as GameState;
+      if (state.unlockedTalentNodes.includes(nodeId)) return;
+      const node = getTalentNodeById(nodeId);
+      if (!node) return;
+      if (node.repRequirement && state.repPoints < node.repRequirement) return;
+      if (node.prerequisiteGearId && !state.ownedGearIds.includes(node.prerequisiteGearId)) return;
+      if (node.prerequisiteNodeId && !state.unlockedTalentNodes.includes(node.prerequisiteNodeId)) return;
+      if (state.scrapBucks < node.cost) return;
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - node.cost,
+        unlockedTalentNodes: [...s.unlockedTalentNodes, nodeId],
       }));
     },
 
@@ -786,6 +960,11 @@ function createActions(set: any, get: any) {
         // Gear persists through prestige
         equippedGear: state.equippedGear,
         ownedGearIds: state.ownedGearIds,
+        // Loot gear persists through prestige
+        lootGearInventory: state.lootGearInventory,
+        equippedLootGear: state.equippedLootGear,
+        gearModInventory: state.gearModInventory,
+        unlockedTalentNodes: state.unlockedTalentNodes,
         // New systems: materials, tokens, challenges persist
         materials: newMaterials,
         forgeTokens: state.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
@@ -805,11 +984,11 @@ function createActions(set: any, get: any) {
       });
     },
 
-    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number) => {
+    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[]) => {
       set((s: GameState) => {
         let updatedGarage = s.garage;
         if ((vehicleWear || vehicleRepair) && s.activeVehicleId) {
-          const gbTick = getGearBonuses(s.equippedGear);
+          const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES);
           const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
           updatedGarage = s.garage.map((v) => {
             if (v.id !== s.activeVehicleId) return v;
@@ -836,6 +1015,12 @@ function createActions(set: any, get: any) {
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
           fatigue: newFatigue,
+          lootGearInventory: lootGearDrops && lootGearDrops.length > 0
+            ? [...s.lootGearInventory, ...lootGearDrops]
+            : s.lootGearInventory,
+          gearModInventory: modDrops && modDrops.length > 0
+            ? [...s.gearModInventory, ...modDrops]
+            : s.gearModInventory,
           raceTickProgress: newRaceTickProgress ?? s.raceTickProgress,
           lastActiveTimestamp: Date.now(),
         };
@@ -1261,6 +1446,10 @@ export const useGameStore = create<GameState>()(
         workshopLevels: state.workshopLevels,
         equippedGear: state.equippedGear,
         ownedGearIds: state.ownedGearIds,
+        lootGearInventory: state.lootGearInventory,
+        equippedLootGear: state.equippedLootGear,
+        gearModInventory: state.gearModInventory,
+        unlockedTalentNodes: state.unlockedTalentNodes,
         pendingBuildVehicleId: state.pendingBuildVehicleId,
         // New systems (all persist)
         materials: state.materials,

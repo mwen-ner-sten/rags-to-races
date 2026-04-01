@@ -5,6 +5,9 @@ import { getGearBonuses } from "./gear";
 import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
 import { simulateRace, calculateWear } from "./race";
+import { rollGearDrops } from "./gearDrop";
+import type { LootGearItem, InstalledMod } from "@/data/lootGear";
+import { TALENT_NODES } from "@/data/talentNodes";
 
 /** Base tick duration — 15 seconds. */
 export const TICK_MS_DEFAULT = 15_000;
@@ -22,6 +25,8 @@ export interface TickResult {
   raceOutcome: ReturnType<typeof simulateRace> | null;
   vehicleWearAmount: number;
   vehicleRepairAmount: number;
+  lootGearDrops: LootGearItem[];
+  modDrops: InstalledMod[];
   /** Updated race tick progress (0 = just fired, or incremented counter). */
   newRaceTickProgress: number;
 }
@@ -57,10 +62,25 @@ export function computeTick(state: GameState): TickResult {
     raceOutcome: null,
     vehicleWearAmount: 0,
     vehicleRepairAmount: 0,
+    lootGearDrops: [],
+    modDrops: [],
     newRaceTickProgress: state.raceTickProgress,
   };
 
-  const gearBonuses = getGearBonuses(state.equippedGear);
+  const gearBonuses = getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+  );
+
+  // ── Shared gear lab workshop values ──────────────────────────────────────
+  const gearDropRateScavengeBonus = _getUpgradeEffectValue(state, "gear_scavenger");
+  const gearDropRateRaceBonus     = _getUpgradeEffectValue(state, "trophy_hunter");
+  const rarityBonus               = Math.floor(_getUpgradeEffectValue(state, "rarity_sense"));
+  const doubleDropChance          = _getUpgradeEffectValue(state, "double_drop");
+  const modDropRateBonus          = _getUpgradeEffectValue(state, "mod_hunter");
 
   // Auto-scavenge (with workshop upgrade bonuses + gear bonuses) — fires every tick
   if (state.autoScavengeUnlocked && state.selectedLocationId) {
@@ -76,6 +96,21 @@ export function computeTick(state: GameState): TickResult {
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       result.partsFound = parts;
+
+      // Gear drop roll from auto-scavenge
+      const { gearDrops, modDrop } = rollGearDrops({
+        source: "scavenge",
+        sourceTier: location.tier,
+        sourceId: location.id,
+        winStreak: state.winStreak,
+        gearDropRateScavengeBonus,
+        gearDropRateRaceBonus,
+        rarityBonus,
+        doubleDropChance,
+        modDropRateBonus,
+      });
+      result.lootGearDrops.push(...gearDrops);
+      if (modDrop) result.modDrops.push(modDrop);
     }
   }
 
@@ -121,6 +156,26 @@ export function computeTick(state: GameState): TickResult {
           // Calculate wear (workshop + gear reduction)
           const wearReduction = _getUpgradeEffectValue(state, "reinforced_chassis");
           result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction, fatigue, gearBonuses.race_wear_reduction_pct);
+
+          // Gear drop roll from auto-race
+          const vehiclePerf = vehicle.stats
+            ? vehicle.stats.speed / (circuit.difficulty || 1)
+            : 1;
+          const { gearDrops, modDrop } = rollGearDrops({
+            source: "race",
+            sourceTier: circuit.tier,
+            sourceId: circuit.id,
+            raceResult: result.raceOutcome.result,
+            winStreak: state.winStreak,
+            vehiclePerformance: vehiclePerf,
+            gearDropRateScavengeBonus,
+            gearDropRateRaceBonus,
+            rarityBonus,
+            doubleDropChance,
+            modDropRateBonus,
+          });
+          result.lootGearDrops.push(...gearDrops);
+          if (modDrop) result.modDrops.push(modDrop);
         }
       }
     } else {

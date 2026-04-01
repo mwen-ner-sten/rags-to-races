@@ -16,6 +16,11 @@ function isUpgradeUnlocked(
     const reqLevel = workshopLevels[def.unlockRequirement.workshopUpgradeId] ?? 0;
     if (reqLevel < 1) return false;
   }
+  if (def.unlockRequirement.workshopUpgradeIds) {
+    for (const reqId of def.unlockRequirement.workshopUpgradeIds) {
+      if ((workshopLevels[reqId] ?? 0) < 1) return false;
+    }
+  }
   return true;
 }
 
@@ -97,10 +102,13 @@ function CategoryCard({
                   {!unlocked && upgrade.unlockRequirement && (
                     <p className="mt-1 text-xs text-zinc-600">
                       {upgrade.unlockRequirement.repPoints
-                        ? `Requires ${upgrade.unlockRequirement.repPoints} Rep`
+                        ? `Requires ${formatNumber(upgrade.unlockRequirement.repPoints)} Rep`
                         : ""}
                       {upgrade.unlockRequirement.workshopUpgradeId
-                        ? `Requires ${UPGRADE_DEFINITIONS.find((u) => u.id === upgrade.unlockRequirement?.workshopUpgradeId)?.name ?? "?"}`
+                        ? `Requires: ${UPGRADE_DEFINITIONS.find((u) => u.id === upgrade.unlockRequirement?.workshopUpgradeId)?.name ?? "?"}`
+                        : ""}
+                      {upgrade.unlockRequirement.workshopUpgradeIds
+                        ? `Requires: ${upgrade.unlockRequirement.workshopUpgradeIds.map((id) => UPGRADE_DEFINITIONS.find((u) => u.id === id)?.name ?? id).join(" + ")}`
                         : ""}
                     </p>
                   )}

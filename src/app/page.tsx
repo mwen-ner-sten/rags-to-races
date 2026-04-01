@@ -14,6 +14,7 @@ import ToastContainer from "@/components/effects/Toast";
 import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs } from "@/engine/tick";
 import type { ScavengedPart } from "@/engine/scavenge";
+import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 
 type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "settings" | "dev";
 
@@ -48,6 +49,8 @@ export default function Home() {
         let totalWear = 0;
         let totalRepair = 0;
         let raceProgress = state.raceTickProgress;
+        let totalLootGear: LootGearItem[] = [];
+        let totalMods: InstalledMod[] = [];
 
         for (let i = 0; i < offlineTicks; i++) {
           const r = computeTick({ ...state, raceTickProgress: raceProgress });
@@ -57,9 +60,11 @@ export default function Home() {
           totalWear += r.vehicleWearAmount;
           totalRepair += r.vehicleRepairAmount;
           raceProgress = r.newRaceTickProgress;
+          totalLootGear = totalLootGear.concat(r.lootGearDrops);
+          totalMods = totalMods.concat(r.modDrops);
         }
 
-        if (totalParts.length > 0 || totalScraps !== 0 || totalRep !== 0 || totalWear !== 0) {
+        if (totalParts.length > 0 || totalScraps !== 0 || totalRep !== 0 || totalWear !== 0 || totalLootGear.length > 0 || totalMods.length > 0) {
           applyTickResult(
             totalParts,
             totalScraps,
@@ -67,6 +72,8 @@ export default function Home() {
             totalWear > 0 ? totalWear : undefined,
             totalRepair > 0 ? totalRepair : undefined,
             raceProgress,
+            totalLootGear.length > 0 ? totalLootGear : undefined,
+            totalMods.length > 0 ? totalMods : undefined,
           );
           const timeAway = Math.round(elapsed / 60_000);
           useGameStore.setState((s) => ({
@@ -97,7 +104,9 @@ export default function Home() {
           result.repEarned !== 0 ||
           result.vehicleWearAmount !== 0 ||
           result.vehicleRepairAmount !== 0 ||
-          result.newRaceTickProgress !== state.raceTickProgress
+          result.newRaceTickProgress !== state.raceTickProgress ||
+          result.lootGearDrops.length > 0 ||
+          result.modDrops.length > 0
         ) {
           applyTickResult(
             result.partsFound,
@@ -106,6 +115,8 @@ export default function Home() {
             result.vehicleWearAmount || undefined,
             result.vehicleRepairAmount || undefined,
             result.newRaceTickProgress,
+            result.lootGearDrops.length > 0 ? result.lootGearDrops : undefined,
+            result.modDrops.length > 0 ? result.modDrops : undefined,
           );
         }
       }
