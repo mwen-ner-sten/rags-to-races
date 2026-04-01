@@ -2,5 +2,6 @@
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "ignoreCommand": "! git log -1 --pretty=%B | grep -q 'bump build counter'"
 }
