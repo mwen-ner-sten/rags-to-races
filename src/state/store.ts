@@ -6,7 +6,9 @@ import type { ScavengedPart } from "@/engine/scavenge";
 import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
 import type { RaceEvent } from "@/engine/raceEvents";
-import type { PrestigeBonus } from "@/engine/prestige";
+import type { PrestigeBonus, RunStats } from "@/engine/prestige";
+import { LEGACY_UPGRADES_BY_ID, legacyUpgradeCost } from "@/data/legacyUpgrades";
+import { getActiveMomentumTiers, getMomentumEffectValue } from "@/data/momentumBonuses";
 import type { PartCondition, CoreSlot } from "@/data/parts";
 import { CONDITIONS } from "@/data/parts";
 import type { InstalledPart } from "@/engine/build";
@@ -17,7 +19,7 @@ import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 import { TALENT_NODES, getTalentNodeById } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
 import { rollGearDrops } from "@/engine/gearDrop";
-import { calculatePrestigeBonus, doPrestige } from "@/engine/prestige";
+import { calculatePrestigeBonus, calculatePrestigeBonusLegacy, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
 import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition } from "@/engine/build";
@@ -46,6 +48,17 @@ export interface GameState {
   // Prestige
   prestigeCount: number;
   prestigeBonus: PrestigeBonus;
+
+  // Legacy (prestige currency) — persists through prestige
+  legacyPoints: number;
+  lifetimeLegacyPoints: number;
+  legacyUpgradeLevels: Record<string, number>;
+
+  // Run momentum — resets on prestige
+  activeMomentumTiers: string[];
+
+  // Era tracking (Phase 2 foundation)
+  currentEra: number;
 
   // Inventory
   inventory: ScavengedPart[];
@@ -170,6 +183,8 @@ export interface GameState {
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
+  purchaseLegacyUpgrade: (upgradeId: string) => void;
+  checkMomentumTiers: () => void;
   applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[]) => void;
 
   // ── New system actions ───────────────────────────────────────────────────────
@@ -205,7 +220,12 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     repPoints: 0,
     lifetimeScrapBucks: 0,
     prestigeCount: 0,
-    prestigeBonus: calculatePrestigeBonus(0),
+    prestigeBonus: calculatePrestigeBonusLegacy(0),
+    legacyPoints: 0,
+    lifetimeLegacyPoints: 0,
+    legacyUpgradeLevels: {},
+    activeMomentumTiers: [],
+    currentEra: 1,
     inventory: [],
     garage: [],
     activeVehicleId: null,
@@ -270,9 +290,10 @@ export function _getUpgradeEffectValue(state: GameState, upgradeId: string): num
 }
 
 /** Calculate fatigue from total races this run (logarithmic curve) */
-export function calculateFatigue(lifetimeRaces: number): number {
-  if (lifetimeRaces <= 0) return 0;
-  return Math.min(99, Math.floor(25 * Math.log2(1 + lifetimeRaces / 25)));
+export function calculateFatigue(lifetimeRaces: number, fatigueOffset: number = 0): number {
+  const effectiveRaces = Math.max(0, lifetimeRaces - fatigueOffset);
+  if (effectiveRaces <= 0) return 0;
+  return Math.min(99, Math.floor(25 * Math.log2(1 + effectiveRaces / 25)));
 }
 
 /**
@@ -532,6 +553,7 @@ function createActions(set: any, get: any) {
       const scavengerEyeLevel = _getUpgradeLevel(state, "scavengers_eye");
       const salvageDropChance = scavengerEyeLevel >= 1 ? 0.30 : 0.15;
       const salvageMaxCondition = scavengerEyeLevel >= 1 ? 2 : 1;
+      const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
       const outcome = simulateRace(
         vehicle, circuit,
         state.prestigeBonus.scrapMultiplier,
@@ -540,6 +562,7 @@ function createActions(set: any, get: any) {
         gb.race_dnf_reduction,
         salvageDropChance,
         salvageMaxCondition,
+        momentumWinBonus,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -554,7 +577,10 @@ function createActions(set: any, get: any) {
 
       setTimeout(() => {
         set((s: GameState) => {
-          const newRep = s.repPoints + outcome.repEarned;
+          // Apply prestige + momentum rep multiplier
+          const mRepMult = getMomentumEffectValue(s.activeMomentumTiers, "rep_multiplier");
+          const effectiveRepEarned = Math.floor(outcome.repEarned * s.prestigeBonus.repMultiplier * (1 + mRepMult));
+          const newRep = s.repPoints + effectiveRepEarned;
           const newUnlockedCircuits = [...s.unlockedCircuitIds];
           const newUnlockedLocations = [...s.unlockedLocationIds];
           const newUnlockedVehicles = [...s.unlockedVehicleIds];
@@ -635,9 +661,13 @@ function createActions(set: any, get: any) {
           if (gb.race_scrap_bonus_pct > 0) {
             finalScraps = Math.floor(finalScraps * (1 + gb.race_scrap_bonus_pct));
           }
+          // Momentum scrap multiplier
+          const mScrapMult = getMomentumEffectValue(s.activeMomentumTiers, "scrap_multiplier");
+          if (mScrapMult > 0) finalScraps = Math.floor(finalScraps * (1 + mScrapMult));
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
-          const newFatigue = calculateFatigue(newLifetimeRaces);
+          const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
+          const newFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
 
           // Gear drop roll from manual race
           const raceVehicle = s.garage.find((v) => v.id === racingVehicleId);
@@ -727,6 +757,8 @@ function createActions(set: any, get: any) {
             dealerBoard: newDealerBoard,
           };
         });
+        // Check momentum tiers after race
+        (get() as GameState).checkMomentumTiers();
       }, circuit.raceDuration);
     },
 
@@ -987,8 +1019,26 @@ function createActions(set: any, get: any) {
 
     prestige: () => {
       const state = get() as GameState;
-      const kept = doPrestige(state.prestigeCount);
-      const newPrestigeCount = kept.prestigeCount;
+
+      // Build run stats for LP calculation
+      const runStats: RunStats = {
+        lifetimeScrapBucks: state.lifetimeScrapBucks,
+        lifetimeRaces: state.lifetimeRaces,
+        fatigue: state.fatigue,
+        repPoints: state.repPoints,
+        highestCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds),
+        workshopUpgradesBought: Object.values(state.workshopLevels).reduce((a, b) => a + b, 0),
+      };
+
+      const result = doPrestige(
+        state.prestigeCount,
+        runStats,
+        state.legacyUpgradeLevels,
+        state.activeMomentumTiers,
+        state.workshopLevels,
+      );
+
+      const newPrestigeCount = result.prestigeCount;
       const newProgress = { ...state.challengeProgress, prestigeCount: newPrestigeCount };
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
       const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
@@ -996,26 +1046,54 @@ function createActions(set: any, get: any) {
       const newMaterials = { ...state.materials };
       for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
 
+      // Muscle Memory: starting auto-scavenge clicks
+      const startingClicks = result.startingScavClicks;
+      const autoScavUnlocked = startingClicks >= 100;
+
+      // Merge starting locations/circuits with defaults
+      const startingLocations = Array.from(new Set(["curbside", ...result.startingLocationIds]));
+      const startingCircuits = Array.from(new Set(["backyard_derby", ...result.startingCircuitIds]));
+
+      // LP earned
+      const lpEarned = result.legacyPointsEarned;
+      const newLp = state.legacyPoints + lpEarned;
+      const newLifetimeLp = state.lifetimeLegacyPoints + lpEarned;
+
+      const unlockEvents: string[] = [];
+      if (newPrestigeCount === 1) {
+        unlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
+      }
+      if (lpEarned > 0) {
+        unlockEvents.push(`+${lpEarned} Legacy Points earned!`);
+      }
+
       set({
         ...initialState(),
         prestigeCount: newPrestigeCount,
-        prestigeBonus: kept.bonuses,
-        workshopLevels: {},
+        prestigeBonus: result.bonuses,
+        // Legacy system persists
+        legacyPoints: newLp,
+        lifetimeLegacyPoints: newLifetimeLp,
+        legacyUpgradeLevels: state.legacyUpgradeLevels,
+        activeMomentumTiers: [],
+        currentEra: state.currentEra,
+        // Blueprint Memory: keep workshop upgrades
+        workshopLevels: result.keptWorkshopUpgrades,
         unlockedVehicleIds: ["push_mower"],
-        unlockedLocationIds: ["curbside"],
-        unlockedCircuitIds: ["backyard_derby"],
+        unlockedLocationIds: startingLocations,
+        unlockedCircuitIds: startingCircuits,
         fatigue: 0,
         lifetimeRaces: 0,
+        // Seed Money: starting scrap
+        scrapBucks: result.startingScrap,
+        lifetimeScrapBucks: result.startingScrap,
         // Auto-race unlocks permanently after first prestige
         autoRaceUnlocked: newPrestigeCount >= 1,
-        // Auto-scavenge must be re-earned each run via clicks
-        autoScavengeUnlocked: false,
-        manualScavengeClicks: 0,
+        // Muscle Memory: starting scavenge clicks
+        autoScavengeUnlocked: autoScavUnlocked,
+        manualScavengeClicks: Math.min(startingClicks, 100),
         raceTickProgress: 0,
-        // Notify on first prestige unlock
-        unlockEvents: newPrestigeCount === 1
-          ? ["Auto-Race Enabled! Your scrap heap races itself!"]
-          : [],
+        unlockEvents,
         // Gear persists through prestige
         equippedGear: state.equippedGear,
         ownedGearIds: state.ownedGearIds,
@@ -1043,6 +1121,40 @@ function createActions(set: any, get: any) {
       });
     },
 
+    purchaseLegacyUpgrade: (upgradeId: string) => {
+      const state = get() as GameState;
+      const def = LEGACY_UPGRADES_BY_ID[upgradeId];
+      if (!def) return;
+      const currentLevel = state.legacyUpgradeLevels[upgradeId] ?? 0;
+      if (currentLevel >= def.maxLevel) return;
+      const cost = legacyUpgradeCost(def, currentLevel + 1);
+      if (state.legacyPoints < cost) return;
+      const newLevels = { ...state.legacyUpgradeLevels, [upgradeId]: currentLevel + 1 };
+      set({
+        legacyPoints: state.legacyPoints - cost,
+        legacyUpgradeLevels: newLevels,
+        // Recompute prestige bonus from new upgrade levels
+        prestigeBonus: calculatePrestigeBonus(newLevels),
+      });
+    },
+
+    checkMomentumTiers: () => {
+      const state = get() as GameState;
+      const highestTier = deriveHighestCircuitTier(state.unlockedCircuitIds);
+      const newTiers = getActiveMomentumTiers(
+        state.lifetimeRaces,
+        state.fatigue,
+        state.repPoints,
+        state.lifetimeScrapBucks,
+        highestTier,
+      );
+      // Only update if changed
+      if (newTiers.length !== state.activeMomentumTiers.length ||
+          newTiers.some((t, i) => t !== state.activeMomentumTiers[i])) {
+        set({ activeMomentumTiers: newTiers });
+      }
+    },
+
     applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[]) => {
       set((s: GameState) => {
         let updatedGarage = s.garage;
@@ -1065,7 +1177,8 @@ function createActions(set: any, get: any) {
         }
         const raced = !!vehicleWear;
         const newLifetimeRaces = raced ? s.lifetimeRaces + 1 : s.lifetimeRaces;
-        const newFatigue = raced ? calculateFatigue(newLifetimeRaces) : s.fatigue;
+        const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
+        const newFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
         return {
           inventory: [...s.inventory, ...partsFound],
           scrapBucks: s.scrapBucks + scrapsEarned,
@@ -1084,6 +1197,8 @@ function createActions(set: any, get: any) {
           lastActiveTimestamp: Date.now(),
         };
       });
+      // Check momentum tier activations after state update
+      (get() as GameState).checkMomentumTiers();
     },
 
     // ── Challenge helpers ────────────────────────────────────────────────────
@@ -1101,9 +1216,11 @@ function createActions(set: any, get: any) {
       const result = decomposePart(part, state.fatigue);
       if (!result) return;
 
+      // Apply legacy decompose yield multiplier
+      const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
       const newMaterials = { ...state.materials };
       for (const [mat, qty] of Object.entries(result.materials) as [MaterialType, number][]) {
-        newMaterials[mat] = (newMaterials[mat] ?? 0) + qty;
+        newMaterials[mat] = (newMaterials[mat] ?? 0) + Math.floor(qty * decompYieldMult);
       }
 
       const newDecomposed = state.lifetimeTotalDecomposed + 1;
@@ -1133,9 +1250,11 @@ function createActions(set: any, get: any) {
       if (junk.length === 0) return;
 
       const { materials: matYield, count } = decomposeMany(junk, state.fatigue);
+      // Apply legacy decompose yield multiplier
+      const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
       const newMaterials = { ...state.materials };
       for (const [mat, qty] of Object.entries(matYield) as [MaterialType, number][]) {
-        newMaterials[mat] = (newMaterials[mat] ?? 0) + qty;
+        newMaterials[mat] = (newMaterials[mat] ?? 0) + Math.floor(qty * decompYieldMult);
       }
       const junkIds = new Set(junk.map((p) => p.id));
       const newDecomposed = state.lifetimeTotalDecomposed + count;
@@ -1404,7 +1523,8 @@ function createActions(set: any, get: any) {
     },
 
     devSetPrestigeCount: (count: number) => {
-      const bonus = calculatePrestigeBonus(count);
+      const state = get() as GameState;
+      const bonus = calculatePrestigeBonus(state.legacyUpgradeLevels);
       set({ prestigeCount: count, prestigeBonus: bonus });
     },
 
@@ -1478,12 +1598,35 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "rags-to-races-save",
+      version: 1,
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as Record<string, unknown>;
+        if (version === 0) {
+          // Existing save: grant retroactive LP based on old prestige count
+          const oldPrestigeCount = (state.prestigeCount as number) ?? 0;
+          const retroactiveLp = Math.floor(oldPrestigeCount * 3);
+          return {
+            ...state,
+            legacyPoints: retroactiveLp,
+            lifetimeLegacyPoints: retroactiveLp,
+            legacyUpgradeLevels: {},
+            activeMomentumTiers: [],
+            currentEra: 1,
+          };
+        }
+        return state;
+      },
       partialize: (state) => ({
         scrapBucks: state.scrapBucks,
         repPoints: state.repPoints,
         lifetimeScrapBucks: state.lifetimeScrapBucks,
         prestigeCount: state.prestigeCount,
         prestigeBonus: state.prestigeBonus,
+        legacyPoints: state.legacyPoints,
+        lifetimeLegacyPoints: state.lifetimeLegacyPoints,
+        legacyUpgradeLevels: state.legacyUpgradeLevels,
+        activeMomentumTiers: state.activeMomentumTiers,
+        currentEra: state.currentEra,
         inventory: state.inventory,
         garage: state.garage,
         activeVehicleId: state.activeVehicleId,

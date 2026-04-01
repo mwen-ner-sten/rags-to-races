@@ -8,6 +8,8 @@ import { simulateRace, calculateWear } from "./race";
 import { rollGearDrops } from "./gearDrop";
 import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 import { TALENT_NODES } from "@/data/talentNodes";
+import { getMomentumEffectValue } from "@/data/momentumBonuses";
+import { getLegacyEffectValue } from "./prestige";
 
 /** Base tick duration — 15 seconds. */
 export const TICK_MS_DEFAULT = 15_000;
@@ -138,7 +140,8 @@ export function computeTick(state: GameState): TickResult {
         // Only race if vehicle is functional and can afford entry
         if (vehicleCondition > 0 && state.scrapBucks >= circuit.entryFee) {
           const fatigue = state.fatigue ?? 0;
-          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction);
+          const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
+          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction, 0.15, 1, momentumWinBonus);
 
           // Apply consolation sponsor bonus
           const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");
@@ -150,12 +153,16 @@ export function computeTick(state: GameState): TickResult {
           if (gearBonuses.race_scrap_bonus_pct > 0) {
             scraps = Math.floor(scraps * (1 + gearBonuses.race_scrap_bonus_pct));
           }
-          result.scrapsEarned += scraps - circuit.entryFee;
-          result.repEarned += result.raceOutcome.repEarned;
+          // Apply momentum scrap/rep multipliers
+          const momentumScrapMult = getMomentumEffectValue(state.activeMomentumTiers, "scrap_multiplier");
+          const momentumRepMult = getMomentumEffectValue(state.activeMomentumTiers, "rep_multiplier");
+          result.scrapsEarned += Math.floor(scraps * (1 + momentumScrapMult)) - circuit.entryFee;
+          result.repEarned += Math.floor(result.raceOutcome.repEarned * state.prestigeBonus.repMultiplier * (1 + momentumRepMult));
 
-          // Calculate wear (workshop + gear reduction)
+          // Calculate wear (workshop + gear + legacy reduction)
           const wearReduction = _getUpgradeEffectValue(state, "reinforced_chassis");
-          result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction, fatigue, gearBonuses.race_wear_reduction_pct);
+          const legacyWearReduction = getLegacyEffectValue(state.legacyUpgradeLevels, "leg_wear_reduction");
+          result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction + legacyWearReduction, fatigue, gearBonuses.race_wear_reduction_pct);
 
           // Gear drop roll from auto-race
           const vehiclePerf = vehicle.stats

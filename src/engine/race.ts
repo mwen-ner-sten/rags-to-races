@@ -124,6 +124,7 @@ export function simulateRace(
   gearDnfReduction: number = 0,
   salvageDropChance: number = 0.15,
   salvageMaxCondition: number = 1,
+  momentumWinBonus: number = 0,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
@@ -146,7 +147,7 @@ export function simulateRace(
   const fatigueMult = 1 - fatigue * 0.005;
   const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus);
   const difficultyThreshold = circuit.difficulty * 2;
-  const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / difficultyThreshold));
+  const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / difficultyThreshold + momentumWinBonus));
 
   const won = Math.random() < winChance;
   const position = won ? 1 : Math.floor(Math.random() * (totalRacers - 2)) + 2;

@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
-import { calculatePrestigeBonus } from "@/engine/prestige";
+import LegacyShop from "./LegacyShop";
+import MomentumTracker from "./MomentumTracker";
+import PrestigeConfirm from "./PrestigeConfirm";
 
 export default function ShopPanel() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -10,20 +13,21 @@ export default function ShopPanel() {
   const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
+  const legacyPoints = useGameStore((s) => s.legacyPoints);
   const garage = useGameStore((s) => s.garage);
   const inventory = useGameStore((s) => s.inventory);
   const fatigue = useGameStore((s) => s.fatigue);
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const prestige = useGameStore((s) => s.prestige);
 
-  const nextPrestigeBonus = calculatePrestigeBonus(prestigeCount + 1);
+  const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false);
 
   const canPrestige = garage.length >= 1 && repPoints >= 25 && lifetimeScrapBucks >= 500;
 
   return (
     <>
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {/* Stats */}
+      {/* Left column: Stats + Prestige + Momentum */}
       <div className="flex flex-col gap-4">
         <h2 style={{ color: "var(--text-heading)" }} className="text-sm font-semibold uppercase tracking-widest">
           Stats
@@ -36,28 +40,36 @@ export default function ShopPanel() {
             <StatRow label="Vehicles Built" value={String(garage.length)} />
             <StatRow label="Parts in Inventory" value={String(inventory.length)} />
             <StatRow label="Prestige Count" value={String(prestigeCount)} />
+            <StatRow label="Legacy Points" value={`${legacyPoints} LP`} accent />
           </div>
         </div>
 
         {/* Current bonuses */}
-        {prestigeCount > 0 && (
+        {(prestigeBonus.scrapMultiplier > 1 || prestigeBonus.luckBonus > 0 || prestigeBonus.repMultiplier > 1) && (
           <>
             <h2 style={{ color: "var(--text-heading)" }} className="text-sm font-semibold uppercase tracking-widest">
-              Prestige Bonuses
+              Legacy Bonuses (Active)
             </h2>
             <div style={{ background: "var(--accent-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <StatRow label="Scrap Multiplier" value={`\u00d7${prestigeBonus.scrapMultiplier.toFixed(1)}`} accent />
-                <StatRow label="Luck Bonus" value={`+${(prestigeBonus.luckBonus * 100).toFixed(0)}%`} accent />
-                <StatRow label="Rep Multiplier" value={`\u00d7${prestigeBonus.repMultiplier.toFixed(1)}`} accent />
+                {prestigeBonus.scrapMultiplier > 1 && (
+                  <StatRow label="Scrap Multiplier" value={`\u00d7${prestigeBonus.scrapMultiplier.toFixed(1)}`} accent />
+                )}
+                {prestigeBonus.luckBonus > 0 && (
+                  <StatRow label="Luck Bonus" value={`+${(prestigeBonus.luckBonus * 100).toFixed(0)}%`} accent />
+                )}
+                {prestigeBonus.repMultiplier > 1 && (
+                  <StatRow label="Rep Multiplier" value={`\u00d7${prestigeBonus.repMultiplier.toFixed(1)}`} accent />
+                )}
               </div>
             </div>
           </>
         )}
-      </div>
 
-      {/* Actions */}
-      <div className="flex flex-col gap-4">
+        {/* Momentum Tracker */}
+        <MomentumTracker />
+
+        {/* Actions */}
         <h2 style={{ color: "var(--text-heading)" }} className="text-sm font-semibold uppercase tracking-widest">
           Actions
         </h2>
@@ -79,54 +91,57 @@ export default function ShopPanel() {
         </div>
 
         {/* Prestige */}
-        <div
-          style={{
-            background: canPrestige ? "var(--accent-bg)" : "var(--panel-bg)",
-            borderColor: canPrestige ? "var(--accent-border)" : "var(--panel-border)",
-          }}
-          className="rounded-lg border p-4"
-        >
-          <div style={{ color: "var(--text-white)" }} className="font-semibold mb-1">
-            &#128260; Scrap Reset (Prestige {prestigeCount + 1})
-          </div>
-          <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
-            Reset everything but keep permanent bonuses. Each prestige makes the early game faster
-            and unlocks deeper mechanics.
-          </p>
-          {fatigue > 25 && (
-            <p style={{ color: fatigue > 75 ? "var(--danger)" : fatigue > 50 ? "var(--warning)" : "var(--text-secondary)" }} className="text-sm mb-3 italic">
-              {fatigue > 75
-                ? "Your mechanic can barely keep their eyes open. A fresh start would do wonders."
-                : fatigue > 50
-                  ? "Exhaustion is taking its toll. Consider a fresh start."
-                  : "Your mechanic is getting tired..."}
-            </p>
-          )}
-          {canPrestige ? (
-            <div style={{ color: "var(--text-secondary)" }} className="mb-3 text-xs">
-              <p style={{ color: "var(--accent)" }} className="font-semibold mb-1">You will gain:</p>
-              <p>Scrap Multiplier: \u00d7{nextPrestigeBonus.scrapMultiplier.toFixed(1)}</p>
-              <p>Luck Bonus: +{(nextPrestigeBonus.luckBonus * 100).toFixed(0)}%</p>
-              <p>Rep Multiplier: \u00d7{nextPrestigeBonus.repMultiplier.toFixed(1)}</p>
-            </div>
-          ) : (
-            <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-              Requirements: 1 vehicle built, 25 Rep, $500 lifetime Scrap Bucks
-            </p>
-          )}
-          <button
-            onClick={() => {
-              if (confirm("Are you sure? This resets your progress but keeps prestige bonuses.")) {
-                prestige();
-              }
+        {showPrestigeConfirm ? (
+          <PrestigeConfirm
+            onConfirm={() => {
+              prestige();
+              setShowPrestigeConfirm(false);
             }}
-            disabled={!canPrestige}
-            style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            onCancel={() => setShowPrestigeConfirm(false)}
+          />
+        ) : (
+          <div
+            style={{
+              background: canPrestige ? "var(--accent-bg)" : "var(--panel-bg)",
+              borderColor: canPrestige ? "var(--accent-border)" : "var(--panel-border)",
+            }}
+            className="rounded-lg border p-4"
           >
-            Scrap Reset
-          </button>
-        </div>
+            <div style={{ color: "var(--text-white)" }} className="font-semibold mb-1">
+              &#128260; Scrap Reset (Prestige {prestigeCount + 1})
+            </div>
+            <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
+              Reset everything but keep permanent bonuses. Earn Legacy Points to buy permanent upgrades.
+            </p>
+            {fatigue > 25 && (
+              <p style={{ color: fatigue > 75 ? "var(--danger)" : fatigue > 50 ? "var(--warning)" : "var(--text-secondary)" }} className="text-sm mb-3 italic">
+                {fatigue > 75
+                  ? "Your mechanic can barely keep their eyes open. A fresh start would do wonders."
+                  : fatigue > 50
+                    ? "Exhaustion is taking its toll. Consider a fresh start."
+                    : "Your mechanic is getting tired..."}
+              </p>
+            )}
+            {!canPrestige && (
+              <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
+                Requirements: 1 vehicle built, 25 Rep, $500 lifetime Scrap Bucks
+              </p>
+            )}
+            <button
+              onClick={() => setShowPrestigeConfirm(true)}
+              disabled={!canPrestige}
+              style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Scrap Reset
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Right column: Legacy Shop */}
+      <div className="flex flex-col gap-4">
+        <LegacyShop />
       </div>
     </div>
 
