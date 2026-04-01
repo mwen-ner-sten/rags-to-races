@@ -150,7 +150,8 @@ export default function ScavengePanel() {
     const state = useGameStore.getState();
     const steadyReduction = _getUpgradeEffectValue(state, "steady_hands");
     const lightningReduction = _getUpgradeEffectValue(state, "lightning_fingers");
-    return Math.max(200, 2000 - steadyReduction - lightningReduction);
+    const franticReduction = _getUpgradeEffectValue(state, "frantic_scavenger");
+    return Math.max(100, 2000 - steadyReduction - lightningReduction - franticReduction);
   }, []);
 
   const fireScavenge = useCallback(() => {
