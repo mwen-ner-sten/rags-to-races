@@ -241,7 +241,7 @@ export default function ScavengePanel() {
             onMouseDown={startHold}
             onMouseUp={stopHold}
             onMouseLeave={stopHold}
-            onTouchStart={startHold}
+            onTouchStart={(e) => { e.preventDefault(); startHold(); }}
             onTouchEnd={stopHold}
             className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
               isScavengeAnimating ? "scale-90" : "scale-100"
