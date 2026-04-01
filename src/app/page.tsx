@@ -18,6 +18,8 @@ import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 
 type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "settings" | "dev";
 
+const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
   const applyTickResult = useGameStore((s) => s.applyTickResult);
@@ -136,7 +138,7 @@ export default function Home() {
         {activeTab === "workshop" && <WorkshopPanel />}
         {activeTab === "shop"     && <ShopPanel />}
         {activeTab === "settings" && <SettingsPanel />}
-        {activeTab === "dev"      && <AdminPanel />}
+        {SHOW_DEV_TAB && activeTab === "dev" && <AdminPanel />}
       </ThemeShell>
     </>
   );
