@@ -38,9 +38,11 @@ export default function Home() {
         result.scrapsEarned !== 0 ||
         result.repEarned !== 0 ||
         result.vehicleWearAmount !== 0 ||
-        result.vehicleRepairAmount !== 0
+        result.vehicleRepairAmount !== 0 ||
+        result.lootGearDrops.length > 0 ||
+        result.modDrops.length > 0
       ) {
-        applyTickResult(result.partsFound, result.scrapsEarned, result.repEarned, result.vehicleWearAmount, result.vehicleRepairAmount);
+        applyTickResult(result.partsFound, result.scrapsEarned, result.repEarned, result.vehicleWearAmount, result.vehicleRepairAmount, result.lootGearDrops, result.modDrops);
       }
     }, TICK_MS);
 
