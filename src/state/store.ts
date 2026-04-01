@@ -132,6 +132,9 @@ export interface GameState {
   /** Progress tracking for active challenges (cumulative counters) */
   challengeProgress: Record<string, number>;
 
+  /** Whether the player has seen (or skipped) the new-player intro walkthrough */
+  hasSeenIntro: boolean;
+
   // Lifetime stats (for challenge tracking, persist through prestige)
   lifetimeTotalDecomposed: number;
   lifetimeTotalEnhanced: number;
@@ -255,6 +258,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lifetimeTotalTradeUps: 0,
     lifetimeTotalRaceSalvage: 0,
     highestConditionReached: 0,
+    hasSeenIntro: false,
   };
 }
 
@@ -1025,8 +1029,8 @@ function createActions(set: any, get: any) {
         lifetimeRaces: 0,
         // Auto-race unlocks permanently after first prestige
         autoRaceUnlocked: newPrestigeCount >= 1,
-        // Auto-scavenge must be re-earned each run via clicks
-        autoScavengeUnlocked: false,
+        // Auto-scavenge stays unlocked once earned
+        autoScavengeUnlocked: state.autoScavengeUnlocked,
         manualScavengeClicks: 0,
         raceTickProgress: 0,
         // Notify on first prestige unlock
