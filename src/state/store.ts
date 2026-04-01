@@ -157,6 +157,7 @@ export interface GameState {
   setSelectedCircuit: (circuitId: string) => void;
   enterRace: () => void;
   clearUnlockEvents: () => void;
+  dismissIntro: () => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   refurbishPart: (partId: string) => void;
@@ -741,6 +742,10 @@ function createActions(set: any, get: any) {
       set({ unlockEvents: [] });
     },
 
+    dismissIntro: () => {
+      set({ hasSeenIntro: true });
+    },
+
     repairVehicle: (vehicleId: string) => {
       const state = get() as GameState;
       const vehicle = state.garage.find((v) => v.id === vehicleId);
@@ -1059,6 +1064,7 @@ function createActions(set: any, get: any) {
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
+        hasSeenIntro: state.hasSeenIntro,
         dealerBoard: [],
         gameTick: 0,
       });
@@ -1548,6 +1554,7 @@ export const useGameStore = create<GameState>()(
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
+        hasSeenIntro: state.hasSeenIntro,
       }),
     },
   ),

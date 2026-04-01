@@ -11,6 +11,7 @@ import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import LockerPanel from "@/components/Locker/LockerPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import ToastContainer from "@/components/effects/Toast";
+import IntroWalkthrough from "@/components/effects/IntroWalkthrough";
 import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs } from "@/engine/tick";
 import type { ScavengedPart } from "@/engine/scavenge";
@@ -130,6 +131,7 @@ export default function Home() {
   return (
     <>
       <ToastContainer />
+      {!SHOW_DEV_TAB && <IntroWalkthrough />}
       <ThemeShell activeTab={activeTab} setActiveTab={setActiveTab}>
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
