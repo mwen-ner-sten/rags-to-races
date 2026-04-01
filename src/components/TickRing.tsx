@@ -16,7 +16,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  */
 export default function TickRing() {
   const arcRef  = useRef<SVGCircleElement>(null);
-  const titleRef = useRef<SVGTitleElement>(null);
+  const titleRef = useRef<HTMLTitleElement>(null);
 
   // Track when the last tick fired (subscribe to lastActiveTimestamp changes)
   const lastTickTimeRef = useRef<number>(0);
