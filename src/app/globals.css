@@ -100,32 +100,27 @@ html {
   }
 }
 
-/* ── Desktop bottom bar: subtle at rest, readable on hover ──────────────── */
+/* ── Desktop bottom bar ─────────────────────────────────────────────────── */
 @media (min-width: 641px) {
   footer {
     padding: .9rem 2.25rem !important;
     border-top: 1px solid rgba(255,255,255,.1) !important;
   }
-  /* Keep font improvements; dim colors stay as-is at rest */
   footer span {
     font-size: .9rem !important;
     letter-spacing: .05em !important;
-    transition: color .25s !important;
     filter: none !important;
     text-shadow: none !important;
   }
   footer button {
     font-size: .9rem !important;
     letter-spacing: .05em !important;
-    transition: color .25s, opacity .25s !important;
     filter: none !important;
+    transition: color .2s, opacity .2s !important;
   }
-  /* Gentle lift on hover — noticeable but not jarring */
-  footer:hover span {
-    color: rgba(255,255,255,.35) !important;
-  }
-  footer:hover button {
-    color: rgba(255,255,255,.5) !important;
+  /* Settings button reveals on its own hover only */
+  footer button:hover {
+    color: rgba(255,255,255,.85) !important;
     opacity: 1 !important;
   }
 }
