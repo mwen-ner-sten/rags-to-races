@@ -11,14 +11,18 @@ import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 
 const CONDITION_COLORS: Record<string, string> = {
-  rusted: "#f87171",
-  worn: "#fb923c",
-  decent: "#facc15",
-  good: "#4ade80",
-  pristine: "#22d3ee",
+  rusted:    "#f87171",
+  worn:      "#fb923c",
+  decent:    "#facc15",
+  good:      "#4ade80",
+  pristine:  "#22d3ee",
+  polished:  "#818cf8",  // indigo
+  legendary: "#c084fc",  // purple
+  mythic:    "#f472b6",  // pink
+  artifact:  "#fbbf24",  // gold
 };
 
-const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
+const CONDITION_ORDER = ["artifact", "mythic", "legendary", "polished", "pristine", "good", "decent", "worn", "rusted"];
 
 interface PartGroup {
   key: string;

@@ -17,6 +17,25 @@ html {
   overflow-y: scroll;
 }
 
+/* Inventory scrollbar — always visible, themed */
+.inventory-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border) transparent;
+}
+.inventory-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.inventory-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.inventory-scroll::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border-radius: 3px;
+}
+.inventory-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 /* ── Mobile responsive overrides for theme shells ────────────────────────── */
 /* All shells use semantic <header>, <nav>, <main>, <footer> with inline     */
 /* styles, so we need !important to override at mobile breakpoints.          */

@@ -9,14 +9,18 @@ import { useMemo, useState, useEffect } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
 
 const CONDITION_COLORS: Record<string, string> = {
-  rusted: "#f87171",
-  worn: "#fb923c",
-  decent: "#facc15",
-  good: "#4ade80",
-  pristine: "#22d3ee",
+  rusted:    "#f87171",
+  worn:      "#fb923c",
+  decent:    "#facc15",
+  good:      "#4ade80",
+  pristine:  "#22d3ee",
+  polished:  "#818cf8",  // indigo
+  legendary: "#c084fc",  // purple
+  mythic:    "#f472b6",  // pink
+  artifact:  "#fbbf24",  // gold
 };
 
-const CONDITION_ORDER = ["pristine", "good", "decent", "worn", "rusted"];
+const CONDITION_ORDER = ["artifact", "mythic", "legendary", "polished", "pristine", "good", "decent", "worn", "rusted"];
 
 interface InventoryGroup {
   key: string;
@@ -65,6 +69,7 @@ export default function ScavengePanel() {
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
   const refurbishPart = useGameStore((s) => s.refurbishPart);
@@ -168,13 +173,31 @@ export default function ScavengePanel() {
           >
             Scavenge!
           </button>
-          {autoScavengeUnlocked && (
+          {autoScavengeUnlocked ? (
             <span
               className="rounded px-2 py-1 text-xs"
               style={{ background: "var(--accent-bg)", color: "var(--info)" }}
             >
               Auto
             </span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div
+                className="h-1.5 w-24 rounded-full overflow-hidden"
+                style={{ background: "var(--divider)" }}
+              >
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, (manualScavengeClicks / 100) * 100)}%`,
+                    background: "var(--info)",
+                  }}
+                />
+              </div>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                {manualScavengeClicks}/100 for Auto
+              </span>
+            </div>
           )}
           <div className="ml-auto flex items-center gap-2">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
@@ -213,7 +236,7 @@ export default function ScavengePanel() {
               <span>Value</span>
               <span></span>
             </div>
-            <div className="max-h-72 sm:max-h-96 overflow-y-auto">
+            <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll">
               {groups.map((group) => {
                 const def = getPartById(group.definitionId);
                 if (!def) return null;
@@ -224,7 +247,7 @@ export default function ScavengePanel() {
                     className={`flex items-center justify-between gap-2 border-b px-3 py-1.5 last:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-x-4 sm:px-4 sm:py-2 ${
                       newPartKeys.has(group.key) ? "animate-fade-up" : ""
                     } ${
-                      newPartKeys.has(group.key) && (group.condition === "pristine" || group.condition === "good")
+                      newPartKeys.has(group.key) && ["good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition)
                         ? "animate-pulse-gold"
                         : ""
                     }`}
@@ -239,7 +262,7 @@ export default function ScavengePanel() {
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {refurbBenchUnlocked && group.condition !== "rusted" && group.condition !== "pristine" && (() => {
+                      {refurbBenchUnlocked && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
                         const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
                         const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
                         if (!refurbInfo) return null;

@@ -1,16 +1,24 @@
 import type { CircuitDefinition } from "@/data/circuits";
 import { BASE_WEAR_PER_RACE, DNF_WEAR_BONUS, RELIABILITY_WEAR_THRESHOLD } from "@/data/vehicles";
+import { PART_DEFINITIONS, type PartCategory } from "@/data/parts";
+import { makePartId } from "./scavenge";
+import { chance, randInt, weightedPick } from "@/utils/random";
+import type { ScavengedPart } from "./scavenge";
 import type { BuiltVehicle } from "./build";
 
 export type RaceResult = "win" | "loss" | "dnf";
 
 export interface RaceOutcome {
   result: RaceResult;
-  position: number;     // 1–8
+  position: number;       // 1–8
   totalRacers: number;
   scrapsEarned: number;
   repEarned: number;
   log: string[];
+  /** Part salvaged from race wreckage (only on wins, ~15% chance) */
+  salvageDrop?: ScavengedPart;
+  /** Forge Token dropped (rare, high-tier circuits only) */
+  forgeTokenDrop?: boolean;
 }
 
 const RACE_FLAVOR: Record<RaceResult, string[]> = {
@@ -65,6 +73,47 @@ export function calculateOdds(
   return { winChance, dnfChance, oddsLabel };
 }
 
+/**
+ * Roll for a circuit salvage drop after a race win.
+ * @param circuit - the circuit raced on
+ * @param dropChance - base probability (0–1), boosted by Scavenger's Eye upgrade
+ * @param maxConditionIndex - max condition the salvage can be (0=rusted, 2=decent)
+ */
+export function rollSalvageDrop(
+  circuit: CircuitDefinition,
+  dropChance: number = 0.15,
+  maxConditionIndex: number = 1,
+): ScavengedPart | null {
+  if (!chance(dropChance)) return null;
+
+  // Pick a random part category with equal weight
+  const categories: PartCategory[] = ["engine", "wheel", "frame", "fuel", "electronics", "drivetrain", "exhaust", "suspension", "aero"];
+  const weights = Object.fromEntries(categories.map((c) => [c, 1])) as Record<PartCategory, number>;
+  const category = weightedPick(weights);
+
+  // Filter eligible parts by circuit tier
+  const eligible = PART_DEFINITIONS.filter(
+    (p) => p.category === category && p.minTier <= circuit.tier,
+  );
+  if (eligible.length === 0) return null;
+
+  const def = eligible[randInt(0, eligible.length - 1)];
+
+  // Salvage is always rusted or worn (it's from wreckage)
+  const conditions: ScavengedPart["condition"][] = maxConditionIndex >= 2
+    ? ["rusted", "worn", "decent"]
+    : ["rusted", "worn"];
+  const condition = conditions[randInt(0, conditions.length - 1)];
+
+  return {
+    id: makePartId(),
+    definitionId: def.id,
+    condition,
+    foundAt: `race_salvage_${circuit.id}`,
+    type: "part",
+  };
+}
+
 /** Simulate a race. Returns outcome. */
 export function simulateRace(
   vehicle: BuiltVehicle,
@@ -73,6 +122,8 @@ export function simulateRace(
   fatigue: number = 0,
   gearPerformanceBonus: number = 0,
   gearDnfReduction: number = 0,
+  salvageDropChance: number = 0.15,
+  salvageMaxCondition: number = 1,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
@@ -109,15 +160,29 @@ export function simulateRace(
     : Math.floor(circuit.rewardBase * positionMultiplier * 0.3);
   const repEarned = won ? circuit.repReward : Math.floor(circuit.repReward * 0.2);
 
+  // Circuit salvage drop — only on wins
+  const salvageDrop = won
+    ? rollSalvageDrop(circuit, salvageDropChance, salvageMaxCondition)
+    : null;
+
+  // Forge Token: very rare drop from high-tier circuit wins (tier 3+)
+  const forgeTokenDrop = won && circuit.tier >= 3 && chance(0.02);
+
   const log = [
     `Circuit: ${circuit.name}`,
     `Finished: P${position}/${totalRacers}`,
     pickFlavor(result),
     won ? `+${scrapsEarned} Scrap Bucks` : scrapsEarned > 0 ? `+${scrapsEarned} Scrap Bucks (consolation)` : "No prize money.",
     repEarned > 0 ? `+${repEarned} Rep` : "",
+    salvageDrop ? `Salvaged a part from the wreckage!` : "",
+    forgeTokenDrop ? `Found a Forge Token in the debris!` : "",
   ].filter(Boolean);
 
-  return { result, position, totalRacers, scrapsEarned, repEarned, log };
+  return {
+    result, position, totalRacers, scrapsEarned, repEarned, log,
+    salvageDrop: salvageDrop ?? undefined,
+    forgeTokenDrop: forgeTokenDrop || undefined,
+  };
 }
 
 /** Calculate condition points lost from a race. */
