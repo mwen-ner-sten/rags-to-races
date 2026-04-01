@@ -12,6 +12,7 @@ export interface GearBonuses {
   build_cost_reduction_pct: number;
   repair_cost_reduction_pct: number;
   refurb_cost_reduction_pct: number;
+  tick_speed_reduction_ms: number;
 }
 
 const EMPTY_BONUSES: GearBonuses = {
@@ -26,6 +27,7 @@ const EMPTY_BONUSES: GearBonuses = {
   build_cost_reduction_pct: 0,
   repair_cost_reduction_pct: 0,
   refurb_cost_reduction_pct: 0,
+  tick_speed_reduction_ms: 0,
 };
 
 /** Aggregate all equipped gear effects into a flat bonus map. */
