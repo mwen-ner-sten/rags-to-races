@@ -131,7 +131,7 @@ export default function Home() {
   return (
     <>
       <ToastContainer />
-      {!SHOW_DEV_TAB && <IntroWalkthrough />}
+      <IntroWalkthrough />
       <ThemeShell activeTab={activeTab} setActiveTab={setActiveTab}>
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}

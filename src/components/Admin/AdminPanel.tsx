@@ -205,6 +205,13 @@ export default function AdminPanel() {
               >
                 Disable Both
               </button>
+              <button
+                onClick={() => { useGameStore.setState({ hasSeenIntro: false }); log("Intro walkthrough reset — reload to see it"); }}
+                style={btnOutline}
+                className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              >
+                Launch Tutorial
+              </button>
             </div>
           </div>
 
