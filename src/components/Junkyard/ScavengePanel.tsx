@@ -2,7 +2,8 @@
 
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
-import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS } from "@/data/parts";
+import type { PartCondition } from "@/data/parts";
 import { calculateRefurbishCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
@@ -67,6 +68,8 @@ export default function ScavengePanel() {
   const manualScavenge = useGameStore((s) => s.manualScavenge);
   const sellPart = useGameStore((s) => s.sellPart);
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
+  const sellAllScrap = useGameStore((s) => s.sellAllScrap);
+  const sellBelowQuality = useGameStore((s) => s.sellBelowQuality);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -103,6 +106,12 @@ export default function ScavengePanel() {
     });
     return () => { unsub(); if (clearTimer) clearTimeout(clearTimer); };
   }, []);
+
+  const [qualityThreshold, setQualityThreshold] = useState<PartCondition>("decent");
+  const hasScrap = useMemo(
+    () => inventory.some((p) => p.type === "part" && getPartById(p.definitionId)?.category === "misc"),
+    [inventory],
+  );
 
   // Scavenge button animation
   const [isScavengeAnimating, setIsScavengeAnimating] = useState(false);
@@ -180,16 +189,44 @@ export default function ScavengePanel() {
               Auto
             </span>
           )}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
-            {inventory.length > 0 && (
+            {hasScrap && (
               <button
-                onClick={sellAllJunk}
+                onClick={sellAllScrap}
                 className="rounded border px-2 py-1 text-xs transition-colors"
                 style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
               >
-                Sell All
+                Sell Scrap
               </button>
+            )}
+            {inventory.length > 0 && (
+              <>
+                <select
+                  value={qualityThreshold}
+                  onChange={(e) => setQualityThreshold(e.target.value as PartCondition)}
+                  className="rounded border px-1 py-1 text-xs"
+                  style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)", background: "var(--panel-bg)" }}
+                >
+                  {CONDITIONS.slice(1).map((c) => (
+                    <option key={c} value={c}>{capitalize(c)}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => sellBelowQuality(qualityThreshold)}
+                  className="rounded border px-2 py-1 text-xs transition-colors"
+                  style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+                >
+                  Sell Below
+                </button>
+                <button
+                  onClick={sellAllJunk}
+                  className="rounded border px-2 py-1 text-xs transition-colors"
+                  style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+                >
+                  Sell All
+                </button>
+              </>
             )}
           </div>
         </div>
