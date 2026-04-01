@@ -2,9 +2,10 @@
 
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
-import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
 import type { PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
+import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateRefurbishCost } from "@/engine/build";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect } from "react";
@@ -23,6 +24,19 @@ const CONDITION_COLORS: Record<string, string> = {
 };
 
 const CONDITION_ORDER = ["artifact", "mythic", "legendary", "polished", "pristine", "good", "decent", "worn", "rusted"];
+
+const VEHICLE_USABLE_PART_IDS = new Set<string>(
+  VEHICLE_DEFINITIONS.flatMap((v) => v.slots.flatMap((s) => s.acceptableParts)),
+);
+
+function StatRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11 }}>
+      <span style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span style={{ color: "var(--text-primary)", fontFamily: "monospace" }}>{value}</span>
+    </div>
+  );
+}
 
 interface InventoryGroup {
   key: string;
@@ -118,6 +132,7 @@ export default function ScavengePanel() {
   }, []);
 
   const [qualityThreshold, setQualityThreshold] = useState<PartCondition>("decent");
+  const [hoveredGroup, setHoveredGroup] = useState<{ group: InventoryGroup; x: number; y: number } | null>(null);
   const hasScrap = useMemo(
     () => inventory.some((p) => p.type === "part" && getPartById(p.definitionId)?.category === "misc"),
     [inventory],
@@ -132,6 +147,7 @@ export default function ScavengePanel() {
   };
 
   return (
+    <>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {/* Location picker */}
       <div className="col-span-1 flex flex-col gap-3">
@@ -264,7 +280,7 @@ export default function ScavengePanel() {
               <span>Value</span>
               <span>Actions</span>
             </div>
-            <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll">
+            <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll" onMouseLeave={() => setHoveredGroup(null)}>
               {groups.map((group) => {
                 const condColor = CONDITION_COLORS[group.condition] ?? "var(--text-secondary)";
                 return (
@@ -278,6 +294,8 @@ export default function ScavengePanel() {
                         : ""
                     }`}
                     style={{ borderColor: "var(--divider)" }}
+                    onMouseEnter={(e) => setHoveredGroup({ group, x: e.clientX, y: e.clientY })}
+                    onMouseLeave={() => setHoveredGroup(null)}
                   >
                     <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                       <span className="text-sm" style={{ color: condColor }}>{group.name}</span>
@@ -285,9 +303,9 @@ export default function ScavengePanel() {
                         <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--warning)", color: "var(--warning)" }}>
                           +{capitalize(group.slot)}
                         </span>
-                      ) : group.slot === "misc" ? (
+                      ) : group.slot === "misc" || !VEHICLE_USABLE_PART_IDS.has(group.definitionId) ? (
                         <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--btn-border)", color: "var(--text-muted)" }}>
-                          Scrap
+                          {group.slot === "misc" ? "Scrap" : capitalize(group.slot)}
                         </span>
                       ) : (
                         <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--info)", color: "var(--info)" }}>
@@ -332,5 +350,67 @@ export default function ScavengePanel() {
         )}
       </div>
     </div>
+    {hoveredGroup && (() => {
+      const { group, x, y } = hoveredGroup;
+      const mult = CONDITION_MULTIPLIERS[group.condition as keyof typeof CONDITION_MULTIPLIERS] ?? 1;
+      const addonSlots = CONDITION_ADDON_SLOTS[group.condition as keyof typeof CONDITION_ADDON_SLOTS] ?? 0;
+      const defPart = group.partType === "part" ? getPartById(group.definitionId) : undefined;
+      const defAddon = group.partType === "addon" ? getAddonById(group.definitionId) : undefined;
+      const isUsable = group.slot !== "misc" && VEHICLE_USABLE_PART_IDS.has(group.definitionId);
+      const acceptedBy = defPart && isUsable
+        ? VEHICLE_DEFINITIONS.filter((v) => v.slots.some((s) => s.acceptableParts.includes(group.definitionId))).map((v) => v.name)
+        : [];
+      return (
+        <div
+          style={{
+            position: "fixed",
+            left: Math.min(x + 16, (typeof window !== "undefined" ? window.innerWidth : 800) - 224),
+            top: y - 8,
+            zIndex: 50,
+            width: 208,
+            background: "var(--panel-bg)",
+            border: "1px solid var(--panel-border)",
+            borderRadius: 6,
+            padding: "8px 10px",
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
+            {group.name}
+            <span style={{ fontWeight: 400, color: "var(--text-muted)" }}> · {capitalize(group.condition)}</span>
+          </div>
+          {defPart && (
+            <>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, marginBottom: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                {defPart.basePower > 0 && <StatRow label="Power" value={Math.round(defPart.basePower * mult)} />}
+                {defPart.baseReliability > 0 && <StatRow label="Reliability" value={Math.round(defPart.baseReliability * mult)} />}
+                <StatRow label="Weight" value={`${defPart.baseWeight}kg`} />
+                <StatRow label="Addon slots" value={addonSlots} />
+              </div>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, fontSize: 10 }}>
+                {isUsable && acceptedBy.length > 0
+                  ? <span style={{ color: "var(--text-muted)" }}>{acceptedBy.join(", ")}</span>
+                  : <span style={{ color: "var(--warning)" }}>Not accepted by any vehicle</span>
+                }
+              </div>
+            </>
+          )}
+          {defAddon && (
+            <>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, marginBottom: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                {(defAddon.statBonuses.power ?? 0) !== 0 && <StatRow label="Power" value={`+${Math.round(defAddon.statBonuses.power! * mult)}`} />}
+                {(defAddon.statBonuses.reliability ?? 0) !== 0 && <StatRow label="Reliability" value={`+${Math.round(defAddon.statBonuses.reliability! * mult)}`} />}
+                {(defAddon.statBonuses.handling ?? 0) !== 0 && <StatRow label="Handling" value={`+${Math.round(defAddon.statBonuses.handling! * mult)}`} />}
+                {(defAddon.statBonuses.weight ?? 0) !== 0 && <StatRow label="Weight" value={`${defAddon.statBonuses.weight! > 0 ? "+" : ""}${defAddon.statBonuses.weight}kg`} />}
+              </div>
+              <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, fontSize: 10, fontStyle: "italic", color: "var(--text-muted)" }}>
+                "{defAddon.flavorText}"
+              </div>
+            </>
+          )}
+        </div>
+      );
+    })()}
+    </>
   );
 }
