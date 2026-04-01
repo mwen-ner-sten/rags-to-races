@@ -69,6 +69,7 @@ export default function ScavengePanel() {
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
   const refurbishPart = useGameStore((s) => s.refurbishPart);
@@ -172,13 +173,31 @@ export default function ScavengePanel() {
           >
             Scavenge!
           </button>
-          {autoScavengeUnlocked && (
+          {autoScavengeUnlocked ? (
             <span
               className="rounded px-2 py-1 text-xs"
               style={{ background: "var(--accent-bg)", color: "var(--info)" }}
             >
               Auto
             </span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div
+                className="h-1.5 w-24 rounded-full overflow-hidden"
+                style={{ background: "var(--divider)" }}
+              >
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, (manualScavengeClicks / 100) * 100)}%`,
+                    background: "var(--info)",
+                  }}
+                />
+              </div>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                {manualScavengeClicks}/100 for Auto
+              </span>
+            </div>
           )}
           <div className="ml-auto flex items-center gap-2">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
