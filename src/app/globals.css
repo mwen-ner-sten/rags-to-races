@@ -100,6 +100,12 @@ html {
   footer {
     padding: .9rem 2.25rem !important;
   }
+  footer span {
+    font-size: .9rem !important;
+  }
+  footer button {
+    font-size: .9rem !important;
+  }
 }
 
 /* ── Game animations ────────────────────────────────────────────────────── */
