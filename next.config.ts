@@ -1,24 +1,16 @@
 import type { NextConfig } from "next";
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { execSync } from "child_process";
 
-// CalVer: YYYY.MM.DD.BUILD — build number is incremented by the bump-build CI workflow on each PR merge
+// CalVer: YYYY.MM.DD.N — N is the total git commit count, always increasing
 function generateVersion(): string {
   const now = new Date();
   const date = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
 
   let build = 1;
   try {
-    const dir = typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
-    const counterPath = resolve(dir, ".build-counter.json");
-    const raw = readFileSync(counterPath, "utf-8");
-    const prev = JSON.parse(raw);
-    if (prev.date === date) {
-      build = prev.build ?? 1;
-    }
+    build = parseInt(execSync("git rev-list --count HEAD").toString().trim(), 10);
   } catch {
-    // Missing or unreadable counter — fall back to 1
+    // Not in a git repo or git unavailable — fall back to 1
   }
 
   return `${date}.${build}`;
