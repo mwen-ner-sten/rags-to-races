@@ -180,6 +180,7 @@ export interface GameState {
   installMod: (lootGearId: string, modInstanceId: string) => void;
   removeMod: (lootGearId: string, modIndex: number) => void;
   unlockTalentNode: (nodeId: string) => void;
+  respecTalentTree: (treeId: string) => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
@@ -563,6 +564,7 @@ function createActions(set: any, get: any) {
         salvageDropChance,
         salvageMaxCondition,
         momentumWinBonus,
+        gb.forge_token_chance_bonus,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -667,7 +669,8 @@ function createActions(set: any, get: any) {
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
           const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
-          const newFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
+          const rawFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
+          const newFatigue = Math.floor(rawFatigue * (1 - gb.fatigue_rate_reduction));
 
           // Gear drop roll from manual race
           const raceVehicle = s.garage.find((v) => v.id === racingVehicleId);
@@ -991,13 +994,27 @@ function createActions(set: any, get: any) {
       if (state.unlockedTalentNodes.includes(nodeId)) return;
       const node = getTalentNodeById(nodeId);
       if (!node) return;
-      if (node.repRequirement && state.repPoints < node.repRequirement) return;
-      if (node.prerequisiteGearId && !state.ownedGearIds.includes(node.prerequisiteGearId)) return;
       if (node.prerequisiteNodeId && !state.unlockedTalentNodes.includes(node.prerequisiteNodeId)) return;
+      if (node.mutuallyExclusiveWith && state.unlockedTalentNodes.includes(node.mutuallyExclusiveWith)) return;
       if (state.scrapBucks < node.cost) return;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - node.cost,
         unlockedTalentNodes: [...s.unlockedTalentNodes, nodeId],
+      }));
+    },
+
+    respecTalentTree: (treeId: string) => {
+      const state = get() as GameState;
+      const treeNodes = TALENT_NODES.filter((n) => n.treeId === treeId);
+      const unlockedInTree = treeNodes.filter((n) => state.unlockedTalentNodes.includes(n.id));
+      if (unlockedInTree.length === 0) return;
+      const totalCost = unlockedInTree.reduce((sum, n) => sum + n.cost, 0);
+      const respecCost = Math.floor(totalCost * 1.5);
+      if (state.scrapBucks < respecCost) return;
+      const unlockedInTreeIds = new Set(unlockedInTree.map((n) => n.id));
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - respecCost,
+        unlockedTalentNodes: s.unlockedTalentNodes.filter((id) => !unlockedInTreeIds.has(id)),
       }));
     },
 
@@ -1178,7 +1195,9 @@ function createActions(set: any, get: any) {
         const raced = !!vehicleWear;
         const newLifetimeRaces = raced ? s.lifetimeRaces + 1 : s.lifetimeRaces;
         const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
-        const newFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
+        const gbFatigue = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES);
+        const rawFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
+        const newFatigue = raced ? Math.floor(rawFatigue * (1 - gbFatigue.fatigue_rate_reduction)) : s.fatigue;
         return {
           inventory: [...s.inventory, ...partsFound],
           scrapBucks: s.scrapBucks + scrapsEarned,
@@ -1216,11 +1235,13 @@ function createActions(set: any, get: any) {
       const result = decomposePart(part, state.fatigue);
       if (!result) return;
 
-      // Apply legacy decompose yield multiplier
+      // Apply legacy decompose yield multiplier + gear material bonus
       const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const newMaterials = { ...state.materials };
       for (const [mat, qty] of Object.entries(result.materials) as [MaterialType, number][]) {
-        newMaterials[mat] = (newMaterials[mat] ?? 0) + Math.floor(qty * decompYieldMult);
+        const bonusQty = Math.floor(qty * decompYieldMult * (1 + gb.material_bonus_pct));
+        newMaterials[mat] = (newMaterials[mat] ?? 0) + bonusQty;
       }
 
       const newDecomposed = state.lifetimeTotalDecomposed + 1;
@@ -1250,11 +1271,13 @@ function createActions(set: any, get: any) {
       if (junk.length === 0) return;
 
       const { materials: matYield, count } = decomposeMany(junk, state.fatigue);
-      // Apply legacy decompose yield multiplier
+      // Apply legacy decompose yield multiplier + gear material bonus
       const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
+      const gbDecompose = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const newMaterials = { ...state.materials };
       for (const [mat, qty] of Object.entries(matYield) as [MaterialType, number][]) {
-        newMaterials[mat] = (newMaterials[mat] ?? 0) + Math.floor(qty * decompYieldMult);
+        const bonusQty = Math.floor(qty * decompYieldMult * (1 + gbDecompose.material_bonus_pct));
+        newMaterials[mat] = (newMaterials[mat] ?? 0) + bonusQty;
       }
       const junkIds = new Set(junk.map((p) => p.id));
       const newDecomposed = state.lifetimeTotalDecomposed + count;

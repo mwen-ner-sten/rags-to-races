@@ -141,7 +141,7 @@ export function computeTick(state: GameState): TickResult {
         if (vehicleCondition > 0 && state.scrapBucks >= circuit.entryFee) {
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
-          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction, 0.15, 1, momentumWinBonus);
+          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction, 0.15, 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus);
 
           // Apply consolation sponsor bonus
           const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");

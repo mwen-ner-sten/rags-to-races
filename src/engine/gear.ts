@@ -16,6 +16,12 @@ export interface GearBonuses {
   repair_cost_reduction_pct: number;
   refurb_cost_reduction_pct: number;
   tick_speed_reduction_ms: number;
+  /** Talent-only: fraction of fatigue gain removed per race (0.0–1.0) */
+  fatigue_rate_reduction: number;
+  /** Talent-only: fraction bonus to material yield on decompose (e.g. 0.15 = +15%) */
+  material_bonus_pct: number;
+  /** Talent-only: additive bonus to forge token drop chance (e.g. 0.01 = +1%) */
+  forge_token_chance_bonus: number;
 }
 
 const EMPTY_BONUSES: GearBonuses = {
@@ -31,6 +37,9 @@ const EMPTY_BONUSES: GearBonuses = {
   repair_cost_reduction_pct: 0,
   refurb_cost_reduction_pct: 0,
   tick_speed_reduction_ms: 0,
+  fatigue_rate_reduction: 0,
+  material_bonus_pct: 0,
+  forge_token_chance_bonus: 0,
 };
 
 /**
