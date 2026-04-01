@@ -19,7 +19,7 @@ import {
   type InstalledMod,
 } from "@/data/lootGear";
 import { getModTemplateById } from "@/data/gearMods";
-import { TALENT_NODES, getTalentNodesForSlot } from "@/data/talentNodes";
+import { TALENT_NODES, TALENT_TREES, getTalentNodesForTree } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getEnhancedEffects, getSalvageValue } from "@/engine/gearEnhance";
 import { formatNumber } from "@/utils/format";
 
@@ -35,9 +35,12 @@ function effectLabel(type: string, value: number): string {
     case "race_handling_pct":        return `${pct(value)} handling`;
     case "race_wear_reduction_pct":  return `${pct(value)} wear reduction`;
     case "race_scrap_bonus_pct":     return `${pct(value)} race scrap`;
-    case "build_cost_reduction_pct": return `${pct(value)} build cost`;
-    case "repair_cost_reduction_pct":return `${pct(value)} repair cost`;
-    case "refurb_cost_reduction_pct":return `${pct(value)} refurb cost`;
+    case "build_cost_reduction_pct":  return `${pct(value)} build cost`;
+    case "repair_cost_reduction_pct": return `${pct(value)} repair cost`;
+    case "refurb_cost_reduction_pct": return `${pct(value)} refurb cost`;
+    case "fatigue_rate_reduction":    return `${pct(value)} less fatigue/race`;
+    case "material_bonus_pct":        return `${pct(value)} decompose yield`;
+    case "forge_token_chance_bonus":  return `${pct(value)} forge token chance`;
     default: return `${pct(value)} ${type}`;
   }
 }
@@ -73,7 +76,8 @@ export default function LockerPanel() {
   const salvageLootGear = useGameStore((s) => s.salvageLootGear);
   const installMod      = useGameStore((s) => s.installMod);
   const removeMod       = useGameStore((s) => s.removeMod);
-  const unlockTalentNode = useGameStore((s) => s.unlockTalentNode);
+  const unlockTalentNode  = useGameStore((s) => s.unlockTalentNode);
+  const respecTalentTree  = useGameStore((s) => s.respecTalentTree);
 
   const masteryLevel = Math.floor((workshopLevels["enhancement_mastery"] ?? 0) * 3);
   const maxEnhance   = getMaxEnhancementLevel(masteryLevel);
@@ -162,11 +166,10 @@ export default function LockerPanel() {
       {/* Talents tab */}
       {activeTab === "talents" && (
         <TalentsTab
-          ownedGearIds={ownedGearIds}
           unlockedTalentNodes={unlockedTalentNodes}
           scrapBucks={scrapBucks}
-          repPoints={repPoints}
           unlockTalentNode={unlockTalentNode}
+          respecTalentTree={respecTalentTree}
         />
       )}
 
@@ -701,87 +704,176 @@ function ModsTab({
 
 // ── Talents Tab ──────────────────────────────────────────────────────────────
 function TalentsTab({
-  ownedGearIds, unlockedTalentNodes, scrapBucks, repPoints, unlockTalentNode,
+  unlockedTalentNodes, scrapBucks, unlockTalentNode, respecTalentTree,
 }: {
-  ownedGearIds: string[];
   unlockedTalentNodes: string[];
   scrapBucks: number;
-  repPoints: number;
   unlockTalentNode: (nodeId: string) => void;
+  respecTalentTree: (treeId: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-6">
       <p className="text-xs text-zinc-500">
-        Unlock passive talent nodes by owning gear and spending ScrapBucks. Talents persist through prestige.
+        Choose a path in each talent tree. Paths branch at tier 2 — pick one direction.
+        Respec a tree at any time for a fee (costs 1.5× what you spent). Talents persist through prestige.
       </p>
-      {GEAR_SLOTS.map((slot) => {
-        const nodes = getTalentNodesForSlot(slot).sort((a, b) => a.tier - b.tier);
-        const slotInfo = GEAR_SLOT_LABELS[slot];
-        return (
-          <div key={slot}>
-            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-widest text-zinc-400">
-              <span>{slotInfo.icon}</span> {slotInfo.label}
-            </h3>
-            <div className="flex flex-col gap-2">
-              {nodes.map((node) => {
-                const unlocked = unlockedTalentNodes.includes(node.id);
-                const meetsRep = !node.repRequirement || repPoints >= node.repRequirement;
-                const meetsGear = !node.prerequisiteGearId || ownedGearIds.includes(node.prerequisiteGearId);
-                const meetsNode = !node.prerequisiteNodeId || unlockedTalentNodes.includes(node.prerequisiteNodeId);
-                const available = meetsRep && meetsGear && meetsNode && !unlocked;
-                const canAfford = scrapBucks >= node.cost;
+      {TALENT_TREES.map((tree) => {
+        const nodes = getTalentNodesForTree(tree.id).sort((a, b) => a.tier - b.tier);
+        const tier1 = nodes.filter((n) => n.tier === 1);
+        const tier2 = nodes.filter((n) => n.tier === 2);
+        const tier3 = nodes.filter((n) => n.tier === 3);
 
-                return (
-                  <div key={node.id} className={`flex items-start gap-3 rounded-md border p-2.5 transition-colors ${
-                    unlocked   ? "border-green-800/50 bg-green-900/10"
-                    : available ? "border-zinc-600 bg-zinc-800/50"
-                    : "border-zinc-800 bg-zinc-900/30 opacity-50"
-                  }`}>
-                    <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${
-                      unlocked ? "border-green-500 bg-green-500" : available ? "border-zinc-500" : "border-zinc-700"
-                    }`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`text-sm font-semibold ${unlocked ? "text-green-400" : "text-zinc-200"}`}>{node.name}</span>
-                        <span className="text-xs font-mono text-emerald-400">{effectLabel(node.effect.type, node.effect.value)}</span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-zinc-500">{node.description}</p>
-                      {!unlocked && (
-                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-600">
-                          {node.prerequisiteGearId && (
-                            <span className={meetsGear ? "text-green-600" : ""}>
-                              Requires: {getGearById(node.prerequisiteGearId)?.name ?? node.prerequisiteGearId}
-                            </span>
-                          )}
-                          {node.prerequisiteNodeId && (
-                            <span className={meetsNode ? "text-green-600" : ""}>
-                              Requires node: {TALENT_NODES.find((n) => n.id === node.prerequisiteNodeId)?.name ?? node.prerequisiteNodeId}
-                            </span>
-                          )}
-                          {node.repRequirement && (
-                            <span className={meetsRep ? "text-green-600" : ""}>
-                              {formatNumber(node.repRequirement)} Rep
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {!unlocked && available && (
-                      <button onClick={() => unlockTalentNode(node.id)} disabled={!canAfford}
-                        className="shrink-0 rounded border border-orange-600 px-2 py-1 text-xs font-semibold text-orange-400 hover:bg-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40">
-                        ${formatNumber(node.cost)}
-                      </button>
-                    )}
-                    {unlocked && (
-                      <span className="shrink-0 text-xs text-green-500">Unlocked</span>
-                    )}
-                  </div>
-                );
-              })}
+        const unlockedInTree = nodes.filter((n) => unlockedTalentNodes.includes(n.id));
+        const respecCost = Math.floor(unlockedInTree.reduce((s, n) => s + n.cost, 0) * 1.5);
+        const canRespec = unlockedInTree.length > 0 && scrapBucks >= respecCost;
+        const hasNodes = unlockedInTree.length > 0;
+
+        return (
+          <div key={tree.id} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+            {/* Tree header */}
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{tree.icon}</span>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-200">{tree.name}</h3>
+                  <p className="text-xs text-zinc-500">{tree.description}</p>
+                </div>
+              </div>
+              {hasNodes && (
+                <button
+                  onClick={() => respecTalentTree(tree.id)}
+                  disabled={!canRespec}
+                  title={`Reset all ${tree.name} talents. Cost: $${formatNumber(respecCost)}`}
+                  className="shrink-0 rounded border border-red-800 px-2 py-1 text-xs text-red-500 hover:bg-red-900/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Respec (${formatNumber(respecCost)})
+                </button>
+              )}
             </div>
+
+            {/* Tier 1 (root) */}
+            <div className="flex flex-col gap-2">
+              {tier1.map((node) => (
+                <TalentNodeRow
+                  key={node.id}
+                  node={node}
+                  unlockedTalentNodes={unlockedTalentNodes}
+                  scrapBucks={scrapBucks}
+                  unlockTalentNode={unlockTalentNode}
+                  label="Root"
+                />
+              ))}
+            </div>
+
+            {/* Tier 2 branch fork */}
+            {tier2.length > 0 && (
+              <div className="mt-2">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-zinc-800" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Choose a Path</span>
+                  <div className="h-px flex-1 bg-zinc-800" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  {tier2.map((node) => {
+                    const exclusiveUnlocked = node.mutuallyExclusiveWith
+                      ? unlockedTalentNodes.includes(node.mutuallyExclusiveWith)
+                      : false;
+                    return (
+                      <TalentNodeRow
+                        key={node.id}
+                        node={node}
+                        unlockedTalentNodes={unlockedTalentNodes}
+                        scrapBucks={scrapBucks}
+                        unlockTalentNode={unlockTalentNode}
+                        label="Branch"
+                        forceBlocked={exclusiveUnlocked}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Tier 3 (capstone — only show nodes whose prereq branch is unlocked) */}
+            {tier3.filter((n) => !n.prerequisiteNodeId || unlockedTalentNodes.includes(n.prerequisiteNodeId)).length > 0 && (
+              <div className="mt-2">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-zinc-800" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Capstone</span>
+                  <div className="h-px flex-1 bg-zinc-800" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  {tier3
+                    .filter((n) => !n.prerequisiteNodeId || unlockedTalentNodes.includes(n.prerequisiteNodeId))
+                    .map((node) => (
+                      <TalentNodeRow
+                        key={node.id}
+                        node={node}
+                        unlockedTalentNodes={unlockedTalentNodes}
+                        scrapBucks={scrapBucks}
+                        unlockTalentNode={unlockTalentNode}
+                        label="Capstone"
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function TalentNodeRow({
+  node, unlockedTalentNodes, scrapBucks, unlockTalentNode, forceBlocked = false,
+}: {
+  node: import("@/data/talentNodes").TalentNode;
+  unlockedTalentNodes: string[];
+  scrapBucks: number;
+  unlockTalentNode: (nodeId: string) => void;
+  label?: string;
+  forceBlocked?: boolean;
+}) {
+  const unlocked = unlockedTalentNodes.includes(node.id);
+  const meetsPrereq = !node.prerequisiteNodeId || unlockedTalentNodes.includes(node.prerequisiteNodeId);
+  const available = meetsPrereq && !unlocked && !forceBlocked;
+  const canAfford = scrapBucks >= node.cost;
+
+  return (
+    <div className={`flex items-start gap-3 rounded-md border p-2.5 transition-colors ${
+      unlocked      ? "border-green-800/50 bg-green-900/10"
+      : forceBlocked ? "border-zinc-800 bg-zinc-900/20 opacity-30"
+      : available    ? "border-zinc-600 bg-zinc-800/50"
+      : "border-zinc-800 bg-zinc-900/30 opacity-50"
+    }`}>
+      <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${
+        unlocked ? "border-green-500 bg-green-500"
+        : forceBlocked ? "border-zinc-800"
+        : available ? "border-zinc-500"
+        : "border-zinc-700"
+      }`} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`text-sm font-semibold ${unlocked ? "text-green-400" : forceBlocked ? "text-zinc-600" : "text-zinc-200"}`}>
+            {node.name}
+          </span>
+          <span className="text-xs font-mono text-emerald-400">{effectLabel(node.effect.type, node.effect.value)}</span>
+        </div>
+        <p className="mt-0.5 text-xs text-zinc-500">{node.description}</p>
+      </div>
+      {!unlocked && available && (
+        <button
+          onClick={() => unlockTalentNode(node.id)}
+          disabled={!canAfford}
+          className="shrink-0 rounded border border-orange-600 px-2 py-1 text-xs font-semibold text-orange-400 hover:bg-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          ${formatNumber(node.cost)}
+        </button>
+      )}
+      {unlocked && (
+        <span className="shrink-0 text-xs text-green-500">Unlocked</span>
+      )}
     </div>
   );
 }
