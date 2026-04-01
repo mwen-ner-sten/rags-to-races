@@ -95,16 +95,29 @@ html {
   }
 }
 
-/* ── Desktop bottom bar enlargement ────────────────────────────────────── */
+/* ── Desktop bottom bar: larger, higher contrast, more readable ─────────── */
 @media (min-width: 641px) {
   footer {
     padding: .9rem 2.25rem !important;
+    /* Subtle universal separator — works on all dark themes */
+    border-top: 1px solid rgba(255,255,255,.1) !important;
   }
+  /* Boost the dim themed colors (browns, cyans, golds at .35–.45 alpha)
+     without hardcoding per-theme values. brightness(2.5) turns e.g.
+     #7a5a38 → warm amber, rgba(0,229,255,.45) → bright cyan. The glow
+     adds legibility on both neon and earthy themes. */
   footer span {
     font-size: .9rem !important;
+    letter-spacing: .05em !important;
+    filter: brightness(2.5) !important;
+    text-shadow: 0 0 8px currentColor !important;
   }
+  /* Settings button: was opacity .5 — bring it up and brighten to match */
   footer button {
     font-size: .9rem !important;
+    letter-spacing: .05em !important;
+    opacity: 0.9 !important;
+    filter: brightness(2) !important;
   }
 }
 
