@@ -88,10 +88,40 @@ html {
     gap: .4rem !important;
     padding: .5rem .75rem !important;
     padding-bottom: 3.5rem !important;
+    color: rgba(255,255,255,.65) !important;
+  }
+  footer button {
+    color: rgba(255,255,255,.8) !important;
+    opacity: 1 !important;
   }
   /* Hide the long copyright text on small screens */
   footer > span:first-child {
     display: none !important;
+  }
+}
+
+/* ── Desktop bottom bar ─────────────────────────────────────────────────── */
+@media (min-width: 641px) {
+  footer {
+    padding: .9rem 2.25rem !important;
+    border-top: 1px solid rgba(255,255,255,.1) !important;
+  }
+  footer span {
+    font-size: .9rem !important;
+    letter-spacing: .05em !important;
+    filter: none !important;
+    text-shadow: none !important;
+  }
+  footer button {
+    font-size: .9rem !important;
+    letter-spacing: .05em !important;
+    filter: none !important;
+    transition: color .2s, opacity .2s !important;
+  }
+  /* Settings button reveals on its own hover only */
+  footer button:hover {
+    color: rgba(255,255,255,.85) !important;
+    opacity: 1 !important;
   }
 }
 
