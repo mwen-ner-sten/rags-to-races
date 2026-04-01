@@ -200,6 +200,7 @@ export default function ScavengePanel() {
       <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <button
+            data-tutorial="scavenge-btn"
             onClick={handleScavenge}
             className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all ${
               isScavengeAnimating ? "scale-90" : "scale-100"
@@ -234,7 +235,7 @@ export default function ScavengePanel() {
               </span>
             </div>
           )}
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div data-tutorial="sell-area" className="ml-auto flex flex-wrap items-center gap-2">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
             {hasScrap && (
               <button

@@ -213,6 +213,7 @@ export default function GaragePanel() {
             </div>
 
             <button
+              data-tutorial="build-btn"
               onClick={buildSelectedVehicle}
               disabled={!canBuild}
               className="rounded-lg px-5 py-2 sm:px-6 sm:py-2.5 font-semibold text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40"
@@ -356,6 +357,7 @@ function VehicleCard({
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           {!isActive && (
             <button
+              data-tutorial="activate-btn"
               onClick={() => setActiveVehicle(vehicle.id)}
               className="rounded border px-2 py-1 text-xs transition-colors"
               style={{ borderColor: "var(--accent)", color: "var(--accent)" }}

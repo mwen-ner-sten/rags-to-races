@@ -128,6 +128,7 @@ export default function ShopPanel() {
               </p>
             )}
             <button
+              data-tutorial="prestige-btn"
               onClick={() => setShowPrestigeConfirm(true)}
               disabled={!canPrestige}
               style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
