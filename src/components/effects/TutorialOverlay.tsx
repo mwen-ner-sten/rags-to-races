@@ -203,13 +203,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
     return (
       <div className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
         <div
-          className="animate-fade-up mx-4 w-full max-w-md rounded-xl border-l-4 p-6"
+          className="animate-fade-up mx-4 w-full max-w-md rounded-xl border p-6"
           style={{
-            background: "var(--panel-bg)",
-            borderLeftColor: "var(--accent)",
-            borderRight: "1px solid var(--panel-border)",
-            borderTop: "1px solid var(--panel-border)",
-            borderBottom: "1px solid var(--panel-border)",
+            background: "#1a1a1a",
+            borderColor: "var(--panel-border)",
+            borderTopWidth: 3,
+            borderTopColor: "var(--accent)",
             boxShadow: "0 0 40px rgba(234, 179, 8, 0.12), 0 25px 50px -12px rgba(0,0,0,0.5)",
           }}
         >
@@ -339,7 +338,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <div
             className={`animate-fade-up relative rounded-xl border-l-4 p-3 ${arrowClass}`}
             style={{
-              background: "var(--panel-bg)",
+              background: "#1a1a1a",
               borderLeftColor: "var(--accent)",
               borderRight: "1px solid var(--panel-border)",
               borderTop: "1px solid var(--panel-border)",
@@ -378,7 +377,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <div
             className="animate-fade-up flex items-center gap-2 rounded-lg border-l-4 px-3 py-2 text-xs font-medium shadow-lg"
             style={{
-              background: "var(--panel-bg)",
+              background: "#1a1a1a",
               borderLeftColor: "var(--accent)",
               borderRight: "1px solid var(--panel-border)",
               borderTop: "1px solid var(--panel-border)",
