@@ -19,7 +19,7 @@ export default function TickRing() {
   const titleRef = useRef<SVGTitleElement>(null);
 
   // Track when the last tick fired (subscribe to lastActiveTimestamp changes)
-  const lastTickTimeRef = useRef<number>(Date.now());
+  const lastTickTimeRef = useRef<number>(0);
 
   useEffect(() => {
     return useGameStore.subscribe((state, prev) => {
