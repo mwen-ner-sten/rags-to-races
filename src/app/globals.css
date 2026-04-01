@@ -88,6 +88,11 @@ html {
     gap: .4rem !important;
     padding: .5rem .75rem !important;
     padding-bottom: 3.5rem !important;
+    color: rgba(255,255,255,.65) !important;
+  }
+  footer button {
+    color: rgba(255,255,255,.8) !important;
+    opacity: 1 !important;
   }
   /* Hide the long copyright text on small screens */
   footer > span:first-child {
@@ -95,29 +100,33 @@ html {
   }
 }
 
-/* ── Desktop bottom bar: larger, higher contrast, more readable ─────────── */
+/* ── Desktop bottom bar: subtle at rest, readable on hover ──────────────── */
 @media (min-width: 641px) {
   footer {
     padding: .9rem 2.25rem !important;
-    /* Subtle universal separator — works on all dark themes */
     border-top: 1px solid rgba(255,255,255,.1) !important;
   }
-  /* Boost the dim themed colors (browns, cyans, golds at .35–.45 alpha)
-     without hardcoding per-theme values. brightness(2.5) turns e.g.
-     #7a5a38 → warm amber, rgba(0,229,255,.45) → bright cyan. The glow
-     adds legibility on both neon and earthy themes. */
+  /* Keep font improvements; dim colors stay as-is at rest */
   footer span {
     font-size: .9rem !important;
     letter-spacing: .05em !important;
-    filter: brightness(2.5) !important;
-    text-shadow: 0 0 8px currentColor !important;
+    transition: color .15s !important;
+    filter: none !important;
+    text-shadow: none !important;
   }
-  /* Settings button: was opacity .5 — bring it up and brighten to match */
   footer button {
     font-size: .9rem !important;
     letter-spacing: .05em !important;
-    opacity: 0.9 !important;
-    filter: brightness(2) !important;
+    transition: color .15s, opacity .15s !important;
+    filter: none !important;
+  }
+  /* Hover the footer to reveal — direct color override beats inline styles */
+  footer:hover span {
+    color: rgba(255,255,255,.65) !important;
+  }
+  footer:hover button {
+    color: rgba(255,255,255,.85) !important;
+    opacity: 1 !important;
   }
 }
 
