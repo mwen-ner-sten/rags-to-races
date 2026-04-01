@@ -31,6 +31,8 @@ export default function HUD() {
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const garage = useGameStore((s) => s.garage);
   const fatigue = useGameStore((s) => s.fatigue);
+  const legacyPoints = useGameStore((s) => s.legacyPoints);
+  const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
   const saveLabel = useAutoSaveIndicator();
 
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
@@ -62,6 +64,17 @@ export default function HUD() {
               value={`${fatigue}%`}
               color={fatigue >= 75 ? "text-red-400" : fatigue >= 50 ? "text-orange-400" : fatigue >= 25 ? "text-yellow-400" : "text-zinc-400"}
             />
+          )}
+          {legacyPoints > 0 && (
+            <Stat label="LP" value={String(legacyPoints)} color="text-purple-400" />
+          )}
+          {activeMomentumTiers.length > 0 && (
+            <div className="flex flex-col items-end">
+              <span className="font-mono text-sm font-semibold text-amber-400">
+                {activeMomentumTiers.length}x
+              </span>
+              <span className="text-xs text-zinc-500">Momentum</span>
+            </div>
           )}
           {vehicleDef && activeVehicle && (
             <Stat
