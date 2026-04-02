@@ -159,7 +159,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       case 6: shouldAdvance = garage.length > 0; break;
       case 7: shouldAdvance = activeVehicleId !== null; break;
       case 8: shouldAdvance = activeTab === "race"; break;
-      case 9: break; // dismissable — player clicks "Got it"
+      case 9: shouldAdvance = isRacing; break; // also dismissable via "Got it"
       case 10: shouldAdvance = isRacing; break;
       case 11: shouldAdvance = raceHistory.length > 0; break;
       case 12: break; // dismissable — player clicks "Got it"
