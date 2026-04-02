@@ -18,6 +18,10 @@ interface TutorialStepDef {
   hasGoal?: boolean;
   /** Shown as a dismissible explanation card before the goal badge appears. */
   goalIntro?: string;
+  /** Player clicks "Got it" to advance — no auto-advance. */
+  dismissable?: boolean;
+  /** Hide the entire overlay while a race is running. */
+  hideDuringRace?: boolean;
 }
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
@@ -35,11 +39,14 @@ export const STEPS: TutorialStepDef[] = [
   /* 6  */ { icon: "\u{1F528}", tip: "Everything\u2019s loaded \u2014 hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
   /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to set it as your racer.", allowedTabs: ["garage"], target: "activate-btn" },
   /* 8  */ { icon: "\u{1F449}", tip: "Time to race! Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
-  /* 9  */ { icon: "\u{1F3C1}", tip: "Enter the **Backyard Derby** \u2014 held in Clyde\u2019s back forty.", allowedTabs: ["race"], target: "race-btn" },
-  /* 10 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. **Repair** it in the Garage \u2014 or scavenge parts and build a new one if repairs cost too much.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 11 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true, goalIntro: "Every race earns **Scrap Bucks** and **Rep**, but also builds **Fatigue** (shown in the top bar). Fatigue cuts your performance, raises repair costs, and worsens scavenge luck. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses." },
-  /* 12 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
-  /* 13 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
+  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your odds \u2014 **35% win** isn\u2019t bad for a garbage mower. **DNF** means your ride breaks down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true },
+  /* 10 */ { icon: "\u{1F3C1}", tip: "Hold on tight \u2014 hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
+  /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
+  /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
+  /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. **Repair** it in the Garage \u2014 or scavenge parts and build a new one if repairs cost too much.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
+  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true, goalIntro: "Every race earns **Scrap Bucks** and **Rep**, but also builds **Fatigue** (shown in the top bar). Fatigue cuts your performance, raises repair costs, and worsens scavenge luck. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses." },
+  /* 15 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
+  /* 16 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
@@ -116,6 +123,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const pendingBuildVehicleId = useGameStore((s) => s.pendingBuildVehicleId);
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
+  const isRacing = useGameStore((s) => s.isRacing);
+  const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
 
   const [cardDismissed, setCardDismissed] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -150,18 +159,21 @@ export default function TutorialOverlay({ activeTab }: Props) {
       case 6: shouldAdvance = garage.length > 0; break;
       case 7: shouldAdvance = activeVehicleId !== null; break;
       case 8: shouldAdvance = activeTab === "race"; break;
-      case 9: shouldAdvance = raceHistory.length > 0; break;
-      case 10: {
+      case 9: break; // dismissable — player clicks "Got it"
+      case 10: shouldAdvance = isRacing; break;
+      case 11: shouldAdvance = raceHistory.length > 0; break;
+      case 12: break; // dismissable — player clicks "Got it"
+      case 13: {
         const active = garage.find((v) => v.id === activeVehicleId);
         shouldAdvance = active ? (active.condition ?? 100) >= 100 : garage.length > 1;
         break;
       }
-      case 11: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
-      case 12: shouldAdvance = activeTab === "shop"; break;
-      case 13: shouldAdvance = prestigeCount > 0; break;
+      case 14: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
+      case 15: shouldAdvance = activeTab === "shop"; break;
+      case 16: shouldAdvance = prestigeCount > 0; break;
     }
     if (shouldAdvance) advanceTutorial();
-  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts]);
+  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing]);
 
   useEffect(() => {
     if (tutorialStep >= STEPS.length) {
@@ -262,6 +274,22 @@ export default function TutorialOverlay({ activeTab }: Props) {
   /* ── Render ──────────────────────────────────────────────────────────── */
   if (tutorialStep < 0 || !stepDef) return null;
 
+  /* Hide overlay during live race animation */
+  if (stepDef.hideDuringRace && isRacing) return null;
+
+  /* Dynamic tip for step 12: react to race result */
+  let effectiveTip = stepDef.tip;
+  if (tutorialStep === 12 && lastRaceOutcome) {
+    if (lastRaceOutcome.result === "win") {
+      effectiveTip = "You won! From the curb to the podium \u2014 that\u2019s how legends start.";
+    } else if (lastRaceOutcome.result === "dnf") {
+      effectiveTip = "Your mower exploded. Classic. **Repair** it and try again \u2014 that\u2019s racing!";
+    } else {
+      effectiveTip = "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you.";
+    }
+  }
+  /* Step 11 has no tip (hidden during race) — skip to avoid empty card */
+
   /* Step 0: Intro card */
   if (tutorialStep === 0) {
     return (
@@ -293,7 +321,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   /* Steps 1+: Guided */
   const isGoalStep = !!stepDef.hasGoal;
   const showGoalIntro = isGoalStep && !cardDismissed && !!stepDef.goalIntro;
-  const showCard = !cardDismissed && stepDef.tip && !showGoalIntro;
+  const showCard = !cardDismissed && effectiveTip && !showGoalIntro;
   const showGoal = cardDismissed && isGoalStep;
 
   // Pick an anchor rect — prefer target, fall back to highlighted tab
@@ -350,7 +378,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </span>
         </>
       );
-    } else if (tutorialStep === 11) {
+    } else if (tutorialStep === 14) {
       goalContent = (
         <>
           <span>${formatNumber(lifetimeScrapBucks)} <span style={{ color: "var(--text-muted)" }}>/</span> $500</span>
@@ -475,10 +503,19 @@ export default function TutorialOverlay({ activeTab }: Props) {
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {renderTip(stepDef.tip)}
+                  {renderTip(effectiveTip)}
                 </p>
-                <div className="mt-2">
+                <div className={`mt-2 flex items-center ${stepDef.dismissable ? "justify-between" : ""}`}>
                   <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+                  {stepDef.dismissable && (
+                    <button
+                      onClick={advanceTutorial}
+                      className="cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors"
+                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                    >
+                      Got it
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

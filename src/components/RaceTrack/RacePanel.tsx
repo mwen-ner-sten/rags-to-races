@@ -428,6 +428,7 @@ export default function RacePanel() {
 
         {/* Pre-race odds */}
         {activeVehicle && selectedCircuit && !isRacing && (
+          <div data-tutorial="odds-display">
           <OddsDisplay
             performance={activeVehicle.stats.performance}
             reliability={activeVehicle.stats.reliability}
@@ -437,6 +438,7 @@ export default function RacePanel() {
             gearPerformanceBonus={gb.race_performance_pct}
             gearDnfReduction={gb.race_dnf_reduction}
           />
+          </div>
         )}
 
         {/* Race button + streak */}
