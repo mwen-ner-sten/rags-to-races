@@ -217,19 +217,17 @@ export default function TutorialOverlay({ activeTab }: Props) {
   /* Step 0: Intro card */
   if (tutorialStep === 0) {
     return (
-      <div className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
         <div
-          className="animate-fade-up mx-4 w-full max-w-md rounded-xl border p-6"
+          className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-6"
           style={{
-            background: "#1a1a1a",
-            borderColor: "#333",
-            borderTopWidth: 3,
-            borderTopColor: "var(--accent)",
-            boxShadow: "0 0 40px rgba(234, 179, 8, 0.12), 0 25px 50px -12px rgba(0,0,0,0.5)",
+            background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
+            boxShadow: "0 0 60px rgba(234, 179, 8, 0.15), 0 0 0 1px rgba(255,255,255,0.06), 0 25px 50px -12px rgba(0,0,0,0.6)",
           }}
         >
-          <div className="mb-3 text-center text-4xl">{"\u{1F3CE}\uFE0F"}</div>
-          <h2 className="mb-2 text-center text-lg font-bold" style={{ color: "var(--text-heading)" }}>Welcome to Rags to Races</h2>
+          <div className="mb-4 text-center text-5xl">{"\u{1F3CE}\uFE0F"}</div>
+          <h2 className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)" }}>Rags to Races</h2>
+          <div className="mx-auto mb-4 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
           <p className="mb-3 text-center text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             You&apos;ve got nothing but the clothes on your back and a curb full of someone else&apos;s trash.
             Time to turn that garbage into glory.
