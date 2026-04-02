@@ -3,6 +3,7 @@
 import {
   HELP_OVERVIEW_STEPS,
   HELP_GLOSSARY,
+  HELP_SYSTEM_GUIDES,
   HELP_SYNC_FACTS,
   HELP_SYSTEM_DETAILS,
 } from "@/data/helpContent";
@@ -28,6 +29,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 export default function HelpPanel() {
   return (
     <div className="space-y-4 sm:space-y-5">
+      {/* Quick Start */}
       <SectionCard title="How to Play">
         <ol className="list-decimal space-y-2 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
           {HELP_OVERVIEW_STEPS.map((step) => (
@@ -36,6 +38,29 @@ export default function HelpPanel() {
         </ol>
       </SectionCard>
 
+      {/* System Guides */}
+      <SectionCard title="Systems Guide">
+        <div className="space-y-4">
+          {HELP_SYSTEM_GUIDES.map((guide) => (
+            <div key={guide.id}>
+              <h3
+                className="mb-2 flex items-center gap-2 text-sm font-semibold"
+                style={{ color: "var(--text-white)" }}
+              >
+                <span>{guide.icon}</span>
+                <span>{guide.title}</span>
+              </h3>
+              <ul className="list-disc space-y-1 pl-5 text-xs" style={{ color: "var(--text-secondary)" }}>
+                {guide.tips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Glossary */}
       <SectionCard title="Game Terms">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {HELP_GLOSSARY.map((item) => (
@@ -47,17 +72,7 @@ export default function HelpPanel() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Live Data Snapshot (Auto-Synced)">
-        <ul className="list-disc space-y-1.5 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
-          {HELP_SYNC_FACTS.map((fact) => (
-            <li key={fact}>{fact}</li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
-          This section is generated from exported game definition data, so it updates when definitions change.
-        </p>
-      </SectionCard>
-
+      {/* Parts & Conditions */}
       <SectionCard title="Parts & Conditions">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
@@ -89,6 +104,7 @@ export default function HelpPanel() {
         </div>
       </SectionCard>
 
+      {/* Progression Milestones */}
       <SectionCard title="Progression Milestones">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>
@@ -128,6 +144,18 @@ export default function HelpPanel() {
         </div>
         <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
           Current cap: part tier {HELP_SYSTEM_DETAILS.progression.highestPartTier}. Dealer unlocks at {formatNumber(HELP_SYSTEM_DETAILS.progression.dealerUnlockRep)} Rep.
+        </p>
+      </SectionCard>
+
+      {/* Live Data Snapshot */}
+      <SectionCard title="Data Snapshot">
+        <ul className="list-disc space-y-1.5 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
+          {HELP_SYNC_FACTS.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
+          Auto-generated from game definitions — updates when data files change.
         </p>
       </SectionCard>
     </div>
