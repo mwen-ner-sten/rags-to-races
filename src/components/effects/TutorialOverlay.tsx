@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useGameStore } from "@/state/store";
+import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { formatNumber } from "@/utils/format";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
@@ -177,13 +178,37 @@ export default function TutorialOverlay({ activeTab }: Props) {
     }
   }, [tutorialStep, cardDismissed, inventory.length]);
 
+  /* ── Step 2: redirect halo to sell area when ready to sell ─────────── */
+  const step2SellReady = useMemo(() => {
+    if (tutorialStep !== 2 || scrapBucks >= 10) return false;
+    const hasE = inventory.some((p) => PUSH_MOWER_ENGINES.has(p.definitionId));
+    const hasW = inventory.some((p) => PUSH_MOWER_WHEELS.has(p.definitionId));
+    if (!hasE || !hasW) return false;
+    // Sum sell value of extras (skip first engine + first wheel)
+    let skippedE = false;
+    let skippedW = false;
+    let sellable = 0;
+    for (const p of inventory) {
+      if (!skippedE && PUSH_MOWER_ENGINES.has(p.definitionId)) { skippedE = true; continue; }
+      if (!skippedW && PUSH_MOWER_WHEELS.has(p.definitionId)) { skippedW = true; continue; }
+      const def = getPartById(p.definitionId);
+      if (!def) continue;
+      sellable += Math.floor(def.scrapValue * (CONDITION_MULTIPLIERS[p.condition] ?? 1));
+    }
+    return scrapBucks + sellable >= 10;
+  }, [tutorialStep, inventory, scrapBucks]);
+
   /* ── Position tracking ───────────────────────────────────────────────── */
+  const effectiveTarget = stepDef?.target
+    ? (tutorialStep === 2 && step2SellReady ? "sell-area" : stepDef.target)
+    : undefined;
+
   const updatePositions = useCallback(() => {
     if (!stepDef) { setTargetRect(null); setHighlightRect(null); setBlockerRects([]); return; }
 
     // Always track target for halo (even during goal badge mode)
-    if (stepDef.target) {
-      const el = document.querySelector(`[data-tutorial="${stepDef.target}"]`);
+    if (effectiveTarget) {
+      const el = document.querySelector(`[data-tutorial="${effectiveTarget}"]`);
       setTargetRect(el ? el.getBoundingClientRect() : null);
     } else {
       setTargetRect(null);
@@ -219,7 +244,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     } else {
       setBlockerRects([]);
     }
-  }, [stepDef]);
+  }, [stepDef, effectiveTarget]);
 
   useEffect(() => {
     if (tutorialStep < 0) return;
