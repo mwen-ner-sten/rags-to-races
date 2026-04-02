@@ -185,18 +185,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const hasE = inventory.some((p) => PUSH_MOWER_ENGINES.has(p.definitionId));
     const hasW = inventory.some((p) => PUSH_MOWER_WHEELS.has(p.definitionId));
     if (!hasE || !hasW) return false;
-    // Sum sell value of extras (skip first engine + first wheel)
-    let skippedE = false;
-    let skippedW = false;
-    let sellable = 0;
+    // Only count misc items — that's what "Sell Scrap" actually sells
+    let miscValue = 0;
     for (const p of inventory) {
-      if (!skippedE && PUSH_MOWER_ENGINES.has(p.definitionId)) { skippedE = true; continue; }
-      if (!skippedW && PUSH_MOWER_WHEELS.has(p.definitionId)) { skippedW = true; continue; }
+      if (p.type !== "part") continue;
       const def = getPartById(p.definitionId);
-      if (!def) continue;
-      sellable += Math.floor(def.scrapValue * (CONDITION_MULTIPLIERS[p.condition] ?? 1));
+      if (!def || def.category !== "misc") continue;
+      miscValue += Math.floor(def.scrapValue * (CONDITION_MULTIPLIERS[p.condition] ?? 1));
     }
-    return scrapBucks + sellable >= 10;
+    return scrapBucks + miscValue >= 10;
   }, [tutorialStep, inventory, scrapBucks]);
 
   /* ── Position tracking ───────────────────────────────────────────────── */
