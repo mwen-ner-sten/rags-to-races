@@ -76,18 +76,22 @@ function renderTip(tip: string) {
 function StepDots({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex items-center gap-1">
-      {Array.from({ length: total }, (_, i) => (
-        <div
-          key={i}
-          className="rounded-full transition-colors"
-          style={{
-            width: i + 1 === current ? 8 : 5,
-            height: 5,
-            borderRadius: i + 1 === current ? 3 : "50%",
-            background: i + 1 === current ? "var(--accent)" : "#444",
-          }}
-        />
-      ))}
+      {Array.from({ length: total }, (_, i) => {
+        const active = i + 1 === current;
+        const past = i + 1 < current;
+        return (
+          <div
+            key={i}
+            className="rounded-full transition-colors"
+            style={{
+              width: active ? 10 : 5,
+              height: 5,
+              borderRadius: active ? 3 : "50%",
+              background: active ? "#fff" : past ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.12)",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
