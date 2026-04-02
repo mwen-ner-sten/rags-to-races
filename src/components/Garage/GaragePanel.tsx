@@ -401,16 +401,23 @@ function VehicleCard({
 
       {/* Repair button */}
       {condition < 100 && (
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            data-tutorial="repair-btn"
-            onClick={() => repairVehicle(vehicle.id)}
-            disabled={!isTutorialRepair && scrapBucks < repairCost}
-            className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ borderColor: "#16a34a", color: "var(--success)" }}
-          >
-            {isTutorialRepair ? "Repair to 100% — Free!" : `Repair to 100% — $${formatNumber(repairCost)}`}
-          </button>
+        <div className="mt-2 flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <button
+              data-tutorial="repair-btn"
+              onClick={() => repairVehicle(vehicle.id)}
+              disabled={!isTutorialRepair && scrapBucks < repairCost}
+              className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ borderColor: "#16a34a", color: "var(--success)" }}
+            >
+              {isTutorialRepair ? "Repair to 100% — Free" : `Repair to 100% — $${formatNumber(repairCost)}`}
+            </button>
+          </div>
+          {isTutorialRepair && (
+            <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>
+              Clyde owes you a favor for racing in his derby. This one&apos;s on the house.
+            </p>
+          )}
         </div>
       )}
 
