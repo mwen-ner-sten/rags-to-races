@@ -67,7 +67,7 @@ function StepDots({ current, total }: { current: number; total: number }) {
             width: i + 1 === current ? 8 : 5,
             height: 5,
             borderRadius: i + 1 === current ? 3 : "50%",
-            background: i + 1 === current ? "var(--accent)" : "var(--panel-border)",
+            background: i + 1 === current ? "var(--accent)" : "#444",
           }}
         />
       ))}
@@ -206,7 +206,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           className="animate-fade-up mx-4 w-full max-w-md rounded-xl border p-6"
           style={{
             background: "#1a1a1a",
-            borderColor: "var(--panel-border)",
+            borderColor: "#333",
             borderTopWidth: 3,
             borderTopColor: "var(--accent)",
             boxShadow: "0 0 40px rgba(234, 179, 8, 0.12), 0 25px 50px -12px rgba(0,0,0,0.5)",
@@ -340,9 +340,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
             style={{
               background: "#1a1a1a",
               borderLeftColor: "var(--accent)",
-              borderRight: "1px solid var(--panel-border)",
-              borderTop: "1px solid var(--panel-border)",
-              borderBottom: "1px solid var(--panel-border)",
+              borderRight: "1px solid #333",
+              borderTop: "1px solid #333",
+              borderBottom: "1px solid #333",
               boxShadow: "0 0 24px rgba(234, 179, 8, 0.08), 0 8px 32px -4px rgba(0,0,0,0.4)",
               ["--arrow-left" as string]: `${arrowLeftPx}px`,
             }}
@@ -351,7 +351,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
             <button
               onClick={skipTutorial}
               className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-              style={{ color: "var(--text-muted)", background: "var(--panel-border)" }}
+              style={{ color: "#888", background: "#333" }}
             >
               {"\u2715"}
             </button>
@@ -379,9 +379,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
             style={{
               background: "#1a1a1a",
               borderLeftColor: "var(--accent)",
-              borderRight: "1px solid var(--panel-border)",
-              borderTop: "1px solid var(--panel-border)",
-              borderBottom: "1px solid var(--panel-border)",
+              borderRight: "1px solid #333",
+              borderTop: "1px solid #333",
+              borderBottom: "1px solid #333",
               boxShadow: "0 0 16px rgba(234, 179, 8, 0.06), 0 4px 16px -2px rgba(0,0,0,0.3)",
               color: "var(--text-primary)",
             }}
@@ -394,7 +394,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
             <button
               onClick={skipTutorial}
               className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-              style={{ color: "var(--text-muted)", background: "var(--panel-border)", fontSize: 9 }}
+              style={{ color: "#888", background: "#333", fontSize: 9 }}
             >
               {"\u2715"}
             </button>
