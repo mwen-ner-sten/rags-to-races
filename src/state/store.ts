@@ -160,7 +160,6 @@ export interface GameState {
   sellPart: (partId: string) => void;
   sellAllJunk: () => void;
   sellAllScrap: () => void;
-  sellSafeForTutorial: () => void;
   sellBelowQuality: (threshold: PartCondition) => void;
   setPendingVehicle: (vehicleId: string) => void;
   setPendingPart: (slot: string, part: ScavengedPart | null) => void;
@@ -447,34 +446,6 @@ function createActions(set: any, get: any) {
           if (!def || def.category !== "misc") continue;
           const mult = CONDITION_MULTIPLIERS[part.condition];
           total += Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
-          toSell.push(part.id);
-        }
-        if (toSell.length === 0) return;
-        set((s: GameState) => ({
-          inventory: s.inventory.filter((p) => !toSell.includes(p.id)),
-          scrapBucks: s.scrapBucks + total,
-          lifetimeScrapBucks: s.lifetimeScrapBucks + total,
-        }));
-      });
-    },
-
-    sellSafeForTutorial: () => {
-      import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
-        const state = get() as GameState;
-        const ENGINES = new Set(["engine_small", "engine_lawn"]);
-        const WHEELS = new Set(["wheel_busted", "wheel_basic"]);
-        let skippedEngine = false;
-        let skippedWheel = false;
-        let total = 0;
-        const toSell: string[] = [];
-        for (const part of state.inventory) {
-          // Keep first engine and first wheel for building
-          if (!skippedEngine && ENGINES.has(part.definitionId)) { skippedEngine = true; continue; }
-          if (!skippedWheel && WHEELS.has(part.definitionId)) { skippedWheel = true; continue; }
-          const def = part.type === "part" ? getPartById(part.definitionId) : null;
-          if (!def) continue;
-          const mult = CONDITION_MULTIPLIERS[part.condition];
-          total += Math.floor(def.scrapValue * mult);
           toSell.push(part.id);
         }
         if (toSell.length === 0) return;
