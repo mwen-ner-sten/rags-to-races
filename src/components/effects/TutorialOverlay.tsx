@@ -25,8 +25,7 @@ const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
 export const STEPS: TutorialStepDef[] = [
   { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
   { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search the curb for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
-  { icon: "\u{1F9F0}", tip: "Keep scavenging \u2014 you need an **engine** and a **wheel** to build your first ride.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
-  { icon: "\u{1F4B0}", tip: "Sell spare parts for **Scrap Bucks** \u2014 you\u2019ll need **$10** to build.", allowedTabs: ["junkyard"], target: "sell-area", hasGoal: true },
+  { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
   { icon: "\u{1F449}", tip: "You\u2019ve got parts and cash. Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
   { icon: "\u{1F6E0}\uFE0F", tip: "Select the **Push Mower**, slot in your engine and wheel, and hit **Build**.", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
   { icon: "\u2B50", tip: "**Activate** your mower to set it as your racer.", allowedTabs: ["garage"], target: "activate-btn" },
@@ -112,18 +111,17 @@ export default function TutorialOverlay({ activeTab }: Props) {
       case 2: {
         const hasE = inventory.some((p) => PUSH_MOWER_ENGINES.has(p.definitionId));
         const hasW = inventory.some((p) => PUSH_MOWER_WHEELS.has(p.definitionId));
-        shouldAdvance = hasE && hasW;
+        shouldAdvance = hasE && hasW && scrapBucks >= 10;
         break;
       }
-      case 3: shouldAdvance = scrapBucks >= 10; break;
-      case 4: shouldAdvance = activeTab === "garage"; break;
-      case 5: shouldAdvance = garage.length > 0; break;
-      case 6: shouldAdvance = activeVehicleId !== null; break;
-      case 7: shouldAdvance = activeTab === "race"; break;
-      case 8: shouldAdvance = raceHistory.length > 0; break;
-      case 9: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
-      case 10: shouldAdvance = activeTab === "shop"; break;
-      case 11: shouldAdvance = prestigeCount > 0; break;
+      case 3: shouldAdvance = activeTab === "garage"; break;
+      case 4: shouldAdvance = garage.length > 0; break;
+      case 5: shouldAdvance = activeVehicleId !== null; break;
+      case 6: shouldAdvance = activeTab === "race"; break;
+      case 7: shouldAdvance = raceHistory.length > 0; break;
+      case 8: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
+      case 9: shouldAdvance = activeTab === "shop"; break;
+      case 10: shouldAdvance = prestigeCount > 0; break;
     }
     if (shouldAdvance) advanceTutorial();
   }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial]);
@@ -140,8 +138,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   useEffect(() => {
     if (!stepDef?.hasGoal || cardDismissed) return;
     if (tutorialStep === 2 && inventory.length > 1) setCardDismissed(true);
-    if (tutorialStep === 3 && scrapBucks > 0) setCardDismissed(true);
-    if (tutorialStep === 9) setCardDismissed(true);
+    if (tutorialStep === 8) setCardDismissed(true);
   }, [tutorialStep, stepDef, cardDismissed, inventory.length, scrapBucks]);
 
   /* ── Position tracking ───────────────────────────────────────────────── */
@@ -283,11 +280,13 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <span style={{ color: hasE ? "var(--success, #4ade80)" : "var(--danger, #f87171)" }}>Engine {hasE ? "\u2713" : "\u2717"}</span>
           <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
           <span style={{ color: hasW ? "var(--success, #4ade80)" : "var(--danger, #f87171)" }}>Wheel {hasW ? "\u2713" : "\u2717"}</span>
+          <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
+          <span style={{ color: scrapBucks >= 10 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            ${formatNumber(scrapBucks)} / $10
+          </span>
         </>
       );
-    } else if (tutorialStep === 3) {
-      goalContent = <span>${formatNumber(scrapBucks)} <span style={{ color: "var(--text-muted)" }}>/</span> $10</span>;
-    } else if (tutorialStep === 9) {
+    } else if (tutorialStep === 8) {
       goalContent = (
         <>
           <span>${formatNumber(lifetimeScrapBucks)} <span style={{ color: "var(--text-muted)" }}>/</span> $500</span>
