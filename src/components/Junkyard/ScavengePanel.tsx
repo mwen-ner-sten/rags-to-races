@@ -100,6 +100,8 @@ export default function ScavengePanel() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
   const refurbishPart = useGameStore((s) => s.refurbishPart);
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const sellSafeForTutorial = useGameStore((s) => s.sellSafeForTutorial);
   const refurbBenchUnlocked = (workshopLevels["refurbishment_bench"] ?? 0) >= 1;
 
   const unlockedLocations = LOCATION_DEFINITIONS.filter((l) =>
@@ -110,6 +112,29 @@ export default function ScavengePanel() {
   );
 
   const groups = useMemo(() => groupInventory(inventory), [inventory]);
+
+  // Tutorial step 2: should we nudge the player to sell?
+  const PUSH_MOWER_ENGINES = useMemo(() => new Set(["engine_small", "engine_lawn"]), []);
+  const PUSH_MOWER_WHEELS = useMemo(() => new Set(["wheel_busted", "wheel_basic"]), []);
+  const tutorialSellNudge = useMemo(() => {
+    if (tutorialStep !== 2) return false;
+    const hasEngine = inventory.some((p) => PUSH_MOWER_ENGINES.has(p.definitionId));
+    const hasWheel = inventory.some((p) => PUSH_MOWER_WHEELS.has(p.definitionId));
+    if (!hasEngine || !hasWheel) return false;
+    // Calculate value of parts safe to sell (everything except first engine + first wheel)
+    let skippedEngine = false;
+    let skippedWheel = false;
+    let sellableValue = 0;
+    for (const p of inventory) {
+      if (!skippedEngine && PUSH_MOWER_ENGINES.has(p.definitionId)) { skippedEngine = true; continue; }
+      if (!skippedWheel && PUSH_MOWER_WHEELS.has(p.definitionId)) { skippedWheel = true; continue; }
+      const def = getPartById(p.definitionId);
+      if (!def) continue;
+      const mult = CONDITION_MULTIPLIERS[p.condition as keyof typeof CONDITION_MULTIPLIERS] ?? 1;
+      sellableValue += Math.floor(def.scrapValue * mult);
+    }
+    return scrapBucks + sellableValue >= 10;
+  }, [tutorialStep, inventory, scrapBucks, PUSH_MOWER_ENGINES, PUSH_MOWER_WHEELS]);
 
   // Track inventory changes for new-part animations via Zustand subscription
   const [newPartKeys, setNewPartKeys] = useState<Set<string>>(new Set());
@@ -199,16 +224,27 @@ export default function ScavengePanel() {
       {/* Scavenge action + inventory */}
       <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            data-tutorial="scavenge-btn"
-            onClick={handleScavenge}
-            className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all ${
-              isScavengeAnimating ? "scale-90" : "scale-100"
-            }`}
-            style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
-          >
-            Scavenge!
-          </button>
+          {tutorialSellNudge ? (
+            <button
+              data-tutorial="scavenge-btn"
+              onClick={sellSafeForTutorial}
+              className="rounded-lg px-5 py-2 font-semibold text-sm transition-all animate-pulse-gold"
+              style={{ background: "var(--success)", color: "#000" }}
+            >
+              Sell Extras — Build!
+            </button>
+          ) : (
+            <button
+              data-tutorial="scavenge-btn"
+              onClick={handleScavenge}
+              className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all ${
+                isScavengeAnimating ? "scale-90" : "scale-100"
+              }`}
+              style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+            >
+              Scavenge!
+            </button>
+          )}
           {autoScavengeUnlocked ? (
             <span
               className="rounded px-2 py-1 text-xs"
