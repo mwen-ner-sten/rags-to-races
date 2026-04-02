@@ -402,13 +402,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
         />
       )}
 
-      {/* Secondary halo on Sell Scrap button */}
+      {/* Solid fill on Sell Scrap button to draw the eye */}
       {sellBtnRect && (
         <div
-          className="tutorial-pulse fixed z-[9999] rounded"
+          className="fixed z-[9999] rounded"
           style={{
-            left: sellBtnRect.left - 4, top: sellBtnRect.top - 4,
-            width: sellBtnRect.width + 8, height: sellBtnRect.height + 8,
+            left: sellBtnRect.left, top: sellBtnRect.top,
+            width: sellBtnRect.width, height: sellBtnRect.height,
+            background: "rgba(234, 179, 8, 0.18)",
+            border: "1.5px solid var(--accent)",
             pointerEvents: "none",
           }}
         />
