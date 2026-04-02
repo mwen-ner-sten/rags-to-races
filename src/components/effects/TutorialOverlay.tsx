@@ -27,7 +27,7 @@ const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
 export const STEPS: TutorialStepDef[] = [
   /* 0  */ { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
   /* 1  */ { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search the curb for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
-  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true, goalIntro: "Building a ride costs **$10** plus an **engine** and a **wheel**. Scavenge the curb for parts \u2014 keep the ones you need and sell the rest for **Scrap Bucks**." },
+  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
   /* 3  */ { icon: "\u{1F449}", tip: "You\u2019ve got parts and cash. Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
   /* 4  */ { icon: "\u{1F6E0}\uFE0F", tip: "Pick the **Push Mower** blueprint.", allowedTabs: ["garage", "junkyard"], target: "blueprint-btn" },
   /* 5  */ { icon: "\u{1F9F0}", tip: "Slot your **engine** and **wheel** into the part slots.", allowedTabs: ["garage", "junkyard"], target: "part-slots" },
@@ -153,7 +153,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
     }
   }, [tutorialStep]);
 
-  /* Goal steps: no auto-dismiss — player clicks "Got it" */
+  /* Auto-dismiss tip card for step 2 once they start scavenging — shows goal badge */
+  useEffect(() => {
+    if (tutorialStep === 2 && !cardDismissed && inventory.length > 0) {
+      setCardDismissed(true);
+    }
+  }, [tutorialStep, cardDismissed, inventory.length]);
 
   /* ── Position tracking ───────────────────────────────────────────────── */
   const updatePositions = useCallback(() => {
