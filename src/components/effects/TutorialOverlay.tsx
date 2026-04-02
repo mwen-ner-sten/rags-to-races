@@ -15,6 +15,8 @@ interface TutorialStepDef {
   highlightTab?: TabId;
   target?: string;
   hasGoal?: boolean;
+  /** Shown as a dismissible explanation card before the goal badge appears. */
+  goalIntro?: string;
 }
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
@@ -25,7 +27,7 @@ const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
 export const STEPS: TutorialStepDef[] = [
   /* 0  */ { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
   /* 1  */ { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search the curb for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
-  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
+  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true, goalIntro: "Building a ride costs **$10** plus an **engine** and a **wheel**. Scavenge the curb for parts \u2014 keep the ones you need and sell the rest for **Scrap Bucks**." },
   /* 3  */ { icon: "\u{1F449}", tip: "You\u2019ve got parts and cash. Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
   /* 4  */ { icon: "\u{1F6E0}\uFE0F", tip: "Pick the **Push Mower** blueprint.", allowedTabs: ["garage", "junkyard"], target: "blueprint-btn" },
   /* 5  */ { icon: "\u{1F9F0}", tip: "Slot your **engine** and **wheel** into the part slots.", allowedTabs: ["garage", "junkyard"], target: "part-slots" },
@@ -34,7 +36,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 8  */ { icon: "\u{1F449}", tip: "Time to race! Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
   /* 9  */ { icon: "\u{1F3C1}", tip: "Enter the **Backyard Derby** \u2014 held in Clyde\u2019s back forty.", allowedTabs: ["race"], target: "race-btn" },
   /* 10 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. **Repair** it in the Garage \u2014 or scavenge parts and build a new one if repairs cost too much.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 11 */ { icon: "\u{1F680}", tip: "Keep racing and scavenging to earn **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true },
+  /* 11 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true, goalIntro: "Every race earns **Scrap Bucks** and **Rep**, but also builds **Fatigue** (shown in the top bar). Fatigue cuts your performance, raises repair costs, and worsens scavenge luck. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses." },
   /* 12 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
   /* 13 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
 ];
@@ -151,11 +153,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     }
   }, [tutorialStep]);
 
-  useEffect(() => {
-    if (!stepDef?.hasGoal || cardDismissed) return;
-    if (tutorialStep === 2 && inventory.length > 1) setCardDismissed(true);
-    if (tutorialStep === 11) setCardDismissed(true);
-  }, [tutorialStep, stepDef, cardDismissed, inventory.length, scrapBucks]);
+  /* Goal steps: no auto-dismiss — player clicks "Got it" */
 
   /* ── Position tracking ───────────────────────────────────────────────── */
   const updatePositions = useCallback(() => {
@@ -245,27 +243,29 @@ export default function TutorialOverlay({ activeTab }: Props) {
   }
 
   /* Steps 1+: Guided */
-  const showCard = !cardDismissed && stepDef.tip;
-  const showGoal = cardDismissed && stepDef.hasGoal;
+  const isGoalStep = !!stepDef.hasGoal;
+  const showGoalIntro = isGoalStep && !cardDismissed && !!stepDef.goalIntro;
+  const showCard = !cardDismissed && stepDef.tip && !showGoalIntro;
+  const showGoal = cardDismissed && isGoalStep;
 
-  // Card position near target
+  // Pick an anchor rect — prefer target, fall back to highlighted tab
+  const anchorRect = targetRect ?? highlightRect;
+
+  // Card position near anchor
   let cardStyle: React.CSSProperties = {};
   let arrowClass = "";
   let arrowLeftPx = 0;
-  if (showCard && targetRect) {
+  if ((showCard || showGoalIntro) && anchorRect) {
     const viewW = typeof window !== "undefined" ? window.innerWidth : 800;
     const viewH = typeof window !== "undefined" ? window.innerHeight : 600;
     const cardW = Math.min(340, viewW - 32);
-    const cardH = 100; // approximate card height
-    // Prefer placing below the target so we don't cover interactive content above it.
-    // Only go above if there isn't enough room below (e.g. target near bottom of viewport).
-    const roomBelow = viewH - targetRect.bottom - 16;
-    const above = roomBelow < cardH && targetRect.top > cardH + 16;
-    const left = Math.max(16, Math.min(targetRect.left + targetRect.width / 2 - cardW / 2, viewW - cardW - 16));
-    const top = above ? targetRect.top - 16 : targetRect.bottom + 16;
+    const cardH = showGoalIntro ? 160 : 100;
+    const roomBelow = viewH - anchorRect.bottom - 16;
+    const above = roomBelow < cardH && anchorRect.top > cardH + 16;
+    const left = Math.max(16, Math.min(anchorRect.left + anchorRect.width / 2 - cardW / 2, viewW - cardW - 16));
+    const top = above ? anchorRect.top - 16 : anchorRect.bottom + 16;
     arrowClass = above ? "tutorial-arrow-down" : "tutorial-arrow-up";
-    // Arrow points at target center
-    arrowLeftPx = Math.max(20, Math.min(targetRect.left + targetRect.width / 2 - left, cardW - 20));
+    arrowLeftPx = Math.max(20, Math.min(anchorRect.left + anchorRect.width / 2 - left, cardW - 20));
     cardStyle = {
       position: "fixed",
       left,
@@ -274,7 +274,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       width: cardW,
       zIndex: 10000,
     };
-  } else if (showCard) {
+  } else if (showCard || showGoalIntro) {
     cardStyle = {
       position: "fixed",
       bottom: 72,
@@ -351,7 +351,52 @@ export default function TutorialOverlay({ activeTab }: Props) {
         />
       )}
 
-      {/* Positioned tutorial card */}
+      {/* Goal intro card — dismissible explanation before goal badge */}
+      {showGoalIntro && (
+        <div style={cardStyle}>
+          <div
+            className={`animate-fade-up relative rounded-xl border-l-4 p-3 ${arrowClass}`}
+            style={{
+              background: "#1a1a1a",
+              borderLeftColor: "var(--accent)",
+              borderRight: "1px solid #333",
+              borderTop: "1px solid #333",
+              borderBottom: "1px solid #333",
+              boxShadow: "0 0 24px rgba(234, 179, 8, 0.08), 0 8px 32px -4px rgba(0,0,0,0.4)",
+              ["--arrow-left" as string]: `${arrowLeftPx}px`,
+            }}
+          >
+            <button
+              onClick={skipTutorial}
+              className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
+              style={{ color: "#888", background: "#333" }}
+            >
+              {"\u2715"}
+            </button>
+
+            <div className="flex items-start gap-2.5 pr-5">
+              <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                  {renderTip(stepDef.goalIntro!)}
+                </p>
+                <div className="mt-2.5 flex items-center justify-between">
+                  <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+                  <button
+                    onClick={() => setCardDismissed(true)}
+                    className="cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors"
+                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Positioned tutorial card (non-goal steps) */}
       {showCard && (
         <div style={cardStyle}>
           <div
@@ -366,7 +411,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
               ["--arrow-left" as string]: `${arrowLeftPx}px`,
             }}
           >
-            {/* Close button */}
             <button
               onClick={skipTutorial}
               className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
