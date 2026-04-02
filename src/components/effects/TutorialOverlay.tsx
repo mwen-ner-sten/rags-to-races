@@ -23,17 +23,20 @@ const PUSH_MOWER_ENGINES = new Set(["engine_small", "engine_lawn"]);
 const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
 
 export const STEPS: TutorialStepDef[] = [
-  { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
-  { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search the curb for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
-  { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
-  { icon: "\u{1F449}", tip: "You\u2019ve got parts and cash. Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
-  { icon: "\u{1F6E0}\uFE0F", tip: "Select the **Push Mower**, slot in your engine and wheel, and hit **Build**.", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
-  { icon: "\u2B50", tip: "**Activate** your mower to set it as your racer.", allowedTabs: ["garage"], target: "activate-btn" },
-  { icon: "\u{1F449}", tip: "Time to race! Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
-  { icon: "\u{1F3C1}", tip: "Enter the **Backyard Derby** \u2014 held in Clyde\u2019s back forty.", allowedTabs: ["race"], target: "race-btn" },
-  { icon: "\u{1F680}", tip: "Keep racing and scavenging to earn **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true },
-  { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
-  { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
+  /* 0  */ { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
+  /* 1  */ { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search the curb for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
+  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
+  /* 3  */ { icon: "\u{1F449}", tip: "You\u2019ve got parts and cash. Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
+  /* 4  */ { icon: "\u{1F6E0}\uFE0F", tip: "Pick the **Push Mower** blueprint.", allowedTabs: ["garage", "junkyard"], target: "blueprint-btn" },
+  /* 5  */ { icon: "\u{1F9F0}", tip: "Slot your **engine** and **wheel** into the part slots.", allowedTabs: ["garage", "junkyard"], target: "part-slots" },
+  /* 6  */ { icon: "\u{1F528}", tip: "Everything\u2019s loaded \u2014 hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
+  /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to set it as your racer.", allowedTabs: ["garage"], target: "activate-btn" },
+  /* 8  */ { icon: "\u{1F449}", tip: "Time to race! Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
+  /* 9  */ { icon: "\u{1F3C1}", tip: "Enter the **Backyard Derby** \u2014 held in Clyde\u2019s back forty.", allowedTabs: ["race"], target: "race-btn" },
+  /* 10 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. **Repair** it in the Garage \u2014 or scavenge parts and build a new one if repairs cost too much.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
+  /* 11 */ { icon: "\u{1F680}", tip: "Keep racing and scavenging to earn **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true },
+  /* 12 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
+  /* 13 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
@@ -91,6 +94,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
+  const pendingBuildVehicleId = useGameStore((s) => s.pendingBuildVehicleId);
+  const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
 
   const [cardDismissed, setCardDismissed] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -115,16 +120,27 @@ export default function TutorialOverlay({ activeTab }: Props) {
         break;
       }
       case 3: shouldAdvance = activeTab === "garage"; break;
-      case 4: shouldAdvance = garage.length > 0; break;
-      case 5: shouldAdvance = activeVehicleId !== null; break;
-      case 6: shouldAdvance = activeTab === "race"; break;
-      case 7: shouldAdvance = raceHistory.length > 0; break;
-      case 8: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
-      case 9: shouldAdvance = activeTab === "shop"; break;
-      case 10: shouldAdvance = prestigeCount > 0; break;
+      case 4: shouldAdvance = pendingBuildVehicleId !== null; break;
+      case 5: {
+        const filled = Object.values(pendingBuildParts).filter(Boolean).length;
+        shouldAdvance = filled >= 2;
+        break;
+      }
+      case 6: shouldAdvance = garage.length > 0; break;
+      case 7: shouldAdvance = activeVehicleId !== null; break;
+      case 8: shouldAdvance = activeTab === "race"; break;
+      case 9: shouldAdvance = raceHistory.length > 0; break;
+      case 10: {
+        const active = garage.find((v) => v.id === activeVehicleId);
+        shouldAdvance = active ? (active.condition ?? 100) >= 100 : garage.length > 1;
+        break;
+      }
+      case 11: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
+      case 12: shouldAdvance = activeTab === "shop"; break;
+      case 13: shouldAdvance = prestigeCount > 0; break;
     }
     if (shouldAdvance) advanceTutorial();
-  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial]);
+  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts]);
 
   useEffect(() => {
     if (tutorialStep >= STEPS.length) {
@@ -138,7 +154,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   useEffect(() => {
     if (!stepDef?.hasGoal || cardDismissed) return;
     if (tutorialStep === 2 && inventory.length > 1) setCardDismissed(true);
-    if (tutorialStep === 8) setCardDismissed(true);
+    if (tutorialStep === 11) setCardDismissed(true);
   }, [tutorialStep, stepDef, cardDismissed, inventory.length, scrapBucks]);
 
   /* ── Position tracking ───────────────────────────────────────────────── */
@@ -286,7 +302,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </span>
         </>
       );
-    } else if (tutorialStep === 8) {
+    } else if (tutorialStep === 11) {
       goalContent = (
         <>
           <span>${formatNumber(lifetimeScrapBucks)} <span style={{ color: "var(--text-muted)" }}>/</span> $500</span>

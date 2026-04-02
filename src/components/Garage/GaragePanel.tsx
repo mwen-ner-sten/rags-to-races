@@ -111,7 +111,7 @@ export default function GaragePanel() {
           Build a Vehicle
         </h2>
 
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2" data-tutorial="blueprint-btn">
           {unlockedVehicles.map((v) => (
             <button
               key={v.id}
@@ -141,7 +141,7 @@ export default function GaragePanel() {
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2" data-tutorial="part-slots">
               {pendingDef.slots.map((slotCfg) => {
                 const slot = slotCfg.slot;
                 const selectedPart = pendingBuildParts[slot];
@@ -401,6 +401,7 @@ function VehicleCard({
       {condition < 100 && (
         <div className="mt-2 flex items-center gap-2">
           <button
+            data-tutorial="repair-btn"
             onClick={() => repairVehicle(vehicle.id)}
             disabled={scrapBucks < repairCost}
             className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
