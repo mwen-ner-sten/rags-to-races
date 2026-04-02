@@ -36,6 +36,7 @@ export default function HUD() {
   const saveLabel = useAutoSaveIndicator();
 
   const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
   const vehicleDef = activeVehicle ? getVehicleById(activeVehicle.definitionId) : null;
 
@@ -59,6 +60,18 @@ export default function HUD() {
             <span className="text-xs text-zinc-600 transition-opacity">
               ✓ {saveLabel}
             </span>
+          )}
+          {tutorialStep === 14 && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
+              <span className="text-sm">🚀</span>
+              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 500 ? "text-green-400" : "text-zinc-300"}`}>
+                ${formatNumber(lifetimeScrapBucks)}/500
+              </span>
+              <span className="text-zinc-600">·</span>
+              <span className={`font-mono text-xs font-semibold ${repPoints >= 25 ? "text-green-400" : "text-zinc-300"}`}>
+                {formatNumber(repPoints)}/25 Rep
+              </span>
+            </div>
           )}
           <Stat label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} color="text-green-400" />
           <Stat label="Rep" value={formatNumber(repPoints)} color="text-blue-400" />

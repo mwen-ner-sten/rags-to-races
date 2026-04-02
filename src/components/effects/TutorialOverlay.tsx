@@ -44,7 +44,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. **Repair** it in the Garage \u2014 or scavenge parts and build a new one if repairs cost too much.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true, goalIntro: "Every race earns **Scrap Bucks** and **Rep**, but also builds **Fatigue** (shown in the top bar). Fatigue cuts your performance, raises repair costs, and worsens scavenge luck. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses." },
+  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses." },
   /* 15 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
   /* 16 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
 ];
@@ -378,15 +378,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </span>
         </>
       );
-    } else if (tutorialStep === 14) {
-      goalContent = (
-        <>
-          <span>${formatNumber(lifetimeScrapBucks)} <span style={{ color: "var(--text-muted)" }}>/</span> $500</span>
-          <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
-          <span>{formatNumber(repPoints)} <span style={{ color: "var(--text-muted)" }}>/</span> 25 Rep</span>
-        </>
-      );
     }
+    // Step 14 goal tracker is rendered in the HUD instead
   }
 
   return (
