@@ -243,7 +243,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const viewW = typeof window !== "undefined" ? window.innerWidth : 800;
     const viewH = typeof window !== "undefined" ? window.innerHeight : 600;
     const cardW = Math.min(340, viewW - 32);
-    const above = targetRect.top > 220;
+    const cardH = 100; // approximate card height
+    // Prefer placing below the target so we don't cover interactive content above it.
+    // Only go above if there isn't enough room below (e.g. target near bottom of viewport).
+    const roomBelow = viewH - targetRect.bottom - 16;
+    const above = roomBelow < cardH && targetRect.top > cardH + 16;
     const left = Math.max(16, Math.min(targetRect.left + targetRect.width / 2 - cardW / 2, viewW - cardW - 16));
     const top = above ? targetRect.top - 16 : targetRect.bottom + 16;
     arrowClass = above ? "tutorial-arrow-down" : "tutorial-arrow-up";
