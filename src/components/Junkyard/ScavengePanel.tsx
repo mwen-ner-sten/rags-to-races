@@ -240,6 +240,7 @@ export default function ScavengePanel() {
             {hasScrap && (
               <button
                 onClick={sellAllScrap}
+                data-tutorial="sell-scrap-btn"
                 className="rounded border px-2 py-1 text-xs transition-colors"
                 style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
               >

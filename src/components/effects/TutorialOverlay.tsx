@@ -119,6 +119,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   const [cardDismissed, setCardDismissed] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [sellBtnRect, setSellBtnRect] = useState<DOMRect | null>(null);
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
   const [blockerRects, setBlockerRects] = useState<{ rect: DOMRect; idx: number }[]>([]);
   const rafRef = useRef<number>(0);
@@ -204,7 +205,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     : undefined;
 
   const updatePositions = useCallback(() => {
-    if (!stepDef) { setTargetRect(null); setHighlightRect(null); setBlockerRects([]); return; }
+    if (!stepDef) { setTargetRect(null); setSellBtnRect(null); setHighlightRect(null); setBlockerRects([]); return; }
 
     // Always track target for halo (even during goal badge mode)
     if (effectiveTarget) {
@@ -212,6 +213,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
       setTargetRect(el ? el.getBoundingClientRect() : null);
     } else {
       setTargetRect(null);
+    }
+
+    // Secondary halo on Sell Scrap button when sell nudge is active
+    if (step2SellReady) {
+      const btn = document.querySelector('[data-tutorial="sell-scrap-btn"]');
+      setSellBtnRect(btn ? btn.getBoundingClientRect() : null);
+    } else {
+      setSellBtnRect(null);
     }
 
     const nav = document.querySelector("nav");
@@ -244,7 +253,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     } else {
       setBlockerRects([]);
     }
-  }, [stepDef, effectiveTarget]);
+  }, [stepDef, effectiveTarget, step2SellReady]);
 
   useEffect(() => {
     if (tutorialStep < 0) return;
@@ -388,6 +397,18 @@ export default function TutorialOverlay({ activeTab }: Props) {
           style={{
             left: targetRect.left - 5, top: targetRect.top - 5,
             width: targetRect.width + 10, height: targetRect.height + 10,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      {/* Secondary halo on Sell Scrap button */}
+      {sellBtnRect && (
+        <div
+          className="tutorial-pulse fixed z-[9999] rounded"
+          style={{
+            left: sellBtnRect.left - 4, top: sellBtnRect.top - 4,
+            width: sellBtnRect.width + 8, height: sellBtnRect.height + 8,
             pointerEvents: "none",
           }}
         />
