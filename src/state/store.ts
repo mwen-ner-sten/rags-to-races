@@ -823,10 +823,13 @@ function createActions(set: any, get: any) {
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const reduction = _getUpgradeEffectValue(state, "budget_repairs") + gb.repair_cost_reduction_pct;
       const cost = calculateRepairCost(vehicleDef, vehicle.condition ?? 100, 100, reduction, state.fatigue);
-      if (state.scrapBucks < cost) return;
+      // Free repair during tutorial repair step
+      const isTutorialRepair = state.tutorialStep === 13;
+      const actualCost = isTutorialRepair ? 0 : cost;
+      if (state.scrapBucks < actualCost) return;
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gb.race_handling_pct;
       set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - cost,
+        scrapBucks: s.scrapBucks - actualCost,
         garage: s.garage.map((v) => v.id !== vehicleId ? v : {
           ...v,
           condition: 100,

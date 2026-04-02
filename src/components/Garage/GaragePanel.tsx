@@ -294,6 +294,8 @@ function VehicleCard({
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
 }) {
   const [swapSlot, setSwapSlot] = useState<string | null>(null);
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const isTutorialRepair = tutorialStep === 13;
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
   if (!def) return null;
@@ -403,11 +405,11 @@ function VehicleCard({
           <button
             data-tutorial="repair-btn"
             onClick={() => repairVehicle(vehicle.id)}
-            disabled={scrapBucks < repairCost}
+            disabled={!isTutorialRepair && scrapBucks < repairCost}
             className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             style={{ borderColor: "#16a34a", color: "var(--success)" }}
           >
-            Repair to 100% — ${formatNumber(repairCost)}
+            {isTutorialRepair ? "Repair to 100% — Free!" : `Repair to 100% — $${formatNumber(repairCost)}`}
           </button>
         </div>
       )}
