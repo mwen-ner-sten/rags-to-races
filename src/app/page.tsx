@@ -10,6 +10,7 @@ import AdminPanel from "@/components/Admin/AdminPanel";
 import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import LockerPanel from "@/components/Locker/LockerPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
+import HelpPanel from "@/components/Help/HelpPanel";
 import ToastContainer from "@/components/effects/Toast";
 import TutorialOverlay, { getAllowedTabs } from "@/components/effects/TutorialOverlay";
 import { useGameStore } from "@/state/store";
@@ -17,7 +18,7 @@ import { computeTick, computeTickSpeedMs } from "@/engine/tick";
 import type { ScavengedPart } from "@/engine/scavenge";
 import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
 
 const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
@@ -147,6 +148,7 @@ export default function Home() {
         {activeTab === "locker"    && <LockerPanel />}
         {activeTab === "workshop" && <WorkshopPanel />}
         {activeTab === "shop"     && <ShopPanel />}
+        {activeTab === "help"     && <HelpPanel />}
         {activeTab === "settings" && <SettingsPanel />}
         {SHOW_DEV_TAB && activeTab === "dev" && <AdminPanel />}
       </ThemeShell>
