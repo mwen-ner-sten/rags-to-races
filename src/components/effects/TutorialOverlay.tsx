@@ -51,6 +51,19 @@ export function getAllowedTabs(step: number): Set<TabId> | null {
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
 
+/** Shared card surface style — unified across all tutorial modals */
+const CARD_BG: React.CSSProperties = {
+  background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
+  boxShadow:
+    "0 0 48px rgba(234, 179, 8, 0.22), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
+};
+
+const BADGE_BG: React.CSSProperties = {
+  background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
+  boxShadow:
+    "0 0 32px rgba(234, 179, 8, 0.18), 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px -4px rgba(0,0,0,0.4)",
+};
+
 function renderTip(tip: string) {
   return tip.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
@@ -220,10 +233,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       <div className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
         <div
           className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-6"
-          style={{
-            background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
-            boxShadow: "0 0 60px rgba(234, 179, 8, 0.15), 0 0 0 1px rgba(255,255,255,0.06), 0 25px 50px -12px rgba(0,0,0,0.6)",
-          }}
+          style={CARD_BG}
         >
           <div className="mb-4 text-center text-5xl">{"\u{1F3CE}\uFE0F"}</div>
           <h2 className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)" }}>Rags to Races</h2>
@@ -358,14 +368,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {showGoalIntro && (
         <div style={cardStyle}>
           <div
-            className={`animate-fade-up relative rounded-xl border-l-4 p-3 ${arrowClass}`}
+            className={`animate-fade-up relative rounded-2xl p-3 ${arrowClass}`}
             style={{
-              background: "#1a1a1a",
-              borderLeftColor: "var(--accent)",
-              borderRight: "1px solid #333",
-              borderTop: "1px solid #333",
-              borderBottom: "1px solid #333",
-              boxShadow: "0 0 24px rgba(234, 179, 8, 0.08), 0 8px 32px -4px rgba(0,0,0,0.4)",
+              ...CARD_BG,
               ["--arrow-left" as string]: `${arrowLeftPx}px`,
             }}
           >
@@ -403,14 +408,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {showCard && (
         <div style={cardStyle}>
           <div
-            className={`animate-fade-up relative rounded-xl border-l-4 p-3 ${arrowClass}`}
+            className={`animate-fade-up relative rounded-2xl p-3 ${arrowClass}`}
             style={{
-              background: "#1a1a1a",
-              borderLeftColor: "var(--accent)",
-              borderRight: "1px solid #333",
-              borderTop: "1px solid #333",
-              borderBottom: "1px solid #333",
-              boxShadow: "0 0 24px rgba(234, 179, 8, 0.08), 0 8px 32px -4px rgba(0,0,0,0.4)",
+              ...CARD_BG,
               ["--arrow-left" as string]: `${arrowLeftPx}px`,
             }}
           >
@@ -441,14 +441,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {showGoal && goalContent && (
         <div className="fixed top-2 left-1/2 z-[10000] -translate-x-1/2 sm:top-16">
           <div
-            className="animate-fade-up flex items-center gap-2 rounded-lg border-l-4 px-3 py-2 text-xs font-medium shadow-lg"
+            className="animate-fade-up flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-medium"
             style={{
-              background: "#1a1a1a",
-              borderLeftColor: "var(--accent)",
-              borderRight: "1px solid #333",
-              borderTop: "1px solid #333",
-              borderBottom: "1px solid #333",
-              boxShadow: "0 0 16px rgba(234, 179, 8, 0.06), 0 4px 16px -2px rgba(0,0,0,0.3)",
+              ...BADGE_BG,
               color: "var(--text-primary)",
             }}
           >
