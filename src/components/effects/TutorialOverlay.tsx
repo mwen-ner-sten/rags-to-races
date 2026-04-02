@@ -311,7 +311,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </div>
           <div className="flex items-center justify-between gap-3">
             <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip tutorial</button>
-            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-semibold transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}>Let&apos;s Go</button>
+            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Let&apos;s Go &rarr;</button>
           </div>
         </div>
       </div>
@@ -469,10 +469,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
                   <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
                   <button
                     onClick={() => setCardDismissed(true)}
-                    className="cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors"
-                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                    className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
                   >
-                    Got it
+                    Got it &rarr;
                   </button>
                 </div>
               </div>
@@ -510,10 +510,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
                   {stepDef.dismissable && (
                     <button
                       onClick={advanceTutorial}
-                      className="cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors"
-                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                      className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
                     >
-                      Got it
+                      Got it &rarr;
                     </button>
                   )}
                 </div>

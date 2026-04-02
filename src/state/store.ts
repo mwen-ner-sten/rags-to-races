@@ -343,7 +343,6 @@ function createActions(set: any, get: any) {
         const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
-
       /* ── Tutorial boost: first 30 clicks guarantee enough to build ───── */
       const isTutorial = state.tutorialStep >= 1 && state.tutorialStep <= 2;
       const clickNum = state.manualScavengeClicks; // 0-indexed
@@ -368,6 +367,12 @@ function createActions(set: any, get: any) {
         }
       }
 
+      // Thorough Search: chance to double the parts found (applies to click & hold)
+      const doubleChance = _getUpgradeEffectValue(state, "thorough_search");
+      if (doubleChance > 0 && Math.random() < doubleChance) {
+        const dupes = parts.map((p) => ({ ...p, id: makePartId() }));
+        parts.push(...dupes);
+      }
       // Roll for gear/mod drops
       const { gearDrops, modDrop } = rollGearDrops({
         source: "scavenge",
