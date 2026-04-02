@@ -1,163 +1,48 @@
 "use client";
 
-import {
-  HELP_OVERVIEW_STEPS,
-  HELP_GLOSSARY,
-  HELP_SYSTEM_GUIDES,
-  HELP_SYNC_FACTS,
-  HELP_SYSTEM_DETAILS,
-} from "@/data/helpContent";
-import { formatNumber, capitalize } from "@/utils/format";
+import { useState } from "react";
+import HelpBasicsTab from "./HelpBasicsTab";
+import HelpSystemsTab from "./HelpSystemsTab";
+import HelpStrategyTab from "./HelpStrategyTab";
+import HelpProgressionTab from "./HelpProgressionTab";
+import HelpReferenceTab from "./HelpReferenceTab";
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section
-      className="rounded-lg border p-4 sm:p-5"
-      style={{ borderColor: "var(--divider)", background: "var(--panel-bg)" }}
-    >
-      <h2
-        className="mb-3 text-sm font-semibold uppercase tracking-widest"
-        style={{ color: "var(--text-heading)" }}
-      >
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
+type HelpTab = "basics" | "systems" | "strategy" | "progression" | "reference";
+
+const TABS: { id: HelpTab; label: string }[] = [
+  { id: "basics",      label: "Basics" },
+  { id: "systems",     label: "Systems" },
+  { id: "strategy",    label: "Strategy" },
+  { id: "progression", label: "Progression" },
+  { id: "reference",   label: "Reference" },
+];
 
 export default function HelpPanel() {
+  const [activeTab, setActiveTab] = useState<HelpTab>("basics");
+
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {/* Quick Start */}
-      <SectionCard title="How to Play">
-        <ol className="list-decimal space-y-2 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
-          {HELP_OVERVIEW_STEPS.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </SectionCard>
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
+              activeTab === tab.id
+                ? "bg-orange-600 text-white"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* System Guides */}
-      <SectionCard title="Systems Guide">
-        <div className="space-y-4">
-          {HELP_SYSTEM_GUIDES.map((guide) => (
-            <div key={guide.id}>
-              <h3
-                className="mb-2 flex items-center gap-2 text-sm font-semibold"
-                style={{ color: "var(--text-white)" }}
-              >
-                <span>{guide.icon}</span>
-                <span>{guide.title}</span>
-              </h3>
-              <ul className="list-disc space-y-1 pl-5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                {guide.tips.map((tip) => (
-                  <li key={tip}>{tip}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      {/* Glossary */}
-      <SectionCard title="Game Terms">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {HELP_GLOSSARY.map((item) => (
-            <div key={item.term} className="rounded border p-3" style={{ borderColor: "var(--panel-border)" }}>
-              <div className="text-sm font-semibold" style={{ color: "var(--text-white)" }}>{item.term}</div>
-              <div className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>{item.meaning}</div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      {/* Parts & Conditions */}
-      <SectionCard title="Parts & Conditions">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Core Part Pools
-            </h3>
-            <div className="mt-2 space-y-1.5">
-              {HELP_SYSTEM_DETAILS.partsByCategory.map((item) => (
-                <div key={item.category} className="flex items-center justify-between text-sm">
-                  <span style={{ color: "var(--text-secondary)" }}>{capitalize(item.category)}</span>
-                  <span style={{ color: "var(--text-white)" }}>{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Condition Multipliers
-            </h3>
-            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-              {HELP_SYSTEM_DETAILS.conditions.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <span style={{ color: "var(--text-secondary)" }}>{capitalize(item.id)}</span>
-                  <span style={{ color: "var(--text-white)" }}>x{item.multiplier.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Progression Milestones */}
-      <SectionCard title="Progression Milestones">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Locations
-            </h3>
-            <div className="mt-2 max-h-52 space-y-1 overflow-y-auto pr-1">
-              {HELP_SYSTEM_DETAILS.locations.map((location) => (
-                <div key={location.id} className="rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}>
-                  <div className="font-semibold" style={{ color: "var(--text-white)" }}>
-                    T{location.tier} · {location.name}
-                  </div>
-                  <div style={{ color: "var(--text-secondary)" }}>
-                    Unlock: {formatNumber(location.unlockCost)} Rep · up to {location.maxPartsPerScavenge} part(s) per scavenge
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Circuits
-            </h3>
-            <div className="mt-2 max-h-52 space-y-1 overflow-y-auto pr-1">
-              {HELP_SYSTEM_DETAILS.circuits.map((circuit) => (
-                <div key={circuit.id} className="rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}>
-                  <div className="font-semibold" style={{ color: "var(--text-white)" }}>
-                    T{circuit.tier} · {circuit.name}
-                  </div>
-                  <div style={{ color: "var(--text-secondary)" }}>
-                    Diff {circuit.difficulty} · Entry ${formatNumber(circuit.entryFee)} · Win ${formatNumber(circuit.rewardBase)} + {circuit.repReward} Rep
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
-          Current cap: part tier {HELP_SYSTEM_DETAILS.progression.highestPartTier}. Dealer unlocks at {formatNumber(HELP_SYSTEM_DETAILS.progression.dealerUnlockRep)} Rep.
-        </p>
-      </SectionCard>
-
-      {/* Live Data Snapshot */}
-      <SectionCard title="Data Snapshot">
-        <ul className="list-disc space-y-1.5 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
-          {HELP_SYNC_FACTS.map((fact) => (
-            <li key={fact}>{fact}</li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
-          Auto-generated from game definitions — updates when data files change.
-        </p>
-      </SectionCard>
+      {activeTab === "basics"      && <HelpBasicsTab />}
+      {activeTab === "systems"     && <HelpSystemsTab />}
+      {activeTab === "strategy"    && <HelpStrategyTab />}
+      {activeTab === "progression" && <HelpProgressionTab />}
+      {activeTab === "reference"   && <HelpReferenceTab />}
     </div>
   );
 }

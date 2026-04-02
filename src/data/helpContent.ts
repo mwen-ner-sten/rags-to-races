@@ -1,187 +1,304 @@
 import { CONDITIONS, CORE_SLOTS, CONDITION_MULTIPLIERS, PART_DEFINITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
-import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { VEHICLE_DEFINITIONS, BASE_WEAR_PER_RACE, RELIABILITY_WEAR_THRESHOLD, CONDITION_PENALTY_THRESHOLD } from "@/data/vehicles";
+import { UPGRADE_DEFINITIONS, UPGRADE_CATEGORIES, type UpgradeCategory } from "@/data/upgrades";
 import { GEAR_DEFINITIONS } from "@/data/gear";
-import { MATERIAL_DEFINITIONS } from "@/data/materials";
+import { MATERIAL_DEFINITIONS, CATEGORY_TO_MATERIALS } from "@/data/materials";
 import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
-import { DEALER_UNLOCK_REP } from "@/data/dealer";
-
-// ── Derived stats (auto-synced from game data) ─────────────────────────────
-
-const PARTS_BY_CATEGORY = CORE_SLOTS.map((slot) => ({
-  category: slot,
-  count: PART_DEFINITIONS.filter((part) => part.category === slot).length,
-}));
-
-const highestPartTier = Math.max(...PART_DEFINITIONS.map((part) => part.minTier));
-const highestVehicleTier = Math.max(...VEHICLE_DEFINITIONS.map((vehicle) => vehicle.tier));
-
-const upgradeCategoryCounts = UPGRADE_DEFINITIONS.reduce<Record<string, number>>((acc, upgrade) => {
-  acc[upgrade.category] = (acc[upgrade.category] ?? 0) + 1;
-  return acc;
-}, {});
-
-const gearSlotCounts = GEAR_DEFINITIONS.reduce<Record<string, number>>((acc, gear) => {
-  acc[gear.slot] = (acc[gear.slot] ?? 0) + 1;
-  return acc;
-}, {});
+import { CRAFT_RECIPES } from "@/data/craftRecipes";
+import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_INTERVAL, DEALER_BOARD_SIZE } from "@/data/dealer";
+import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
+import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
+import { TALENT_TREES, TALENT_NODES } from "@/data/talentNodes";
+import type { CoreSlot } from "@/data/parts";
 
 // ── How to Play ─────────────────────────────────────────────────────────────
 
 export const HELP_OVERVIEW_STEPS: string[] = [
   "Scavenge parts in the Junkyard — each location drops different tiers and rarities.",
-  "Head to the Garage to build a vehicle. Fill the required slots (engine, wheel, etc.) and pay the build cost.",
-  "Race your vehicle on circuits to earn Scrap Bucks and Rep. Higher-tier circuits pay more but are harder.",
-  "Sell junk parts or decompose them into materials for crafting and gear enhancement.",
+  "Head to the Garage to assemble a vehicle. Fill the required slots and pay the build cost.",
+  "Race your vehicle on circuits to earn Scrap Bucks and Rep. Higher circuits pay more but are harder.",
+  "Sell junk parts for Scrap Bucks, or decompose them into materials for crafting and gear enhancement.",
   "Upgrade your Workshop for permanent bonuses — faster auto-race, better luck, cheaper builds.",
-  "Equip and enhance gear in the Locker. Loot gear drops from races and can be modded.",
-  "When fatigue climbs and progress slows, Prestige in the Shop to reset your run for Legacy Points.",
+  "Equip and enhance gear in the Locker. Loot gear drops from races and scavenging.",
+  "When fatigue climbs and progress stalls, Prestige in the Shop to earn Legacy Points.",
   "Spend Legacy Points on permanent upgrades and talent nodes that compound every future run.",
 ];
 
 // ── Glossary ────────────────────────────────────────────────────────────────
 
 export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
-  { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Used for building, repairs, upgrades, and purchases." },
-  { term: "Rep", meaning: "Progression currency earned from races. Unlocks locations, circuits, vehicles, and late-game systems like the Dealer." },
-  { term: "Fatigue", meaning: "Builds every race (0–99). Penalizes scavenge luck, race performance, and costs by 0.5% per point. Resets on prestige." },
-  { term: "Condition", meaning: "Part quality from Rusted (worst) to Artifact (best). Higher condition = more power, reliability, and sale value." },
-  { term: "Prestige", meaning: "Voluntary reset that wipes your run but awards Legacy Points. Gear, legacy upgrades, and talent nodes persist." },
-  { term: "Legacy Points (LP)", meaning: "Earned on prestige based on run stats. Spent on permanent upgrades and talent nodes between runs." },
-  { term: "Momentum", meaning: "Conditional bonuses that activate during a run (e.g., +10% scrap after 30 races). Resets on prestige." },
-  { term: "Forge Tokens", meaning: "Rare drop from high-tier races (~2% chance). Used with materials in the Artifact Forge to craft top-tier parts." },
-  { term: "Dealer Board", meaning: `Rotating part market that unlocks at ${(DEALER_UNLOCK_REP / 1000).toFixed(0)}k Rep. Refreshes periodically with curated parts.` },
-  { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve loot gear drop quality." },
-  { term: "DNF", meaning: "Did Not Finish — your vehicle broke down mid-race. Higher reliability reduces DNF chance." },
-  { term: "Materials", meaning: "Gained by decomposing parts. Used for crafting recipes and gear enhancement." },
-  { term: "Loot Gear", meaning: "Randomized gear dropped from races. Has rarity tiers, enhancement levels, and mod slots." },
+  { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, upgrades, and gear." },
+  { term: "Rep", meaning: "Progression currency from races. Unlocks locations, circuits, vehicles, the Dealer, and late-game systems." },
+  { term: "Fatigue", meaning: "Builds each race (0–99). Costs -0.5% performance, +0.8% wear, +0.3% repair cost per point. Resets on prestige." },
+  { term: "Condition", meaning: `Part quality from ${CONDITIONS[0]} (worst) to ${CONDITIONS[CONDITIONS.length - 1]} (best). Higher = more power and sale value.` },
+  { term: "Prestige (Scrap Reset)", meaning: "Voluntary reset that wipes currency, parts, and vehicles but awards Legacy Points. Gear and legacy upgrades persist." },
+  { term: "Legacy Points (LP)", meaning: "Earned on prestige based on run stats. Spent on permanent upgrades and talent tree nodes." },
+  { term: "Momentum", meaning: `${MOMENTUM_TIERS.length} conditional bonuses that activate during a run (e.g., "${MOMENTUM_TIERS[0].name}" at ${MOMENTUM_TIERS[0].condition.value}+ races). Reset on prestige.` },
+  { term: "Forge Tokens", meaning: "Rare drop from high-tier race wins (~2%). Used with materials in the Artifact Forge for top-tier parts." },
+  { term: "Dealer Board", meaning: `Rotating part market unlocking at ${(DEALER_UNLOCK_REP / 1000).toFixed(0)}k Rep. ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
+  { term: "DNF (Did Not Finish)", meaning: "Vehicle broke down mid-race. Chance = 30% minus reliability/200. Higher reliability = safer." },
+  { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve loot gear drop rarity by +0.5% per win (cap +10%)." },
+  { term: "Vehicle Condition", meaning: `Starts at 100, degrades from racing. Below ${CONDITION_PENALTY_THRESHOLD}, stats drop linearly. Repair in the Garage.` },
+  { term: "Materials", meaning: `${MATERIAL_DEFINITIONS.length} types gained by decomposing parts. Used for crafting and gear enhancement.` },
+  { term: "Loot Gear", meaning: "Randomized gear from races/scavenging. Has rarity tiers, enhancement levels (0–13), and mod slots." },
+  { term: "Enhancement", meaning: "Spend materials to level up loot gear (+12% effect per level). Mod slots unlock at levels 3 and 7." },
+  { term: "Auto-Scavenge", meaning: "Unlocks after 100 manual scavenge clicks. Runs automatically each tick." },
+  { term: "Auto-Race", meaning: "Unlocks at 30 Rep. Fires on a timer (improved by Pit Crew workshop upgrade)." },
+  { term: "Talent Nodes", meaning: `${TALENT_TREES.length} skill trees (${TALENT_TREES.map(t => t.name).join(", ")}). Permanent nodes costing 200–1,800 LP with mutually exclusive branches.` },
+  { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} milestone goals rewarding materials, Forge Tokens, and Dealer refreshes.` },
+  { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
 ];
 
-// ── System Guides ───────────────────────────────────────────────────────────
+// ── FAQ ─────────────────────────────────────────────────────────────────────
 
-export interface SystemGuide {
-  id: string;
-  title: string;
-  icon: string;
-  tips: string[];
+export interface FAQItem {
+  question: string;
+  answer: string;
 }
 
-export const HELP_SYSTEM_GUIDES: SystemGuide[] = [
+export const HELP_FAQ: FAQItem[] = [
   {
-    id: "junkyard",
-    title: "Junkyard",
-    icon: "🗑️",
-    tips: [
-      "Each location has a tier that determines the quality of parts you can find.",
-      "Higher-tier locations cost Rep to unlock but drop better parts.",
-      "Fatigue reduces scavenge luck — prestige to reset it.",
-      "After 100 manual scavenges, auto-scavenge kicks in automatically.",
-      "The \"Keen Eye\" workshop upgrade boosts luck; \"Deep Pockets\" adds extra parts per scavenge.",
+    question: "Why am I losing races?",
+    answer: "Check three things: (1) Your vehicle's performance vs. the circuit difficulty — the Race tab shows your win chance. (2) Your fatigue level — each point costs 0.5% performance. (3) Your vehicle's condition — below " + CONDITION_PENALTY_THRESHOLD + ", stats drop sharply. Repair in the Garage.",
+  },
+  {
+    question: "What do I keep when I prestige?",
+    answer: "You keep: Legacy Points, legacy upgrades, talent nodes, all gear (static + loot), and your prestige count. You lose: Scrap Bucks, Rep, inventory, vehicles, workshop levels, materials, race history, momentum, and fatigue resets to 0.",
+  },
+  {
+    question: "How do I unlock the Dealer?",
+    answer: `Earn ${(DEALER_UNLOCK_REP / 1000).toFixed(0)}k Rep. The Dealer shows ${DEALER_BOARD_SIZE} rotating part listings. Stock improves at ${(DEALER_TIER2_REP / 1000).toFixed(0)}k Rep (better conditions) and ${(DEALER_TIER3_REP / 1000).toFixed(0)}k Rep (highest-tier parts).`,
+  },
+  {
+    question: "How does fatigue work?",
+    answer: "Fatigue increases by 1 per race (0–99). Each point: -0.5% race performance, +0.8% vehicle wear, +0.3% repair cost. It resets to 0 on prestige. Momentum bonuses reward pushing through fatigue — Deep Run (+50% LP at 60 fatigue) and Legendary Run (+100% LP at 80).",
+  },
+  {
+    question: "Should I sell or decompose parts?",
+    answer: "Sell if you need Scrap Bucks for builds/upgrades. Decompose if you need materials for gear enhancement or crafting. Tip: decompose high-condition parts for better material yield, sell low-condition junk.",
+  },
+];
+
+// ── Strategy Advice ─────────────────────────────────────────────────────────
+
+export interface StrategyCard {
+  id: string;
+  title: string;
+  advice: string[];
+}
+
+export const HELP_STRATEGY: StrategyCard[] = [
+  {
+    id: "prestige_timing",
+    title: "When should I prestige?",
+    advice: [
+      "Push to at least 60 fatigue to unlock Deep Run (+50% Legacy Points).",
+      "Pushing to 80 fatigue triggers Legendary Run (+100% LP, +20% all bonuses) — worth it if you can still win races.",
+      "Prestige when your win chance drops below ~30% on your target circuit.",
+      "First few prestiges: prioritize Scrap Magnate and Street Cred for the fastest snowball.",
     ],
   },
   {
-    id: "garage",
-    title: "Garage",
-    icon: "🔧",
-    tips: [
-      `Vehicles have ${CORE_SLOTS.length} core slots: ${CORE_SLOTS.join(", ")}.`,
-      "Speed, handling, reliability, and weight are calculated from equipped parts.",
-      "Vehicle condition starts at 100 and degrades from racing. Below 50, stats drop sharply.",
-      "Repair costs scale with vehicle tier — keep cheap vehicles for early runs.",
-      "You can swap parts freely once you unlock the Toolkit workshop upgrade.",
+    id: "talent_tree",
+    title: "Which talent tree should I pick?",
+    advice: [
+      "Race Driver → best for longer runs. Fatigue Proof (T3) reduces fatigue gain by 20%, letting you push deeper.",
+      "Wrench Jockey → best for crafting. Forge Sense (T3) adds +1% Forge Token drop rate for the Artifact pipeline.",
+      "Scrap Hunter → best for economy. Trade Routes (T3) gives +5% sell value on everything.",
+      "You can eventually unlock all trees — pick the one that matches your current bottleneck first.",
     ],
   },
   {
-    id: "race",
-    title: "Race Track",
-    icon: "🏁",
-    tips: [
-      "Win chance = your performance vs. circuit difficulty, capped between 5% and 95%.",
-      "DNF chance drops with higher reliability and certain gear/talent bonuses.",
-      "Winning has a 15% chance to drop a salvage part from the circuit.",
-      "Auto-race unlocks at 30 Rep and fires automatically on a timer.",
-      "The \"Pit Crew\" upgrade makes auto-race fire faster.",
+    id: "legacy_priority",
+    title: "Legacy upgrade priority",
+    advice: [
+      "Tier 1: Scrap Magnate (+20% scrap/level) and Street Cred (+15% rep/level) — best early ROI.",
+      "Tier 2: Iron Will (delays fatigue curve by 5 races/level) — lets you push deeper runs.",
+      "Tier 3: Seed Money (start with extra scrap) and Born Lucky (+2% luck/level).",
+      "Late: Muscle Memory (start with auto-scavenge clicks) and Blueprint Memory (keep workshop upgrades).",
     ],
   },
   {
-    id: "workshop",
-    title: "Workshop",
-    icon: "⚙️",
-    tips: [
-      `${UPGRADE_DEFINITIONS.length} upgrades across ${Object.keys(upgradeCategoryCounts).length} categories: scavenging, building, racing, maintenance, and gear lab.`,
-      "Most upgrades have multiple levels with escalating costs.",
-      "Crafting unlocks at ~15k Rep — spend materials to produce random parts.",
-      "Materials come from decomposing parts (each part category yields specific material types).",
-      "Workshop levels persist through prestige.",
+    id: "dnf_reduction",
+    title: "How to reduce DNF",
+    advice: [
+      "DNF chance = 30% minus (reliability ÷ 200). At 60+ reliability, DNF chance hits 0%.",
+      "Use higher-condition parts — they add more reliability.",
+      "Equip gear with race_dnf_reduction (Head slot has the best pool for this).",
+      "Smooth Lines talent node gives a flat -3% DNF reduction.",
     ],
   },
   {
-    id: "locker",
-    title: "Locker",
-    icon: "🎒",
-    tips: [
-      `${GEAR_DEFINITIONS.length} gear items across ${Object.keys(gearSlotCounts).length} slots: head, body, hands, feet, tool, accessory.`,
-      "Standard gear is bought with Scrap Bucks; loot gear drops from races.",
-      "Loot gear has rarity tiers (common → legendary) and mod slots that unlock with enhancement.",
-      "Enhancement costs materials and unlocks new mod slots at levels 3 and 7.",
-      "All gear persists through prestige — invest early for compounding returns.",
+    id: "gear_enhance",
+    title: "Gear enhancement priority",
+    advice: [
+      "Enhance Epic and Legendary loot first — same +12%/level scaling but stronger base effects.",
+      "Target enhancement level 7 to unlock the 2nd mod slot.",
+      "Enhancement Mastery workshop upgrade raises the max level by +3 per level (up to 13 total).",
+      "Salvage (sell) duplicate common/uncommon loot to fund enhancements on rares+.",
     ],
   },
   {
-    id: "prestige",
-    title: "Prestige & Legacy",
-    icon: "♻️",
-    tips: [
-      "Prestige resets: currency, inventory, vehicles, fatigue, race history, and momentum.",
-      "Prestige keeps: gear, legacy upgrades, talent nodes, loot gear, and workshop levels.",
-      "LP earned scales with lifetime scrap, total races, highest circuit tier, and fatigue.",
-      "Legacy upgrades give +10% per level to scrap, rep, starting resources, and more.",
-      "Talent nodes (3 trees: Race Driver, Wrench Jockey, Scrap Hunter) give permanent build identity.",
-      "Momentum bonuses stack during a run — hitting 80 fatigue unlocks the best tier (+100% LP).",
+    id: "workshop_order",
+    title: "Workshop unlock order",
+    advice: [
+      "Start: Toolkit (unlock part swapping) → Bargain Builder (cheaper builds).",
+      "Early: Budget Repairs → Keen Eye (scavenge luck) → Deep Pockets (extra parts).",
+      "Mid: Consolation Sponsor (scrap from losses) → Reinforced Chassis (less wear).",
+      "Late: Gear Scavenger → Trophy Hunter → Enhancement Mastery → Rarity Sense.",
+    ],
+  },
+  {
+    id: "sell_vs_decompose",
+    title: "Sell vs. decompose decision guide",
+    advice: [
+      "Need Scrap Bucks for a build or upgrade? Sell.",
+      "Need materials for enhancement or crafting? Decompose.",
+      "High-condition parts yield significantly more materials — decompose those, sell rusted junk.",
+      "The Efficient Salvager legacy upgrade adds +10% decompose yield per level — invest early if you craft a lot.",
     ],
   },
 ];
 
-// ── Live Data Snapshot ──────────────────────────────────────────────────────
+// ── Dynamic Data Exports ────────────────────────────────────────────────────
 
-export const HELP_SYNC_FACTS: string[] = [
-  `${LOCATION_DEFINITIONS.length} scavenging locations (max tier ${Math.max(...LOCATION_DEFINITIONS.map((l) => l.tier))}).`,
-  `${CIRCUIT_DEFINITIONS.length} race circuits (max tier ${Math.max(...CIRCUIT_DEFINITIONS.map((c) => c.tier))}).`,
-  `${VEHICLE_DEFINITIONS.length} vehicle blueprints (max tier ${highestVehicleTier}).`,
-  `${PART_DEFINITIONS.length} part definitions across ${CORE_SLOTS.length} core slot categories.`,
-  `${UPGRADE_DEFINITIONS.length} workshop upgrades across ${Object.keys(upgradeCategoryCounts).length} categories.`,
-  `${GEAR_DEFINITIONS.length} gear items across ${Object.keys(gearSlotCounts).length} slots.`,
-  `${MATERIAL_DEFINITIONS.length} salvage material types and ${CHALLENGE_DEFINITIONS.length} challenges.`,
-];
+// Parts & Conditions
+export const HELP_PARTS_BY_CATEGORY = CORE_SLOTS.map((slot) => ({
+  category: slot,
+  count: PART_DEFINITIONS.filter((part) => part.category === slot).length,
+}));
 
-// ── Reference Tables ────────────────────────────────────────────────────────
+export const HELP_CONDITIONS = CONDITIONS.map((condition) => ({
+  id: condition,
+  multiplier: CONDITION_MULTIPLIERS[condition],
+}));
 
-export const HELP_SYSTEM_DETAILS = {
-  partsByCategory: PARTS_BY_CATEGORY,
-  conditions: CONDITIONS.map((condition) => ({
-    id: condition,
-    multiplier: CONDITION_MULTIPLIERS[condition],
+// Locations
+export const HELP_LOCATIONS = LOCATION_DEFINITIONS.map((loc) => ({
+  id: loc.id, name: loc.name, tier: loc.tier,
+  unlockCost: loc.unlockCost,
+  maxPartsPerScavenge: loc.maxPartsPerScavenge,
+}));
+
+// Circuits
+export const HELP_CIRCUITS = CIRCUIT_DEFINITIONS.map((c) => ({
+  id: c.id, name: c.name, tier: c.tier,
+  difficulty: c.difficulty, entryFee: c.entryFee,
+  rewardBase: c.rewardBase, repReward: c.repReward,
+}));
+
+// Vehicles
+export const HELP_VEHICLES = VEHICLE_DEFINITIONS.map((v) => ({
+  id: v.id, name: v.name, tier: v.tier,
+  buildCost: v.buildCost,
+  slotCount: Object.keys(v.slots).length,
+}));
+
+// Upgrades grouped by category
+export const HELP_UPGRADES_BY_CATEGORY = UPGRADE_CATEGORIES.map((cat) => ({
+  category: cat.id as UpgradeCategory,
+  label: cat.label,
+  upgrades: UPGRADE_DEFINITIONS.filter((u) => u.category === cat.id).map((u) => ({
+    id: u.id, name: u.name, description: u.description,
+    maxLevel: u.maxLevel, baseCost: u.baseCost,
   })),
-  locations: LOCATION_DEFINITIONS.map((location) => ({
-    id: location.id,
-    name: location.name,
-    tier: location.tier,
-    unlockCost: location.unlockCost,
-    maxPartsPerScavenge: location.maxPartsPerScavenge,
-  })),
-  circuits: CIRCUIT_DEFINITIONS.map((circuit) => ({
-    id: circuit.id,
-    name: circuit.name,
-    tier: circuit.tier,
-    difficulty: circuit.difficulty,
-    entryFee: circuit.entryFee,
-    rewardBase: circuit.rewardBase,
-    repReward: circuit.repReward,
-  })),
-  progression: {
-    highestPartTier,
-    dealerUnlockRep: DEALER_UNLOCK_REP,
-  },
+}));
+
+// Legacy upgrades
+export { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS };
+export type { LegacyUpgradeCategory };
+
+// Momentum tiers
+export { MOMENTUM_TIERS };
+
+// Talent tree
+export { TALENT_TREES, TALENT_NODES };
+
+// Challenges
+function formatReward(r: { type: string; amount?: number; material?: string }): string {
+  switch (r.type) {
+    case "forgeToken": return `${r.amount} Forge Token${(r.amount ?? 0) > 1 ? "s" : ""}`;
+    case "material": return `${r.amount} ${r.material}`;
+    case "scrap": return `${r.amount} Scrap`;
+    case "dealerRefresh": return "Dealer Refresh";
+    default: return r.type;
+  }
+}
+
+export const HELP_CHALLENGES = CHALLENGE_DEFINITIONS.map((c) => ({
+  id: c.id, name: c.name, description: c.description,
+  target: c.target,
+  rewardSummary: c.rewards.map((r) => formatReward(r as { type: string; amount?: number; material?: string })).join(", "),
+}));
+
+// Materials
+export const HELP_MATERIALS = MATERIAL_DEFINITIONS.map((m) => ({
+  id: m.id, name: m.name,
+}));
+
+export const HELP_MATERIAL_SOURCES: { category: CoreSlot; materials: string[] }[] =
+  CORE_SLOTS.map((slot) => ({
+    category: slot,
+    materials: (CATEGORY_TO_MATERIALS[slot] ?? []).map(String),
+  }));
+
+// Craft recipes
+export const HELP_CRAFT_RECIPES = CRAFT_RECIPES.map((r, i) => ({
+  id: `recipe_${i}`, label: r.label, category: r.category,
+  resultCondition: r.resultCondition,
+  cost: r.cost,
+}));
+
+// Dealer constants
+export const HELP_DEALER = {
+  unlockRep: DEALER_UNLOCK_REP,
+  tier2Rep: DEALER_TIER2_REP,
+  tier3Rep: DEALER_TIER3_REP,
+  refreshInterval: DEALER_REFRESH_INTERVAL,
+  boardSize: DEALER_BOARD_SIZE,
+};
+
+// Racing constants
+export const HELP_RACING = {
+  baseWearPerRace: BASE_WEAR_PER_RACE,
+  reliabilityWearThreshold: RELIABILITY_WEAR_THRESHOLD,
+  conditionPenaltyThreshold: CONDITION_PENALTY_THRESHOLD,
+};
+
+// Gear stats
+const gearSlotCounts = GEAR_DEFINITIONS.reduce<Record<string, number>>((acc, gear) => {
+  acc[gear.slot] = (acc[gear.slot] ?? 0) + 1;
+  return acc;
+}, {});
+
+export const HELP_GEAR_STATS = {
+  totalGear: GEAR_DEFINITIONS.length,
+  slotCount: Object.keys(gearSlotCounts).length,
+  slots: gearSlotCounts,
+};
+
+// Data snapshot counts
+export const HELP_DATA_SNAPSHOT = {
+  locations: LOCATION_DEFINITIONS.length,
+  maxLocationTier: Math.max(...LOCATION_DEFINITIONS.map((l) => l.tier)),
+  circuits: CIRCUIT_DEFINITIONS.length,
+  maxCircuitTier: Math.max(...CIRCUIT_DEFINITIONS.map((c) => c.tier)),
+  vehicles: VEHICLE_DEFINITIONS.length,
+  maxVehicleTier: Math.max(...VEHICLE_DEFINITIONS.map((v) => v.tier)),
+  parts: PART_DEFINITIONS.length,
+  coreSlots: CORE_SLOTS.length,
+  upgrades: UPGRADE_DEFINITIONS.length,
+  upgradeCategories: UPGRADE_CATEGORIES.length,
+  gear: GEAR_DEFINITIONS.length,
+  gearSlots: Object.keys(gearSlotCounts).length,
+  materials: MATERIAL_DEFINITIONS.length,
+  challenges: CHALLENGE_DEFINITIONS.length,
+  craftRecipes: CRAFT_RECIPES.length,
+  highestPartTier: Math.max(...PART_DEFINITIONS.map((p) => p.minTier)),
+  talentTrees: TALENT_TREES.length,
+  talentNodes: TALENT_NODES.length,
+  legacyUpgrades: LEGACY_UPGRADE_DEFINITIONS.length,
+  momentumTiers: MOMENTUM_TIERS.length,
 };
