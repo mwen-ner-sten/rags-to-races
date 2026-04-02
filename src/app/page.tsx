@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import ThemeShell from "@/components/ThemeShell";
 import ScavengePanel from "@/components/Junkyard/ScavengePanel";
 import GaragePanel from "@/components/Garage/GaragePanel";
@@ -11,6 +11,7 @@ import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import LockerPanel from "@/components/Locker/LockerPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import ToastContainer from "@/components/effects/Toast";
+import TutorialOverlay, { getAllowedTabs } from "@/components/effects/TutorialOverlay";
 import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs } from "@/engine/tick";
 import type { ScavengedPart } from "@/engine/scavenge";
@@ -22,8 +23,16 @@ const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
   const storeRef = useRef(useGameStore.getState());
+
+  // Guard tab switching during tutorial
+  const guardedSetActiveTab = useCallback((tab: TabId) => {
+    const allowed = getAllowedTabs(tutorialStep);
+    if (allowed && !allowed.has(tab)) return;
+    setActiveTab(tab);
+  }, [tutorialStep]);
 
   // Keep storeRef in sync without triggering re-renders
   useEffect(() => {
@@ -130,7 +139,8 @@ export default function Home() {
   return (
     <>
       <ToastContainer />
-      <ThemeShell activeTab={activeTab} setActiveTab={setActiveTab}>
+      <TutorialOverlay activeTab={activeTab} />
+      <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
         {activeTab === "race"     && <RacePanel />}

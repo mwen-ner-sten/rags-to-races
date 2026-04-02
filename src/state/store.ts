@@ -145,6 +145,9 @@ export interface GameState {
   /** Progress tracking for active challenges (cumulative counters) */
   challengeProgress: Record<string, number>;
 
+  /** Guided tutorial step (-1 = complete/skipped, 0+ = active step) */
+  tutorialStep: number;
+
   // Lifetime stats (for challenge tracking, persist through prestige)
   lifetimeTotalDecomposed: number;
   lifetimeTotalEnhanced: number;
@@ -167,6 +170,8 @@ export interface GameState {
   setSelectedCircuit: (circuitId: string) => void;
   enterRace: () => void;
   clearUnlockEvents: () => void;
+  advanceTutorial: () => void;
+  skipTutorial: () => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   refurbishPart: (partId: string) => void;
@@ -275,6 +280,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lifetimeTotalTradeUps: 0,
     lifetimeTotalRaceSalvage: 0,
     highestConditionReached: 0,
+    tutorialStep: 0,
   };
 }
 
@@ -337,6 +343,30 @@ function createActions(set: any, get: any) {
         const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
+      /* ── Tutorial boost: first 30 clicks guarantee enough to build ───── */
+      const isTutorial = state.tutorialStep >= 1 && state.tutorialStep <= 2;
+      const clickNum = state.manualScavengeClicks; // 0-indexed
+      if (isTutorial && clickNum < 30) {
+        const hasEngine = state.inventory.some((p) =>
+          p.definitionId === "engine_small" || p.definitionId === "engine_lawn",
+        );
+        const hasWheel = state.inventory.some((p) =>
+          p.definitionId === "wheel_busted" || p.definitionId === "wheel_basic",
+        );
+        // Force engine on click 3, wheel on click 7 if missing
+        if (clickNum === 3 && !hasEngine) {
+          parts[0] = { id: makePartId(), definitionId: "engine_small", condition: "decent", foundAt: location.id, type: "part" };
+        } else if (clickNum === 7 && !hasWheel) {
+          parts[0] = { id: makePartId(), definitionId: "wheel_busted", condition: "worn", foundAt: location.id, type: "part" };
+        }
+        for (const p of parts) {
+          // Swap worthless junk for sellable seats ($1+ each)
+          if (p.definitionId === "misc_junk") p.definitionId = "misc_seat";
+          // Floor condition to "worn" so nothing sells for $0
+          if (p.condition === "rusted") p.condition = "worn";
+        }
+      }
+
       // Thorough Search: chance to double the parts found (applies to click & hold)
       const doubleChance = _getUpgradeEffectValue(state, "thorough_search");
       if (doubleChance > 0 && Math.random() < doubleChance) {
@@ -775,6 +805,15 @@ function createActions(set: any, get: any) {
       set({ unlockEvents: [] });
     },
 
+    advanceTutorial: () => {
+      const step = (get() as GameState).tutorialStep;
+      set({ tutorialStep: step >= 16 ? -1 : step + 1 });
+    },
+
+    skipTutorial: () => {
+      set({ tutorialStep: -1 });
+    },
+
     repairVehicle: (vehicleId: string) => {
       const state = get() as GameState;
       const vehicle = state.garage.find((v) => v.id === vehicleId);
@@ -784,10 +823,13 @@ function createActions(set: any, get: any) {
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const reduction = _getUpgradeEffectValue(state, "budget_repairs") + gb.repair_cost_reduction_pct;
       const cost = calculateRepairCost(vehicleDef, vehicle.condition ?? 100, 100, reduction, state.fatigue);
-      if (state.scrapBucks < cost) return;
+      // Free repair during tutorial repair step
+      const isTutorialRepair = state.tutorialStep === 13;
+      const actualCost = isTutorialRepair ? 0 : cost;
+      if (state.scrapBucks < actualCost) return;
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gb.race_handling_pct;
       set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - cost,
+        scrapBucks: s.scrapBucks - actualCost,
         garage: s.garage.map((v) => v.id !== vehicleId ? v : {
           ...v,
           condition: 100,
@@ -1112,8 +1154,8 @@ function createActions(set: any, get: any) {
         lifetimeScrapBucks: result.startingScrap,
         // Auto-race unlocks permanently after first prestige
         autoRaceUnlocked: newPrestigeCount >= 1,
-        // Muscle Memory: starting scavenge clicks
-        autoScavengeUnlocked: autoScavUnlocked,
+        // Auto-scavenge stays unlocked once earned, or via Muscle Memory talent
+        autoScavengeUnlocked: state.autoScavengeUnlocked || autoScavUnlocked,
         manualScavengeClicks: Math.min(startingClicks, 100),
         raceTickProgress: 0,
         unlockEvents,
@@ -1139,6 +1181,7 @@ function createActions(set: any, get: any) {
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
+        tutorialStep: state.tutorialStep,
         dealerBoard: [],
         gameTick: 0,
       });
@@ -1695,6 +1738,7 @@ export const useGameStore = create<GameState>()(
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
+        tutorialStep: state.tutorialStep,
       }),
     },
   ),

@@ -428,6 +428,7 @@ export default function RacePanel() {
 
         {/* Pre-race odds */}
         {activeVehicle && selectedCircuit && !isRacing && (
+          <div data-tutorial="odds-display">
           <OddsDisplay
             performance={activeVehicle.stats.performance}
             reliability={activeVehicle.stats.reliability}
@@ -437,11 +438,13 @@ export default function RacePanel() {
             gearPerformanceBonus={gb.race_performance_pct}
             gearDnfReduction={gb.race_dnf_reduction}
           />
+          </div>
         )}
 
         {/* Race button + streak */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <button
+            data-tutorial="race-btn"
             onClick={enterRace}
             disabled={!canEnter}
             className="rounded-lg px-6 py-2.5 font-bold text-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"

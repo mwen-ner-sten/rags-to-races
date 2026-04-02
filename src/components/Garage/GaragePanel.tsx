@@ -111,7 +111,7 @@ export default function GaragePanel() {
           Build a Vehicle
         </h2>
 
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2" data-tutorial="blueprint-btn">
           {unlockedVehicles.map((v) => (
             <button
               key={v.id}
@@ -141,7 +141,7 @@ export default function GaragePanel() {
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2" data-tutorial="part-slots">
               {pendingDef.slots.map((slotCfg) => {
                 const slot = slotCfg.slot;
                 const selectedPart = pendingBuildParts[slot];
@@ -213,6 +213,7 @@ export default function GaragePanel() {
             </div>
 
             <button
+              data-tutorial="build-btn"
               onClick={buildSelectedVehicle}
               disabled={!canBuild}
               className="rounded-lg px-5 py-2 sm:px-6 sm:py-2.5 font-semibold text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40"
@@ -293,6 +294,8 @@ function VehicleCard({
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
 }) {
   const [swapSlot, setSwapSlot] = useState<string | null>(null);
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const isTutorialRepair = tutorialStep === 13;
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
   if (!def) return null;
@@ -356,6 +359,7 @@ function VehicleCard({
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           {!isActive && (
             <button
+              data-tutorial="activate-btn"
               onClick={() => setActiveVehicle(vehicle.id)}
               className="rounded border px-2 py-1 text-xs transition-colors"
               style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
@@ -397,15 +401,23 @@ function VehicleCard({
 
       {/* Repair button */}
       {condition < 100 && (
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            onClick={() => repairVehicle(vehicle.id)}
-            disabled={scrapBucks < repairCost}
-            className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ borderColor: "#16a34a", color: "var(--success)" }}
-          >
-            Repair to 100% — ${formatNumber(repairCost)}
-          </button>
+        <div className="mt-2 flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <button
+              data-tutorial="repair-btn"
+              onClick={() => repairVehicle(vehicle.id)}
+              disabled={!isTutorialRepair && scrapBucks < repairCost}
+              className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ borderColor: "#16a34a", color: "var(--success)" }}
+            >
+              {isTutorialRepair ? "Repair to 100% — Free" : `Repair to 100% — $${formatNumber(repairCost)}`}
+            </button>
+          </div>
+          {isTutorialRepair && (
+            <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>
+              Clyde owes you a favor for racing in his derby. This one&apos;s on the house.
+            </p>
+          )}
         </div>
       )}
 

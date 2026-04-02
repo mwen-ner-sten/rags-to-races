@@ -180,3 +180,32 @@ html {
 .animate-fade-up    { animation: fade-up 0.3s ease-out; }
 .animate-number-pop { animation: number-pop 0.4s ease-out; }
 .animate-pulse-fire { animation: pulse-fire 0.6s ease-in-out infinite; }
+
+@keyframes tutorial-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.5), 0 0 12px 0 rgba(234, 179, 8, 0.25); }
+  50% { box-shadow: 0 0 0 8px rgba(234, 179, 8, 0), 0 0 20px 0 rgba(234, 179, 8, 0); }
+}
+.tutorial-pulse {
+  animation: tutorial-pulse 1.5s ease-in-out infinite;
+  border: 1.5px solid rgba(234, 179, 8, 0.35);
+}
+
+/* Arrow pointing from tutorial card toward target */
+.tutorial-arrow-down::after,
+.tutorial-arrow-up::after {
+  content: '';
+  position: absolute;
+  left: var(--arrow-left, 50%);
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+.tutorial-arrow-down::after {
+  bottom: -7px;
+  border-top: 7px solid #1a1a1a;
+}
+.tutorial-arrow-up::after {
+  top: -7px;
+  border-bottom: 7px solid #1a1a1a;
+}

@@ -100,6 +100,7 @@ export default function ScavengePanel() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
   const refurbishPart = useGameStore((s) => s.refurbishPart);
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
   const refurbBenchUnlocked = (workshopLevels["refurbishment_bench"] ?? 0) >= 1;
 
   const unlockedLocations = LOCATION_DEFINITIONS.filter((l) =>
@@ -239,6 +240,7 @@ export default function ScavengePanel() {
       <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <button
+            data-tutorial="scavenge-btn"
             onMouseDown={startHold}
             onMouseUp={stopHold}
             onMouseLeave={stopHold}
@@ -281,12 +283,14 @@ export default function ScavengePanel() {
               </span>
             </div>
           )}
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div data-tutorial="sell-area" className="ml-auto flex flex-wrap items-center gap-2">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
-            {hasScrap && (
+            {(hasScrap || tutorialStep === 2) && (
               <button
                 onClick={sellAllScrap}
-                className="rounded border px-2 py-1 text-xs transition-colors"
+                disabled={!hasScrap}
+                data-tutorial="sell-scrap-btn"
+                className="rounded border px-2 py-1 text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
               >
                 Sell Scrap

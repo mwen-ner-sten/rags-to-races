@@ -205,6 +205,13 @@ export default function AdminPanel() {
               >
                 Disable Both
               </button>
+              <button
+                onClick={() => { useGameStore.setState({ tutorialStep: 0 }); log("Tutorial reset to step 0"); }}
+                style={btnOutline}
+                className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              >
+                Launch Tutorial
+              </button>
             </div>
           </div>
 
