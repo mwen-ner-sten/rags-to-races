@@ -35,8 +35,12 @@ export default function HUD() {
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
   const saveLabel = useAutoSaveIndicator();
 
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
   const vehicleDef = activeVehicle ? getVehicleById(activeVehicle.definitionId) : null;
+
+  // Show fatigue during the tutorial step that teaches about it (step 14)
+  const showFatigue = fatigue > 0 || tutorialStep === 14;
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
@@ -58,7 +62,7 @@ export default function HUD() {
           )}
           <Stat label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} color="text-green-400" />
           <Stat label="Rep" value={formatNumber(repPoints)} color="text-blue-400" />
-          {fatigue > 0 && (
+          {showFatigue && (
             <Stat
               label="Fatigue"
               value={`${fatigue}%`}
