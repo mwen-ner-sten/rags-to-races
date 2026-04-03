@@ -1,12 +1,14 @@
 "use client";
 
 import { useTheme } from "@/hooks/useTheme";
+import { useDyslexicFont } from "@/hooks/useDyslexicFont";
 import { THEMES } from "@/data/themes";
 import SaveLoadPanel from "@/components/Shop/SaveLoadPanel";
 import StartOverPanel from "@/components/Settings/StartOverPanel";
 
 export default function SettingsPanel() {
   const [theme, setTheme] = useTheme();
+  const [dyslexic, setDyslexic] = useDyslexicFont();
 
   return (
     <div className="flex flex-col gap-8">
@@ -72,6 +74,71 @@ export default function SettingsPanel() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Accessibility */}
+      <div>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-zinc-400">
+          Accessibility
+        </h2>
+        <div
+          style={{
+            padding: "0.75rem",
+            background: "rgba(255,255,255,.03)",
+            border: "1px solid rgba(255,255,255,.1)",
+            borderRadius: 8,
+          }}
+        >
+          <button
+            onClick={() => setDyslexic(!dyslexic)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              width: "100%",
+              padding: "0.5rem 0.4rem",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                width: 36,
+                height: 20,
+                borderRadius: 10,
+                background: dyslexic ? "var(--accent, #c83e0c)" : "rgba(255,255,255,.15)",
+                position: "relative",
+                flexShrink: 0,
+                transition: "background .15s",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: dyslexic ? 18 : 2,
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "left .15s",
+                }}
+              />
+            </span>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                color: dyslexic ? "var(--accent, #c83e0c)" : "rgba(255,255,255,.6)",
+              }}
+            >
+              Dyslexic Font (OpenDyslexic)
+            </span>
+          </button>
         </div>
       </div>
 

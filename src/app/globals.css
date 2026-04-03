@@ -5,6 +5,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Dyslexic font override — applied via JS when user enables the setting */
+.dyslexic-font {
+  --font-sans: var(--font-dyslexic) !important;
+  font-family: var(--font-dyslexic), sans-serif !important;
+}
+
 /* Smooth theme transitions */
 * {
   transition-property: background-color, border-color, color;

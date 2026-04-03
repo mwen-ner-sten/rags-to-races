@@ -4,6 +4,7 @@ import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
+import { useDyslexicFont } from "@/hooks/useDyslexicFont";
 import StatsTooltip from "@/components/StatsTooltip";
 import VehicleTooltip from "@/components/VehicleTooltip";
 type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
@@ -2102,21 +2103,28 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
 
 export default function ThemeShell(props: Props) {
   const [theme] = useTheme();
+  const [dyslexic] = useDyslexicFont();
 
-  if (theme === "neon")       return <NeonShell       {...props} />;
-  if (theme === "prestige")   return <PrestigeShell   {...props} />;
-  if (theme === "outlaw")     return <OutlawShell     {...props} />;
-  if (theme === "chrome")     return <ChromeShell     {...props} />;
-  if (theme === "terminal")   return <TerminalShell   {...props} />;
-  if (theme === "sandstorm")  return <SandstormShell  {...props} />;
-  if (theme === "sunset")     return <SunsetShell     {...props} />;
-  if (theme === "deepsix")    return <DeepSixShell    {...props} />;
-  if (theme === "bloodmoon")  return <BloodmoonShell  {...props} />;
-  if (theme === "sakura")     return <SakuraShell     {...props} />;
-  if (theme === "rustbelt")   return <RustBeltShell   {...props} />;
-  if (theme === "arctic")     return <ArcticShell     {...props} />;
-  if (theme === "vaporwave")  return <VaporwaveShell  {...props} />;
-  if (theme === "midnight")   return <MidnightShell   {...props} />;
-  if (theme === "tactical")   return <TacticalShell   {...props} />;
-  return <GreaseShell {...props} />;
+  let shell: React.ReactNode;
+  if (theme === "neon")       shell = <NeonShell       {...props} />;
+  else if (theme === "prestige")   shell = <PrestigeShell   {...props} />;
+  else if (theme === "outlaw")     shell = <OutlawShell     {...props} />;
+  else if (theme === "chrome")     shell = <ChromeShell     {...props} />;
+  else if (theme === "terminal")   shell = <TerminalShell   {...props} />;
+  else if (theme === "sandstorm")  shell = <SandstormShell  {...props} />;
+  else if (theme === "sunset")     shell = <SunsetShell     {...props} />;
+  else if (theme === "deepsix")    shell = <DeepSixShell    {...props} />;
+  else if (theme === "bloodmoon")  shell = <BloodmoonShell  {...props} />;
+  else if (theme === "sakura")     shell = <SakuraShell     {...props} />;
+  else if (theme === "rustbelt")   shell = <RustBeltShell   {...props} />;
+  else if (theme === "arctic")     shell = <ArcticShell     {...props} />;
+  else if (theme === "vaporwave")  shell = <VaporwaveShell  {...props} />;
+  else if (theme === "midnight")   shell = <MidnightShell   {...props} />;
+  else if (theme === "tactical")   shell = <TacticalShell   {...props} />;
+  else shell = <GreaseShell {...props} />;
+
+  if (dyslexic) {
+    return <div className="dyslexic-font">{shell}</div>;
+  }
+  return shell;
 }
