@@ -1,6 +1,6 @@
 "use client";
 
-import { HELP_OVERVIEW_STEPS, HELP_GLOSSARY, HELP_FAQ } from "@/data/helpContent";
+import { HELP_OVERVIEW_STEPS, HELP_GLOSSARY, HELP_FAQ, HELP_TUTORIAL_WALKTHROUGH } from "@/data/helpContent";
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -24,6 +24,22 @@ export default function HelpBasicsTab() {
         <ol className="list-decimal space-y-2 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
           {HELP_OVERVIEW_STEPS.map((step) => (
             <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </SectionCard>
+
+      {/* Tutorial Walkthrough */}
+      <SectionCard title="Tutorial Walkthrough">
+        <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
+          Step-by-step reference for the guided tutorial. Follow the highlighted hints in-game.
+        </p>
+        <ol className="list-decimal space-y-1.5 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
+          {HELP_TUTORIAL_WALKTHROUGH.map((item) => (
+            <li key={item.step}>
+              <span className="font-semibold" style={{ color: "var(--text-white)" }}>{item.step}</span>
+              <span style={{ color: "var(--text-muted)" }}> &mdash; </span>
+              <span style={{ color: "var(--text-secondary)" }}>{item.description}</span>
+            </li>
           ))}
         </ol>
       </SectionCard>

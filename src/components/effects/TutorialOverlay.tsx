@@ -112,6 +112,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const advanceTutorial = useGameStore((s) => s.advanceTutorial);
   const skipTutorial = useGameStore((s) => s.skipTutorial);
+  const dismissTutorial = useGameStore((s) => s.dismissTutorial);
+  const tutorialDismissed = useGameStore((s) => s.tutorialDismissed);
 
   const inventory = useGameStore((s) => s.inventory);
   const garage = useGameStore((s) => s.garage);
@@ -298,6 +300,13 @@ export default function TutorialOverlay({ activeTab }: Props) {
           className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-6"
           style={CARD_BG}
         >
+          <button
+            onClick={dismissTutorial}
+            className="absolute top-3 right-3 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
+            style={{ color: "#888", background: "#333" }}
+          >
+            {"\u2715"}
+          </button>
           <div className="mb-4 text-center text-5xl">{"\u{1F3CE}\uFE0F"}</div>
           <h2 className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)" }}>Rags to Races</h2>
           <div className="mx-auto mb-4 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
@@ -315,6 +324,34 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </div>
         </div>
       </div>
+    );
+  }
+
+  /* Dismissed mode: render only halos/highlights, no cards or blockers */
+  if (tutorialDismissed) {
+    return (
+      <>
+        {highlightRect && (
+          <div
+            className="tutorial-pulse fixed z-[9997] rounded"
+            style={{
+              left: highlightRect.left - 4, top: highlightRect.top - 4,
+              width: highlightRect.width + 8, height: highlightRect.height + 8,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+        {targetRect && (
+          <div
+            className="tutorial-pulse fixed z-[9999] rounded-lg"
+            style={{
+              left: targetRect.left - 5, top: targetRect.top - 5,
+              width: targetRect.width + 10, height: targetRect.height + 10,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -445,7 +482,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
             }}
           >
             <button
-              onClick={skipTutorial}
+              onClick={dismissTutorial}
               className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
               style={{ color: "#888", background: "#333" }}
             >
@@ -460,13 +497,16 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 </p>
                 <div className="mt-2.5 flex items-center justify-between">
                   <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
-                  <button
-                    onClick={() => setCardDismissed(true)}
-                    className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
-                  >
-                    Got it &rarr;
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip</button>
+                    <button
+                      onClick={() => setCardDismissed(true)}
+                      className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
+                    >
+                      Got it &rarr;
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -485,7 +525,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
             }}
           >
             <button
-              onClick={skipTutorial}
+              onClick={dismissTutorial}
               className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
               style={{ color: "#888", background: "#333" }}
             >
@@ -498,17 +538,20 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                   {renderTip(effectiveTip)}
                 </p>
-                <div className={`mt-2 flex items-center ${stepDef.dismissable ? "justify-between" : ""}`}>
+                <div className="mt-2 flex items-center justify-between">
                   <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
-                  {stepDef.dismissable && (
-                    <button
-                      onClick={advanceTutorial}
-                      className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
-                    >
-                      Got it &rarr;
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip</button>
+                    {stepDef.dismissable && (
+                      <button
+                        onClick={advanceTutorial}
+                        className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                        style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
+                      >
+                        Got it &rarr;
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -532,7 +575,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
               <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
             </div>
             <button
-              onClick={skipTutorial}
+              onClick={dismissTutorial}
               className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
               style={{ color: "#888", background: "#333", fontSize: 9 }}
             >

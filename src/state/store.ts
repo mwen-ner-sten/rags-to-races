@@ -147,6 +147,8 @@ export interface GameState {
 
   /** Guided tutorial step (-1 = complete/skipped, 0+ = active step) */
   tutorialStep: number;
+  /** Cards hidden but highlights/auto-advance still active */
+  tutorialDismissed: boolean;
 
   // Lifetime stats (for challenge tracking, persist through prestige)
   lifetimeTotalDecomposed: number;
@@ -172,6 +174,7 @@ export interface GameState {
   clearUnlockEvents: () => void;
   advanceTutorial: () => void;
   skipTutorial: () => void;
+  dismissTutorial: () => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   refurbishPart: (partId: string) => void;
@@ -281,6 +284,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lifetimeTotalRaceSalvage: 0,
     highestConditionReached: 0,
     tutorialStep: 0,
+    tutorialDismissed: false,
   };
 }
 
@@ -811,7 +815,17 @@ function createActions(set: any, get: any) {
     },
 
     skipTutorial: () => {
-      set({ tutorialStep: -1 });
+      set({ tutorialStep: -1, tutorialDismissed: false });
+    },
+
+    dismissTutorial: () => {
+      const step = (get() as GameState).tutorialStep;
+      // If on intro, advance to step 1 so highlights activate
+      if (step === 0) {
+        set({ tutorialStep: 1, tutorialDismissed: true });
+      } else {
+        set({ tutorialDismissed: true });
+      }
     },
 
     repairVehicle: (vehicleId: string) => {
@@ -1182,6 +1196,7 @@ function createActions(set: any, get: any) {
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
+        tutorialDismissed: state.tutorialDismissed,
         dealerBoard: [],
         gameTick: 0,
       });
@@ -1739,6 +1754,7 @@ export const useGameStore = create<GameState>()(
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
+        tutorialDismissed: state.tutorialDismissed,
       }),
     },
   ),

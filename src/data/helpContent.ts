@@ -26,6 +26,26 @@ export const HELP_OVERVIEW_STEPS: string[] = [
   "Spend Legacy Points on permanent upgrades and talent nodes that compound every future run.",
 ];
 
+// ── Tutorial Walkthrough ───────────────────────────────────────────────────
+
+export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] = [
+  { step: "Scavenge", description: "Click Scavenge in the Junkyard to search the curb for parts." },
+  { step: "Gather materials", description: "Collect an engine, a wheel, and $10 by scavenging. Sell extras for cash." },
+  { step: "Visit the Garage", description: "Head to the Garage tab to start building your first vehicle." },
+  { step: "Pick a blueprint", description: "Select the Push Mower blueprint — it's the cheapest starter ride." },
+  { step: "Equip parts", description: "Fill each slot with a part — you need at least an engine and a wheel." },
+  { step: "Build your vehicle", description: "Hit Build to assemble your ride. This costs Scrap Bucks." },
+  { step: "Activate", description: "Set your new vehicle as the active racer so you can enter races." },
+  { step: "Head to Race", description: "Switch to the Race tab to enter your first race." },
+  { step: "Check odds", description: "Review your win chance and DNF risk. DNF means your ride breaks down mid-race." },
+  { step: "Enter Race", description: "Hit Enter Race to compete on the circuit." },
+  { step: "Race result", description: "Win or lose, you earn Scrap Bucks and Rep. Keep racing to improve." },
+  { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up." },
+  { step: "Build Rep & earn scrap", description: "Earn $500 lifetime scrap and 25 Rep. Watch fatigue — it builds every race and cuts performance." },
+  { step: "Visit the Shop", description: "Head to the Shop tab when fatigue is high or progress stalls." },
+  { step: "Prestige", description: "Hit Scrap Reset to prestige. You restart stronger with permanent bonuses." },
+];
+
 // ── Glossary ────────────────────────────────────────────────────────────────
 
 export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
