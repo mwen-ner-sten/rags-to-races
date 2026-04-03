@@ -5,6 +5,7 @@ import { formatNumber } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import StatsTooltip from "@/components/StatsTooltip";
+import VehicleTooltip from "@/components/VehicleTooltip";
 type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
 
 interface Props {
@@ -523,10 +524,12 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
             <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="gm" style={{ fontSize: "1.25rem", color: "#c83e0c", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="gm" style={{ fontSize: "1.25rem", color: "#c83e0c", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -620,10 +623,12 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
             <div className="mc-stat-label" style={{ color: "rgba(255,0,144,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="mc" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#c0d8e0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="mc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="mc" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#c0d8e0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="mc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -716,13 +721,15 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
             <div className="pc-stat-label">Reputation</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <>
-              <div className="pc-rule" />
-              <div style={{ textAlign: "right" }}>
-                <div className="pc" style={{ fontSize: "1rem", color: "rgba(200,192,208,.7)", fontStyle: "italic" }}>{vehicleDef.name}</div>
-                <div className="pc-stat-label">{Math.floor(activeVehicle.stats.performance)} pts</div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ display: "flex", alignItems: "center", gap: "inherit" }}>
+                <div className="pc-rule" />
+                <div style={{ textAlign: "right" }}>
+                  <div className="pc" style={{ fontSize: "1rem", color: "rgba(200,192,208,.7)", fontStyle: "italic" }}>{vehicleDef.name}</div>
+                  <div className="pc-stat-label">{Math.floor(activeVehicle.stats.performance)} pts</div>
+                </div>
               </div>
-            </>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -815,10 +822,12 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ol-stat-label">REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ol" style={{ fontSize: "1.2rem", color: "#c88830", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ol-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ol" style={{ fontSize: "1.2rem", color: "#c88830", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ol-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -909,10 +918,12 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
             <div className="cr-stat-label" style={{ color: "rgba(88,120,168,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="cr" style={{ fontSize: "1.05rem", fontWeight: 600, color: "rgba(208,216,224,.7)", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="cr-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="cr" style={{ fontSize: "1.05rem", fontWeight: 600, color: "rgba(208,216,224,.7)", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="cr-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1014,10 +1025,12 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
             <div className="tm-stat-label">REP_PTS</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="tm" style={{ fontSize: "1.3rem", color: "#40d840" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="tm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="tm" style={{ fontSize: "1.3rem", color: "#40d840" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="tm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1113,10 +1126,12 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
             <div className="sd-stat-label">REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="sd" style={{ fontSize: "1.4rem", fontWeight: 600, color: "#d89030", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="sd-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="sd" style={{ fontSize: "1.4rem", fontWeight: 600, color: "#d89030", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="sd-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1206,10 +1221,12 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ss-stat-label" style={{ color: "#7a3870" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ss" style={{ fontSize: "1.25rem", color: "#e85020" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ss-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ss" style={{ fontSize: "1.25rem", color: "#e85020" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ss-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1311,10 +1328,12 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ds-stat-label" style={{ color: "rgba(32,96,208,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ds" style={{ fontSize: "1.05rem", color: "#68a8b8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ds-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ds" style={{ fontSize: "1.05rem", color: "#68a8b8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ds-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1407,10 +1426,12 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
             <div className="bm-stat-label" style={{ color: "#5a2828" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="bm" style={{ fontSize: "1.2rem", color: "#a08080" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="bm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="bm" style={{ fontSize: "1.2rem", color: "#a08080" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="bm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1503,10 +1524,12 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
             <div className="sk-stat-label" style={{ color: "rgba(136,192,136,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="sk" style={{ fontSize: "1.05rem", color: "#d0b8c8", fontWeight: 500 }}>{vehicleDef.name}</div>
-              <div className="sk-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="sk" style={{ fontSize: "1.05rem", color: "#d0b8c8", fontWeight: 500 }}>{vehicleDef.name}</div>
+                <div className="sk-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1602,10 +1625,12 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
             <div className="rb-stat-label">REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="rb" style={{ fontSize: "1.2rem", color: "#b8a090", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="rb-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="rb" style={{ fontSize: "1.2rem", color: "#b8a090", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="rb-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1700,10 +1725,12 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ar-stat-label" style={{ color: "rgba(136,208,240,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ar" style={{ fontSize: "1.05rem", color: "#b0c8d8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ar-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ar" style={{ fontSize: "1.05rem", color: "#b0c8d8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ar-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1803,10 +1830,12 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
             <div className="vw-stat-label" style={{ color: "rgba(255,113,206,.4)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="vw" style={{ fontSize: ".6rem", color: "#b967ff", textShadow: "0 0 10px rgba(185,103,255,.5)" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="vw-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="vw" style={{ fontSize: ".6rem", color: "#b967ff", textShadow: "0 0 10px rgba(185,103,255,.5)" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="vw-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -1908,10 +1937,12 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
             <div className="tc-stat-label" style={{ color: "rgba(200,168,72,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="tc" style={{ fontSize: "1.1rem", color: "#8a9a78", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="tc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="tc" style={{ fontSize: "1.1rem", color: "#8a9a78", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="tc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
@@ -2011,10 +2042,12 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
             <div className="mn-stat-label" style={{ color: "rgba(245,158,11,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="mn" style={{ fontSize: "1.1rem", fontWeight: 600, color: "#d8e4f0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="mn-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="mn" style={{ fontSize: "1.1rem", fontWeight: 600, color: "#d8e4f0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="mn-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
           <StatsTooltip />
         </div>
