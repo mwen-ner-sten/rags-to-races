@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import MiniChart, { type Dataset, type Threshold } from "../MiniChart";
 import { ControlPanel, Slider, Toggle, Insight } from "./ChartControls";
-import { calcFatigue } from "./balanceUtils";
+import { calcFatigue, type GameSnapshot } from "./balanceUtils";
 
 const MAX_RACES = 300;
 const STEP = 2;
 
-export default function PerformanceDecayChart() {
+export default function PerformanceDecayChart({ snapshot }: { snapshot?: GameSnapshot }) {
   const [secondWind, setSecondWind] = useState(false);
   const [ironWill, setIronWill] = useState(0);
+
+  useEffect(() => {
+    if (snapshot) setIronWill(snapshot.ironWill);
+  }, [snapshot]);
 
   const datasets = useMemo<Dataset[]>(() => {
     const perf: Dataset = { label: "Performance", color: "#3b82f6", points: [], fill: true };

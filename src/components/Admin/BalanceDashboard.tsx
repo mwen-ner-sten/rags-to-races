@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import FatigueCurveChart from "./charts/FatigueCurveChart";
 import PerformanceDecayChart from "./charts/PerformanceDecayChart";
 import LpSimulator from "./charts/LpSimulator";
 import RunEconomyChart from "./charts/RunEconomyChart";
 import UpgradeCostChart from "./charts/UpgradeCostChart";
 import PrestigeRoiTable from "./charts/PrestigeRoiTable";
+import { buildSnapshot, type GameSnapshot } from "./charts/balanceUtils";
 
 const SECTION = "rounded-lg border p-4 flex flex-col gap-3";
 
@@ -23,27 +24,47 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function BalanceDashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("fatigue");
+  const [snapshot, setSnapshot] = useState<GameSnapshot | undefined>();
   const currentTab = TABS.find((t) => t.id === activeTab)!;
+
+  const handleLoadState = useCallback(() => {
+    setSnapshot(buildSnapshot());
+  }, []);
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Chart sub-tabs */}
-      <div className="flex gap-1 flex-wrap">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-            style={
-              activeTab === tab.id
-                ? { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }
-                : { borderColor: "var(--btn-border)", color: "var(--text-primary)", border: "1px solid" }
-            }
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Chart sub-tabs + load button */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={
+                activeTab === tab.id
+                  ? { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }
+                  : { borderColor: "var(--btn-border)", color: "var(--text-primary)", border: "1px solid" }
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={handleLoadState}
+          className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+          style={{ borderColor: "var(--accent-border)", color: "var(--accent)", border: "1px solid" }}
+        >
+          Load Current State
+        </button>
       </div>
+
+      {snapshot && (
+        <p style={{ color: "var(--text-muted)" }} className="text-xs -mt-1">
+          Loaded from current run. Adjust sliders to explore what-if scenarios.
+        </p>
+      )}
 
       {/* Active chart panel */}
       <div
@@ -59,12 +80,12 @@ export default function BalanceDashboard() {
           </p>
         </div>
 
-        {activeTab === "fatigue" && <FatigueCurveChart />}
-        {activeTab === "decay" && <PerformanceDecayChart />}
-        {activeTab === "lp" && <LpSimulator />}
-        {activeTab === "economy" && <RunEconomyChart />}
+        {activeTab === "fatigue" && <FatigueCurveChart snapshot={snapshot} />}
+        {activeTab === "decay" && <PerformanceDecayChart snapshot={snapshot} />}
+        {activeTab === "lp" && <LpSimulator snapshot={snapshot} />}
+        {activeTab === "economy" && <RunEconomyChart snapshot={snapshot} />}
         {activeTab === "upgrades" && <UpgradeCostChart />}
-        {activeTab === "roi" && <PrestigeRoiTable />}
+        {activeTab === "roi" && <PrestigeRoiTable snapshot={snapshot} />}
       </div>
     </div>
   );

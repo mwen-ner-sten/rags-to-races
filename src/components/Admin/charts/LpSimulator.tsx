@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import MiniChart, { type Dataset, type Threshold } from "../MiniChart";
 import { calculateLegacyPoints, type RunStats } from "@/engine/prestige";
 import { ControlPanel, Slider, Insight, Formula } from "./ChartControls";
-import { calcFatigue } from "./balanceUtils";
+import { calcFatigue, type GameSnapshot } from "./balanceUtils";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 
 /** Sum LP multiplier from momentum tiers active at a given fatigue level */
@@ -23,11 +23,19 @@ const LEGENDARY_FATIGUE = LP_TIERS[1]?.condition.value ?? 80;
 const DEEP_RUN_MULT = 1 + lpMultAtFatigue(DEEP_RUN_FATIGUE);
 const LEGENDARY_MULT = 1 + lpMultAtFatigue(LEGENDARY_FATIGUE);
 
-export default function LpSimulator() {
+export default function LpSimulator({ snapshot }: { snapshot?: GameSnapshot }) {
   const [scrap, setScrap] = useState(50000);
   const [circuitTier, setCircuitTier] = useState(2);
   const [workshopCount, setWorkshopCount] = useState(10);
   const [ironWill, setIronWill] = useState(0);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    setScrap(Math.max(1000, snapshot.lifetimeScrap));
+    setCircuitTier(snapshot.circuitTier);
+    setWorkshopCount(snapshot.workshopCount);
+    setIronWill(snapshot.ironWill);
+  }, [snapshot]);
 
   const breakdownRaces = 150;
 

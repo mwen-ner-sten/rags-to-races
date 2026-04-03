@@ -1,18 +1,27 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { calculateLegacyPoints, type RunStats } from "@/engine/prestige";
 import { LEGACY_UPGRADE_DEFINITIONS, legacyUpgradeCost } from "@/data/legacyUpgrades";
 import { ControlPanel, Slider, Insight } from "./ChartControls";
-import { calcFatigue } from "./balanceUtils";
+import { calcFatigue, type GameSnapshot } from "./balanceUtils";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 
-export default function PrestigeRoiTable() {
+export default function PrestigeRoiTable({ snapshot }: { snapshot?: GameSnapshot }) {
   const [races, setRaces] = useState(100);
   const [scrap, setScrap] = useState(30000);
   const [tier, setTier] = useState(2);
   const [workshopCount, setWorkshopCount] = useState(10);
   const [ironWill, setIronWill] = useState(0);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    setRaces(Math.max(10, snapshot.lifetimeRaces));
+    setScrap(Math.max(1000, snapshot.lifetimeScrap));
+    setTier(snapshot.circuitTier);
+    setWorkshopCount(snapshot.workshopCount);
+    setIronWill(snapshot.ironWill);
+  }, [snapshot]);
 
   const scenarios = useMemo(() => {
     function makeLp(raceCount: number, scrapBucks: number) {

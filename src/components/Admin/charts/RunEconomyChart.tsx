@@ -1,22 +1,32 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import MiniChart, { type Dataset } from "../MiniChart";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { BASE_WEAR_PER_RACE, REPAIR_COST_BASE, REPAIR_COST_PER_POINT_PER_TIER } from "@/data/vehicles";
 import { ControlPanel, Slider, Insight } from "./ChartControls";
-import { calcFatigue } from "./balanceUtils";
+import { calcFatigue, type GameSnapshot } from "./balanceUtils";
 
 const MAX_RACES = 300;
 const STEP = 2;
 
-export default function RunEconomyChart() {
+export default function RunEconomyChart({ snapshot }: { snapshot?: GameSnapshot }) {
   const [circuitIdx, setCircuitIdx] = useState(2);
   const [vehiclePerf, setVehiclePerf] = useState(40);
   const [vehicleTier, setVehicleTier] = useState(4);
   const [reliability, setReliability] = useState(60);
   const [scrapMultLevel, setScrapMultLevel] = useState(0);
   const [ironWill, setIronWill] = useState(0);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    setCircuitIdx(snapshot.circuitIdx);
+    setVehiclePerf(snapshot.vehiclePerf);
+    setVehicleTier(snapshot.vehicleTier);
+    setReliability(snapshot.reliability);
+    setScrapMultLevel(snapshot.scrapMultLevel);
+    setIronWill(snapshot.ironWill);
+  }, [snapshot]);
 
   const circuit = CIRCUIT_DEFINITIONS[circuitIdx];
   const scrapMult = 1 + scrapMultLevel * 0.2;

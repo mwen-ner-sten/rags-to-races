@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import MiniChart, { type Dataset, type Threshold } from "../MiniChart";
 import { ControlPanel, Slider, Insight, Formula } from "./ChartControls";
-import { calcFatigue } from "./balanceUtils";
+import { calcFatigue, type GameSnapshot } from "./balanceUtils";
 
 const MAX_RACES = 300;
 const STEP = 2;
 
-export default function FatigueCurveChart() {
+export default function FatigueCurveChart({ snapshot }: { snapshot?: GameSnapshot }) {
   const [ironWill, setIronWill] = useState(0);
+
+  useEffect(() => {
+    if (snapshot) setIronWill(snapshot.ironWill);
+  }, [snapshot]);
 
   const datasets = useMemo<Dataset[]>(() => {
     const base: Dataset = {
