@@ -329,6 +329,22 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   /* Dismissed mode: render only halos/highlights, no cards or blockers */
   if (tutorialDismissed) {
+    // If the target element isn't visible (wrong tab), pulse the first allowed tab as a fallback
+    const fallbackTabRect = !targetRect && !highlightRect && stepDef.allowedTabs?.[0]
+      ? (() => {
+          const nav = document.querySelector("nav");
+          if (!nav) return null;
+          const tabLabels: TabId[] = ["junkyard", "garage", "race", "locker", "workshop", "shop", "settings", "dev"];
+          const buttons = Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[];
+          const fallbackTab = stepDef.allowedTabs![0];
+          const btn = buttons.find((b) => {
+            const text = b.textContent?.toLowerCase().trim() ?? "";
+            return tabLabels.some((l) => l === fallbackTab && text.includes(l));
+          });
+          return btn ? btn.getBoundingClientRect() : null;
+        })()
+      : null;
+
     return (
       <>
         {highlightRect && (
@@ -347,6 +363,16 @@ export default function TutorialOverlay({ activeTab }: Props) {
             style={{
               left: targetRect.left - 5, top: targetRect.top - 5,
               width: targetRect.width + 10, height: targetRect.height + 10,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+        {fallbackTabRect && (
+          <div
+            className="tutorial-pulse fixed z-[9997] rounded"
+            style={{
+              left: fallbackTabRect.left - 4, top: fallbackTabRect.top - 4,
+              width: fallbackTabRect.width + 8, height: fallbackTabRect.height + 8,
               pointerEvents: "none",
             }}
           />
