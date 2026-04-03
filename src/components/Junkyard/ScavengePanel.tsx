@@ -436,8 +436,8 @@ export default function ScavengePanel() {
           style={{
             position: "fixed",
             left: Math.min(x + 16, (typeof window !== "undefined" ? window.innerWidth : 800) - 224),
-            top: y - 8,
-            zIndex: 50,
+            top: y - 120,
+            zIndex: 9999,
             width: 208,
             background: "var(--panel-bg)",
             border: "1px solid var(--panel-border)",
