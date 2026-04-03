@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useGameStore } from "@/state/store";
 import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
@@ -92,9 +93,16 @@ export default function AdminPanel() {
       {/* Warning banner */}
       <div
         style={{ background: "rgba(196,180,58,.08)", borderColor: "rgba(196,180,58,.3)", color: "var(--warning)" }}
-        className="rounded-lg border px-4 py-2 text-xs"
+        className="rounded-lg border px-4 py-2 text-xs flex items-center justify-between"
       >
-        &#9888; Dev Panel \u2014 for development & testing only. Changes are saved to localStorage.
+        <span>&#9888; Dev Panel \u2014 for development & testing only. Changes are saved to localStorage.</span>
+        <Link
+          href="/balance"
+          style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+          className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90 ml-3 no-underline whitespace-nowrap"
+        >
+          Balance Visualizer
+        </Link>
       </div>
 
       {/* Version info */}
