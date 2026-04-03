@@ -165,7 +165,7 @@ export default function MiniChart({
 
   return (
     <div className="relative flex flex-col gap-0">
-      <div className="w-full" style={{ aspectRatio: `${width} / ${height}` }}>
+      <div className="w-full overflow-hidden" style={{ aspectRatio: `${width} / ${height}` }}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
