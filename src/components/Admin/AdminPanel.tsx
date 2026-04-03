@@ -8,7 +8,6 @@ import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
-import BalanceDashboard from "./BalanceDashboard";
 
 const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
 const VERCEL_ENV = process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development";
@@ -47,7 +46,6 @@ export default function AdminPanel() {
   const devSetAutoUnlocks = useGameStore((s) => s.devSetAutoUnlocks);
   const devResetSave = useGameStore((s) => s.devResetSave);
 
-  const [devMode, setDevMode] = useState<"tools" | "balance">("tools");
   const [scrapInput, setScrapInput] = useState("");
   const [repInput, setRepInput] = useState("");
   const [prestigeInput, setPrestigeInput] = useState(String(prestigeCount));
@@ -93,24 +91,8 @@ export default function AdminPanel() {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Mode switcher + banner */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1">
-          {(["tools", "balance"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setDevMode(mode)}
-              className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-              style={
-                devMode === mode
-                  ? { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }
-                  : { borderColor: "var(--btn-border)", color: "var(--text-primary)", border: "1px solid" }
-              }
-            >
-              {mode === "tools" ? "Dev Tools" : "Balance"}
-            </button>
-          ))}
-        </div>
+      {/* Banner */}
+      <div className="flex items-center justify-end gap-2">
         <div className="flex items-center gap-2">
           <span
             className="text-xs font-mono font-semibold rounded px-1.5 py-0.5"
@@ -127,10 +109,6 @@ export default function AdminPanel() {
           </span>
         </div>
       </div>
-
-      {devMode === "balance" ? (
-        <BalanceDashboard />
-      ) : (<>
 
       {/* Version info */}
       <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border px-4 py-2 flex items-center justify-between">
@@ -459,7 +437,6 @@ export default function AdminPanel() {
           )}
         </div>
       </div>
-      </>)}
     </div>
   );
 }
