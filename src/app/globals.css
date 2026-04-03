@@ -215,42 +215,45 @@ html {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 6px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--input-bg);
+  border: 1px solid var(--input-border);
   outline: none;
   cursor: pointer;
 }
 .chart-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-bg);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4), 0 0 0 1px var(--accent-border);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chart-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 1px 6px rgba(0,0,0,.5), 0 0 0 3px var(--accent-bg);
+}
+.chart-slider::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--panel-bg);
-  box-shadow: 0 1px 4px rgba(0,0,0,.3);
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-.chart-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-}
-.chart-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--panel-bg);
-  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4), 0 0 0 1px var(--accent-border);
   cursor: pointer;
 }
 .chart-slider::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
 }
 .chart-slider::-moz-range-track {
-  height: 6px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--input-bg);
+  border: 1px solid var(--input-border);
 }

@@ -19,7 +19,7 @@ export function Slider({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <span style={{ color: "var(--text-muted)" }} className="text-xs font-medium">
           {label}
@@ -31,15 +31,24 @@ export function Slider({
           {badge ?? value}
         </span>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="chart-slider"
-      />
+      <div
+        style={{ background: "var(--input-bg)", borderColor: "var(--input-border)" }}
+        className="rounded-lg border px-2.5 py-2"
+      >
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="chart-slider"
+        />
+      </div>
+      <div className="flex justify-between px-1">
+        <span style={{ color: "var(--text-muted)" }} className="text-xs opacity-50 font-mono">{min}</span>
+        <span style={{ color: "var(--text-muted)" }} className="text-xs opacity-50 font-mono">{max}</span>
+      </div>
     </div>
   );
 }
