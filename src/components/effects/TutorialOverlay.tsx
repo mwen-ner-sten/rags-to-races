@@ -137,6 +137,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   const stepDef = tutorialStep >= 0 && tutorialStep < STEPS.length ? STEPS[tutorialStep] : null;
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
   useEffect(() => { setCardDismissed(false); }, [tutorialStep]);
 
   /* ── Auto-advance ────────────────────────────────────────────────────── */
@@ -189,6 +190,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   /* Auto-dismiss tip card for step 2 once they start scavenging — shows goal badge */
   useEffect(() => {
     if (tutorialStep === 2 && !cardDismissed && inventory.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-dismiss on inventory change
       setCardDismissed(true);
     }
   }, [tutorialStep, cardDismissed, inventory.length]);
