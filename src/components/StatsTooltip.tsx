@@ -22,7 +22,6 @@ function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
-  const gameTick = useGameStore((s) => s.gameTick);
   const raceTickProgress = useGameStore((s) => s.raceTickProgress);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
 
@@ -86,7 +85,6 @@ function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
       <Section label="Tick">
         <Row label="Next tick in" value={<span ref={tickRef}>—</span>} />
         <Row label="Tick speed" value={`${(tickSpeedMs / 1000).toFixed(1)}s`} />
-        <Row label="Game tick" value={`#${gameTick}`} />
         {autoRaceUnlocked && (
           <Row label="Race progress" value={`${raceTickProgress} / ${raceTicksNeeded} ticks`} />
         )}
