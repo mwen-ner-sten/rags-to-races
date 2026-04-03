@@ -5,6 +5,23 @@ import MiniChart, { type Dataset, type Threshold } from "../MiniChart";
 import { calculateLegacyPoints, type RunStats } from "@/engine/prestige";
 import { ControlPanel, Slider, Insight, Formula } from "./ChartControls";
 import { calcFatigue } from "./balanceUtils";
+import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
+
+/** Sum LP multiplier from momentum tiers active at a given fatigue level */
+function lpMultAtFatigue(fatigue: number): number {
+  return MOMENTUM_TIERS
+    .filter((t) => t.effect.type === "lp_multiplier" && t.condition.type === "fatigue_gte" && fatigue >= t.condition.value)
+    .reduce((sum, t) => sum + t.effect.value, 0);
+}
+
+// Derive the fatigue thresholds and names for the two LP-boosting tiers
+const LP_TIERS = MOMENTUM_TIERS
+  .filter((t) => t.effect.type === "lp_multiplier" && t.condition.type === "fatigue_gte")
+  .sort((a, b) => a.condition.value - b.condition.value);
+const DEEP_RUN_FATIGUE = LP_TIERS[0]?.condition.value ?? 60;
+const LEGENDARY_FATIGUE = LP_TIERS[1]?.condition.value ?? 80;
+const DEEP_RUN_MULT = 1 + lpMultAtFatigue(DEEP_RUN_FATIGUE);
+const LEGENDARY_MULT = 1 + lpMultAtFatigue(LEGENDARY_FATIGUE);
 
 export default function LpSimulator() {
   const [scrap, setScrap] = useState(50000);
@@ -35,15 +52,17 @@ export default function LpSimulator() {
     const baseLp = calculateLegacyPoints(stats);
 
     return { scrapComp, raceComp, tierMult, fatigueFloor, workshopBonus, baseLp, fatigue,
-      deepRunLp: Math.floor(baseLp * 1.5),
-      legendaryLp: Math.floor(baseLp * 2.5),
+      deepRunLp: Math.floor(baseLp * DEEP_RUN_MULT),
+      legendaryLp: Math.floor(baseLp * LEGENDARY_MULT),
     };
   }, [scrap, circuitTier, workshopCount, ironWill]);
 
   const datasets = useMemo<Dataset[]>(() => {
+    const drPct = Math.round((DEEP_RUN_MULT - 1) * 100);
+    const lgPct = Math.round((LEGENDARY_MULT - 1) * 100);
     const base: Dataset = { label: "Base LP", color: "#3b82f6", points: [], fill: true };
-    const deepRun: Dataset = { label: "Deep Run (+50%)", color: "#f97316", points: [], dashed: true };
-    const legendary: Dataset = { label: "Legendary (+150%)", color: "#ef4444", points: [], dashed: true };
+    const deepRun: Dataset = { label: `Deep Run (+${drPct}%)`, color: "#f97316", points: [], dashed: true };
+    const legendary: Dataset = { label: `Legendary (+${lgPct}%)`, color: "#ef4444", points: [], dashed: true };
 
     for (let r = 10; r <= 300; r += 3) {
       const fatigue = calcFatigue(r, ironWill * 5);
@@ -53,8 +72,8 @@ export default function LpSimulator() {
       };
       const lp = calculateLegacyPoints(stats);
       base.points.push({ x: r, y: lp });
-      deepRun.points.push({ x: r, y: Math.floor(lp * 1.5) });
-      legendary.points.push({ x: r, y: Math.floor(lp * 2.5) });
+      deepRun.points.push({ x: r, y: Math.floor(lp * DEEP_RUN_MULT) });
+      legendary.points.push({ x: r, y: Math.floor(lp * LEGENDARY_MULT) });
     }
     return [base, deepRun, legendary];
   }, [scrap, circuitTier, workshopCount, ironWill]);
@@ -63,8 +82,8 @@ export default function LpSimulator() {
     let dr = 0, lg = 0;
     for (let r = 0; r <= 500; r++) {
       const f = calcFatigue(r, ironWill * 5);
-      if (f >= 60 && !dr) dr = r;
-      if (f >= 80 && !lg) lg = r;
+      if (f >= DEEP_RUN_FATIGUE && !dr) dr = r;
+      if (f >= LEGENDARY_FATIGUE && !lg) lg = r;
     }
     return [
       dr > 0 && dr <= 300 ? { value: dr, axis: "x" as const, color: "#f97316", label: `Deep Run (~${dr})` } : null,
@@ -121,8 +140,8 @@ export default function LpSimulator() {
         <div style={{ borderColor: "var(--divider)" }} className="border-t px-4 py-3 flex justify-around">
           {[
             { label: "Base", value: breakdown.baseLp, color: "#3b82f6" },
-            { label: "Deep Run (+50%)", value: breakdown.deepRunLp, color: "#f97316" },
-            { label: "Legendary (+150%)", value: breakdown.legendaryLp, color: "#ef4444" },
+            { label: `Deep Run (+${Math.round((DEEP_RUN_MULT - 1) * 100)}%)`, value: breakdown.deepRunLp, color: "#f97316" },
+            { label: `Legendary (+${Math.round((LEGENDARY_MULT - 1) * 100)}%)`, value: breakdown.legendaryLp, color: "#ef4444" },
           ].map((m) => (
             <div key={m.label} className="text-center">
               <div style={{ color: "var(--text-muted)" }} className="text-xs">{m.label}</div>
