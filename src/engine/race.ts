@@ -160,7 +160,7 @@ export function simulateRace(
   const scrapsEarned = won
     ? circuit.rewardBase
     : Math.floor(circuit.rewardBase * positionMultiplier * 0.3);
-  const repEarned = won ? circuit.repReward : Math.floor(circuit.repReward * 0.2);
+  const repEarned = won ? circuit.repReward : circuit.repReward * positionMultiplier * 0.5;
 
   // Circuit salvage drop — only on wins
   const salvageDrop = won
@@ -175,7 +175,7 @@ export function simulateRace(
     `Finished: P${position}/${totalRacers}`,
     pickFlavor(result),
     won ? `+${scrapsEarned} Scrap Bucks` : scrapsEarned > 0 ? `+${scrapsEarned} Scrap Bucks (consolation)` : "No prize money.",
-    repEarned > 0 ? `+${repEarned} Rep` : "",
+    repEarned > 0 ? `+${parseFloat(repEarned.toFixed(1))} Rep` : "",
     salvageDrop ? `Salvaged a part from the wreckage!` : "",
     forgeTokenDrop ? `Found a Forge Token in the debris!` : "",
   ].filter(Boolean);
