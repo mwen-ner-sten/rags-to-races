@@ -11,6 +11,8 @@ import type { PartCondition } from "@/data/parts";
 import BalanceDashboard from "./BalanceDashboard";
 
 const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
+const VERCEL_ENV = process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development";
+const ENV_LABEL = VERCEL_ENV === "production" ? "PROD" : VERCEL_ENV === "preview" ? "PREVIEW" : "DEV";
 
 const SECTION = "rounded-lg border p-4 flex flex-col gap-3";
 const LABEL = "text-xs font-semibold uppercase tracking-wider mb-1";
@@ -109,9 +111,21 @@ export default function AdminPanel() {
             </button>
           ))}
         </div>
-        <span style={{ color: "var(--text-muted)" }} className="text-xs">
-          &#9888; Dev only \u2014 changes saved to localStorage
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-xs font-mono font-semibold rounded px-1.5 py-0.5"
+            style={{
+              background: ENV_LABEL === "PROD" ? "var(--danger)" : ENV_LABEL === "PREVIEW" ? "var(--accent-bg)" : "var(--success)",
+              color: ENV_LABEL === "PROD" ? "var(--btn-primary-text)" : ENV_LABEL === "PREVIEW" ? "var(--accent)" : "var(--btn-primary-text)",
+              border: ENV_LABEL === "PREVIEW" ? "1px solid var(--accent-border)" : undefined,
+            }}
+          >
+            {ENV_LABEL}
+          </span>
+          <span style={{ color: "var(--text-muted)" }} className="text-xs">
+            v{BUILD_VERSION}
+          </span>
+        </div>
       </div>
 
       {devMode === "balance" ? (

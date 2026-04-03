@@ -48,7 +48,8 @@ export default function RunEconomyChart({ snapshot }: { snapshot?: GameSnapshot 
       const lossChance = 1 - winChance - dnfChance;
 
       const winIncome = circuit.rewardBase * scrapMult;
-      const lossIncome = circuit.rewardBase * 0.3 * 0.5 * scrapMult;
+      // Avg loss position multiplier: positions 2-8, mean of (6+5+4+3+2+1+0)/(7*8) = 0.375
+      const lossIncome = circuit.rewardBase * 0.3 * 0.375 * scrapMult;
       const expectedIncome = winChance * winIncome + Math.max(0, lossChance) * lossIncome - circuit.entryFee;
 
       const wear = BASE_WEAR_PER_RACE * (1 + fatigue * 0.008);
