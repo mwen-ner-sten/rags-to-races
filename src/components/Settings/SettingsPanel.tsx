@@ -3,6 +3,7 @@
 import { useTheme } from "@/hooks/useTheme";
 import { THEMES } from "@/data/themes";
 import SaveLoadPanel from "@/components/Shop/SaveLoadPanel";
+import StartOverPanel from "@/components/Settings/StartOverPanel";
 
 export default function SettingsPanel() {
   const [theme, setTheme] = useTheme();
@@ -80,6 +81,14 @@ export default function SettingsPanel() {
           Save &amp; Load
         </h2>
         <SaveLoadPanel />
+      </div>
+
+      {/* Danger Zone */}
+      <div>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-zinc-400">
+          Danger Zone
+        </h2>
+        <StartOverPanel />
       </div>
     </div>
   );
