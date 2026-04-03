@@ -416,13 +416,20 @@ export default function RacePanel() {
                 Your vehicle is falling apart! Consider repairing.
               </div>
             )}
+            {selectedCircuit && activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier && (
+              <div className="mt-1.5 text-xs font-semibold" style={{ color: "var(--warning)" }}>
+                Your racer doesn&apos;t meet the tier requirement for this circuit. You need a T{selectedCircuit.minVehicleTier}+ vehicle.
+              </div>
+            )}
           </div>
         ) : (
           <div
             className="rounded-lg p-3 sm:p-4 text-sm"
             style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)", color: "var(--text-muted)" }}
           >
-            No active vehicle. Build one in the Garage tab.
+            {selectedCircuit
+              ? `No active racer. Build a T${selectedCircuit.minVehicleTier}+ vehicle in the Garage tab to race on this circuit.`
+              : "No active vehicle. Build one in the Garage tab."}
           </div>
         )}
 
