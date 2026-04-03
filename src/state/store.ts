@@ -208,6 +208,9 @@ export interface GameState {
   convertScrapToMaterial: (material: MaterialType) => void;
   purchaseFatigueDrink: () => void;
 
+  // User actions (destructive)
+  resetSave: () => void;
+
   // Dev / admin actions
   devSetScrapBucks: (amount: number) => void;
   devAddScrapBucks: (amount: number) => void;
@@ -1669,6 +1672,10 @@ function createActions(set: any, get: any) {
 
     devSetAutoUnlocks: (scavengeUnlocked: boolean, raceUnlocked: boolean) => {
       set({ autoScavengeUnlocked: scavengeUnlocked, autoRaceUnlocked: raceUnlocked });
+    },
+
+    resetSave: () => {
+      set({ ...initialState() });
     },
 
     devResetSave: () => {
