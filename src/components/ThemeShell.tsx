@@ -6,7 +6,7 @@ import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import StatsTooltip from "@/components/StatsTooltip";
 import VehicleTooltip from "@/components/VehicleTooltip";
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "log" | "help" | "settings" | "dev";
 
 interface Props {
   activeTab: TabId;
@@ -21,6 +21,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "locker",   label: "Locker"   },
   { id: "workshop", label: "Workshop" },
   { id: "shop",     label: "Shop"     },
+  { id: "log",      label: "Log"      },
   { id: "help",     label: "Help"     },
   { id: "settings", label: "Settings" },
   { id: "dev",      label: "Dev"      },
