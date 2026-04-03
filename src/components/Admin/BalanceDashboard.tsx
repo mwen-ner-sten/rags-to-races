@@ -9,77 +9,102 @@ import UpgradeCostChart from "./charts/UpgradeCostChart";
 import PrestigeRoiTable from "./charts/PrestigeRoiTable";
 
 const TABS = [
-  { id: "fatigue", label: "Fatigue Curve" },
-  { id: "decay", label: "Performance Decay" },
-  { id: "lp", label: "LP Simulator" },
-  { id: "economy", label: "Run Economy" },
-  { id: "upgrades", label: "Upgrade Costs" },
-  { id: "roi", label: "Prestige ROI" },
+  { id: "fatigue", label: "Fatigue Curve", desc: "When does fatigue bite?" },
+  { id: "decay", label: "Perf Decay", desc: "How fast does everything degrade?" },
+  { id: "lp", label: "LP Simulator", desc: "How much LP will I earn?" },
+  { id: "economy", label: "Run Economy", desc: "When do I go broke?" },
+  { id: "upgrades", label: "Upgrade Costs", desc: "How fast do costs scale?" },
+  { id: "roi", label: "Prestige ROI", desc: "Should I prestige now?" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
 export default function BalanceDashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("fatigue");
+  const currentTab = TABS.find((t) => t.id === activeTab)!;
 
   return (
-    <div className="flex flex-col gap-4 max-w-4xl mx-auto p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 style={{ color: "var(--text-heading)" }} className="text-lg font-bold">
-            Balance Visualizer
-          </h1>
-          <p style={{ color: "var(--text-muted)" }} className="text-xs">
-            Interactive charts for tuning prestige mechanics, fatigue curves, and game economy.
-          </p>
-        </div>
-        <a
-          href="/"
-          style={{ color: "var(--accent)" }}
-          className="text-xs underline hover:opacity-80"
-        >
-          Back to Game
-        </a>
-      </div>
-
-      {/* Warning */}
-      <div
-        style={{ background: "rgba(196,180,58,.08)", borderColor: "rgba(196,180,58,.3)", color: "var(--warning)" }}
-        className="rounded-lg border px-4 py-2 text-xs"
-      >
-        Dev-only balance analysis. These charts use the actual game formulas to project outcomes.
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex gap-1 flex-wrap">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-            style={
-              activeTab === tab.id
-                ? { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }
-                : { borderColor: "var(--btn-border)", color: "var(--text-primary)", border: "1px solid" }
-            }
+    <div className="min-h-screen" style={{ background: "var(--panel-bg)" }}>
+      <div className="flex flex-col gap-5 max-w-5xl mx-auto p-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 style={{ color: "var(--text-heading)" }} className="text-xl font-bold tracking-tight">
+              Balance Visualizer
+            </h1>
+            <p style={{ color: "var(--text-muted)" }} className="text-sm mt-0.5">
+              Interactive analysis of prestige mechanics, fatigue curves, and game economy
+            </p>
+          </div>
+          <a
+            href="/"
+            style={{ borderColor: "var(--btn-border)", color: "var(--text-secondary)" }}
+            className="rounded-lg border px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
           >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+            Back to Game
+          </a>
+        </div>
 
-      {/* Content */}
-      <div
-        style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
-        className="rounded-lg border p-4"
-      >
-        {activeTab === "fatigue" && <FatigueCurveChart />}
-        {activeTab === "decay" && <PerformanceDecayChart />}
-        {activeTab === "lp" && <LpSimulator />}
-        {activeTab === "economy" && <RunEconomyChart />}
-        {activeTab === "upgrades" && <UpgradeCostChart />}
-        {activeTab === "roi" && <PrestigeRoiTable />}
+        {/* Tab bar */}
+        <div
+          style={{ background: "color-mix(in srgb, var(--panel-bg) 50%, transparent)", borderColor: "var(--panel-border)" }}
+          className="rounded-xl border p-1.5 flex gap-1 flex-wrap"
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="rounded-lg px-4 py-2 text-xs font-semibold transition-all flex-1 min-w-[100px]"
+              style={
+                activeTab === tab.id
+                  ? { background: "var(--accent)", color: "var(--btn-primary-text)", boxShadow: `0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent)` }
+                  : { color: "var(--text-muted)" }
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content panel */}
+        <div
+          style={{ borderColor: "var(--panel-border)" }}
+          className="rounded-xl border overflow-hidden"
+        >
+          {/* Panel header */}
+          <div
+            style={{ borderColor: "var(--divider)" }}
+            className="border-b px-6 py-4 flex items-baseline justify-between"
+          >
+            <div>
+              <h2 style={{ color: "var(--text-heading)" }} className="text-sm font-bold">
+                {currentTab.label}
+              </h2>
+              <p style={{ color: "var(--text-muted)" }} className="text-xs mt-0.5">{currentTab.desc}</p>
+            </div>
+            <span
+              style={{ background: "var(--accent-bg)", color: "var(--accent)" }}
+              className="text-xs font-mono rounded-md px-2 py-0.5"
+            >
+              DEV
+            </span>
+          </div>
+
+          {/* Panel body */}
+          <div className="p-6">
+            {activeTab === "fatigue" && <FatigueCurveChart />}
+            {activeTab === "decay" && <PerformanceDecayChart />}
+            {activeTab === "lp" && <LpSimulator />}
+            {activeTab === "economy" && <RunEconomyChart />}
+            {activeTab === "upgrades" && <UpgradeCostChart />}
+            {activeTab === "roi" && <PrestigeRoiTable />}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <p style={{ color: "var(--text-muted)" }} className="text-xs text-center opacity-50">
+          Charts use actual game formulas. Adjust sliders to explore parameter space.
+        </p>
       </div>
     </div>
   );

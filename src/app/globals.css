@@ -209,3 +209,48 @@ html {
   top: -7px;
   border-bottom: 7px solid #1a1a1a;
 }
+
+/* ── Balance visualizer slider ─────────────────────────────────────────── */
+.chart-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--input-bg);
+  outline: none;
+  cursor: pointer;
+}
+.chart-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-bg);
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.chart-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.chart-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-bg);
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  cursor: pointer;
+}
+.chart-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+}
+.chart-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--input-bg);
+}
