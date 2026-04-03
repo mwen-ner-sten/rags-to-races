@@ -84,8 +84,8 @@ export function Toggle({
 export function ControlPanel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      style={{ background: "color-mix(in srgb, var(--panel-bg) 60%, transparent)", borderColor: "var(--divider)" }}
-      className="rounded-lg border p-4 grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4"
+      style={{ borderColor: "var(--divider)" }}
+      className="rounded-lg border p-3 grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3"
     >
       {children}
     </div>

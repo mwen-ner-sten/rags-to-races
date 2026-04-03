@@ -164,7 +164,7 @@ export default function MiniChart({
   const { xMin, xMax, yMin, toSvgX, toSvgY, xTicks, yTicks, paths, areas } = chart;
 
   return (
-    <div className="flex flex-col gap-0">
+    <div className="relative flex flex-col gap-0">
       <div className="w-full" style={{ aspectRatio: `${width} / ${height}` }}>
         <svg
           ref={svgRef}
