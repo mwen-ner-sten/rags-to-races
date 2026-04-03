@@ -474,7 +474,7 @@ export default function ScavengePanel() {
                 {(defAddon.statBonuses.weight ?? 0) !== 0 && <StatRow label="Weight" value={`${defAddon.statBonuses.weight! > 0 ? "+" : ""}${defAddon.statBonuses.weight}kg`} />}
               </div>
               <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, fontSize: 10, fontStyle: "italic", color: "var(--text-muted)" }}>
-                "{defAddon.flavorText}"
+                &quot;{defAddon.flavorText}&quot;
               </div>
             </>
           )}

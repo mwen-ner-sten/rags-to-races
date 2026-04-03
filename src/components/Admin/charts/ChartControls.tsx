@@ -58,6 +58,7 @@ export function Toggle({
     <label
       className="flex items-center gap-2 cursor-pointer select-none group"
     >
+      <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span
         className="relative inline-flex items-center justify-center w-8 h-[18px] rounded-full transition-colors"
         style={{

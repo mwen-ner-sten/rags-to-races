@@ -1,4 +1,4 @@
-import type { CoreSlot, PartCondition } from "./parts";
+import type { CoreSlot } from "./parts";
 import { CONDITION_MULTIPLIERS } from "./parts";
 
 export interface AddOnDefinition {

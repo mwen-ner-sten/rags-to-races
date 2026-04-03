@@ -161,7 +161,7 @@ export default function MiniChart({
     );
   }
 
-  const { xMin, xMax, yMin, toSvgX, toSvgY, xTicks, yTicks, paths, areas } = chart;
+  const { yMin, toSvgX, toSvgY, xTicks, yTicks, paths, areas } = chart;
 
   return (
     <div className="relative flex flex-col gap-0">

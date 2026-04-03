@@ -29,6 +29,7 @@ export default function LpSimulator({ snapshot }: { snapshot?: GameSnapshot }) {
   const [workshopCount, setWorkshopCount] = useState(10);
   const [ironWill, setIronWill] = useState(0);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- initialise from snapshot prop */
   useEffect(() => {
     if (!snapshot) return;
     setScrap(Math.max(1000, snapshot.lifetimeScrap));
@@ -36,6 +37,7 @@ export default function LpSimulator({ snapshot }: { snapshot?: GameSnapshot }) {
     setWorkshopCount(snapshot.workshopCount);
     setIronWill(snapshot.ironWill);
   }, [snapshot]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const breakdownRaces = 150;
 

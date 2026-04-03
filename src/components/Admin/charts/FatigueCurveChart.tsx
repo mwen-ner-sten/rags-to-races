@@ -12,6 +12,7 @@ export default function FatigueCurveChart({ snapshot }: { snapshot?: GameSnapsho
   const [ironWill, setIronWill] = useState(0);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initialise from snapshot prop
     if (snapshot) setIronWill(snapshot.ironWill);
   }, [snapshot]);
 
