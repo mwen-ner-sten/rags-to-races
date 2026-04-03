@@ -69,6 +69,7 @@ export interface GameState {
 
   // Scavenging
   selectedLocationId: string;
+  selectedSellBelowQuality: PartCondition;
   isScavenging: boolean;
   autoScavengeUnlocked: boolean;
   /** Counts manual scavenge button clicks; auto-scavenge unlocks at 100 */
@@ -170,6 +171,7 @@ export interface GameState {
   sellVehicle: (vehicleId: string) => void;
   setSelectedLocation: (locationId: string) => void;
   setSelectedCircuit: (circuitId: string) => void;
+  setSelectedSellBelowQuality: (threshold: PartCondition) => void;
   enterRace: () => void;
   clearUnlockEvents: () => void;
   advanceTutorial: () => void;
@@ -242,6 +244,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     garage: [],
     activeVehicleId: null,
     selectedLocationId: "curbside",
+    selectedSellBelowQuality: "decent",
     isScavenging: false,
     autoScavengeUnlocked: false,
     manualScavengeClicks: 0,
@@ -578,6 +581,10 @@ function createActions(set: any, get: any) {
 
     setSelectedCircuit: (circuitId: string) => {
       set({ selectedCircuitId: circuitId });
+    },
+
+    setSelectedSellBelowQuality: (threshold: PartCondition) => {
+      set({ selectedSellBelowQuality: threshold });
     },
 
     enterRace: () => {
@@ -1725,6 +1732,7 @@ export const useGameStore = create<GameState>()(
         garage: state.garage,
         activeVehicleId: state.activeVehicleId,
         selectedLocationId: state.selectedLocationId,
+        selectedSellBelowQuality: state.selectedSellBelowQuality,
         selectedCircuitId: state.selectedCircuitId,
         autoScavengeUnlocked: state.autoScavengeUnlocked,
         manualScavengeClicks: state.manualScavengeClicks,

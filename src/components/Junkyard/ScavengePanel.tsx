@@ -94,6 +94,8 @@ export default function ScavengePanel() {
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const sellAllScrap = useGameStore((s) => s.sellAllScrap);
   const sellBelowQuality = useGameStore((s) => s.sellBelowQuality);
+  const selectedSellBelowQuality = useGameStore((s) => s.selectedSellBelowQuality);
+  const setSelectedSellBelowQuality = useGameStore((s) => s.setSelectedSellBelowQuality);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
@@ -133,7 +135,6 @@ export default function ScavengePanel() {
     return () => { unsub(); if (clearTimer) clearTimeout(clearTimer); };
   }, []);
 
-  const [qualityThreshold, setQualityThreshold] = useState<PartCondition>("decent");
   const [hoveredGroup, setHoveredGroup] = useState<{ group: InventoryGroup; x: number; y: number } | null>(null);
   const hasScrap = useMemo(
     () => inventory.some((p) => p.type === "part" && getPartById(p.definitionId)?.category === "misc"),
@@ -299,8 +300,8 @@ export default function ScavengePanel() {
             {inventory.length > 0 && (
               <>
                 <select
-                  value={qualityThreshold}
-                  onChange={(e) => setQualityThreshold(e.target.value as PartCondition)}
+                  value={selectedSellBelowQuality}
+                  onChange={(e) => setSelectedSellBelowQuality(e.target.value as PartCondition)}
                   className="rounded border px-1 py-1 text-xs"
                   style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)", background: "var(--panel-bg)" }}
                 >
@@ -309,7 +310,7 @@ export default function ScavengePanel() {
                   ))}
                 </select>
                 <button
-                  onClick={() => sellBelowQuality(qualityThreshold)}
+                  onClick={() => sellBelowQuality(selectedSellBelowQuality)}
                   className="rounded border px-2 py-1 text-xs transition-colors"
                   style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
                 >
