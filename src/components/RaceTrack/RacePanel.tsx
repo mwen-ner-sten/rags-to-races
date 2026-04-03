@@ -236,7 +236,9 @@ function StreakDisplay({ streak, best }: { streak: number; best: number }) {
 
 // ── Main RacePanel ──────────────────────────────────────────────────────
 
-export default function RacePanel() {
+type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+
+export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId) => void }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
   const garage = useGameStore((s) => s.garage);
@@ -416,13 +418,56 @@ export default function RacePanel() {
                 Your vehicle is falling apart! Consider repairing.
               </div>
             )}
+            {selectedCircuit && activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier && (() => {
+              const qualifyingVehicle = garage.find((v) => {
+                const def = VEHICLE_DEFINITIONS.find((d) => d.id === v.definitionId);
+                return def && def.tier >= selectedCircuit.minVehicleTier;
+              });
+              return (
+                <div className="mt-1.5 text-xs font-semibold" style={{ color: "var(--warning)" }}>
+                  Your racer doesn&apos;t meet the T{selectedCircuit.minVehicleTier}+ requirement.{" "}
+                  {qualifyingVehicle ? (
+                    <button onClick={() => setActiveTab?.("garage")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
+                      Activate a qualifying vehicle in the Garage
+                    </button>
+                  ) : (
+                    <button onClick={() => setActiveTab?.("junkyard")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
+                      Scavenge parts in the Junkyard to build one
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div
             className="rounded-lg p-3 sm:p-4 text-sm"
             style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)", color: "var(--text-muted)" }}
           >
-            No active vehicle. Build one in the Garage tab.
+            {selectedCircuit ? (
+              <>
+                No active racer for this circuit.{" "}
+                {(() => {
+                  const qualifyingVehicle = garage.find((v) => {
+                    const def = VEHICLE_DEFINITIONS.find((d) => d.id === v.definitionId);
+                    return def && def.tier >= selectedCircuit.minVehicleTier;
+                  });
+                  return qualifyingVehicle ? (
+                    <button onClick={() => setActiveTab?.("garage")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
+                      Activate your T{VEHICLE_DEFINITIONS.find((d) => d.id === qualifyingVehicle.definitionId)?.tier} {VEHICLE_DEFINITIONS.find((d) => d.id === qualifyingVehicle.definitionId)?.name} in the Garage
+                    </button>
+                  ) : (
+                    <>
+                      You need a T{selectedCircuit.minVehicleTier}+ vehicle.{" "}
+                      <button onClick={() => setActiveTab?.("junkyard")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
+                        Scavenge parts in the Junkyard
+                      </button>
+                      {" "}to get started.
+                    </>
+                  );
+                })()}
+              </>
+            ) : "No active vehicle. Build one in the Garage tab."}
           </div>
         )}
 

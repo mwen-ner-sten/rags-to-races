@@ -144,7 +144,7 @@ export default function Home() {
       <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
-        {activeTab === "race"     && <RacePanel />}
+        {activeTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
         {activeTab === "locker"    && <LockerPanel />}
         {activeTab === "workshop" && <WorkshopPanel />}
         {activeTab === "shop"     && <ShopPanel />}
