@@ -621,7 +621,7 @@ function createActions(set: any, get: any) {
         set((s: GameState) => {
           // Apply prestige + momentum rep multiplier
           const mRepMult = getMomentumEffectValue(s.activeMomentumTiers, "rep_multiplier");
-          const effectiveRepEarned = Math.floor(outcome.repEarned * s.prestigeBonus.repMultiplier * (1 + mRepMult));
+          const effectiveRepEarned = outcome.repEarned * s.prestigeBonus.repMultiplier * (1 + mRepMult);
           const newRep = s.repPoints + effectiveRepEarned;
           const newUnlockedCircuits = [...s.unlockedCircuitIds];
           const newUnlockedLocations = [...s.unlockedLocationIds];

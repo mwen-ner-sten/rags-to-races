@@ -157,7 +157,7 @@ export function computeTick(state: GameState): TickResult {
           const momentumScrapMult = getMomentumEffectValue(state.activeMomentumTiers, "scrap_multiplier");
           const momentumRepMult = getMomentumEffectValue(state.activeMomentumTiers, "rep_multiplier");
           result.scrapsEarned += Math.floor(scraps * (1 + momentumScrapMult)) - circuit.entryFee;
-          result.repEarned += Math.floor(result.raceOutcome.repEarned * state.prestigeBonus.repMultiplier * (1 + momentumRepMult));
+          result.repEarned += result.raceOutcome.repEarned * state.prestigeBonus.repMultiplier * (1 + momentumRepMult);
 
           // Calculate wear (workshop + gear + legacy reduction)
           const wearReduction = _getUpgradeEffectValue(state, "reinforced_chassis");
