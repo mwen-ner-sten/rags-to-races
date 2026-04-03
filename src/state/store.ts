@@ -547,14 +547,29 @@ function createActions(set: any, get: any) {
 
       const built = buildVehicle(vehicleDef, builtParts, _vehicleIdCounter);
 
-      set((s: GameState) => ({
-        garage: [...s.garage, built],
-        inventory: s.inventory.filter((p) => !usedPartIds.has(p.id)),
-        scrapBucks: s.scrapBucks - actualBuildCost,
-        _vehicleIdCounter: s._vehicleIdCounter + 1,
-        pendingBuildParts: {},
-        activeVehicleId: s.activeVehicleId ?? built.id,
-      }));
+      set((s: GameState) => {
+        const remainingInventory = s.inventory.filter((p) => !usedPartIds.has(p.id));
+        const newPendingParts: Record<string, ScavengedPart | null> = {};
+        for (const slotCfg of vehicleDef.slots) {
+          const usedPart = pendingBuildParts[slotCfg.slot];
+          if (usedPart) {
+            const replacement = remainingInventory.find(
+              (p) => p.definitionId === usedPart.definitionId && p.condition === usedPart.condition,
+            );
+            if (replacement) {
+              newPendingParts[slotCfg.slot] = replacement;
+            }
+          }
+        }
+        return {
+          garage: [...s.garage, built],
+          inventory: remainingInventory,
+          scrapBucks: s.scrapBucks - actualBuildCost,
+          _vehicleIdCounter: s._vehicleIdCounter + 1,
+          pendingBuildParts: newPendingParts,
+          activeVehicleId: s.activeVehicleId ?? built.id,
+        };
+      });
     },
 
     setActiveVehicle: (vehicleId: string) => {
