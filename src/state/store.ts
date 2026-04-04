@@ -215,7 +215,7 @@ export interface GameState {
   prestige: () => void;
   purchaseLegacyUpgrade: (upgradeId: string) => void;
   checkMomentumTiers: () => void;
-  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[]) => void;
+  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[], racesCompleted?: number) => void;
 
   // ── New system actions ───────────────────────────────────────────────────────
   decomposePart: (partId: string) => void;
@@ -1328,7 +1328,7 @@ function createActions(set: any, get: any) {
       }
     },
 
-    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[]) => {
+    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[], racesCompleted?: number) => {
       set((s: GameState) => {
         let updatedGarage = s.garage;
         if ((vehicleWear || vehicleRepair) && s.activeVehicleId) {
@@ -1343,13 +1343,13 @@ function createActions(set: any, get: any) {
             return {
               ...v,
               condition: newCond,
-              totalRaces: vehicleWear ? (v.totalRaces ?? 0) + 1 : (v.totalRaces ?? 0),
+              totalRaces: vehicleWear ? (v.totalRaces ?? 0) + (racesCompleted ?? 1) : (v.totalRaces ?? 0),
               stats: vDef ? calculateStats(vDef, v.parts, newCond, handlingBonus) : v.stats,
             };
           });
         }
         const raced = !!vehicleWear;
-        const newLifetimeRaces = raced ? s.lifetimeRaces + 1 : s.lifetimeRaces;
+        const newLifetimeRaces = raced ? s.lifetimeRaces + (racesCompleted ?? 1) : s.lifetimeRaces;
         const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
         const gbFatigue = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES);
         const rawFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
