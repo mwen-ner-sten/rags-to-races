@@ -54,7 +54,11 @@ const TOTAL_GUIDED_STEPS = STEPS.length - 1;
 export function getAllowedTabs(step: number): Set<TabId> | null {
   if (step < 0 || step >= STEPS.length) return null;
   const allowed = STEPS[step].allowedTabs;
-  return allowed ? new Set(allowed) : null;
+  if (!allowed) return null;
+  const s = new Set(allowed);
+  s.add("help");
+  s.add("settings");
+  return s;
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
