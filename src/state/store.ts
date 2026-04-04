@@ -393,10 +393,10 @@ function createActions(set: any, get: any) {
         const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
-      /* ── Tutorial boost: first 30 clicks guarantee enough to build ───── */
-      const isTutorial = state.tutorialStep >= 1 && state.tutorialStep <= 2;
+      /* ── Early-game boost: first 30 clicks on first prestige guarantee enough to build ── */
+      const isFirstPrestige = state.prestigeCount === 0;
       const clickNum = state.manualScavengeClicks; // 0-indexed
-      if (isTutorial && clickNum < 30) {
+      if (isFirstPrestige && clickNum < 30) {
         const hasEngine = state.inventory.some((p) =>
           p.definitionId === "engine_small" || p.definitionId === "engine_lawn",
         );
