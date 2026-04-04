@@ -397,23 +397,24 @@ function createActions(set: any, get: any) {
       const isFirstPrestige = state.prestigeCount === 0;
       const clickNum = state.manualScavengeClicks; // 0-indexed
       if (isFirstPrestige && clickNum < 30) {
+        // First upgrade junk / zero-value parts so every drop sells for $1+
+        for (const p of parts) {
+          if (p.definitionId === "misc_junk" || p.definitionId === "elec_none" || p.definitionId === "wheel_busted") {
+            p.definitionId = "misc_seat";
+          }
+          if (p.condition === "rusted") p.condition = "worn";
+        }
+        // Then force engine / wheel (overrides any swap above)
         const hasEngine = state.inventory.some((p) =>
           p.definitionId === "engine_small" || p.definitionId === "engine_lawn",
         );
         const hasWheel = state.inventory.some((p) =>
           p.definitionId === "wheel_busted" || p.definitionId === "wheel_basic",
         );
-        // Force engine on click 3, wheel on click 7 if missing
         if (clickNum === 3 && !hasEngine) {
           parts[0] = { id: makePartId(), definitionId: "engine_small", condition: "decent", foundAt: location.id, type: "part" };
         } else if (clickNum === 7 && !hasWheel) {
           parts[0] = { id: makePartId(), definitionId: "wheel_busted", condition: "worn", foundAt: location.id, type: "part" };
-        }
-        for (const p of parts) {
-          // Swap worthless junk for sellable seats ($1+ each)
-          if (p.definitionId === "misc_junk") p.definitionId = "misc_seat";
-          // Floor condition to "worn" so nothing sells for $0
-          if (p.condition === "rusted") p.condition = "worn";
         }
       }
 
