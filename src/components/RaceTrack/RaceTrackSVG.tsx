@@ -40,14 +40,17 @@ export default function RaceTrackSVG({
     const totalLength = lengthRef.current;
     if (!path || totalLength === 0) return;
 
-    // Leave buffer so cars never wrap past start
-    const usableLength = totalLength * 0.72;
-    const baseDistance = progress * usableLength;
-
     // Spread shrinks as race progresses — pack tightens toward finish
     const maxSpread = totalLength * 0.18;
     const spreadFactor = 0.3 + 0.7 * (1 - progress);
     const currentSpread = maxSpread * spreadFactor;
+
+    // P1 (rank 0) gets the largest offset (= currentSpread).
+    // At progress=1 we want P1 to land exactly at the finish line (distance = totalLength).
+    // So: usableLength = totalLength - endSpread, where endSpread = maxSpread * 0.3
+    const endSpread = maxSpread * 0.3;
+    const usableLength = totalLength - endSpread;
+    const baseDistance = progress * usableLength;
 
     for (let i = 0; i < TOTAL_RACERS; i++) {
       const el = carRefs.current[i];
