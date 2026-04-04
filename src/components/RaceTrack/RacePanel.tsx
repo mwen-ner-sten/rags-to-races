@@ -97,16 +97,22 @@ function LiveRaceView({
   const [progress, setProgress] = useState(0);
   const eventIndexRef = useRef(0);
 
+  // Light tree countdown duration — cars stay put until green
+  const countdownMs = Math.min(400, durationMs * 0.08) * 2.5;
+
   useEffect(() => {
     if (!isActive || !startTime || events.length === 0) return;
 
     eventIndexRef.current = 0;
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const pct = Math.min(1, elapsed / durationMs);
+
+      // Hold at 0 during the light tree countdown
+      const raceElapsed = Math.max(0, elapsed - countdownMs);
+      const pct = Math.min(1, raceElapsed / durationMs);
       setProgress(pct);
 
-      // Find the latest event that should have fired
+      // Events are still timed from startTime so commentary fires during countdown
       let latest = eventIndexRef.current;
       while (latest < events.length && events[latest].timeOffset <= elapsed) {
         latest++;
@@ -118,7 +124,7 @@ function LiveRaceView({
     }, 80);
 
     return () => clearInterval(interval);
-  }, [events, startTime, durationMs, isActive]);
+  }, [events, startTime, durationMs, isActive, countdownMs]);
 
   // Reset state when race ends
   useEffect(() => {
