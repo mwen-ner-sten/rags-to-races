@@ -11,7 +11,6 @@ import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import LockerPanel from "@/components/Locker/LockerPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
-import LogDrawer from "@/components/Log/LogDrawer";
 import ToastContainer from "@/components/effects/Toast";
 import TutorialOverlay, { getAllowedTabs } from "@/components/effects/TutorialOverlay";
 import { useGameStore } from "@/state/store";
@@ -142,7 +141,6 @@ export default function Home() {
     <>
       <ToastContainer />
       <TutorialOverlay activeTab={activeTab} />
-      <LogDrawer />
       <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
