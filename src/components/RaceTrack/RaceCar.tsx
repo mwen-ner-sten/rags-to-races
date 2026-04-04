@@ -47,18 +47,6 @@ export default function RaceCar({
         stroke={isPlayer ? "var(--accent)" : "none"}
         strokeWidth={isPlayer ? 0.5 : 0}
       />
-      {isPlayer && (
-        <text
-          y={-10}
-          textAnchor="middle"
-          fontSize="7"
-          fontWeight="bold"
-          fontFamily="var(--font-mono)"
-          fill="var(--accent)"
-        >
-          YOU
-        </text>
-      )}
     </g>
   );
 }
