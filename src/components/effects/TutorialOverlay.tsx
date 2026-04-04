@@ -304,7 +304,18 @@ export default function TutorialOverlay({ activeTab }: Props) {
       <div className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
         <div
           className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-6"
-          style={CARD_BG}
+          style={{
+            background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
+            border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+            animation: "fade-up 0.3s ease-out, intro-glow-pulse 3s ease-in-out infinite",
+            boxShadow: [
+              "0 0 30px color-mix(in srgb, var(--accent) 35%, transparent)",
+              "0 0 60px color-mix(in srgb, var(--accent) 20%, transparent)",
+              "0 0 120px color-mix(in srgb, var(--accent) 10%, transparent)",
+              "inset 0 0 30px color-mix(in srgb, var(--accent) 6%, transparent)",
+              "0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent)",
+            ].join(", "),
+          }}
         >
           <button
             onClick={dismissTutorial}
@@ -314,8 +325,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
             {"\u2715"}
           </button>
           <div className="mb-4 text-center text-5xl">{"\u{1F3CE}\uFE0F"}</div>
-          <h2 className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)" }}>Rags to Races</h2>
-          <div className="mx-auto mb-4 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
+          <h2 className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)", textShadow: "0 0 20px color-mix(in srgb, var(--accent) 50%, transparent)" }}>Rags to Races</h2>
+          <div className="mx-auto mb-4 h-0.5 w-16 rounded-full" style={{ background: "var(--accent)", boxShadow: "0 0 12px var(--accent)" }} />
           <p className="mb-3 text-center text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             You&apos;ve got nothing but the clothes on your back and a curb full of someone else&apos;s trash.
             Time to turn that garbage into glory.
@@ -326,7 +337,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </div>
           <div className="flex items-center justify-between gap-3">
             <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip tutorial</button>
-            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px color-mix(in srgb, var(--accent) 30%, transparent)" }}>Let&apos;s Go &rarr;</button>
+            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 20px color-mix(in srgb, var(--accent) 50%, transparent), 0 0 40px color-mix(in srgb, var(--accent) 25%, transparent)" }}>Let&apos;s Go &rarr;</button>
           </div>
         </div>
       </div>

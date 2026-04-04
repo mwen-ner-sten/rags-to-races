@@ -158,6 +158,25 @@ html {
   to   { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes intro-glow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 30px color-mix(in srgb, var(--accent) 35%, transparent),
+      0 0 60px color-mix(in srgb, var(--accent) 20%, transparent),
+      0 0 120px color-mix(in srgb, var(--accent) 10%, transparent),
+      inset 0 0 30px color-mix(in srgb, var(--accent) 6%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 40px color-mix(in srgb, var(--accent) 50%, transparent),
+      0 0 80px color-mix(in srgb, var(--accent) 30%, transparent),
+      0 0 160px color-mix(in srgb, var(--accent) 15%, transparent),
+      inset 0 0 40px color-mix(in srgb, var(--accent) 8%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+}
+
 @keyframes number-pop {
   0%   { transform: scale(1); }
   50%  { transform: scale(1.3); }
