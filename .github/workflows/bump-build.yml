@@ -32,7 +32,7 @@ jobs:
             let build = 1;
             try {
               const prev = JSON.parse(fs.readFileSync(path, 'utf-8'));
-              if (prev.date === date) build = (prev.build ?? 0) + 1;
+              build = (prev.build ?? 0) + 1;
             } catch {}
             fs.writeFileSync(path, JSON.stringify({ date, build }, null, 2) + '\n');
             console.log('Build version: ' + date + '.' + build);

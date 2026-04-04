@@ -14,9 +14,7 @@ function generateVersion(): string {
     const counterPath = resolve(dir, ".build-counter.json");
     const raw = readFileSync(counterPath, "utf-8");
     const prev = JSON.parse(raw);
-    if (prev.date === date) {
-      build = prev.build ?? 1;
-    }
+    build = prev.build ?? 1;
   } catch {
     // Missing or unreadable counter — fall back to 1
   }
