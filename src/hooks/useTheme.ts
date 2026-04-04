@@ -7,10 +7,10 @@ export type Theme = "grease" | "neon" | "prestige" | "rustbelt" | "arctic" | "va
 const STORAGE_KEY = "rags-to-races-theme";
 
 function readStored(): Theme {
-  if (typeof window === "undefined") return "grease";
+  if (typeof window === "undefined") return "neon";
   const v = localStorage.getItem(STORAGE_KEY);
   if (v === "grease" || v === "neon" || v === "prestige" || v === "rustbelt" || v === "arctic" || v === "vaporwave" || v === "tactical" || v === "sunset" || v === "deepsix" || v === "bloodmoon" || v === "sakura" || v === "outlaw" || v === "chrome" || v === "terminal" || v === "sandstorm" || v === "midnight") return v;
-  return "grease";
+  return "neon";
 }
 
 interface ThemeStore {
@@ -19,7 +19,7 @@ interface ThemeStore {
 }
 
 export const useThemeStore = create<ThemeStore>((set) => ({
-  theme: "grease", // SSR-safe default; hydrated below
+  theme: "neon", // SSR-safe default; hydrated below
   setTheme: (theme) => {
     localStorage.setItem(STORAGE_KEY, theme);
     set({ theme });
