@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useThemeStore } from "@/hooks/useTheme";
 import { THEME_VARS } from "@/components/ThemeShell";
@@ -63,15 +63,15 @@ export function Row({
 /* ── TooltipPanel ─────────────────────────────────────────────────────────── */
 
 export function TooltipPanel({
-  anchorRect,
+  mousePos,
   children,
 }: {
-  anchorRect: DOMRect;
+  mousePos: { x: number; y: number };
   children: React.ReactNode;
 }) {
   const theme = useThemeStore((s) => s.theme);
-  const top = anchorRect.bottom + 8;
-  const right = window.innerWidth - anchorRect.right;
+  const left = Math.min(mousePos.x + 16, window.innerWidth - 328);
+  const top = Math.min(mousePos.y + 12, window.innerHeight - 200);
 
   return createPortal(
     <div
@@ -79,8 +79,9 @@ export function TooltipPanel({
         ...THEME_VARS[theme] as React.CSSProperties,
         position: "fixed",
         top,
-        right: Math.max(8, right),
+        left: Math.max(8, left),
         zIndex: 9999,
+        pointerEvents: "none",
         background: "var(--panel-bg, #181008)",
         border: "1px solid var(--panel-border, #3a2510)",
         borderRadius: 6,
@@ -94,7 +95,6 @@ export function TooltipPanel({
         fontFamily: "inherit",
         backdropFilter: "blur(8px)",
       }}
-      onMouseDown={(e) => e.stopPropagation()}
     >
       {children}
     </div>,
@@ -109,24 +109,19 @@ export function HoverTooltipWrapper({
   renderTooltip,
 }: {
   children: React.ReactNode;
-  renderTooltip: (anchorRect: DOMRect) => React.ReactNode;
+  renderTooltip: (mousePos: { x: number; y: number }) => React.ReactNode;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-  const handleEnter = () => {
-    if (wrapperRef.current) {
-      setAnchorRect(wrapperRef.current.getBoundingClientRect());
-    }
-    setHovered(true);
+  const handleMove = (e: React.MouseEvent) => {
+    setMousePos({ x: e.clientX, y: e.clientY });
   };
 
   return (
     <div
-      ref={wrapperRef}
-      onMouseEnter={handleEnter}
-      onMouseLeave={() => setHovered(false)}
+      onMouseMove={handleMove}
+      onMouseEnter={handleMove}
+      onMouseLeave={() => setMousePos(null)}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -135,7 +130,7 @@ export function HoverTooltipWrapper({
       }}
     >
       {children}
-      {hovered && anchorRect && renderTooltip(anchorRect)}
+      {mousePos && renderTooltip(mousePos)}
     </div>
   );
 }

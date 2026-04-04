@@ -8,7 +8,7 @@ import type { MaterialType } from "@/data/materials";
 import TickRing from "@/components/TickRing";
 import { Section, Row, TooltipPanel, HoverTooltipWrapper } from "@/components/TooltipPrimitives";
 
-function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
+function StatsTooltipContent({ mousePos }: { mousePos: { x: number; y: number } }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
   const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
@@ -56,7 +56,7 @@ function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
   const hasMaterials = MATERIAL_DEFINITIONS.some((m) => materials[m.id as MaterialType] > 0);
 
   return (
-    <TooltipPanel anchorRect={anchorRect}>
+    <TooltipPanel mousePos={mousePos}>
       {/* Tick Info */}
       <Section label="Tick">
         <Row label="Next tick in" value={<span ref={tickRef}>—</span>} />
@@ -118,7 +118,7 @@ function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
 export default function StatsTooltip() {
   return (
     <HoverTooltipWrapper
-      renderTooltip={(anchorRect) => <StatsTooltipContent anchorRect={anchorRect} />}
+      renderTooltip={(mousePos) => <StatsTooltipContent mousePos={mousePos} />}
     >
       <div style={{ padding: "0.5rem", margin: "-0.5rem" }}>
         <TickRing suppressTitle />

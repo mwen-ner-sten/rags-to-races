@@ -24,11 +24,11 @@ function capitalize(s: string): string {
 }
 
 function VehicleTooltipContent({
-  anchorRect,
+  mousePos,
   vehicleDef,
   activeVehicle,
 }: {
-  anchorRect: DOMRect;
+  mousePos: { x: number; y: number };
   vehicleDef: VehicleDefinition;
   activeVehicle: BuiltVehicle;
 }) {
@@ -41,7 +41,7 @@ function VehicleTooltipContent({
       : 0;
 
   return (
-    <TooltipPanel anchorRect={anchorRect}>
+    <TooltipPanel mousePos={mousePos}>
       {/* Vehicle overview */}
       <Section label="Vehicle">
         <Row label="Type" value={vehicleDef.name} />
@@ -125,9 +125,9 @@ export default function VehicleTooltip({
 }) {
   return (
     <HoverTooltipWrapper
-      renderTooltip={(anchorRect) => (
+      renderTooltip={(mousePos) => (
         <VehicleTooltipContent
-          anchorRect={anchorRect}
+          mousePos={mousePos}
           vehicleDef={vehicleDef}
           activeVehicle={activeVehicle}
         />
