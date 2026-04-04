@@ -135,11 +135,12 @@ export default function ScavengePanel() {
     return () => { unsub(); if (clearTimer) clearTimeout(clearTimer); };
   }, []);
 
-  const [hoveredGroup, setHoveredGroup] = useState<{ group: InventoryGroup; x: number; y: number } | null>(null);
   const hasScrap = useMemo(
     () => inventory.some((p) => p.type === "part" && getPartById(p.definitionId)?.category === "misc"),
     [inventory],
   );
+
+  const [hoveredGroup, setHoveredGroup] = useState<{ group: InventoryGroup; x: number; y: number } | null>(null);
 
   // Scavenge button animation
   const [isScavengeAnimating, setIsScavengeAnimating] = useState(false);
@@ -388,7 +389,7 @@ export default function ScavengePanel() {
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: condColor }}>{capitalize(group.condition)}</span>
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0" onMouseEnter={() => setHoveredGroup(null)}>
                       {refurbBenchUnlocked && group.partType === "part" && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
                         const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
                         const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
@@ -437,7 +438,7 @@ export default function ScavengePanel() {
             position: "fixed",
             left: Math.min(x + 16, (typeof window !== "undefined" ? window.innerWidth : 800) - 224),
             top: y - 8,
-            zIndex: 50,
+            zIndex: 9999,
             width: 208,
             background: "var(--panel-bg)",
             border: "1px solid var(--panel-border)",
