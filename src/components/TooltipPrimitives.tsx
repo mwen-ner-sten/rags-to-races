@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useThemeStore } from "@/hooks/useTheme";
+import { THEME_VARS } from "@/components/ThemeShell";
 
 /* ── Section ─────────────────────────────────────────────────────────────── */
 
@@ -67,12 +69,14 @@ export function TooltipPanel({
   anchorRect: DOMRect;
   children: React.ReactNode;
 }) {
+  const theme = useThemeStore((s) => s.theme);
   const top = anchorRect.bottom + 8;
   const right = window.innerWidth - anchorRect.right;
 
   return createPortal(
     <div
       style={{
+        ...THEME_VARS[theme] as React.CSSProperties,
         position: "fixed",
         top,
         right: Math.max(8, right),
