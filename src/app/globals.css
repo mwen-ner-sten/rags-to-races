@@ -139,8 +139,8 @@ html {
 }
 
 @keyframes pulse-gold {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(234, 179, 8, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+  50% { box-shadow: 0 0 0 8px transparent; }
 }
 
 @keyframes slide-in-right {
@@ -182,12 +182,12 @@ html {
 .animate-pulse-fire { animation: pulse-fire 0.6s ease-in-out infinite; }
 
 @keyframes tutorial-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.5), 0 0 12px 0 rgba(234, 179, 8, 0.25); }
-  50% { box-shadow: 0 0 0 8px rgba(234, 179, 8, 0), 0 0 20px 0 rgba(234, 179, 8, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent), 0 0 12px 0 color-mix(in srgb, var(--accent) 25%, transparent); }
+  50% { box-shadow: 0 0 0 8px transparent, 0 0 20px 0 transparent; }
 }
 .tutorial-pulse {
   animation: tutorial-pulse 1.5s ease-in-out infinite;
-  border: 1.5px solid rgba(234, 179, 8, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 /* Arrow pointing from tutorial card toward target */

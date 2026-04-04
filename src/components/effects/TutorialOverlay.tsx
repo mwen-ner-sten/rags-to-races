@@ -67,13 +67,13 @@ export function getAllowedTabs(step: number): Set<TabId> | null {
 const CARD_BG: React.CSSProperties = {
   background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
   boxShadow:
-    "0 0 48px rgba(234, 179, 8, 0.22), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
+    "0 0 48px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
 };
 
 const BADGE_BG: React.CSSProperties = {
   background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
   boxShadow:
-    "0 0 32px rgba(234, 179, 8, 0.18), 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px -4px rgba(0,0,0,0.4)",
+    "0 0 32px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px -4px rgba(0,0,0,0.4)",
 };
 
 function renderTip(tip: string) {
@@ -326,7 +326,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </div>
           <div className="flex items-center justify-between gap-3">
             <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip tutorial</button>
-            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Let&apos;s Go &rarr;</button>
+            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px color-mix(in srgb, var(--accent) 30%, transparent)" }}>Let&apos;s Go &rarr;</button>
           </div>
         </div>
       </div>
@@ -496,7 +496,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           style={{
             left: sellBtnRect.left, top: sellBtnRect.top,
             width: sellBtnRect.width, height: sellBtnRect.height,
-            background: "rgba(234, 179, 8, 0.18)",
+            background: "color-mix(in srgb, var(--accent) 18%, transparent)",
             border: "1.5px solid var(--accent)",
             pointerEvents: "none",
           }}
@@ -534,7 +534,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                     <button
                       onClick={() => setCardDismissed(true)}
                       className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
+                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent) 30%, transparent)" }}
                     >
                       Got it &rarr;
                     </button>
@@ -578,7 +578,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                       <button
                         onClick={advanceTutorial}
                         className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                        style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
+                        style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent) 30%, transparent)" }}
                       >
                         Got it &rarr;
                       </button>
