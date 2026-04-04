@@ -9,6 +9,7 @@ import { RACE_TICKS_DEFAULT } from "@/engine/tick";
 import { formatNumber } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
+import RaceTrackSVG from "@/components/RaceTrack/RaceTrackSVG";
 import type { RaceEvent } from "@/engine/raceEvents";
 
 const RESULT_STYLES: Record<string, React.CSSProperties> = {
@@ -123,22 +124,12 @@ function LiveRaceView({
         </div>
       )}
 
-      {/* Progress bar (track) */}
-      <div className="relative">
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--panel-bg)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-100"
-            style={{ width: `${progress * 100}%`, background: "linear-gradient(to right, var(--btn-primary-bg), var(--accent))" }}
-          />
-        </div>
-        {/* Car emoji riding along */}
-        <div
-          className="absolute -top-3 transition-all duration-100 text-sm"
-          style={{ left: `calc(${progress * 100}% - 8px)` }}
-        >
-          🏎
-        </div>
-      </div>
+      {/* Animated race track */}
+      <RaceTrackSVG
+        progress={progress}
+        playerPosition={position}
+        eventType={currentEvent?.type ?? null}
+      />
     </div>
   );
 }
