@@ -31,7 +31,7 @@ const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
 // ─── Theme CSS custom properties ─────────────────────────────────────────────
 // These cascade into all content panels so they can use var(--panel-bg) etc.
-const THEME_VARS: Record<Theme, Record<string, string>> = {
+export const THEME_VARS: Record<Theme, Record<string, string>> = {
   grease: {
     "--panel-bg": "#181008",
     "--panel-border": "#3a2510",
