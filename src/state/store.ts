@@ -39,6 +39,21 @@ import { canAffordRecipe } from "@/data/craftRecipes";
 import { PART_DEFINITIONS } from "@/data/parts";
 import { randInt } from "@/utils/random";
 
+// ── Activity log ────────────────────────────────────────────────────────────
+export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
+
+export interface ActivityLogEntry {
+  id: number;
+  timestamp: number;
+  category: LogCategory;
+  message: string;
+  scrapDelta?: number;
+  repDelta?: number;
+  lpDelta?: number;
+}
+
+const MAX_LOG_ENTRIES = 200;
+
 export interface GameState {
   // Currency
   scrapBucks: number;
@@ -97,6 +112,10 @@ export interface GameState {
 
   // Unlock notifications (transient)
   unlockEvents: string[];
+
+  // Activity log (persists through prestige)
+  activityLog: ActivityLogEntry[];
+  _logIdCounter: number;
 
   // Gear (persists through prestige)
   equippedGear: Record<GearSlot, string>;
@@ -210,6 +229,8 @@ export interface GameState {
   convertScrapToMaterial: (material: MaterialType) => void;
   purchaseFatigueDrink: () => void;
 
+  clearActivityLog: () => void;
+
   // User actions (destructive)
   resetSave: () => void;
 
@@ -262,6 +283,8 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     fatigue: 0,
     lifetimeRaces: 0,
     unlockEvents: [],
+    activityLog: [],
+    _logIdCounter: 0,
     equippedGear: { ...DEFAULT_EQUIPPED_GEAR },
     ownedGearIds: [...DEFAULT_OWNED_GEAR],
     lootGearInventory: [],
@@ -337,6 +360,23 @@ function checkChallenges(
   return { completed, rewards };
 }
 
+/** Append an activity log entry (keeps last MAX_LOG_ENTRIES). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function _appendLog(set: any, get: any, category: LogCategory, message: string, deltas?: { scrapDelta?: number; repDelta?: number; lpDelta?: number }) {
+  const s = get() as GameState;
+  const entry: ActivityLogEntry = {
+    id: s._logIdCounter,
+    timestamp: Date.now(),
+    category,
+    message,
+    ...deltas,
+  };
+  set({
+    activityLog: [...s.activityLog, entry].slice(-MAX_LOG_ENTRIES),
+    _logIdCounter: s._logIdCounter + 1,
+  });
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createActions(set: any, get: any) {
   return {
@@ -409,6 +449,8 @@ function createActions(set: any, get: any) {
             : s.unlockEvents,
         };
       });
+      const gearMsg = gearDrops.length > 0 ? ` + ${gearDrops.map((g) => g.name).join(", ")}` : "";
+      _appendLog(set, get, "scavenge", `Scavenged ${parts.length} part${parts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}`);
     },
 
     sellPart: (partId: string) => {
@@ -427,6 +469,7 @@ function createActions(set: any, get: any) {
           scrapBucks: s.scrapBucks + value,
           lifetimeScrapBucks: s.lifetimeScrapBucks + value,
         }));
+        _appendLog(set, get, "sell", `Sold ${def.name} (${part.condition}) for $${value}`, { scrapDelta: value });
       });
     },
 
@@ -441,11 +484,13 @@ function createActions(set: any, get: any) {
           const mult = CONDITION_MULTIPLIERS[part.condition];
           total += Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
         }
+        const count = state.inventory.length;
         set((s: GameState) => ({
           inventory: [],
           scrapBucks: s.scrapBucks + total,
           lifetimeScrapBucks: s.lifetimeScrapBucks + total,
         }));
+        if (count > 0) _appendLog(set, get, "sell", `Sold all ${count} parts for $${total}`, { scrapDelta: total });
       });
     },
 
@@ -469,6 +514,7 @@ function createActions(set: any, get: any) {
           scrapBucks: s.scrapBucks + total,
           lifetimeScrapBucks: s.lifetimeScrapBucks + total,
         }));
+        _appendLog(set, get, "sell", `Sold ${toSell.length} scrap parts for $${total}`, { scrapDelta: total });
       });
     },
 
@@ -502,6 +548,7 @@ function createActions(set: any, get: any) {
             scrapBucks: s.scrapBucks + total,
             lifetimeScrapBucks: s.lifetimeScrapBucks + total,
           }));
+          _appendLog(set, get, "sell", `Sold ${toSell.length} parts below ${threshold} for $${total}`, { scrapDelta: total });
         });
       });
     },
@@ -570,6 +617,7 @@ function createActions(set: any, get: any) {
           activeVehicleId: s.activeVehicleId ?? built.id,
         };
       });
+      _appendLog(set, get, "build", `Built ${vehicleDef.name} for $${actualBuildCost}`, { scrapDelta: -actualBuildCost });
     },
 
     setActiveVehicle: (vehicleId: string) => {
@@ -588,6 +636,7 @@ function createActions(set: any, get: any) {
         lifetimeScrapBucks: s.lifetimeScrapBucks + value,
         activeVehicleId: s.activeVehicleId === vehicleId ? null : s.activeVehicleId,
       }));
+      _appendLog(set, get, "sell", `Sold ${vehicleDef?.name ?? "vehicle"} for $${value}`, { scrapDelta: value });
     },
 
     setSelectedLocation: (locationId: string) => {
@@ -827,11 +876,18 @@ function createActions(set: any, get: any) {
         });
         // Check momentum tiers after race
         (get() as GameState).checkMomentumTiers();
+        const resultLabel = outcome.result === "win" ? "Won" : outcome.result === "loss" ? "Lost" : "DNF";
+        const rewardMsg = outcome.result === "dnf" ? "" : ` +$${outcome.scrapsEarned}${outcome.repEarned > 0 ? `, +${Math.round(outcome.repEarned)} rep` : ""}`;
+        _appendLog(set, get, "race", `Race: ${resultLabel} at ${circuit.name}!${rewardMsg}`, { scrapDelta: outcome.scrapsEarned, repDelta: Math.round(outcome.repEarned) });
       }, circuit.raceDuration);
     },
 
     clearUnlockEvents: () => {
       set({ unlockEvents: [] });
+    },
+
+    clearActivityLog: () => {
+      set({ activityLog: [] });
     },
 
     advanceTutorial: () => {
@@ -875,6 +931,7 @@ function createActions(set: any, get: any) {
           stats: calculateStats(vehicleDef, v.parts, 100, handlingBonus),
         }),
       }));
+      _appendLog(set, get, "build", `Repaired ${vehicleDef.name} for $${actualCost}`, { scrapDelta: -actualCost });
     },
 
     swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => {
@@ -932,6 +989,7 @@ function createActions(set: any, get: any) {
           condition: result.newCondition,
         }),
       }));
+      _appendLog(set, get, "build", `Refurbished part to ${result.newCondition} for $${result.cost}`, { scrapDelta: -result.cost });
     },
 
     purchaseUpgrade: (upgradeId: string) => {
@@ -960,6 +1018,7 @@ function createActions(set: any, get: any) {
         scrapBucks: s.scrapBucks - cost,
         workshopLevels: { ...s.workshopLevels, [upgradeId]: currentLevel + 1 },
       }));
+      _appendLog(set, get, "upgrade", `Bought ${def.name} Lv.${currentLevel + 1} for $${cost}`, { scrapDelta: -cost });
     },
 
     purchaseGear: (gearId: string) => {
@@ -974,6 +1033,7 @@ function createActions(set: any, get: any) {
         ownedGearIds: [...s.ownedGearIds, gearId],
         equippedGear: { ...s.equippedGear, [def.slot]: gearId },
       }));
+      _appendLog(set, get, "gear", `Bought ${def.name} for $${def.cost}`, { scrapDelta: -def.cost });
     },
 
     equipGear: (gearId: string) => {
@@ -1018,6 +1078,7 @@ function createActions(set: any, get: any) {
           g.id !== lootGearId ? g : { ...g, enhancementLevel: newLevel, modSlots: newModSlots }
         ),
       }));
+      _appendLog(set, get, "gear", `Enhanced ${item.name} to Lv.${newLevel} for $${cost}`, { scrapDelta: -cost });
     },
 
     salvageLootGear: (lootGearId: string) => {
@@ -1224,7 +1285,11 @@ function createActions(set: any, get: any) {
         tutorialDismissed: state.tutorialDismissed,
         dealerBoard: [],
         gameTick: 0,
+        // Activity log persists through prestige
+        activityLog: state.activityLog,
+        _logIdCounter: state._logIdCounter,
       });
+      _appendLog(set, get, "prestige", `Prestige #${newPrestigeCount}! Earned ${lpEarned} Legacy Points`, { lpDelta: lpEarned });
     },
 
     purchaseLegacyUpgrade: (upgradeId: string) => {
@@ -1242,6 +1307,7 @@ function createActions(set: any, get: any) {
         // Recompute prestige bonus from new upgrade levels
         prestigeBonus: calculatePrestigeBonus(newLevels),
       });
+      _appendLog(set, get, "prestige", `Bought ${def.name} Lv.${currentLevel + 1} for ${cost} LP`, { lpDelta: -cost });
     },
 
     checkMomentumTiers: () => {
@@ -1307,6 +1373,15 @@ function createActions(set: any, get: any) {
       });
       // Check momentum tier activations after state update
       (get() as GameState).checkMomentumTiers();
+      // Log auto-tick summary
+      const tickParts: string[] = [];
+      if (scrapsEarned > 0) tickParts.push(`+$${scrapsEarned}`);
+      if (repEarned > 0) tickParts.push(`+${Math.round(repEarned)} rep`);
+      if (partsFound.length > 0) tickParts.push(`${partsFound.length} parts`);
+      if (lootGearDrops && lootGearDrops.length > 0) tickParts.push(`${lootGearDrops.length} gear`);
+      if (tickParts.length > 0) {
+        _appendLog(set, get, "tick", `Auto: ${tickParts.join(", ")}`, { scrapDelta: scrapsEarned || undefined, repDelta: repEarned ? Math.round(repEarned) : undefined });
+      }
     },
 
     // ── Challenge helpers ────────────────────────────────────────────────────
@@ -1350,6 +1425,8 @@ function createActions(set: any, get: any) {
         scrapBucks: s.scrapBucks + scrapReward,
         forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
       }));
+      const matSummary = Object.entries(result.materials).filter(([, q]) => q > 0).map(([m, q]) => `${q} ${m}`).join(", ");
+      _appendLog(set, get, "craft", `Decomposed part into ${matSummary}`);
     },
 
     decomposeAllJunk: () => {
@@ -1462,6 +1539,7 @@ function createActions(set: any, get: any) {
         completedChallenges: [...s.completedChallenges, ...completed],
         scrapBucks: s.scrapBucks + scrapReward,
       }));
+      _appendLog(set, get, "craft", `Forged part to artifact quality!`);
     },
 
     craftPart: (recipe: CraftRecipe) => {
@@ -1493,6 +1571,7 @@ function createActions(set: any, get: any) {
         inventory: [...s.inventory, newPart],
         materials: newMaterials,
       }));
+      _appendLog(set, get, "craft", `Crafted ${def.name} (${recipe.resultCondition})`);
     },
 
     tradeUpParts: (partIds: [string, string, string]) => {
@@ -1545,6 +1624,7 @@ function createActions(set: any, get: any) {
         forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
         materials: newMaterials,
       }));
+      _appendLog(set, get, "trade", `Traded up 3 parts into ${def.name} (${targetCondition})`);
     },
 
     buyFromDealer: (listingId: string) => {
@@ -1567,6 +1647,7 @@ function createActions(set: any, get: any) {
         inventory: [...s.inventory, newPart],
         dealerBoard: s.dealerBoard.filter((l) => l.id !== listingId),
       }));
+      _appendLog(set, get, "trade", `Bought ${listing.definitionId} from dealer for $${listing.price}`, { scrapDelta: -listing.price });
     },
 
     refreshDealer: () => {
@@ -1593,6 +1674,7 @@ function createActions(set: any, get: any) {
         scrapBucks: s.scrapBucks - cost,
         materials: { ...s.materials, [material]: (s.materials[material] ?? 0) + yield_ },
       }));
+      _appendLog(set, get, "trade", `Converted $${cost} into ${yield_} ${material}`, { scrapDelta: -cost });
     },
 
     purchaseFatigueDrink: () => {
@@ -1611,6 +1693,7 @@ function createActions(set: any, get: any) {
           fatigueDrinksPurchased: purchased + 1,
         },
       }));
+      _appendLog(set, get, "upgrade", `Bought Fatigue Drink for $${cost} (-10 fatigue)`, { scrapDelta: -cost });
     },
 
     // ── Dev / admin actions ──────────────────────────────────────────────────
@@ -1785,6 +1868,8 @@ export const useGameStore = create<GameState>()(
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
+        activityLog: state.activityLog,
+        _logIdCounter: state._logIdCounter,
       }),
     },
   ),
