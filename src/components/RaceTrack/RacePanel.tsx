@@ -84,18 +84,22 @@ function LiveRaceView({
   durationMs,
   vehicleTier,
   circuitId,
+  isActive,
 }: {
   events: RaceEvent[];
   startTime: number;
   durationMs: number;
   vehicleTier: number;
   circuitId: string;
+  isActive: boolean;
 }) {
   const [currentEvent, setCurrentEvent] = useState<RaceEvent | null>(null);
   const [progress, setProgress] = useState(0);
   const eventIndexRef = useRef(0);
 
   useEffect(() => {
+    if (!isActive || !startTime || events.length === 0) return;
+
     eventIndexRef.current = 0;
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
@@ -114,7 +118,18 @@ function LiveRaceView({
     }, 80);
 
     return () => clearInterval(interval);
-  }, [events, startTime, durationMs]);
+  }, [events, startTime, durationMs, isActive]);
+
+  // Reset state when race ends
+  useEffect(() => {
+    if (!isActive) {
+      const t = setTimeout(() => {
+        setProgress(0);
+        setCurrentEvent(null);
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [isActive]);
 
   const position = currentEvent?.position ?? 8;
   const totalRacers = 8;
@@ -124,48 +139,50 @@ function LiveRaceView({
       className="rounded-lg p-4 space-y-3"
       style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--accent-border)", background: "var(--panel-bg)" }}
     >
-      {/* Position indicator */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span
-            className="text-xs font-semibold uppercase tracking-wider"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Position
-          </span>
-          <span className="font-mono text-lg font-bold" style={{ color: "var(--accent)" }}>
-            P{position}
-            <span className="text-sm" style={{ color: "var(--text-muted)" }}>/{totalRacers}</span>
-          </span>
+      {/* Position indicator — only during active race */}
+      {isActive && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span
+              className="text-xs font-semibold uppercase tracking-wider"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Position
+            </span>
+            <span className="font-mono text-lg font-bold" style={{ color: "var(--accent)" }}>
+              P{position}
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>/{totalRacers}</span>
+            </span>
+          </div>
+          {/* Position bar */}
+          <div className="flex gap-1">
+            {Array.from({ length: totalRacers }, (_, i) => {
+              const pos = i + 1;
+              const isPlayer = pos === position;
+              return (
+                <div
+                  key={pos}
+                  className={`h-6 flex-1 rounded text-xs font-mono flex items-center justify-center transition-all duration-300 ${
+                    isPlayer ? "font-bold scale-110 shadow-lg" : ""
+                  }`}
+                  style={
+                    isPlayer
+                      ? { background: "var(--accent)", color: "var(--btn-primary-text)" }
+                      : pos < position
+                        ? { background: "var(--panel-border)", color: "var(--text-muted)" }
+                        : { background: "var(--panel-bg)", color: "var(--text-muted)" }
+                  }
+                >
+                  {isPlayer ? "YOU" : `P${pos}`}
+                </div>
+              );
+            })}
+          </div>
         </div>
-        {/* Position bar */}
-        <div className="flex gap-1">
-          {Array.from({ length: totalRacers }, (_, i) => {
-            const pos = i + 1;
-            const isPlayer = pos === position;
-            return (
-              <div
-                key={pos}
-                className={`h-6 flex-1 rounded text-xs font-mono flex items-center justify-center transition-all duration-300 ${
-                  isPlayer ? "font-bold scale-110 shadow-lg" : ""
-                }`}
-                style={
-                  isPlayer
-                    ? { background: "var(--accent)", color: "var(--btn-primary-text)" }
-                    : pos < position
-                      ? { background: "var(--panel-border)", color: "var(--text-muted)" }
-                      : { background: "var(--panel-bg)", color: "var(--text-muted)" }
-                }
-              >
-                {isPlayer ? "YOU" : `P${pos}`}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
-      {/* Commentary ticker with event icon */}
-      {currentEvent && (
+      {/* Commentary ticker with event icon — only during active race */}
+      {isActive && currentEvent && (
         <div
           key={currentEvent.timeOffset}
           className="animate-fade-up rounded-md px-3 py-2 flex items-center gap-2"
@@ -187,7 +204,7 @@ function LiveRaceView({
         </div>
       )}
 
-      {/* Animated race track */}
+      {/* Animated race track — always visible */}
       <RaceTrackSVG
         progress={progress}
         playerPosition={position}
@@ -197,16 +214,18 @@ function LiveRaceView({
         raceDuration={durationMs}
       />
 
-      {/* Lap progress bar */}
-      <div className="relative h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--divider)" }}>
-        <div
-          className={`h-full rounded-full transition-all duration-100 ${currentEvent?.type === "final_lap" ? "animate-pulse-fire" : ""}`}
-          style={{
-            width: `${Math.round(progress * 100)}%`,
-            background: currentEvent?.type === "final_lap" ? "var(--warning)" : "var(--accent)",
-          }}
-        />
-      </div>
+      {/* Lap progress bar — only during active race */}
+      {isActive && (
+        <div className="relative h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--divider)" }}>
+          <div
+            className={`h-full rounded-full transition-all duration-100 ${currentEvent?.type === "final_lap" ? "animate-pulse-fire" : ""}`}
+            style={{
+              width: `${Math.round(progress * 100)}%`,
+              background: currentEvent?.type === "final_lap" ? "var(--warning)" : "var(--accent)",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -615,14 +634,15 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           )}
         </div>
 
-        {/* Live race view */}
-        {isRacing && raceStartTime && raceEvents.length > 0 && selectedCircuit && (
+        {/* Race track — always visible, animates during active races */}
+        {selectedCircuit && (
           <LiveRaceView
             events={raceEvents}
-            startTime={raceStartTime}
+            startTime={raceStartTime ?? 0}
             durationMs={selectedCircuit.raceDuration}
             vehicleTier={activeVehicleDef?.tier ?? 0}
             circuitId={selectedCircuitId}
+            isActive={isRacing && raceStartTime != null && raceEvents.length > 0}
           />
         )}
 
