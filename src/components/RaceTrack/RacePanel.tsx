@@ -12,6 +12,64 @@ import Confetti from "@/components/effects/Confetti";
 import RaceTrackSVG from "@/components/RaceTrack/RaceTrackSVG";
 import type { RaceEvent } from "@/engine/raceEvents";
 
+// ── Event Icons ────────────────────────────────────────────────────────
+
+function EventIcon({ type }: { type: RaceEvent["type"] }) {
+  const size = 14;
+  const common = { width: size, height: size, viewBox: "0 0 16 16", style: { flexShrink: 0 } as React.CSSProperties };
+
+  switch (type) {
+    case "start":
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="8" cy="8" r="6" fill="none" stroke="var(--success)" strokeWidth="1.5" />
+          <polygon points="6,5 12,8 6,11" fill="var(--success)" />
+        </svg>
+      );
+    case "position_change":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M8,3 L12,8 L9,8 L9,13 L7,13 L7,8 L4,8 Z" fill="var(--accent)" />
+        </svg>
+      );
+    case "close_call":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M8,2 L14,13 L2,13 Z" fill="none" stroke="var(--warning)" strokeWidth="1.5" strokeLinejoin="round" />
+          <line x1="8" y1="6" x2="8" y2="9.5" stroke="var(--warning)" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="8" cy="11" r="0.8" fill="var(--warning)" />
+        </svg>
+      );
+    case "mechanical":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M4,12 L7,9 L6,8 L5,9 L4,8 L7,5 L8,6 L9,5 L8,4 L11,1 L15,5 L12,8 L11,7 L10,8 L11,9 L8,12 Z" fill="var(--danger)" transform="scale(0.9) translate(1,1)" />
+        </svg>
+      );
+    case "final_lap":
+      return (
+        <svg {...common} aria-hidden="true">
+          <rect x="3" y="2" width="10" height="12" rx="1" fill="none" stroke="var(--warning)" strokeWidth="1.2" />
+          <rect x="3" y="2" width="5" height="6" fill="var(--warning)" opacity="0.3" />
+          <rect x="8" y="8" width="5" height="6" fill="var(--warning)" opacity="0.3" />
+        </svg>
+      );
+    case "finish":
+      return (
+        <svg {...common} aria-hidden="true">
+          <rect x="2" y="2" width="12" height="12" rx="1" fill="none" stroke="var(--text-white)" strokeWidth="1.2" />
+          <rect x="2" y="2" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="6" y="6" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="10" y="2" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="2" y="10" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="10" y="10" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 const RESULT_STYLES: Record<string, React.CSSProperties> = {
   win: { color: "var(--success)" },
   loss: { color: "var(--warning)" },
@@ -24,10 +82,14 @@ function LiveRaceView({
   events,
   startTime,
   durationMs,
+  vehicleTier,
+  circuitId,
 }: {
   events: RaceEvent[];
   startTime: number;
   durationMs: number;
+  vehicleTier: number;
+  circuitId: string;
 }) {
   const [currentEvent, setCurrentEvent] = useState<RaceEvent | null>(null);
   const [progress, setProgress] = useState(0);
@@ -102,13 +164,14 @@ function LiveRaceView({
         </div>
       </div>
 
-      {/* Commentary ticker */}
+      {/* Commentary ticker with event icon */}
       {currentEvent && (
         <div
           key={currentEvent.timeOffset}
-          className="animate-fade-up rounded-md px-3 py-2"
+          className="animate-fade-up rounded-md px-3 py-2 flex items-center gap-2"
           style={{ background: "var(--panel-bg)" }}
         >
+          <EventIcon type={currentEvent.type} />
           <span
             className={`text-sm font-medium ${currentEvent.type === "finish" ? "font-bold" : ""}`}
             style={
@@ -129,7 +192,21 @@ function LiveRaceView({
         progress={progress}
         playerPosition={position}
         eventType={currentEvent?.type ?? null}
+        vehicleTier={vehicleTier}
+        circuitId={circuitId}
+        raceDuration={durationMs}
       />
+
+      {/* Lap progress bar */}
+      <div className="relative h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--divider)" }}>
+        <div
+          className={`h-full rounded-full transition-all duration-100 ${currentEvent?.type === "final_lap" ? "animate-pulse-fire" : ""}`}
+          style={{
+            width: `${Math.round(progress * 100)}%`,
+            background: currentEvent?.type === "final_lap" ? "var(--warning)" : "var(--accent)",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -544,6 +621,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             events={raceEvents}
             startTime={raceStartTime}
             durationMs={selectedCircuit.raceDuration}
+            vehicleTier={activeVehicleDef?.tier ?? 0}
+            circuitId={selectedCircuitId}
           />
         )}
 
