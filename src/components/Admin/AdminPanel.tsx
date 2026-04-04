@@ -44,6 +44,8 @@ export default function AdminPanel() {
   const devClearInventory = useGameStore((s) => s.devClearInventory);
   const devClearGarage = useGameStore((s) => s.devClearGarage);
   const devSetAutoUnlocks = useGameStore((s) => s.devSetAutoUnlocks);
+  const devScavengeMultiplier = useGameStore((s) => s.devScavengeMultiplier);
+  const devSetScavengeMultiplier = useGameStore((s) => s.devSetScavengeMultiplier);
   const devResetSave = useGameStore((s) => s.devResetSave);
 
   const [scrapInput, setScrapInput] = useState("");
@@ -225,6 +227,19 @@ export default function AdminPanel() {
               >
                 Launch Tutorial
               </button>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span style={{ color: "var(--text-muted)" }} className="text-xs">Scavenge ×</span>
+              {[1, 5, 10, 50].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => { devSetScavengeMultiplier(n); log(`Scavenge multiplier set to ${n}×`); }}
+                  style={devScavengeMultiplier === n ? btnPrimary : btnOutline}
+                  className={`rounded ${devScavengeMultiplier === n ? "" : "border"} px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80`}
+                >
+                  {n}×
+                </button>
+              ))}
             </div>
           </div>
 

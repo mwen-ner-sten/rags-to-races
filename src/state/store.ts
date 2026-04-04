@@ -89,6 +89,8 @@ export interface GameState {
   autoScavengeUnlocked: boolean;
   /** Counts manual scavenge button clicks; auto-scavenge unlocks at 100 */
   manualScavengeClicks: number;
+  /** Dev-only: how many scavenge actions fire per manual click (default 1) */
+  devScavengeMultiplier: number;
 
   // Racing
   selectedCircuitId: string;
@@ -246,6 +248,7 @@ export interface GameState {
   devClearInventory: () => void;
   devClearGarage: () => void;
   devSetAutoUnlocks: (scavenge: boolean, race: boolean) => void;
+  devSetScavengeMultiplier: (n: number) => void;
   devResetSave: () => void;
 }
 
@@ -269,6 +272,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     isScavenging: false,
     autoScavengeUnlocked: false,
     manualScavengeClicks: 0,
+    devScavengeMultiplier: 1,
     selectedCircuitId: "backyard_derby",
     isRacing: false,
     autoRaceUnlocked: false,
@@ -388,60 +392,71 @@ function createActions(set: any, get: any) {
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue;
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
-      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
-      for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
-        if (bonus.length > 0) parts.push(bonus[0]);
-      }
-      /* ── Tutorial boost: first 30 clicks guarantee enough to build ───── */
-      const isTutorial = state.tutorialStep >= 1 && state.tutorialStep <= 2;
-      const clickNum = state.manualScavengeClicks; // 0-indexed
-      if (isTutorial && clickNum < 30) {
-        const hasEngine = state.inventory.some((p) =>
-          p.definitionId === "engine_small" || p.definitionId === "engine_lawn",
-        );
-        const hasWheel = state.inventory.some((p) =>
-          p.definitionId === "wheel_busted" || p.definitionId === "wheel_basic",
-        );
-        // Force engine on click 3, wheel on click 7 if missing
-        if (clickNum === 3 && !hasEngine) {
-          parts[0] = { id: makePartId(), definitionId: "engine_small", condition: "decent", foundAt: location.id, type: "part" };
-        } else if (clickNum === 7 && !hasWheel) {
-          parts[0] = { id: makePartId(), definitionId: "wheel_busted", condition: "worn", foundAt: location.id, type: "part" };
+      const multiplier = state.devScavengeMultiplier ?? 1;
+      const allParts: typeof state.inventory = [];
+      const allGearDrops: typeof state.lootGearInventory = [];
+      const allModDrops: typeof state.gearModInventory = [];
+      for (let m = 0; m < multiplier; m++) {
+        const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
+        for (let i = 0; i < extraParts; i++) {
+          const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
+          if (bonus.length > 0) parts.push(bonus[0]);
         }
-        for (const p of parts) {
-          // Swap worthless junk for sellable seats ($1+ each)
-          if (p.definitionId === "misc_junk") p.definitionId = "misc_seat";
-          // Floor condition to "worn" so nothing sells for $0
-          if (p.condition === "rusted") p.condition = "worn";
+        /* ── Tutorial boost: first 30 clicks guarantee enough to build ───── */
+        if (m === 0) {
+          const isTutorial = state.tutorialStep >= 1 && state.tutorialStep <= 2;
+          const clickNum = state.manualScavengeClicks; // 0-indexed
+          if (isTutorial && clickNum < 30) {
+            const hasEngine = state.inventory.some((p) =>
+              p.definitionId === "engine_small" || p.definitionId === "engine_lawn",
+            );
+            const hasWheel = state.inventory.some((p) =>
+              p.definitionId === "wheel_busted" || p.definitionId === "wheel_basic",
+            );
+            // Force engine on click 3, wheel on click 7 if missing
+            if (clickNum === 3 && !hasEngine) {
+              parts[0] = { id: makePartId(), definitionId: "engine_small", condition: "decent", foundAt: location.id, type: "part" };
+            } else if (clickNum === 7 && !hasWheel) {
+              parts[0] = { id: makePartId(), definitionId: "wheel_busted", condition: "worn", foundAt: location.id, type: "part" };
+            }
+            for (const p of parts) {
+              // Swap worthless junk for sellable seats ($1+ each)
+              if (p.definitionId === "misc_junk") p.definitionId = "misc_seat";
+              // Floor condition to "worn" so nothing sells for $0
+              if (p.condition === "rusted") p.condition = "worn";
+            }
+          }
         }
-      }
 
-      // Thorough Search: chance to double the parts found (applies to click & hold)
-      const doubleChance = _getUpgradeEffectValue(state, "thorough_search");
-      if (doubleChance > 0 && Math.random() < doubleChance) {
-        const dupes = parts.map((p) => ({ ...p, id: makePartId() }));
-        parts.push(...dupes);
+        // Thorough Search: chance to double the parts found (applies to click & hold)
+        const doubleChance = _getUpgradeEffectValue(state, "thorough_search");
+        if (doubleChance > 0 && Math.random() < doubleChance) {
+          const dupes = parts.map((p) => ({ ...p, id: makePartId() }));
+          parts.push(...dupes);
+        }
+        // Roll for gear/mod drops
+        const { gearDrops, modDrop } = rollGearDrops({
+          source: "scavenge",
+          sourceTier: location.tier,
+          sourceId: location.id,
+          winStreak: state.winStreak,
+          gearDropRateScavengeBonus: _getUpgradeEffectValue(state, "gear_scavenger"),
+          gearDropRateRaceBonus: _getUpgradeEffectValue(state, "trophy_hunter"),
+          rarityBonus: Math.floor(_getUpgradeEffectValue(state, "rarity_sense")),
+          doubleDropChance: _getUpgradeEffectValue(state, "double_drop"),
+          modDropRateBonus: _getUpgradeEffectValue(state, "mod_hunter"),
+        });
+        allParts.push(...parts);
+        allGearDrops.push(...gearDrops);
+        if (modDrop) allModDrops.push(modDrop);
       }
-      // Roll for gear/mod drops
-      const { gearDrops, modDrop } = rollGearDrops({
-        source: "scavenge",
-        sourceTier: location.tier,
-        sourceId: location.id,
-        winStreak: state.winStreak,
-        gearDropRateScavengeBonus: _getUpgradeEffectValue(state, "gear_scavenger"),
-        gearDropRateRaceBonus: _getUpgradeEffectValue(state, "trophy_hunter"),
-        rarityBonus: Math.floor(_getUpgradeEffectValue(state, "rarity_sense")),
-        doubleDropChance: _getUpgradeEffectValue(state, "double_drop"),
-        modDropRateBonus: _getUpgradeEffectValue(state, "mod_hunter"),
-      });
       set((s: GameState) => {
-        const newClicks = s.manualScavengeClicks + 1;
+        const newClicks = s.manualScavengeClicks + multiplier;
         const justUnlocked = !s.autoScavengeUnlocked && newClicks >= 100;
         return {
-          inventory: [...s.inventory, ...parts],
-          lootGearInventory: gearDrops.length > 0 ? [...s.lootGearInventory, ...gearDrops] : s.lootGearInventory,
-          gearModInventory: modDrop ? [...s.gearModInventory, modDrop] : s.gearModInventory,
+          inventory: [...s.inventory, ...allParts],
+          lootGearInventory: allGearDrops.length > 0 ? [...s.lootGearInventory, ...allGearDrops] : s.lootGearInventory,
+          gearModInventory: allModDrops.length > 0 ? [...s.gearModInventory, ...allModDrops] : s.gearModInventory,
           manualScavengeClicks: newClicks,
           autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
           unlockEvents: justUnlocked
@@ -449,8 +464,8 @@ function createActions(set: any, get: any) {
             : s.unlockEvents,
         };
       });
-      const gearMsg = gearDrops.length > 0 ? ` + ${gearDrops.map((g) => g.name).join(", ")}` : "";
-      _appendLog(set, get, "scavenge", `Scavenged ${parts.length} part${parts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}`);
+      const gearMsg = allGearDrops.length > 0 ? ` + ${allGearDrops.map((g) => g.name).join(", ")}` : "";
+      _appendLog(set, get, "scavenge", `Scavenged ${allParts.length} part${allParts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}`);
     },
 
     sellPart: (partId: string) => {
@@ -1777,6 +1792,10 @@ function createActions(set: any, get: any) {
 
     devSetAutoUnlocks: (scavengeUnlocked: boolean, raceUnlocked: boolean) => {
       set({ autoScavengeUnlocked: scavengeUnlocked, autoRaceUnlocked: raceUnlocked });
+    },
+
+    devSetScavengeMultiplier: (n: number) => {
+      set({ devScavengeMultiplier: Math.max(1, Math.floor(n)) });
     },
 
     resetSave: () => {
