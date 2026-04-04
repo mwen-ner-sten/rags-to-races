@@ -4,9 +4,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { THEMES } from "@/data/themes";
 import SaveLoadPanel from "@/components/Shop/SaveLoadPanel";
 import StartOverPanel from "@/components/Settings/StartOverPanel";
+import { useGameStore } from "@/state/store";
 
 export default function SettingsPanel() {
   const [theme, setTheme] = useTheme();
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const skipTutorial = useGameStore((s) => s.skipTutorial);
 
   return (
     <div className="flex flex-col gap-8">
@@ -82,6 +85,30 @@ export default function SettingsPanel() {
         </h2>
         <SaveLoadPanel />
       </div>
+
+      {/* Skip Tutorial */}
+      {tutorialStep >= 0 && (
+        <div>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-zinc-400">
+            Tutorial
+          </h2>
+          <div
+            style={{ borderColor: "var(--accent)", background: "var(--panel-bg)" }}
+            className="rounded-lg border p-4"
+          >
+            <button
+              onClick={skipTutorial}
+              style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+              className="rounded border px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
+            >
+              Skip Tutorial
+            </button>
+            <p style={{ color: "var(--text-muted)" }} className="mt-2 text-xs">
+              Stuck? Force-skip the tutorial to unlock all tabs.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Danger Zone */}
       <div>
