@@ -389,7 +389,7 @@ export default function ScavengePanel() {
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: condColor }}>{capitalize(group.condition)}</span>
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
-                    <div className="flex items-center gap-1.5 shrink-0" onMouseEnter={() => setHoveredGroup(null)}>
+                    <div className="flex items-center gap-1.5 shrink-0 self-stretch -my-1.5 py-1.5 sm:-my-2 sm:py-2" onMouseEnter={() => setHoveredGroup(null)}>
                       {refurbBenchUnlocked && group.partType === "part" && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
                         const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
                         const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
