@@ -110,11 +110,11 @@ export default function HelpActivityTab() {
               key={cat.id}
               onClick={() => setFilter(cat.id)}
               style={{
-                fontSize: 10,
+                fontSize: 13,
                 fontWeight: 600,
                 letterSpacing: ".04em",
-                padding: "2px 6px",
-                borderRadius: 4,
+                padding: "6px 14px",
+                borderRadius: 6,
                 border: `1px solid ${active ? "rgba(255,255,255,.2)" : "rgba(255,255,255,.06)"}`,
                 background: active ? "rgba(255,255,255,.1)" : "transparent",
                 color: active ? "#fff" : "rgba(255,255,255,.35)",
