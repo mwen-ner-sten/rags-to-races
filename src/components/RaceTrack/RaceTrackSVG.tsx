@@ -156,10 +156,7 @@ export default function RaceTrackSVG({
         />
 
         {/* Finish overlay (checkered flag + result) */}
-        <FinishOverlay
-          eventType={eventType}
-          playerPosition={playerPosition}
-        />
+        <FinishOverlay eventType={eventType} />
       </svg>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RaceEvent } from "@/engine/raceEvents";
 
 // ── Start Sequence (traffic lights) ─────────────────────────────────────
@@ -94,10 +94,9 @@ export function StartSequence({ progress, eventType, raceDuration }: StartSequen
 
 interface FinishOverlayProps {
   eventType: RaceEvent["type"] | null;
-  playerPosition: number;
 }
 
-export function FinishOverlay({ eventType, playerPosition }: FinishOverlayProps) {
+export function FinishOverlay({ eventType }: FinishOverlayProps) {
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -124,8 +123,6 @@ export function FinishOverlay({ eventType, playerPosition }: FinishOverlayProps)
     }
   }, [isFinish]);
 
-  const isWin = useMemo(() => playerPosition === 1, [playerPosition]);
-
   if (!visible) return null;
 
   return (
@@ -151,29 +148,6 @@ export function FinishOverlay({ eventType, playerPosition }: FinishOverlayProps)
           opacity={0.9}
         />
       </g>
-
-      {/* Result text */}
-      <text
-        x={200}
-        y={100}
-        textAnchor="middle"
-        fontSize={isWin ? "22" : "16"}
-        fontWeight="bold"
-        fontFamily="var(--font-mono)"
-        fill={isWin ? "var(--success)" : "var(--text-heading)"}
-        className="animate-number-pop"
-        opacity={0.9}
-      >
-        {isWin ? "P1!" : `P${playerPosition}`}
-      </text>
-
-      {/* Win glow */}
-      {isWin && (
-        <circle cx={200} cy={95} r={30} fill="var(--success)" opacity={0.06}>
-          <animate attributeName="r" from="20" to="40" dur="1s" repeatCount="indefinite" />
-          <animate attributeName="opacity" from="0.08" to="0" dur="1s" repeatCount="indefinite" />
-        </circle>
-      )}
     </g>
   );
 }
