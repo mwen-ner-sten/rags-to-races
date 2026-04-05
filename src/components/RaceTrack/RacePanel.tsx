@@ -529,7 +529,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         )}
 
         {/* Pre-race odds */}
-        {activeVehicle && selectedCircuit && !isRacing && (
+        {activeVehicle && selectedCircuit && (
           <div data-tutorial="odds-display">
           <OddsDisplay
             performance={activeVehicle.stats.performance}
@@ -559,7 +559,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
               Auto-Race unlocks after first Prestige
             </span>
           )}
-          {autoRaceUnlocked && !isRacing && (
+          {autoRaceUnlocked && (
             <div className="flex items-center gap-2">
               <span
                 className="rounded px-2 py-1 text-xs"
