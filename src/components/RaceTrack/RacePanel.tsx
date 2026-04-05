@@ -139,55 +139,12 @@ function LiveRaceView({
   }, [isActive]);
 
   const position = currentEvent?.position ?? 8;
-  const totalRacers = 8;
 
   return (
     <div
       className="rounded-lg p-4 space-y-3"
       style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--accent-border)", background: "var(--panel-bg)" }}
     >
-      {/* Position indicator — only during active race */}
-      {isActive && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span
-              className="text-xs font-semibold uppercase tracking-wider"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Position
-            </span>
-            <span className="font-mono text-lg font-bold" style={{ color: "var(--accent)" }}>
-              P{position}
-              <span className="text-sm" style={{ color: "var(--text-muted)" }}>/{totalRacers}</span>
-            </span>
-          </div>
-          {/* Position bar */}
-          <div className="flex gap-1">
-            {Array.from({ length: totalRacers }, (_, i) => {
-              const pos = i + 1;
-              const isPlayer = pos === position;
-              return (
-                <div
-                  key={pos}
-                  className={`h-6 flex-1 rounded text-xs font-mono flex items-center justify-center transition-all duration-300 ${
-                    isPlayer ? "font-bold scale-110 shadow-lg" : ""
-                  }`}
-                  style={
-                    isPlayer
-                      ? { background: "var(--accent)", color: "var(--btn-primary-text)" }
-                      : pos < position
-                        ? { background: "var(--panel-border)", color: "var(--text-muted)" }
-                        : { background: "var(--panel-bg)", color: "var(--text-muted)" }
-                  }
-                >
-                  {isPlayer ? "YOU" : `P${pos}`}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Commentary ticker with event icon — only during active race */}
       {isActive && currentEvent && (
         <div
