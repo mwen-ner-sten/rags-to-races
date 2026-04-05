@@ -247,6 +247,7 @@ export interface GameState {
   devClearGarage: () => void;
   devSetAutoUnlocks: (scavenge: boolean, race: boolean) => void;
   devResetSave: () => void;
+  devQuickStart: () => void;
 }
 
 function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>> {
@@ -1786,6 +1787,48 @@ function createActions(set: any, get: any) {
 
     devResetSave: () => {
       set({ ...initialState() });
+    },
+
+    devQuickStart: () => {
+      const state = get() as GameState;
+
+      // Build a T1 Riding Mower with good-condition parts
+      const vehicleDef = getVehicleById("riding_mower");
+      if (!vehicleDef) return;
+
+      const partDefs: Record<string, string> = {
+        engine: "engine_lawn",
+        wheel: "wheel_basic",
+        frame: "frame_mower",
+      };
+
+      const builtParts: Record<string, InstalledPart> = {};
+      for (const [slot, defId] of Object.entries(partDefs)) {
+        builtParts[slot] = {
+          part: {
+            id: `qs_${slot}_${Date.now()}`,
+            definitionId: defId,
+            condition: "good" as PartCondition,
+            foundAt: "dev_quick_start",
+            type: "part",
+          },
+          addons: [],
+        };
+      }
+
+      const built = buildVehicle(vehicleDef, builtParts, state._vehicleIdCounter);
+
+      set({
+        scrapBucks: Math.max(state.scrapBucks, 500),
+        lifetimeScrapBucks: Math.max(state.lifetimeScrapBucks, 500),
+        repPoints: Math.max(state.repPoints, 50),
+        garage: [...state.garage, built],
+        activeVehicleId: built.id,
+        _vehicleIdCounter: state._vehicleIdCounter + 1,
+        unlockedVehicleIds: [...new Set([...state.unlockedVehicleIds, "push_mower", "riding_mower"])],
+        unlockedCircuitIds: [...new Set([...state.unlockedCircuitIds, "backyard_derby"])],
+        selectedCircuitId: "backyard_derby",
+      });
     },
   };
 }
