@@ -16,7 +16,7 @@ type SpriteRenderer = (color: string) => React.ReactNode;
 
 /* ── Sprite definitions ─────────────────────────────────────────────────── */
 
-const sprites: Record<string, SpriteRenderer> = {
+export const sprites: Record<string, SpriteRenderer> = {
   /* T0 — Push Mower: small body, handle bar, two wheels */
   push_mower: (c) => (
     <>

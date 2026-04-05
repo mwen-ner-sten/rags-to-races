@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { sprites } from "@/components/RaceTrack/VehicleSprite";
+import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { RaceEvent } from "@/engine/raceEvents";
 
 interface RaceTrackSVGProps {
   progress: number;
   playerPosition: number;
   eventType: RaceEvent["type"] | null;
+  playerVehicleId?: string;
+  circuitMinTier?: number;
+  circuitMaxTier?: number;
 }
 
 const TOTAL_RACERS = 8;
@@ -18,10 +23,34 @@ const TRACK_PATH =
 // Start/finish line position (top-left of the track)
 const FINISH_LINE = { x: 120, y1: 22, y2: 58 };
 
+// Sprite size on track (viewBox units)
+const SPRITE_SIZE = 16;
+const SPRITE_HALF = SPRITE_SIZE / 2;
+
+/** Get the vehicle ID for a given tier. */
+function vehicleIdForTier(tier: number): string | undefined {
+  return VEHICLE_DEFINITIONS.find((v) => v.tier === tier)?.id;
+}
+
+/** Pick a deterministic opponent vehicle ID for a given rank + circuit tier range. */
+function opponentVehicleId(
+  rank: number,
+  minTier: number,
+  maxTier: number,
+): string | undefined {
+  // Spread opponents across the tier range, higher ranks get lower tiers
+  const tierRange = maxTier - minTier + 1;
+  const tier = minTier + (rank % tierRange);
+  return vehicleIdForTier(tier);
+}
+
 export default function RaceTrackSVG({
   progress,
   playerPosition,
   eventType,
+  playerVehicleId,
+  circuitMinTier = 0,
+  circuitMaxTier = 0,
 }: RaceTrackSVGProps) {
   const pathRef = useRef<SVGPathElement>(null);
   const carRefs = useRef<(SVGGElement | null)[]>([]);
@@ -157,6 +186,12 @@ export default function RaceTrackSVG({
         {Array.from({ length: TOTAL_RACERS }, (_, i) => TOTAL_RACERS - 1 - i).map(
           (rank) => {
             const isPlayer = rank === playerIndex;
+            const color = isPlayer ? "var(--accent)" : "var(--text-muted)";
+            const vId = isPlayer
+              ? playerVehicleId
+              : opponentVehicleId(rank, circuitMinTier, circuitMaxTier);
+            const renderer = vId ? sprites[vId] : undefined;
+
             return (
               <g
                 key={rank}
@@ -166,9 +201,7 @@ export default function RaceTrackSVG({
                   willChange: "transform",
                 }}
               >
-                <polygon
-                  points={isPlayer ? "-7,-5 8,0 -7,5" : "-5,-3.5 6,0 -5,3.5"}
-                  fill={isPlayer ? "var(--accent)" : "var(--text-muted)"}
+                <g
                   opacity={
                     isPlayer
                       ? isMechanical ? 0.4 : 1
@@ -180,11 +213,28 @@ export default function RaceTrackSVG({
                       ? { animation: "shake 0.3s infinite" }
                       : undefined
                   }
-                />
+                >
+                  {renderer ? (
+                    <svg
+                      x={-SPRITE_HALF}
+                      y={-SPRITE_HALF}
+                      width={SPRITE_SIZE}
+                      height={SPRITE_SIZE}
+                      viewBox="0 0 32 32"
+                    >
+                      {renderer(color)}
+                    </svg>
+                  ) : (
+                    <polygon
+                      points={isPlayer ? "-7,-5 8,0 -7,5" : "-5,-3.5 6,0 -5,3.5"}
+                      fill={color}
+                    />
+                  )}
+                </g>
                 {/* Small label for player car */}
                 {isPlayer && (
                   <text
-                    y={-9}
+                    y={-SPRITE_HALF - 2}
                     textAnchor="middle"
                     fontSize="7"
                     fontWeight="bold"
