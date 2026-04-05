@@ -107,9 +107,10 @@ function LiveRaceView({
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
 
-      // Hold at 0 during the light tree countdown
+      // Hold at 0 during the light tree countdown, then compress into remaining time
       const raceElapsed = Math.max(0, elapsed - countdownMs);
-      const pct = Math.min(1, raceElapsed / durationMs);
+      const movingDuration = durationMs - countdownMs;
+      const pct = movingDuration > 0 ? Math.min(1, raceElapsed / movingDuration) : 0;
       setProgress(pct);
 
       // Events are still timed from startTime so commentary fires during countdown
