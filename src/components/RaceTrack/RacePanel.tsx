@@ -149,28 +149,26 @@ function LiveRaceView({
       className="rounded-lg p-4 space-y-3"
       style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--accent-border)", background: "var(--panel-bg)" }}
     >
-      {/* Commentary ticker with event icon — only during active race */}
-      {isActive && currentEvent && (
-        <div
-          key={currentEvent.timeOffset}
-          className="animate-fade-up rounded-md px-3 py-2 flex items-center gap-2"
-          style={{ background: "var(--panel-bg)" }}
+      {/* Commentary ticker with event icon — always rendered, invisible when inactive */}
+      <div
+        key={isActive && currentEvent ? currentEvent.timeOffset : "placeholder"}
+        className={`rounded-md px-3 py-2 flex items-center gap-2 ${isActive && currentEvent ? "animate-fade-up" : "invisible"}`}
+        style={{ background: "var(--panel-bg)" }}
+      >
+        <EventIcon type={currentEvent?.type ?? "start"} />
+        <span
+          className={`text-sm font-medium ${currentEvent?.type === "finish" ? "font-bold" : ""}`}
+          style={
+            currentEvent?.type === "finish" ? { color: "var(--text-white)" } :
+            currentEvent?.type === "position_change" ? { color: "var(--accent)" } :
+            currentEvent?.type === "mechanical" ? { color: "var(--danger)" } :
+            currentEvent?.type === "close_call" ? { color: "var(--warning)" } :
+            { color: "var(--text-heading)" }
+          }
         >
-          <EventIcon type={currentEvent.type} />
-          <span
-            className={`text-sm font-medium ${currentEvent.type === "finish" ? "font-bold" : ""}`}
-            style={
-              currentEvent.type === "finish" ? { color: "var(--text-white)" } :
-              currentEvent.type === "position_change" ? { color: "var(--accent)" } :
-              currentEvent.type === "mechanical" ? { color: "var(--danger)" } :
-              currentEvent.type === "close_call" ? { color: "var(--warning)" } :
-              { color: "var(--text-heading)" }
-            }
-          >
-            {currentEvent.commentary}
-          </span>
-        </div>
-      )}
+          {currentEvent?.commentary ?? "\u00A0"}
+        </span>
+      </div>
 
       {/* Animated race track — always visible */}
       <RaceTrackSVG
@@ -184,18 +182,16 @@ function LiveRaceView({
         raceDuration={durationMs}
       />
 
-      {/* Lap progress bar — only during active race */}
-      {isActive && (
-        <div className="relative h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--divider)" }}>
-          <div
-            className={`h-full rounded-full transition-all duration-100 ${currentEvent?.type === "final_lap" ? "animate-pulse-fire" : ""}`}
-            style={{
-              width: `${Math.round(progress * 100)}%`,
-              background: currentEvent?.type === "final_lap" ? "var(--warning)" : "var(--accent)",
-            }}
-          />
-        </div>
-      )}
+      {/* Lap progress bar — always rendered, invisible when inactive */}
+      <div className={`relative h-1.5 w-full rounded-full overflow-hidden ${isActive ? "" : "invisible"}`} style={{ background: "var(--divider)" }}>
+        <div
+          className={`h-full rounded-full transition-all duration-100 ${currentEvent?.type === "final_lap" ? "animate-pulse-fire" : ""}`}
+          style={{
+            width: `${Math.round(progress * 100)}%`,
+            background: currentEvent?.type === "final_lap" ? "var(--warning)" : "var(--accent)",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -465,24 +461,21 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 Cond: {vehicleCondition}%
               </span>
             </div>
-            {vehicleCondition <= 0 && (
-              <div className="mt-1.5 text-xs font-semibold" style={{ color: "var(--danger)" }}>
-                Vehicle is broken! Repair it in the Garage tab.
-              </div>
-            )}
-            {vehicleCondition > 0 && vehicleCondition <= 30 && (
-              <div className="mt-1.5 text-xs" style={{ color: "var(--warning)" }}>
-                Your vehicle is falling apart! Consider repairing.
-              </div>
-            )}
-            {selectedCircuit && activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier && (() => {
-              const qualifyingVehicle = garage.find((v) => {
+            <div className={`mt-1.5 text-xs font-semibold ${vehicleCondition <= 0 ? "" : "invisible"}`} style={{ color: "var(--danger)" }}>
+              Vehicle is broken! Repair it in the Garage tab.
+            </div>
+            <div className={`mt-1.5 text-xs ${vehicleCondition > 0 && vehicleCondition <= 30 ? "" : "invisible"}`} style={{ color: "var(--warning)" }}>
+              Your vehicle is falling apart! Consider repairing.
+            </div>
+            {(() => {
+              const showTierWarning = !!(selectedCircuit && activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier);
+              const qualifyingVehicle = showTierWarning ? garage.find((v) => {
                 const def = VEHICLE_DEFINITIONS.find((d) => d.id === v.definitionId);
-                return def && def.tier >= selectedCircuit.minVehicleTier;
-              });
+                return def && def.tier >= selectedCircuit!.minVehicleTier;
+              }) : null;
               return (
-                <div className="mt-1.5 text-xs font-semibold" style={{ color: "var(--warning)" }}>
-                  Your racer doesn&apos;t meet the T{selectedCircuit.minVehicleTier}+ requirement.{" "}
+                <div className={`mt-1.5 text-xs font-semibold ${showTierWarning ? "" : "invisible"}`} style={{ color: "var(--warning)" }}>
+                  Your racer doesn&apos;t meet the {selectedCircuit ? `T${selectedCircuit.minVehicleTier}+` : ""} requirement.{" "}
                   {qualifyingVehicle ? (
                     <button onClick={() => setActiveTab?.("garage")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
                       Activate a qualifying vehicle in the Garage
@@ -589,19 +582,17 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             </div>
           )}
           <StreakDisplay streak={winStreak} best={bestWinStreak} />
-          {selectedCircuit && !canEnter && !isRacing && (
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {!activeVehicle
-                ? "No vehicle"
-                : vehicleCondition <= 0
-                ? "Vehicle broken — repair in Garage"
-                : scrapBucks < selectedCircuit.entryFee
-                ? `Need $${formatNumber(selectedCircuit.entryFee)}`
-                : activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier
-                ? `Need T${selectedCircuit.minVehicleTier}+ vehicle`
-                : ""}
-            </span>
-          )}
+          <span className={`text-xs ${selectedCircuit && !canEnter && !isRacing ? "" : "invisible"}`} style={{ color: "var(--text-muted)" }}>
+            {!activeVehicle
+              ? "No vehicle"
+              : vehicleCondition <= 0
+              ? "Vehicle broken — repair in Garage"
+              : selectedCircuit && scrapBucks < selectedCircuit.entryFee
+              ? `Need $${formatNumber(selectedCircuit.entryFee)}`
+              : activeVehicleDef && selectedCircuit && activeVehicleDef.tier < selectedCircuit.minVehicleTier
+              ? `Need T${selectedCircuit.minVehicleTier}+ vehicle`
+              : "\u00A0"}
+          </span>
         </div>
 
         {/* Race track — always visible, animates during active races */}
