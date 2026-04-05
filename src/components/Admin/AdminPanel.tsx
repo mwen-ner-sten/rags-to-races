@@ -7,7 +7,6 @@ import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { formatNumber } from "@/utils/format";
-import { getVehicleSprite, getOpponentSprite } from "@/components/RaceTrack/vehicleSprites";
 import type { PartCondition } from "@/data/parts";
 
 const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
@@ -131,42 +130,6 @@ export default function AdminPanel() {
         >
           Go!
         </button>
-      </div>
-
-      {/* Sprite Viewer */}
-      <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border p-4 flex flex-col gap-2">
-        <span style={{ color: "var(--text-heading)" }} className="text-xs font-semibold uppercase tracking-wider">Sprite Viewer</span>
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {VEHICLE_DEFINITIONS.map((v) => (
-            <div key={v.id} className="flex flex-col items-center gap-1 shrink-0">
-              <svg
-                viewBox="-12 -8 24 16"
-                width="72"
-                height="48"
-                style={{ background: "var(--panel-border)", borderRadius: 6 }}
-              >
-                <path d={getVehicleSprite(v.tier)} fill="var(--accent)" stroke="var(--accent)" strokeWidth={0.3} />
-              </svg>
-              <span style={{ color: "var(--text-muted)" }} className="text-xs font-mono whitespace-nowrap">
-                T{v.tier} {v.name}
-              </span>
-            </div>
-          ))}
-          {/* Opponent sprite */}
-          <div className="flex flex-col items-center gap-1 shrink-0">
-            <svg
-              viewBox="-12 -8 24 16"
-              width="72"
-              height="48"
-              style={{ background: "var(--panel-border)", borderRadius: 6 }}
-            >
-              <path d={getOpponentSprite()} fill="var(--text-muted)" stroke="var(--text-muted)" strokeWidth={0.3} />
-            </svg>
-            <span style={{ color: "var(--text-muted)" }} className="text-xs font-mono whitespace-nowrap">
-              Opponent
-            </span>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
