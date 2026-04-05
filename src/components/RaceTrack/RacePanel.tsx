@@ -585,8 +585,6 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           <span className={`text-xs ${selectedCircuit && !canEnter && !isRacing ? "" : "invisible"}`} style={{ color: "var(--text-muted)" }}>
             {!activeVehicle
               ? "No vehicle"
-              : vehicleCondition <= 0
-              ? "Vehicle broken — repair in Garage"
               : selectedCircuit && scrapBucks < selectedCircuit.entryFee
               ? `Need $${formatNumber(selectedCircuit.entryFee)}`
               : activeVehicleDef && selectedCircuit && activeVehicleDef.tier < selectedCircuit.minVehicleTier
