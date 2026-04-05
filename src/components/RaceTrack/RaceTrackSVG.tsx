@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
+import { sprites } from "@/components/RaceTrack/VehicleSprite";
+import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { RaceEvent } from "@/engine/raceEvents";
 import TrackSurface from "./TrackSurface";
-import RaceCar from "./RaceCar";
 import RaceParticles from "./RaceParticles";
 import { StartSequence, FinishOverlay } from "./RaceOverlays";
 import { getCircuitTheme } from "./circuitThemes";
@@ -12,7 +13,9 @@ interface RaceTrackSVGProps {
   progress: number;
   playerPosition: number;
   eventType: RaceEvent["type"] | null;
-  vehicleTier?: number;
+  playerVehicleId?: string;
+  circuitMinTier?: number;
+  circuitMaxTier?: number;
   circuitId?: string;
   raceDuration?: number;
 }
@@ -26,11 +29,34 @@ const TRACK_PATH =
 // Start/finish line position (top-left of the track)
 const FINISH_LINE = { x: 120, y1: 22, y2: 58 };
 
+// Sprite size on track (viewBox units)
+const SPRITE_SIZE = 16;
+const SPRITE_HALF = SPRITE_SIZE / 2;
+
+/** Get the vehicle ID for a given tier. */
+function vehicleIdForTier(tier: number): string | undefined {
+  return VEHICLE_DEFINITIONS.find((v) => v.tier === tier)?.id;
+}
+
+/** Pick a deterministic opponent vehicle ID for a given rank + circuit tier range. */
+function opponentVehicleId(
+  rank: number,
+  minTier: number,
+  maxTier: number,
+): string | undefined {
+  // Spread opponents across the tier range, higher ranks get lower tiers
+  const tierRange = maxTier - minTier + 1;
+  const tier = minTier + (rank % tierRange);
+  return vehicleIdForTier(tier);
+}
+
 export default function RaceTrackSVG({
   progress,
   playerPosition,
   eventType,
-  vehicleTier = 0,
+  playerVehicleId,
+  circuitMinTier = 0,
+  circuitMaxTier = 0,
   circuitId = "backyard_derby",
   raceDuration = 4000,
 }: RaceTrackSVGProps) {
@@ -57,6 +83,9 @@ export default function RaceTrackSVG({
     const spreadFactor = 0.3 + 0.7 * (1 - progress);
     const currentSpread = maxSpread * spreadFactor;
 
+    // P1 (rank 0) gets the largest offset (= currentSpread).
+    // At progress=1 we want P1 to land exactly at the finish line (distance = totalLength).
+    // So: usableLength = totalLength - endSpread, where endSpread = maxSpread * 0.3
     const endSpread = maxSpread * 0.3;
     const usableLength = totalLength - endSpread;
     const baseDistance = progress * usableLength;
@@ -65,6 +94,7 @@ export default function RaceTrackSVG({
       const el = carRefs.current[i];
       if (!el) continue;
 
+      // rank 0 = P1 (furthest ahead), rank 7 = P8
       const rank = i;
       const positionOffset =
         ((TOTAL_RACERS - 1 - rank) / (TOTAL_RACERS - 1)) * currentSpread;
@@ -73,7 +103,9 @@ export default function RaceTrackSVG({
         Math.max(0, baseDistance + positionOffset),
       );
 
+      // Get point on path
       const pt = path.getPointAtLength(distance);
+      // Get direction by sampling a nearby point
       const pt2 = path.getPointAtLength(Math.min(totalLength - 1, distance + 3));
       const angle = Math.atan2(pt2.y - pt.y, pt2.x - pt.x) * (180 / Math.PI);
 
@@ -86,6 +118,7 @@ export default function RaceTrackSVG({
     }
   }, [progress, playerPosition]);
 
+  // Map player into the sorted array: index = playerPosition - 1
   const playerIndex = playerPosition - 1;
   const isMechanical = eventType === "mechanical";
   const circuitTheme = getCircuitTheme(circuitId);
@@ -136,16 +169,56 @@ export default function RaceTrackSVG({
 
         {/* Cars — rendered P8 first so P1 is on top */}
         {Array.from({ length: TOTAL_RACERS }, (_, i) => TOTAL_RACERS - 1 - i).map(
-          (rank) => (
-            <RaceCar
-              key={rank}
-              rank={rank}
-              isPlayer={rank === playerIndex}
-              isMechanical={rank === playerIndex && isMechanical}
-              vehicleTier={vehicleTier}
-              carRef={setCarRef(rank)}
-            />
-          ),
+          (rank) => {
+            const isPlayer = rank === playerIndex;
+            const color = isPlayer ? "var(--accent)" : "var(--text-muted)";
+            const vId = isPlayer
+              ? playerVehicleId
+              : opponentVehicleId(rank, circuitMinTier, circuitMaxTier);
+            const renderer = vId ? sprites[vId] : undefined;
+
+            return (
+              <g
+                key={rank}
+                ref={setCarRef(rank)}
+                style={{
+                  transition: "transform 80ms linear",
+                  willChange: "transform",
+                }}
+              >
+                <g
+                  opacity={
+                    isPlayer
+                      ? isMechanical ? 0.4 : 1
+                      : 0.35 + (TOTAL_RACERS - rank) * 0.05
+                  }
+                  filter={isPlayer ? "url(#player-glow)" : undefined}
+                  style={
+                    isPlayer && isMechanical
+                      ? { animation: "shake 0.3s infinite" }
+                      : undefined
+                  }
+                >
+                  {renderer ? (
+                    <svg
+                      x={-SPRITE_HALF}
+                      y={-SPRITE_HALF}
+                      width={SPRITE_SIZE}
+                      height={SPRITE_SIZE}
+                      viewBox="0 0 32 32"
+                    >
+                      {renderer(color)}
+                    </svg>
+                  ) : (
+                    <polygon
+                      points={isPlayer ? "-7,-5 8,0 -7,5" : "-5,-3.5 6,0 -5,3.5"}
+                      fill={color}
+                    />
+                  )}
+                </g>
+              </g>
+            );
+          },
         )}
 
         {/* Start sequence overlay (traffic lights) */}

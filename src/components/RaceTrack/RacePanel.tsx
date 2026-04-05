@@ -82,15 +82,19 @@ function LiveRaceView({
   events,
   startTime,
   durationMs,
-  vehicleTier,
+  playerVehicleId,
+  circuitMinTier,
+  circuitMaxTier,
   circuitId,
   isActive,
 }: {
   events: RaceEvent[];
   startTime: number;
   durationMs: number;
-  vehicleTier: number;
-  circuitId: string;
+  playerVehicleId?: string;
+  circuitMinTier?: number;
+  circuitMaxTier?: number;
+  circuitId?: string;
   isActive: boolean;
 }) {
   const [currentEvent, setCurrentEvent] = useState<RaceEvent | null>(null);
@@ -173,7 +177,9 @@ function LiveRaceView({
         progress={progress}
         playerPosition={position}
         eventType={currentEvent?.type ?? null}
-        vehicleTier={vehicleTier}
+        playerVehicleId={playerVehicleId}
+        circuitMinTier={circuitMinTier}
+        circuitMaxTier={circuitMaxTier}
         circuitId={circuitId}
         raceDuration={durationMs}
       />
@@ -604,7 +610,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             events={raceEvents}
             startTime={raceStartTime ?? 0}
             durationMs={selectedCircuit.raceDuration}
-            vehicleTier={activeVehicleDef?.tier ?? 0}
+            playerVehicleId={activeVehicle?.definitionId}
+            circuitMinTier={selectedCircuit.minVehicleTier}
+            circuitMaxTier={selectedCircuit.maxVehicleTier}
             circuitId={selectedCircuitId}
             isActive={isRacing && raceStartTime != null && raceEvents.length > 0}
           />

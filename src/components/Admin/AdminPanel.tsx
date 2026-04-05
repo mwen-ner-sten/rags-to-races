@@ -6,6 +6,7 @@ import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
+import VehicleSprite from "@/components/RaceTrack/VehicleSprite";
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
 
@@ -415,6 +416,44 @@ export default function AdminPanel() {
           <p style={{ color: "var(--text-muted)" }} className="text-xs">
             Adjusts prestige bonuses without resetting game state.
           </p>
+        </div>
+
+        {/* Vehicle Sprites */}
+        <div
+          style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
+          className={SECTION + " lg:col-span-3"}
+        >
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Vehicle Sprites</p>
+          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-9">
+            {VEHICLE_DEFINITIONS.map((v) => (
+              <div key={v.id} className="flex flex-col items-center gap-2">
+                <div
+                  style={{ background: "var(--surface-bg, var(--panel-bg))", borderColor: "var(--panel-border)" }}
+                  className="flex items-center justify-center rounded-lg border p-2"
+                >
+                  <VehicleSprite vehicleId={v.id} size={64} />
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span
+                    style={{ color: "var(--accent)" }}
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                  >
+                    T{v.tier}
+                  </span>
+                  <span
+                    style={{ color: "var(--text-secondary)" }}
+                    className="text-center text-xs leading-tight"
+                  >
+                    {v.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <VehicleSprite vehicleId={v.id} size={24} color="var(--accent)" />
+                  <VehicleSprite vehicleId={v.id} size={24} color="var(--text-muted)" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Danger zone */}
