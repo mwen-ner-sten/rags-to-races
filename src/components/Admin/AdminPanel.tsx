@@ -33,6 +33,7 @@ export default function AdminPanel() {
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
 
+  const devQuickStart = useGameStore((s) => s.devQuickStart);
   const devSetScrapBucks = useGameStore((s) => s.devSetScrapBucks);
   const devAddScrapBucks = useGameStore((s) => s.devAddScrapBucks);
   const devSetRepPoints = useGameStore((s) => s.devSetRepPoints);
@@ -114,6 +115,21 @@ export default function AdminPanel() {
       <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border px-4 py-2 flex items-center justify-between">
         <span style={{ color: "var(--text-muted)" }} className="text-xs uppercase tracking-wider">Build Version</span>
         <span style={{ color: "var(--accent)" }} className="text-xs font-mono font-semibold">v{BUILD_VERSION}</span>
+      </div>
+
+      {/* Quick Start */}
+      <div style={{ background: "var(--panel-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4 flex items-center gap-4 flex-wrap">
+        <div className="flex flex-col gap-0.5">
+          <span style={{ color: "var(--text-heading)" }} className="text-xs font-semibold uppercase tracking-wider">Quick Start</span>
+          <span style={{ color: "var(--text-muted)" }} className="text-xs">T1 Riding Mower + $500 + 50 Rep — ready to race</span>
+        </div>
+        <button
+          onClick={() => { devQuickStart(); log("Quick Start: T1 Riding Mower + $500 + 50 Rep"); }}
+          style={btnAccent}
+          className="rounded px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+        >
+          Go!
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
