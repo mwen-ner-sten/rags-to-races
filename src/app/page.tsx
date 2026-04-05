@@ -13,8 +13,10 @@ import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
 import ToastContainer from "@/components/effects/Toast";
 import TutorialOverlay, { getAllowedTabs } from "@/components/effects/TutorialOverlay";
+import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
+import type { OfflineResult } from "@/engine/tick";
 
 type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
 
@@ -22,6 +24,7 @@ const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
+  const [offlineResult, setOfflineResult] = useState<{ result: OfflineResult; timeAway: number } | null>(null);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
   const storeRef = useRef(useGameStore.getState());
@@ -68,12 +71,7 @@ export default function Home() {
             r.racesCompleted,
           );
           const timeAway = Math.round(elapsed / 60_000);
-          useGameStore.setState((s) => ({
-            unlockEvents: [
-              ...s.unlockEvents,
-              `Welcome back! ${timeAway} min away — ${r.ticksProcessed} ticks processed.`,
-            ],
-          }));
+          setOfflineResult({ result: r, timeAway });
         }
       }
     }
@@ -121,6 +119,13 @@ export default function Home() {
     <>
       <ToastContainer />
       <TutorialOverlay activeTab={activeTab} />
+      {offlineResult && (
+        <OfflineProgressModal
+          timeAwayMinutes={offlineResult.timeAway}
+          result={offlineResult.result}
+          onDismiss={() => setOfflineResult(null)}
+        />
+      )}
       <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
