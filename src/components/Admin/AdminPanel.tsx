@@ -6,7 +6,9 @@ import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import VehicleSprite from "@/components/RaceTrack/VehicleSprite";
+import VehicleSprite, {
+  VEHICLE_SPRITE_ART_REVISION,
+} from "@/components/RaceTrack/VehicleSprite";
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
 
@@ -426,20 +428,33 @@ export default function AdminPanel() {
           </p>
         </div>
 
-        {/* Vehicle Sprites */}
+        {/* Vehicle Sprites — uses VehicleSprite (same as race track). Checkerboard makes shadows/tires visible. */}
         <div
           style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
           className={SECTION + " lg:col-span-3"}
         >
           <p style={{ color: "var(--text-heading)" }} className={LABEL}>Vehicle Sprites</p>
+          <p style={{ color: "var(--text-muted)" }} className="text-xs leading-snug">
+            Art revision <span className="font-mono text-[var(--accent)]">{VEHICLE_SPRITE_ART_REVISION}</span>
+            {" · "}
+            build <span className="font-mono">{BUILD_VERSION}</span>
+            {" · "}
+            If this still reads like plain blocks, hard-refresh or restart dev — you may be on a cached bundle.
+          </p>
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-9">
             {VEHICLE_DEFINITIONS.map((v) => (
               <div key={v.id} className="flex flex-col items-center gap-2">
                 <div
-                  style={{ background: "var(--surface-bg, var(--panel-bg))", borderColor: "var(--panel-border)" }}
-                  className="flex items-center justify-center rounded-lg border p-2"
+                  style={{
+                    borderColor: "var(--panel-border)",
+                    backgroundColor: "var(--surface-bg, var(--panel-bg))",
+                    backgroundImage:
+                      "repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0deg 90deg, transparent 90deg 180deg)",
+                    backgroundSize: "14px 14px",
+                  }}
+                  className="flex items-center justify-center rounded-lg border p-3"
                 >
-                  <VehicleSprite vehicleId={v.id} size={64} />
+                  <VehicleSprite vehicleId={v.id} size={96} />
                 </div>
                 <div className="flex flex-col items-center gap-0.5">
                   <span

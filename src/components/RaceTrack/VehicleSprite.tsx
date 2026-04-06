@@ -6,6 +6,9 @@
  * Layered paths (no shared defs/ids) keep many cars on one SVG valid.
  */
 
+/** Shown in Dev → Vehicle Sprites so you can confirm the running bundle has new art. */
+export const VEHICLE_SPRITE_ART_REVISION = 2;
+
 interface VehicleSpriteProps {
   vehicleId: string;
   size?: number;
