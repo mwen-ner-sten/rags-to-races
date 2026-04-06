@@ -44,9 +44,11 @@ export const STEPS: TutorialStepDef[] = [
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Clyde\u2019s covering your first **Repair** for free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses." },
-  /* 15 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
-  /* 16 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
+  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage", "workshop"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses. Visit the **Workshop** to spend your earnings on permanent upgrades along the way." },
+  /* 15 */ { icon: "\u{1F527}", tip: "You\u2019ve earned some scrap \u2014 time to invest. Head to the **Workshop** tab for permanent upgrades.", allowedTabs: ["race", "junkyard", "garage", "workshop"], highlightTab: "workshop" },
+  /* 16 */ { icon: "\u2B06\uFE0F", tip: "Pick an upgrade and buy it. These bonuses are **permanent** \u2014 they survive resets.", allowedTabs: ["workshop"], target: "workshop-upgrade-btn" },
+  /* 17 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "workshop", "shop"], highlightTab: "shop" },
+  /* 18 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
@@ -131,6 +133,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
   const isRacing = useGameStore((s) => s.isRacing);
   const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
 
   const [cardDismissed, setCardDismissed] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -176,11 +179,13 @@ export default function TutorialOverlay({ activeTab }: Props) {
         break;
       }
       case 14: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
-      case 15: shouldAdvance = activeTab === "shop"; break;
-      case 16: shouldAdvance = prestigeCount > 0; break;
+      case 15: shouldAdvance = activeTab === "workshop"; break;
+      case 16: shouldAdvance = Object.values(workshopLevels).some((v) => v > 0); break;
+      case 17: shouldAdvance = activeTab === "shop"; break;
+      case 18: shouldAdvance = prestigeCount > 0; break;
     }
     if (shouldAdvance) advanceTutorial();
-  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing]);
+  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing, workshopLevels]);
 
   useEffect(() => {
     if (tutorialStep >= STEPS.length) {
