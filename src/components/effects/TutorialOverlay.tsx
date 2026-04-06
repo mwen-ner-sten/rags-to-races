@@ -60,6 +60,7 @@ export function getAllowedTabs(step: number): Set<TabId> | null {
   const s = new Set(allowed);
   s.add("help");
   s.add("settings");
+  s.add("dev");
   return s;
 }
 
