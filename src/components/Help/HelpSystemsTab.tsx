@@ -204,7 +204,7 @@ export default function HelpSystemsTab() {
           {/* Workshop */}
           <SystemSection icon="⚙️" title="Workshop">
             <div className="space-y-3">
-              <p>{HELP_DATA_SNAPSHOT.upgrades} upgrades across {HELP_DATA_SNAPSHOT.upgradeCategories} categories. Workshop levels persist through prestige.</p>
+              <p>{HELP_DATA_SNAPSHOT.upgrades} upgrades across {HELP_DATA_SNAPSHOT.upgradeCategories} categories. Workshop levels reset on prestige.</p>
               {HELP_UPGRADES_BY_CATEGORY.map((group) => (
                 <div key={group.category}>
                   <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>

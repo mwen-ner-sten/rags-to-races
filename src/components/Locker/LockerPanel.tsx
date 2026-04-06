@@ -301,7 +301,7 @@ function SlotPanel({
   enhanceLootGear: (id: string) => void;
   salvageLootGear: (id: string) => void;
 }) {
-  const [subTab, setSubTab] = useState<"shop" | "loot">(lootGearForSlot.length > 0 ? "loot" : "shop");
+  const [subTab, setSubTab] = useState<"outfit" | "loot">(lootGearForSlot.length > 0 ? "loot" : "outfit");
   const slotInfo = GEAR_SLOT_LABELS[slot];
   const staticItems = getGearForSlot(slot);
 
@@ -312,9 +312,9 @@ function SlotPanel({
         <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">{slotInfo.label}</h3>
         <div className="ml-auto flex gap-1">
           <button
-            onClick={() => setSubTab("shop")}
-            className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "shop" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-          >Shop</button>
+            onClick={() => setSubTab("outfit")}
+            className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "outfit" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+          >Outfit</button>
           <button
             onClick={() => setSubTab("loot")}
             className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "loot" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
@@ -324,7 +324,7 @@ function SlotPanel({
         </div>
       </div>
 
-      {subTab === "shop" && (
+      {subTab === "outfit" && (
         <div className="flex flex-col gap-2">
           {staticItems.map((gear) => {
             const owned = ownedGearIds.includes(gear.id);

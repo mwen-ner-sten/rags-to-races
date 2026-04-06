@@ -14,7 +14,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * Resets each time a tick fires. All animation is done via direct DOM
  * manipulation so there are zero React re-renders at 100ms cadence.
  */
-export default function TickRing() {
+export default function TickRing({ suppressTitle = false }: { suppressTitle?: boolean }) {
   const arcRef  = useRef<SVGCircleElement>(null);
   const titleRef = useRef<HTMLTitleElement>(null);
 
@@ -66,7 +66,7 @@ export default function TickRing() {
       }}
       aria-label="Tick progress"
     >
-      <title ref={titleRef}>Tick progress</title>
+      {!suppressTitle && <title ref={titleRef}>Tick progress</title>}
       {/* Track */}
       <circle
         cx={SIZE / 2}

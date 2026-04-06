@@ -9,7 +9,66 @@ import { RACE_TICKS_DEFAULT } from "@/engine/tick";
 import { formatNumber } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
+import RaceTrackSVG from "@/components/RaceTrack/RaceTrackSVG";
 import type { RaceEvent } from "@/engine/raceEvents";
+
+// ── Event Icons ────────────────────────────────────────────────────────
+
+function EventIcon({ type }: { type: RaceEvent["type"] }) {
+  const size = 14;
+  const common = { width: size, height: size, viewBox: "0 0 16 16", style: { flexShrink: 0 } as React.CSSProperties };
+
+  switch (type) {
+    case "start":
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="8" cy="8" r="6" fill="none" stroke="var(--success)" strokeWidth="1.5" />
+          <polygon points="6,5 12,8 6,11" fill="var(--success)" />
+        </svg>
+      );
+    case "position_change":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M8,3 L12,8 L9,8 L9,13 L7,13 L7,8 L4,8 Z" fill="var(--accent)" />
+        </svg>
+      );
+    case "close_call":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M8,2 L14,13 L2,13 Z" fill="none" stroke="var(--warning)" strokeWidth="1.5" strokeLinejoin="round" />
+          <line x1="8" y1="6" x2="8" y2="9.5" stroke="var(--warning)" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="8" cy="11" r="0.8" fill="var(--warning)" />
+        </svg>
+      );
+    case "mechanical":
+      return (
+        <svg {...common} aria-hidden="true">
+          <path d="M4,12 L7,9 L6,8 L5,9 L4,8 L7,5 L8,6 L9,5 L8,4 L11,1 L15,5 L12,8 L11,7 L10,8 L11,9 L8,12 Z" fill="var(--danger)" transform="scale(0.9) translate(1,1)" />
+        </svg>
+      );
+    case "final_lap":
+      return (
+        <svg {...common} aria-hidden="true">
+          <rect x="3" y="2" width="10" height="12" rx="1" fill="none" stroke="var(--warning)" strokeWidth="1.2" />
+          <rect x="3" y="2" width="5" height="6" fill="var(--warning)" opacity="0.3" />
+          <rect x="8" y="8" width="5" height="6" fill="var(--warning)" opacity="0.3" />
+        </svg>
+      );
+    case "finish":
+      return (
+        <svg {...common} aria-hidden="true">
+          <rect x="2" y="2" width="12" height="12" rx="1" fill="none" stroke="var(--text-white)" strokeWidth="1.2" />
+          <rect x="2" y="2" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="6" y="6" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="10" y="2" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="2" y="10" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+          <rect x="10" y="10" width="4" height="4" fill="var(--text-white)" opacity="0.6" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
 
 const RESULT_STYLES: Record<string, React.CSSProperties> = {
   win: { color: "var(--success)" },
@@ -23,23 +82,42 @@ function LiveRaceView({
   events,
   startTime,
   durationMs,
+  playerVehicleId,
+  circuitMinTier,
+  circuitMaxTier,
+  circuitId,
+  isActive,
 }: {
   events: RaceEvent[];
   startTime: number;
   durationMs: number;
+  playerVehicleId?: string;
+  circuitMinTier?: number;
+  circuitMaxTier?: number;
+  circuitId?: string;
+  isActive: boolean;
 }) {
   const [currentEvent, setCurrentEvent] = useState<RaceEvent | null>(null);
   const [progress, setProgress] = useState(0);
   const eventIndexRef = useRef(0);
 
+  // Light tree countdown duration — cars stay put until green
+  const countdownMs = Math.min(400, durationMs * 0.08) * 2.5;
+
   useEffect(() => {
+    if (!isActive || !startTime || events.length === 0) return;
+
     eventIndexRef.current = 0;
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const pct = Math.min(1, elapsed / durationMs);
+
+      // Hold at 0 during the light tree countdown, then compress into remaining time
+      const raceElapsed = Math.max(0, elapsed - countdownMs);
+      const movingDuration = durationMs - countdownMs;
+      const pct = movingDuration > 0 ? Math.min(1, raceElapsed / movingDuration) : 0;
       setProgress(pct);
 
-      // Find the latest event that should have fired
+      // Events are still timed from startTime so commentary fires during countdown
       let latest = eventIndexRef.current;
       while (latest < events.length && events[latest].timeOffset <= elapsed) {
         latest++;
@@ -51,93 +129,68 @@ function LiveRaceView({
     }, 80);
 
     return () => clearInterval(interval);
-  }, [events, startTime, durationMs]);
+  }, [events, startTime, durationMs, isActive, countdownMs]);
+
+  // Reset state when race ends
+  useEffect(() => {
+    if (!isActive) {
+      const t = setTimeout(() => {
+        setProgress(0);
+        setCurrentEvent(null);
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [isActive]);
 
   const position = currentEvent?.position ?? 8;
-  const totalRacers = 8;
 
   return (
     <div
       className="rounded-lg p-4 space-y-3"
       style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--accent-border)", background: "var(--panel-bg)" }}
     >
-      {/* Position indicator */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span
-            className="text-xs font-semibold uppercase tracking-wider"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Position
-          </span>
-          <span className="font-mono text-lg font-bold" style={{ color: "var(--accent)" }}>
-            P{position}
-            <span className="text-sm" style={{ color: "var(--text-muted)" }}>/{totalRacers}</span>
-          </span>
-        </div>
-        {/* Position bar */}
-        <div className="flex gap-1">
-          {Array.from({ length: totalRacers }, (_, i) => {
-            const pos = i + 1;
-            const isPlayer = pos === position;
-            return (
-              <div
-                key={pos}
-                className={`h-6 flex-1 rounded text-xs font-mono flex items-center justify-center transition-all duration-300 ${
-                  isPlayer ? "font-bold scale-110 shadow-lg" : ""
-                }`}
-                style={
-                  isPlayer
-                    ? { background: "var(--accent)", color: "var(--btn-primary-text)" }
-                    : pos < position
-                      ? { background: "var(--panel-border)", color: "var(--text-muted)" }
-                      : { background: "var(--panel-bg)", color: "var(--text-muted)" }
-                }
-              >
-                {isPlayer ? "YOU" : `P${pos}`}
-              </div>
-            );
-          })}
-        </div>
+      {/* Commentary ticker with event icon — always rendered, invisible when inactive */}
+      <div
+        key={isActive && currentEvent ? currentEvent.timeOffset : "placeholder"}
+        className={`rounded-md px-3 py-2 flex items-center gap-2 ${isActive && currentEvent ? "animate-fade-up" : "invisible"}`}
+        style={{ background: "var(--panel-bg)" }}
+      >
+        <EventIcon type={currentEvent?.type ?? "start"} />
+        <span
+          className={`text-sm font-medium ${currentEvent?.type === "finish" ? "font-bold" : ""}`}
+          style={
+            currentEvent?.type === "finish" ? { color: "var(--text-white)" } :
+            currentEvent?.type === "position_change" ? { color: "var(--accent)" } :
+            currentEvent?.type === "mechanical" ? { color: "var(--danger)" } :
+            currentEvent?.type === "close_call" ? { color: "var(--warning)" } :
+            { color: "var(--text-heading)" }
+          }
+        >
+          {currentEvent?.commentary ?? "\u00A0"}
+        </span>
       </div>
 
-      {/* Commentary ticker */}
-      {currentEvent && (
-        <div
-          key={currentEvent.timeOffset}
-          className="animate-fade-up rounded-md px-3 py-2"
-          style={{ background: "var(--panel-bg)" }}
-        >
-          <span
-            className={`text-sm font-medium ${currentEvent.type === "finish" ? "font-bold" : ""}`}
-            style={
-              currentEvent.type === "finish" ? { color: "var(--text-white)" } :
-              currentEvent.type === "position_change" ? { color: "var(--accent)" } :
-              currentEvent.type === "mechanical" ? { color: "var(--danger)" } :
-              currentEvent.type === "close_call" ? { color: "var(--warning)" } :
-              { color: "var(--text-heading)" }
-            }
-          >
-            {currentEvent.commentary}
-          </span>
-        </div>
-      )}
+      {/* Animated race track — always visible */}
+      <RaceTrackSVG
+        progress={progress}
+        playerPosition={position}
+        eventType={currentEvent?.type ?? null}
+        playerVehicleId={playerVehicleId}
+        circuitMinTier={circuitMinTier}
+        circuitMaxTier={circuitMaxTier}
+        circuitId={circuitId}
+        raceDuration={durationMs}
+      />
 
-      {/* Progress bar (track) */}
-      <div className="relative">
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--panel-bg)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-100"
-            style={{ width: `${progress * 100}%`, background: "linear-gradient(to right, var(--btn-primary-bg), var(--accent))" }}
-          />
-        </div>
-        {/* Car emoji riding along */}
+      {/* Lap progress bar — always rendered, invisible when inactive */}
+      <div className={`relative h-1.5 w-full rounded-full overflow-hidden ${isActive ? "" : "invisible"}`} style={{ background: "var(--divider)" }}>
         <div
-          className="absolute -top-3 transition-all duration-100 text-sm"
-          style={{ left: `calc(${progress * 100}% - 8px)` }}
-        >
-          🏎
-        </div>
+          className={`h-full rounded-full transition-all duration-100 ${currentEvent?.type === "final_lap" ? "animate-pulse-fire" : ""}`}
+          style={{
+            width: `${Math.round(progress * 100)}%`,
+            background: currentEvent?.type === "final_lap" ? "var(--warning)" : "var(--accent)",
+          }}
+        />
       </div>
     </div>
   );
@@ -236,7 +289,7 @@ function StreakDisplay({ streak, best }: { streak: number; best: number }) {
 
 // ── Main RacePanel ──────────────────────────────────────────────────────
 
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
 export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId) => void }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -408,24 +461,21 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 Cond: {vehicleCondition}%
               </span>
             </div>
-            {vehicleCondition <= 0 && (
-              <div className="mt-1.5 text-xs font-semibold" style={{ color: "var(--danger)" }}>
-                Vehicle is broken! Repair it in the Garage tab.
-              </div>
-            )}
-            {vehicleCondition > 0 && vehicleCondition <= 30 && (
-              <div className="mt-1.5 text-xs" style={{ color: "var(--warning)" }}>
-                Your vehicle is falling apart! Consider repairing.
-              </div>
-            )}
-            {selectedCircuit && activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier && (() => {
-              const qualifyingVehicle = garage.find((v) => {
+            <div className={`mt-1.5 text-xs font-semibold ${vehicleCondition <= 0 ? "" : "invisible"}`} style={{ color: "var(--danger)" }}>
+              Vehicle is broken! Repair it in the Garage tab.
+            </div>
+            <div className={`mt-1.5 text-xs ${vehicleCondition > 0 && vehicleCondition <= 30 ? "" : "invisible"}`} style={{ color: "var(--warning)" }}>
+              Your vehicle is falling apart! Consider repairing.
+            </div>
+            {(() => {
+              const showTierWarning = !!(selectedCircuit && activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier);
+              const qualifyingVehicle = showTierWarning ? garage.find((v) => {
                 const def = VEHICLE_DEFINITIONS.find((d) => d.id === v.definitionId);
-                return def && def.tier >= selectedCircuit.minVehicleTier;
-              });
+                return def && def.tier >= selectedCircuit!.minVehicleTier;
+              }) : null;
               return (
-                <div className="mt-1.5 text-xs font-semibold" style={{ color: "var(--warning)" }}>
-                  Your racer doesn&apos;t meet the T{selectedCircuit.minVehicleTier}+ requirement.{" "}
+                <div className={`mt-1.5 text-xs font-semibold ${showTierWarning ? "" : "invisible"}`} style={{ color: "var(--warning)" }}>
+                  Your racer doesn&apos;t meet the {selectedCircuit ? `T${selectedCircuit.minVehicleTier}+` : ""} requirement.{" "}
                   {qualifyingVehicle ? (
                     <button onClick={() => setActiveTab?.("garage")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
                       Activate a qualifying vehicle in the Garage
@@ -472,7 +522,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         )}
 
         {/* Pre-race odds */}
-        {activeVehicle && selectedCircuit && !isRacing && (
+        {activeVehicle && selectedCircuit && (
           <div data-tutorial="odds-display">
           <OddsDisplay
             performance={activeVehicle.stats.performance}
@@ -502,7 +552,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
               Auto-Race unlocks after first Prestige
             </span>
           )}
-          {autoRaceUnlocked && !isRacing && (
+          {autoRaceUnlocked && (
             <div className="flex items-center gap-2">
               <span
                 className="rounded px-2 py-1 text-xs"
@@ -532,27 +582,28 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             </div>
           )}
           <StreakDisplay streak={winStreak} best={bestWinStreak} />
-          {selectedCircuit && !canEnter && !isRacing && (
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {!activeVehicle
-                ? "No vehicle"
-                : vehicleCondition <= 0
-                ? "Vehicle broken — repair in Garage"
-                : scrapBucks < selectedCircuit.entryFee
-                ? `Need $${formatNumber(selectedCircuit.entryFee)}`
-                : activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier
-                ? `Need T${selectedCircuit.minVehicleTier}+ vehicle`
-                : ""}
-            </span>
-          )}
+          <span className={`text-xs ${selectedCircuit && !canEnter && !isRacing ? "" : "invisible"}`} style={{ color: "var(--text-muted)" }}>
+            {!activeVehicle
+              ? "No vehicle"
+              : selectedCircuit && scrapBucks < selectedCircuit.entryFee
+              ? `Need $${formatNumber(selectedCircuit.entryFee)}`
+              : activeVehicleDef && selectedCircuit && activeVehicleDef.tier < selectedCircuit.minVehicleTier
+              ? `Need T${selectedCircuit.minVehicleTier}+ vehicle`
+              : "\u00A0"}
+          </span>
         </div>
 
-        {/* Live race view */}
-        {isRacing && raceStartTime && raceEvents.length > 0 && selectedCircuit && (
+        {/* Race track — always visible, animates during active races */}
+        {selectedCircuit && (
           <LiveRaceView
             events={raceEvents}
-            startTime={raceStartTime}
+            startTime={raceStartTime ?? 0}
             durationMs={selectedCircuit.raceDuration}
+            playerVehicleId={activeVehicle?.definitionId}
+            circuitMinTier={selectedCircuit.minVehicleTier}
+            circuitMaxTier={selectedCircuit.maxVehicleTier}
+            circuitId={selectedCircuitId}
+            isActive={isRacing && raceStartTime != null && raceEvents.length > 0}
           />
         )}
 

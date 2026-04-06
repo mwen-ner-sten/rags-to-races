@@ -18,6 +18,7 @@ export default function RunEconomyChart({ snapshot }: { snapshot?: GameSnapshot 
   const [scrapMultLevel, setScrapMultLevel] = useState(0);
   const [ironWill, setIronWill] = useState(0);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- initialise from snapshot prop */
   useEffect(() => {
     if (!snapshot) return;
     setCircuitIdx(snapshot.circuitIdx);
@@ -27,6 +28,7 @@ export default function RunEconomyChart({ snapshot }: { snapshot?: GameSnapshot 
     setScrapMultLevel(snapshot.scrapMultLevel);
     setIronWill(snapshot.ironWill);
   }, [snapshot]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const circuit = CIRCUIT_DEFINITIONS[circuitIdx];
   const scrapMult = 1 + scrapMultLevel * 0.2;

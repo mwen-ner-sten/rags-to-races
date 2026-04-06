@@ -1,0 +1,128 @@
+"use client";
+
+import { useRef, useEffect } from "react";
+import { useGameStore } from "@/state/store";
+import { computeTickSpeedMs, getRaceTicksNeeded } from "@/engine/tick";
+import { MATERIAL_DEFINITIONS } from "@/data/materials";
+import type { MaterialType } from "@/data/materials";
+import TickRing from "@/components/TickRing";
+import { Section, Row, TooltipPanel, HoverTooltipWrapper } from "@/components/TooltipPrimitives";
+
+function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
+  const scrapBucks = useGameStore((s) => s.scrapBucks);
+  const repPoints = useGameStore((s) => s.repPoints);
+  const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
+  const fatigue = useGameStore((s) => s.fatigue);
+  const lifetimeRaces = useGameStore((s) => s.lifetimeRaces);
+  const legacyPoints = useGameStore((s) => s.legacyPoints);
+  const forgeTokens = useGameStore((s) => s.forgeTokens);
+  const materials = useGameStore((s) => s.materials);
+  const winStreak = useGameStore((s) => s.winStreak);
+  const bestWinStreak = useGameStore((s) => s.bestWinStreak);
+  const prestigeCount = useGameStore((s) => s.prestigeCount);
+  const prestigeBonus = useGameStore((s) => s.prestigeBonus);
+  const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
+  const raceTickProgress = useGameStore((s) => s.raceTickProgress);
+  const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
+
+  // Live tick countdown via interval + ref (no re-renders)
+  const tickRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const state = useGameStore.getState();
+      const tickMs = computeTickSpeedMs(state);
+      const elapsed = Date.now() - state.lastActiveTimestamp;
+      const remaining = Math.max(0, tickMs - elapsed);
+      if (tickRef.current) {
+        tickRef.current.textContent =
+          remaining >= 1000
+            ? `${(remaining / 1000).toFixed(1)}s`
+            : `${remaining}ms`;
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  const state = useGameStore.getState();
+  const tickSpeedMs = computeTickSpeedMs(state);
+  const raceTicksNeeded = getRaceTicksNeeded(state);
+
+  const fatigueColor =
+    fatigue >= 75 ? "var(--danger)" :
+    fatigue >= 50 ? "var(--warning)" :
+    fatigue >= 25 ? "var(--accent-secondary)" :
+    "var(--text-secondary)";
+
+  const hasMaterials = MATERIAL_DEFINITIONS.some((m) => materials[m.id as MaterialType] > 0);
+
+  return (
+    <TooltipPanel anchorRect={anchorRect}>
+      {/* Tick Info */}
+      <Section label="Tick">
+        <Row label="Next tick in" value={<span ref={tickRef}>—</span>} />
+        <Row label="Tick speed" value={`${(tickSpeedMs / 1000).toFixed(1)}s`} />
+        {autoRaceUnlocked && (
+          <Row label="Race progress" value={`${raceTickProgress} / ${raceTicksNeeded} ticks`} />
+        )}
+      </Section>
+
+      {/* Currencies */}
+      <Section label="Currencies">
+        <Row label="Scrap Bucks" value={`$${scrapBucks.toLocaleString()}`} color="var(--success, #6aaa3a)" />
+        <Row label="Lifetime Scrap" value={`$${lifetimeScrapBucks.toLocaleString()}`} dim />
+        <Row label="Rep Points" value={repPoints.toLocaleString()} color="var(--info, #6aaa3a)" />
+        {legacyPoints > 0 && (
+          <Row label="Legacy Points" value={legacyPoints.toLocaleString()} color="#a78bfa" />
+        )}
+        {forgeTokens > 0 && (
+          <Row label="Forge Tokens" value={forgeTokens.toLocaleString()} color="var(--accent-secondary, #c4872a)" />
+        )}
+      </Section>
+
+      {/* Fatigue & Racing */}
+      <Section label="Racing">
+        <Row label="Fatigue" value={`${fatigue}%`} color={fatigueColor} />
+        <Row label="Lifetime races" value={lifetimeRaces.toLocaleString()} dim />
+        <Row label="Win streak" value={String(winStreak)} />
+        {bestWinStreak > 0 && (
+          <Row label="Best streak" value={String(bestWinStreak)} dim />
+        )}
+      </Section>
+
+      {/* Prestige */}
+      {prestigeCount > 0 && (
+        <Section label="Prestige">
+          <Row label="Prestige level" value={String(prestigeCount)} color="var(--accent, #c83e0c)" />
+          <Row label="Scrap multiplier" value={`${prestigeBonus.scrapMultiplier.toFixed(2)}x`} />
+          <Row label="Rep multiplier" value={`${prestigeBonus.repMultiplier.toFixed(2)}x`} />
+          {activeMomentumTiers.length > 0 && (
+            <Row label="Momentum tiers" value={`${activeMomentumTiers.length} active`} color="var(--accent-secondary, #c4872a)" />
+          )}
+        </Section>
+      )}
+
+      {/* Materials */}
+      {hasMaterials && (
+        <Section label="Materials">
+          {MATERIAL_DEFINITIONS.map((m) => {
+            const count = materials[m.id as MaterialType];
+            if (count <= 0) return null;
+            return <Row key={m.id} label={m.name} value={count.toLocaleString()} />;
+          })}
+        </Section>
+      )}
+    </TooltipPanel>
+  );
+}
+
+export default function StatsTooltip() {
+  return (
+    <HoverTooltipWrapper
+      renderTooltip={(anchorRect) => <StatsTooltipContent anchorRect={anchorRect} />}
+    >
+      <div style={{ padding: "0.5rem", margin: "-0.5rem" }}>
+        <TickRing suppressTitle />
+      </div>
+    </HoverTooltipWrapper>
+  );
+}

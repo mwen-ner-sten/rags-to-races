@@ -14,6 +14,7 @@ export default function PrestigeRoiTable({ snapshot }: { snapshot?: GameSnapshot
   const [workshopCount, setWorkshopCount] = useState(10);
   const [ironWill, setIronWill] = useState(0);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- initialise from snapshot prop */
   useEffect(() => {
     if (!snapshot) return;
     setRaces(Math.max(10, snapshot.lifetimeRaces));
@@ -22,6 +23,7 @@ export default function PrestigeRoiTable({ snapshot }: { snapshot?: GameSnapshot
     setWorkshopCount(snapshot.workshopCount);
     setIronWill(snapshot.ironWill);
   }, [snapshot]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const scenarios = useMemo(() => {
     function makeLp(raceCount: number, scrapBucks: number) {

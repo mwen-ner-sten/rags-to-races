@@ -7,7 +7,7 @@ import { formatNumber } from "@/utils/format";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
 interface TutorialStepDef {
   icon: string;
@@ -25,6 +25,8 @@ interface TutorialStepDef {
 }
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
+
+const SHOW_DEV = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
 const PUSH_MOWER_ENGINES = new Set(["engine_small", "engine_lawn"]);
 const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
@@ -44,9 +46,12 @@ export const STEPS: TutorialStepDef[] = [
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Clyde\u2019s covering your first **Repair** for free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses." },
-  /* 15 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "shop"], highlightTab: "shop" },
-  /* 16 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
+  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** wipes it clean and gives permanent bonuses. Check the **Upgrades** tab to spend scrap on Workshop upgrades, or the **Gear** tab to equip outfits." },
+  /* 15 */ { icon: "\u{1F527}", tip: "Time to power up. Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades", goalIntro: "The **Upgrades** tab has three sections. **Workshop** upgrades boost your current run \u2014 try **Keen Eye** ($50) for better parts, **Budget Repairs** ($65) for cheaper fixes, or **Tuned Suspension** ($100) for better handling. Workshop upgrades reset on **Scrap Reset**, but the **Legacy Points** you earn from resetting unlock permanent bonuses in the **Legacy** section." },
+  /* 16 */ { icon: "\u2B06\uFE0F", tip: "Browse the categories and **buy** an upgrade. Workshop upgrades boost your current run \u2014 you can grab more each time.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
+  /* 17 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab \u2014 equip outfits and manage your loadout.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "The **Gear** tab is where you equip outfits and manage your loadout. You can buy basic gear now \u2014 better gear unlocks as you earn **Rep**. Gear **persists** through Scrap Resets, so anything you equip carries over." },
+  /* 18 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Upgrades** tab and open the **Prestige** section.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
+  /* 19 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["upgrades"], target: "prestige-btn" },
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
@@ -54,7 +59,12 @@ const TOTAL_GUIDED_STEPS = STEPS.length - 1;
 export function getAllowedTabs(step: number): Set<TabId> | null {
   if (step < 0 || step >= STEPS.length) return null;
   const allowed = STEPS[step].allowedTabs;
-  return allowed ? new Set(allowed) : null;
+  if (!allowed) return null;
+  const s = new Set(allowed);
+  s.add("help");
+  s.add("settings");
+  s.add("dev");
+  return s;
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
@@ -112,6 +122,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const advanceTutorial = useGameStore((s) => s.advanceTutorial);
   const skipTutorial = useGameStore((s) => s.skipTutorial);
+  const devQuickStart = useGameStore((s) => s.devQuickStart);
   const dismissTutorial = useGameStore((s) => s.dismissTutorial);
   const tutorialDismissed = useGameStore((s) => s.tutorialDismissed);
 
@@ -127,6 +138,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
   const isRacing = useGameStore((s) => s.isRacing);
   const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
 
   const [cardDismissed, setCardDismissed] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -137,6 +149,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   const stepDef = tutorialStep >= 0 && tutorialStep < STEPS.length ? STEPS[tutorialStep] : null;
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
   useEffect(() => { setCardDismissed(false); }, [tutorialStep]);
 
   /* ── Auto-advance ────────────────────────────────────────────────────── */
@@ -171,11 +184,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
         break;
       }
       case 14: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
-      case 15: shouldAdvance = activeTab === "shop"; break;
-      case 16: shouldAdvance = prestigeCount > 0; break;
+      case 15: shouldAdvance = activeTab === "upgrades"; break;
+      case 16: shouldAdvance = Object.values(workshopLevels).some((v) => v > 0); break;
+      case 17: shouldAdvance = activeTab === "gear"; break;
+      case 18: shouldAdvance = activeTab === "upgrades"; break;
+      case 19: shouldAdvance = prestigeCount > 0; break;
     }
     if (shouldAdvance) advanceTutorial();
-  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing]);
+  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing, workshopLevels]);
 
   useEffect(() => {
     if (tutorialStep >= STEPS.length) {
@@ -189,6 +205,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   /* Auto-dismiss tip card for step 2 once they start scavenging — shows goal badge */
   useEffect(() => {
     if (tutorialStep === 2 && !cardDismissed && inventory.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-dismiss on inventory change
       setCardDismissed(true);
     }
   }, [tutorialStep, cardDismissed, inventory.length]);
@@ -237,7 +254,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const nav = document.querySelector("nav");
     if (!nav) { setHighlightRect(null); setBlockerRects([]); return; }
 
-    const tabLabels: TabId[] = ["junkyard", "garage", "race", "locker", "workshop", "shop", "settings", "dev"];
+    const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
     const buttons = Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[];
     const tabButtons = buttons.filter((btn) => {
       const text = btn.textContent?.toLowerCase().trim() ?? "";
@@ -322,6 +339,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
             <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip tutorial</button>
             <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Let&apos;s Go &rarr;</button>
           </div>
+          {SHOW_DEV && (
+            <button
+              onClick={() => { devQuickStart(); skipTutorial(); }}
+              className="mt-3 w-full cursor-pointer rounded-md border border-dashed px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ borderColor: "var(--text-muted)", color: "var(--text-muted)", background: "transparent" }}
+            >
+              Dev Jumpstart — skip to race-ready
+            </button>
+          )}
         </div>
       </div>
     );
@@ -334,7 +360,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       ? (() => {
           const nav = document.querySelector("nav");
           if (!nav) return null;
-          const tabLabels: TabId[] = ["junkyard", "garage", "race", "locker", "workshop", "shop", "settings", "dev"];
+          const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
           const buttons = Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[];
           const fallbackTab = stepDef.allowedTabs![0];
           const btn = buttons.find((b) => {
@@ -383,8 +409,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   /* Steps 1+: Guided */
   const isGoalStep = !!stepDef.hasGoal;
-  const showGoalIntro = isGoalStep && !cardDismissed && !!stepDef.goalIntro;
-  const showCard = !cardDismissed && effectiveTip && !showGoalIntro;
+  const hasIntro = !!stepDef.goalIntro;
+  const showGoalIntro = !cardDismissed && hasIntro;
+  const showCard = hasIntro ? (cardDismissed && !isGoalStep && !!effectiveTip) : (!cardDismissed && !!effectiveTip);
   const showGoal = cardDismissed && isGoalStep;
 
   // Pick an anchor rect — prefer target, fall back to highlighted tab

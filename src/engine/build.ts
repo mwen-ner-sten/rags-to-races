@@ -1,4 +1,4 @@
-import { getPartById, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition, type CoreSlot } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { VehicleDefinition } from "@/data/vehicles";
 import { CONDITION_PENALTY_THRESHOLD, REPAIR_COST_BASE, REPAIR_COST_PER_POINT_PER_TIER } from "@/data/vehicles";

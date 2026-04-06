@@ -1,6 +1,5 @@
 import {
   LEGACY_UPGRADES_BY_ID,
-  type LegacyUpgradeDefinition,
 } from "@/data/legacyUpgrades";
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import { LOCATION_DEFINITIONS } from "@/data/locations";

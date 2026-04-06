@@ -94,6 +94,8 @@ export default function ScavengePanel() {
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
   const sellAllScrap = useGameStore((s) => s.sellAllScrap);
   const sellBelowQuality = useGameStore((s) => s.sellBelowQuality);
+  const selectedSellBelowQuality = useGameStore((s) => s.selectedSellBelowQuality);
+  const setSelectedSellBelowQuality = useGameStore((s) => s.setSelectedSellBelowQuality);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
@@ -133,12 +135,12 @@ export default function ScavengePanel() {
     return () => { unsub(); if (clearTimer) clearTimeout(clearTimer); };
   }, []);
 
-  const [qualityThreshold, setQualityThreshold] = useState<PartCondition>("decent");
-  const [hoveredGroup, setHoveredGroup] = useState<{ group: InventoryGroup; x: number; y: number } | null>(null);
   const hasScrap = useMemo(
     () => inventory.some((p) => p.type === "part" && getPartById(p.definitionId)?.category === "misc"),
     [inventory],
   );
+
+  const [hoveredGroup, setHoveredGroup] = useState<{ group: InventoryGroup; x: number; y: number } | null>(null);
 
   // Scavenge button animation
   const [isScavengeAnimating, setIsScavengeAnimating] = useState(false);
@@ -299,8 +301,8 @@ export default function ScavengePanel() {
             {inventory.length > 0 && (
               <>
                 <select
-                  value={qualityThreshold}
-                  onChange={(e) => setQualityThreshold(e.target.value as PartCondition)}
+                  value={selectedSellBelowQuality}
+                  onChange={(e) => setSelectedSellBelowQuality(e.target.value as PartCondition)}
                   className="rounded border px-1 py-1 text-xs"
                   style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)", background: "var(--panel-bg)" }}
                 >
@@ -309,7 +311,7 @@ export default function ScavengePanel() {
                   ))}
                 </select>
                 <button
-                  onClick={() => sellBelowQuality(qualityThreshold)}
+                  onClick={() => sellBelowQuality(selectedSellBelowQuality)}
                   className="rounded border px-2 py-1 text-xs transition-colors"
                   style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
                 >
@@ -387,7 +389,7 @@ export default function ScavengePanel() {
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: condColor }}>{capitalize(group.condition)}</span>
                     <span className="hidden sm:inline text-xs font-mono" style={{ color: "var(--text-secondary)" }}>{group.count}</span>
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 self-stretch -my-1.5 py-1.5 sm:-my-2 sm:py-2" onMouseEnter={() => setHoveredGroup(null)}>
                       {refurbBenchUnlocked && group.partType === "part" && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
                         const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
                         const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
@@ -436,7 +438,7 @@ export default function ScavengePanel() {
             position: "fixed",
             left: Math.min(x + 16, (typeof window !== "undefined" ? window.innerWidth : 800) - 224),
             top: y - 8,
-            zIndex: 50,
+            zIndex: 9999,
             width: 208,
             background: "var(--panel-bg)",
             border: "1px solid var(--panel-border)",
@@ -474,7 +476,7 @@ export default function ScavengePanel() {
                 {(defAddon.statBonuses.weight ?? 0) !== 0 && <StatRow label="Weight" value={`${defAddon.statBonuses.weight! > 0 ? "+" : ""}${defAddon.statBonuses.weight}kg`} />}
               </div>
               <div style={{ borderTop: "1px solid var(--divider)", paddingTop: 4, fontSize: 10, fontStyle: "italic", color: "var(--text-muted)" }}>
-                "{defAddon.flavorText}"
+                &quot;{defAddon.flavorText}&quot;
               </div>
             </>
           )}

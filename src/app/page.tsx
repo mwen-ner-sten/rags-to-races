@@ -5,25 +5,25 @@ import ThemeShell from "@/components/ThemeShell";
 import ScavengePanel from "@/components/Junkyard/ScavengePanel";
 import GaragePanel from "@/components/Garage/GaragePanel";
 import RacePanel from "@/components/RaceTrack/RacePanel";
-import ShopPanel from "@/components/Shop/ShopPanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
-import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import LockerPanel from "@/components/Locker/LockerPanel";
+import UpgradesPanel from "@/components/Upgrades/UpgradesPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
 import ToastContainer from "@/components/effects/Toast";
 import TutorialOverlay, { getAllowedTabs } from "@/components/effects/TutorialOverlay";
+import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import { useGameStore } from "@/state/store";
-import { computeTick, computeTickSpeedMs } from "@/engine/tick";
-import type { ScavengedPart } from "@/engine/scavenge";
-import type { LootGearItem, InstalledMod } from "@/data/lootGear";
+import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
+import type { OfflineResult } from "@/engine/tick";
 
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
 const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
+  const [offlineResult, setOfflineResult] = useState<{ result: OfflineResult; timeAway: number } | null>(null);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
   const storeRef = useRef(useGameStore.getState());
@@ -55,45 +55,22 @@ export default function Home() {
       const offlineTicks = Math.min(Math.floor(elapsed / tickMs), maxOfflineTicks);
 
       if (offlineTicks > 0) {
-        let totalParts: ScavengedPart[] = [];
-        let totalScraps = 0;
-        let totalRep = 0;
-        let totalWear = 0;
-        let totalRepair = 0;
-        let raceProgress = state.raceTickProgress;
-        let totalLootGear: LootGearItem[] = [];
-        let totalMods: InstalledMod[] = [];
+        const r = simulateOfflineTicks(state, offlineTicks);
 
-        for (let i = 0; i < offlineTicks; i++) {
-          const r = computeTick({ ...state, raceTickProgress: raceProgress });
-          totalParts = totalParts.concat(r.partsFound);
-          totalScraps += r.scrapsEarned;
-          totalRep += r.repEarned;
-          totalWear += r.vehicleWearAmount;
-          totalRepair += r.vehicleRepairAmount;
-          raceProgress = r.newRaceTickProgress;
-          totalLootGear = totalLootGear.concat(r.lootGearDrops);
-          totalMods = totalMods.concat(r.modDrops);
-        }
-
-        if (totalParts.length > 0 || totalScraps !== 0 || totalRep !== 0 || totalWear !== 0 || totalLootGear.length > 0 || totalMods.length > 0) {
+        if (r.partsFound.length > 0 || r.scrapsEarned !== 0 || r.repEarned !== 0 || r.vehicleWearTotal !== 0 || r.lootGearDrops.length > 0 || r.modDrops.length > 0) {
           applyTickResult(
-            totalParts,
-            totalScraps,
-            totalRep,
-            totalWear > 0 ? totalWear : undefined,
-            totalRepair > 0 ? totalRepair : undefined,
-            raceProgress,
-            totalLootGear.length > 0 ? totalLootGear : undefined,
-            totalMods.length > 0 ? totalMods : undefined,
+            r.partsFound,
+            r.scrapsEarned,
+            r.repEarned,
+            r.vehicleWearTotal > 0 ? r.vehicleWearTotal : undefined,
+            r.vehicleRepairTotal > 0 ? r.vehicleRepairTotal : undefined,
+            r.raceTickProgress,
+            r.lootGearDrops.length > 0 ? r.lootGearDrops : undefined,
+            r.modDrops.length > 0 ? r.modDrops : undefined,
+            r.racesCompleted,
           );
           const timeAway = Math.round(elapsed / 60_000);
-          useGameStore.setState((s) => ({
-            unlockEvents: [
-              ...s.unlockEvents,
-              `Welcome back! ${timeAway} min away — ${offlineTicks} ticks processed.`,
-            ],
-          }));
+          setOfflineResult({ result: r, timeAway });
         }
       }
     }
@@ -141,13 +118,19 @@ export default function Home() {
     <>
       <ToastContainer />
       <TutorialOverlay activeTab={activeTab} />
+      {offlineResult && (
+        <OfflineProgressModal
+          timeAwayMinutes={offlineResult.timeAway}
+          result={offlineResult.result}
+          onDismiss={() => setOfflineResult(null)}
+        />
+      )}
       <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
         {activeTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
-        {activeTab === "locker"    && <LockerPanel />}
-        {activeTab === "workshop" && <WorkshopPanel />}
-        {activeTab === "shop"     && <ShopPanel />}
+        {activeTab === "gear"     && <LockerPanel />}
+        {activeTab === "upgrades" && <UpgradesPanel />}
         {activeTab === "help"     && <HelpPanel />}
         {activeTab === "settings" && <SettingsPanel />}
         {SHOW_DEV_TAB && activeTab === "dev" && <AdminPanel />}

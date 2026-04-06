@@ -4,8 +4,10 @@ import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
-import TickRing from "@/components/TickRing";
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+import StatsTooltip from "@/components/StatsTooltip";
+import VehicleTooltip from "@/components/VehicleTooltip";
+import FooterThemeSwitcher from "@/components/FooterThemeSwitcher";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
 interface Props {
   activeTab: TabId;
@@ -17,11 +19,9 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "junkyard", label: "Junkyard" },
   { id: "garage",   label: "Garage"   },
   { id: "race",     label: "Race"     },
-  { id: "locker",   label: "Locker"   },
-  { id: "workshop", label: "Workshop" },
-  { id: "shop",     label: "Shop"     },
+  { id: "gear",     label: "Gear"     },
+  { id: "upgrades", label: "Upgrades" },
   { id: "help",     label: "Help"     },
-  { id: "settings", label: "Settings" },
   { id: "dev",      label: "Dev"      },
 ];
 
@@ -30,7 +30,7 @@ const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
 // ─── Theme CSS custom properties ─────────────────────────────────────────────
 // These cascade into all content panels so they can use var(--panel-bg) etc.
-const THEME_VARS: Record<Theme, Record<string, string>> = {
+export const THEME_VARS: Record<Theme, Record<string, string>> = {
   grease: {
     "--panel-bg": "#181008",
     "--panel-border": "#3a2510",
@@ -523,12 +523,14 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
             <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="gm" style={{ fontSize: "1.25rem", color: "#c83e0c", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="gm" style={{ fontSize: "1.25rem", color: "#c83e0c", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -565,7 +567,10 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".6rem", color: "#7a5a38", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
           <span style={{ fontSize: ".5rem", color: "#6a4a28", letterSpacing: ".1em", fontFamily: "'Share Tech Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -620,12 +625,14 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
             <div className="mc-stat-label" style={{ color: "rgba(255,0,144,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="mc" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#c0d8e0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="mc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="mc" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#c0d8e0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="mc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -662,7 +669,10 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
           <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.45)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
           <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.35)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -716,15 +726,17 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
             <div className="pc-stat-label">Reputation</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <>
-              <div className="pc-rule" />
-              <div style={{ textAlign: "right" }}>
-                <div className="pc" style={{ fontSize: "1rem", color: "rgba(200,192,208,.7)", fontStyle: "italic" }}>{vehicleDef.name}</div>
-                <div className="pc-stat-label">{Math.floor(activeVehicle.stats.performance)} pts</div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ display: "flex", alignItems: "center", gap: "inherit" }}>
+                <div className="pc-rule" />
+                <div style={{ textAlign: "right" }}>
+                  <div className="pc" style={{ fontSize: "1rem", color: "rgba(200,192,208,.7)", fontStyle: "italic" }}>{vehicleDef.name}</div>
+                  <div className="pc-stat-label">{Math.floor(activeVehicle.stats.performance)} pts</div>
+                </div>
               </div>
-            </>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -764,7 +776,10 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".52rem", color: "rgba(184,151,90,.45)", letterSpacing: ".2em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>Rags to Races · MIT License · Built from Garbage</span>
           <span style={{ fontSize: ".45rem", color: "rgba(184,151,90,.35)", letterSpacing: ".12em", fontFamily: "'Lato', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -815,12 +830,14 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ol-stat-label">REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ol" style={{ fontSize: "1.2rem", color: "#c88830", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ol-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ol" style={{ fontSize: "1.2rem", color: "#c88830", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ol-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -857,7 +874,10 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ol" style={{ fontSize: ".5rem", color: "#8a6838", letterSpacing: ".15em" }}>RAGS TO RACES · MIT · WANTED: SPEED</span>
           <span style={{ fontSize: ".42rem", color: "#7a5830", letterSpacing: ".1em", fontFamily: "'Libre Baskerville', serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -909,12 +929,14 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
             <div className="cr-stat-label" style={{ color: "rgba(88,120,168,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="cr" style={{ fontSize: "1.05rem", fontWeight: 600, color: "rgba(208,216,224,.7)", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="cr-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="cr" style={{ fontSize: "1.05rem", fontWeight: 600, color: "rgba(208,216,224,.7)", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="cr-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
       <div className="cr-chrome-line" />
@@ -954,7 +976,10 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
           <span className="cr" style={{ fontSize: ".48rem", color: "rgba(208,216,224,.4)", letterSpacing: ".22em", fontWeight: 500 }}>RAGS TO RACES · MIT · PURE MACHINE</span>
           <span className="cr" style={{ fontSize: ".4rem", color: "rgba(208,216,224,.32)", letterSpacing: ".15em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1014,12 +1039,14 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
             <div className="tm-stat-label">REP_PTS</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="tm" style={{ fontSize: "1.3rem", color: "#40d840" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="tm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="tm" style={{ fontSize: "1.3rem", color: "#40d840" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="tm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1056,7 +1083,10 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
           <span className="tm" style={{ fontSize: ".85rem", color: "#38a038" }}>RAGS_TO_RACES // MIT // &gt; RUN RACE.EXE</span>
           <span className="tm" style={{ fontSize: ".7rem", color: "#308030" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1113,12 +1143,14 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
             <div className="sd-stat-label">REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="sd" style={{ fontSize: "1.4rem", fontWeight: 600, color: "#d89030", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="sd-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="sd" style={{ fontSize: "1.4rem", fontWeight: 600, color: "#d89030", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="sd-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1156,7 +1188,10 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
           <span className="sd" style={{ fontSize: ".75rem", color: "#8a6838", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · EAT MY DUST</span>
           <span className="sd" style={{ fontSize: ".6rem", color: "#7a5830", letterSpacing: ".1em", fontWeight: 500 }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1206,12 +1241,14 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ss-stat-label" style={{ color: "#7a3870" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ss" style={{ fontSize: "1.25rem", color: "#e85020" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ss-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ss" style={{ fontSize: "1.25rem", color: "#e85020" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ss-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1252,7 +1289,10 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ss" style={{ fontSize: ".55rem", color: "#8a5840", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DUST TILL DAWN</span>
           <span style={{ fontSize: ".45rem", color: "#7a4838", letterSpacing: ".1em", fontFamily: "'Quicksand', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1311,12 +1351,14 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ds-stat-label" style={{ color: "rgba(32,96,208,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ds" style={{ fontSize: "1.05rem", color: "#68a8b8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ds-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ds" style={{ fontSize: "1.05rem", color: "#68a8b8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ds-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1353,7 +1395,10 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ds" style={{ fontSize: ".48rem", color: "rgba(0,184,156,.42)", letterSpacing: ".18em" }}>RAGS TO RACES · MIT · SUBMERGED</span>
           <span className="ds" style={{ fontSize: ".4rem", color: "rgba(0,184,156,.35)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1407,12 +1452,14 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
             <div className="bm-stat-label" style={{ color: "#5a2828" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="bm" style={{ fontSize: "1.2rem", color: "#a08080" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="bm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="bm" style={{ fontSize: "1.2rem", color: "#a08080" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="bm-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1449,7 +1496,10 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
           <span className="bm" style={{ fontSize: ".55rem", color: "#7a3838", letterSpacing: ".12em" }}>RAGS TO RACES · MIT · DEAD HEAT</span>
           <span style={{ fontSize: ".45rem", color: "#6a3030", letterSpacing: ".1em", fontFamily: "'Crimson Text', serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1503,12 +1553,14 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
             <div className="sk-stat-label" style={{ color: "rgba(136,192,136,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="sk" style={{ fontSize: "1.05rem", color: "#d0b8c8", fontWeight: 500 }}>{vehicleDef.name}</div>
-              <div className="sk-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="sk" style={{ fontSize: "1.05rem", color: "#d0b8c8", fontWeight: 500 }}>{vehicleDef.name}</div>
+                <div className="sk-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1549,7 +1601,10 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
           <span className="sk" style={{ fontSize: ".5rem", color: "rgba(232,112,152,.42)", letterSpacing: ".15em", fontWeight: 500 }}>RAGS TO RACES · MIT · 花見レース</span>
           <span style={{ fontSize: ".42rem", color: "rgba(232,112,152,.35)", letterSpacing: ".1em", fontFamily: "'Noto Sans JP', sans-serif" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1602,12 +1657,14 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
             <div className="rb-stat-label">REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="rb" style={{ fontSize: "1.2rem", color: "#b8a090", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="rb-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="rb" style={{ fontSize: "1.2rem", color: "#b8a090", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="rb-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1644,7 +1701,10 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".55rem", color: "#7a5230", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · CORRODED BUT RUNNING</span>
           <span style={{ fontSize: ".45rem", color: "#6a4220", letterSpacing: ".1em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1700,12 +1760,14 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
             <div className="ar-stat-label" style={{ color: "rgba(136,208,240,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="ar" style={{ fontSize: "1.05rem", color: "#b0c8d8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="ar-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="ar" style={{ fontSize: "1.05rem", color: "#b0c8d8", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="ar-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1742,7 +1804,10 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
           <span className="ar" style={{ fontSize: ".45rem", color: "rgba(72,184,232,.42)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · COLD START</span>
           <span className="ar" style={{ fontSize: ".38rem", color: "rgba(72,184,232,.35)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1803,12 +1868,14 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
             <div className="vw-stat-label" style={{ color: "rgba(255,113,206,.4)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="vw" style={{ fontSize: ".6rem", color: "#b967ff", textShadow: "0 0 10px rgba(185,103,255,.5)" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="vw-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="vw" style={{ fontSize: ".6rem", color: "#b967ff", textShadow: "0 0 10px rgba(185,103,255,.5)" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="vw-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1848,7 +1915,10 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
           <span className="vw" style={{ fontSize: ".38rem", color: "rgba(185,103,255,.45)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · A E S T H E T I C</span>
           <span className="vw" style={{ fontSize: ".32rem", color: "rgba(185,103,255,.35)", letterSpacing: ".12em" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -1908,12 +1978,14 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
             <div className="tc-stat-label" style={{ color: "rgba(200,168,72,.5)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="tc" style={{ fontSize: "1.1rem", color: "#8a9a78", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="tc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="tc" style={{ fontSize: "1.1rem", color: "#8a9a78", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="tc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -1950,7 +2022,10 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.45)", letterSpacing: ".18em", fontFamily: "'Source Code Pro', monospace", fontWeight: 600 }}>RAGS TO RACES · MIT · OPERATION SCRAPYARD</span>
           <span style={{ fontSize: ".42rem", color: "rgba(74,138,40,.35)", letterSpacing: ".1em", fontFamily: "'Source Code Pro', monospace" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>
@@ -2011,12 +2086,14 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
             <div className="mn-stat-label" style={{ color: "rgba(245,158,11,.45)" }}>REP</div>
           </div>
           {vehicleDef && activeVehicle && (
-            <div style={{ textAlign: "right" }}>
-              <div className="mn" style={{ fontSize: "1.1rem", fontWeight: 600, color: "#d8e4f0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
-              <div className="mn-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
-            </div>
+            <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
+              <div style={{ textAlign: "right" }}>
+                <div className="mn" style={{ fontSize: "1.1rem", fontWeight: 600, color: "#d8e4f0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="mn-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
+              </div>
+            </VehicleTooltip>
           )}
-          <TickRing />
+          <StatsTooltip />
         </div>
       </header>
 
@@ -2056,7 +2133,10 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
           <span className="mn" style={{ fontSize: ".52rem", color: "rgba(59,130,246,.45)", letterSpacing: ".18em", fontWeight: 600 }}>RAGS TO RACES · MIT · LIGHTS OUT. SEND IT.</span>
           <span style={{ fontSize: ".45rem", color: "rgba(59,130,246,.35)", letterSpacing: ".12em", fontFamily: "'IBM Plex Mono', monospace" }}>v{BUILD_VERSION}</span>
         </div>
-        <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <FooterThemeSwitcher />
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+        </div>
 
       </footer>
     </div>

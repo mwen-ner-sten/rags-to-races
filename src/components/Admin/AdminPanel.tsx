@@ -6,9 +6,9 @@ import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
+import VehicleSprite from "@/components/RaceTrack/VehicleSprite";
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
-import BalanceDashboard from "./BalanceDashboard";
 
 const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
 const VERCEL_ENV = process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development";
@@ -34,6 +34,7 @@ export default function AdminPanel() {
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
 
+  const devQuickStart = useGameStore((s) => s.devQuickStart);
   const devSetScrapBucks = useGameStore((s) => s.devSetScrapBucks);
   const devAddScrapBucks = useGameStore((s) => s.devAddScrapBucks);
   const devSetRepPoints = useGameStore((s) => s.devSetRepPoints);
@@ -46,8 +47,8 @@ export default function AdminPanel() {
   const devClearGarage = useGameStore((s) => s.devClearGarage);
   const devSetAutoUnlocks = useGameStore((s) => s.devSetAutoUnlocks);
   const devResetSave = useGameStore((s) => s.devResetSave);
+  const skipTutorial = useGameStore((s) => s.skipTutorial);
 
-  const [devMode, setDevMode] = useState<"tools" | "balance">("tools");
   const [scrapInput, setScrapInput] = useState("");
   const [repInput, setRepInput] = useState("");
   const [prestigeInput, setPrestigeInput] = useState(String(prestigeCount));
@@ -93,24 +94,8 @@ export default function AdminPanel() {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Mode switcher + banner */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1">
-          {(["tools", "balance"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setDevMode(mode)}
-              className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-              style={
-                devMode === mode
-                  ? { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }
-                  : { borderColor: "var(--btn-border)", color: "var(--text-primary)", border: "1px solid" }
-              }
-            >
-              {mode === "tools" ? "Dev Tools" : "Balance"}
-            </button>
-          ))}
-        </div>
+      {/* Banner */}
+      <div className="flex items-center justify-end gap-2">
         <div className="flex items-center gap-2">
           <span
             className="text-xs font-mono font-semibold rounded px-1.5 py-0.5"
@@ -128,14 +113,25 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {devMode === "balance" ? (
-        <BalanceDashboard />
-      ) : (<>
-
       {/* Version info */}
       <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border px-4 py-2 flex items-center justify-between">
         <span style={{ color: "var(--text-muted)" }} className="text-xs uppercase tracking-wider">Build Version</span>
         <span style={{ color: "var(--accent)" }} className="text-xs font-mono font-semibold">v{BUILD_VERSION}</span>
+      </div>
+
+      {/* Quick Start */}
+      <div style={{ background: "var(--panel-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4 flex items-center gap-4 flex-wrap">
+        <div className="flex flex-col gap-0.5">
+          <span style={{ color: "var(--text-heading)" }} className="text-xs font-semibold uppercase tracking-wider">Quick Start</span>
+          <span style={{ color: "var(--text-muted)" }} className="text-xs">T1 Riding Mower + $500 + 50 Rep — ready to race</span>
+        </div>
+        <button
+          onClick={() => { devQuickStart(); skipTutorial(); log("Quick Start: T1 Riding Mower + $500 + 50 Rep + tutorial skipped"); }}
+          style={btnAccent}
+          className="rounded px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+        >
+          Go!
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -246,6 +242,13 @@ export default function AdminPanel() {
                 className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
               >
                 Launch Tutorial
+              </button>
+              <button
+                onClick={() => { skipTutorial(); log("Tutorial skipped"); }}
+                style={btnOutline}
+                className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              >
+                Skip Tutorial
               </button>
             </div>
           </div>
@@ -423,6 +426,44 @@ export default function AdminPanel() {
           </p>
         </div>
 
+        {/* Vehicle Sprites */}
+        <div
+          style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
+          className={SECTION + " lg:col-span-3"}
+        >
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Vehicle Sprites</p>
+          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-9">
+            {VEHICLE_DEFINITIONS.map((v) => (
+              <div key={v.id} className="flex flex-col items-center gap-2">
+                <div
+                  style={{ background: "var(--surface-bg, var(--panel-bg))", borderColor: "var(--panel-border)" }}
+                  className="flex items-center justify-center rounded-lg border p-2"
+                >
+                  <VehicleSprite vehicleId={v.id} size={64} />
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span
+                    style={{ color: "var(--accent)" }}
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                  >
+                    T{v.tier}
+                  </span>
+                  <span
+                    style={{ color: "var(--text-secondary)" }}
+                    className="text-center text-xs leading-tight"
+                  >
+                    {v.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <VehicleSprite vehicleId={v.id} size={24} color="var(--accent)" />
+                  <VehicleSprite vehicleId={v.id} size={24} color="var(--text-muted)" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Danger zone */}
         <div style={{ background: "var(--panel-bg)", borderColor: "var(--danger)" }} className={SECTION}>
           <p style={{ color: "var(--danger)" }} className={LABEL}>Danger Zone</p>
@@ -459,7 +500,6 @@ export default function AdminPanel() {
           )}
         </div>
       </div>
-      </>)}
     </div>
   );
 }

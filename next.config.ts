@@ -1,19 +1,19 @@
 import type { NextConfig } from "next";
-import { execSync } from "child_process";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
-// CalVer: YYYY.MM.DD.N — N is the total git commit count, always increasing
+// CalVer: YYYY.MM.DD.BUILD — read entirely from .build-counter.json (committed by CI on each PR merge)
 function generateVersion(): string {
-  const now = new Date();
-  const date = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
-
-  let build = 1;
   try {
-    build = parseInt(execSync("git rev-list --count HEAD").toString().trim(), 10);
+    const dir = typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
+    const counterPath = resolve(dir, ".build-counter.json");
+    const raw = readFileSync(counterPath, "utf-8");
+    const { date, build } = JSON.parse(raw);
+    return `${date}.${build}`;
   } catch {
-    // Not in a git repo or git unavailable — fall back to 1
+    return "dev";
   }
-
-  return `${date}.${build}`;
 }
 
 const nextConfig: NextConfig = {

@@ -116,6 +116,7 @@ function CategoryCard({
                 <div className="shrink-0">
                   {unlocked && !maxed && (
                     <button
+                      data-tutorial="workshop-upgrade-btn"
                       onClick={() => purchaseUpgrade(upgrade.id)}
                       disabled={!canAfford}
                       className="rounded border border-orange-600 px-2.5 py-1 text-xs font-semibold text-orange-400 transition-colors hover:bg-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40"

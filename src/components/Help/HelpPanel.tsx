@@ -6,8 +6,10 @@ import HelpSystemsTab from "./HelpSystemsTab";
 import HelpStrategyTab from "./HelpStrategyTab";
 import HelpProgressionTab from "./HelpProgressionTab";
 import HelpReferenceTab from "./HelpReferenceTab";
+import BalanceDashboard from "@/components/Admin/BalanceDashboard";
+import HelpActivityTab from "./HelpActivityTab";
 
-type HelpTab = "basics" | "systems" | "strategy" | "progression" | "reference";
+type HelpTab = "basics" | "systems" | "strategy" | "progression" | "reference" | "simulators" | "activity";
 
 const TABS: { id: HelpTab; label: string }[] = [
   { id: "basics",      label: "Basics" },
@@ -15,6 +17,8 @@ const TABS: { id: HelpTab; label: string }[] = [
   { id: "strategy",    label: "Strategy" },
   { id: "progression", label: "Progression" },
   { id: "reference",   label: "Reference" },
+  { id: "simulators",  label: "Simulators" },
+  { id: "activity",    label: "Activity" },
 ];
 
 export default function HelpPanel() {
@@ -43,6 +47,8 @@ export default function HelpPanel() {
       {activeTab === "strategy"    && <HelpStrategyTab />}
       {activeTab === "progression" && <HelpProgressionTab />}
       {activeTab === "reference"   && <HelpReferenceTab />}
+      {activeTab === "simulators"  && <BalanceDashboard />}
+      {activeTab === "activity"    && <HelpActivityTab />}
     </div>
   );
 }

@@ -13,6 +13,7 @@ export default function PerformanceDecayChart({ snapshot }: { snapshot?: GameSna
   const [ironWill, setIronWill] = useState(0);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initialise from snapshot prop
     if (snapshot) setIronWill(snapshot.ironWill);
   }, [snapshot]);
 
