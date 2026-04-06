@@ -45,8 +45,8 @@ export const STEPS: TutorialStepDef[] = [
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Clyde\u2019s covering your first **Repair** for free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
   /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage", "workshop"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses. Visit the **Workshop** to spend your earnings on permanent upgrades along the way." },
-  /* 15 */ { icon: "\u{1F527}", tip: "You\u2019ve earned some scrap \u2014 time to invest. Head to the **Workshop** tab for permanent upgrades.", allowedTabs: ["race", "junkyard", "garage", "workshop"], highlightTab: "workshop" },
-  /* 16 */ { icon: "\u2B06\uFE0F", tip: "Pick an upgrade and buy it. These bonuses are **permanent** \u2014 they survive resets.", allowedTabs: ["workshop"], target: "workshop-upgrade-btn" },
+  /* 15 */ { icon: "\u{1F527}", tip: "Time to power up. Head to the **Workshop** tab.", allowedTabs: ["race", "junkyard", "garage", "workshop"], highlightTab: "workshop", goalIntro: "The **Workshop** lets you spend scrap on permanent upgrades. Try **Keen Eye** ($50) for better parts, **Budget Repairs** ($65) for cheaper fixes, **Bargain Builder** ($80) for cheaper builds, or **Tuned Suspension** ($100) for better handling. Upgrades survive **Scrap Reset**, so anything you buy now carries over!" },
+  /* 16 */ { icon: "\u2B06\uFE0F", tip: "Browse the categories and **buy** an upgrade that fits your style. You can always grab more later.", allowedTabs: ["workshop"], target: "workshop-upgrade-btn" },
   /* 17 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "workshop", "shop"], highlightTab: "shop" },
   /* 18 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
 ];
@@ -394,8 +394,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   /* Steps 1+: Guided */
   const isGoalStep = !!stepDef.hasGoal;
-  const showGoalIntro = isGoalStep && !cardDismissed && !!stepDef.goalIntro;
-  const showCard = !cardDismissed && effectiveTip && !showGoalIntro;
+  const hasIntro = !!stepDef.goalIntro;
+  const showGoalIntro = !cardDismissed && hasIntro;
+  const showCard = hasIntro ? (cardDismissed && !isGoalStep && !!effectiveTip) : (!cardDismissed && !!effectiveTip);
   const showGoal = cardDismissed && isGoalStep;
 
   // Pick an anchor rect — prefer target, fall back to highlighted tab
