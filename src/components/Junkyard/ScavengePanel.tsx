@@ -252,7 +252,7 @@ export default function ScavengePanel() {
               isScavengeAnimating ? "scale-90" : "scale-100"
             } ${isHolding ? "ring-2 ring-offset-1" : ""} ${autoScavengeUnlocked ? "auto-scavenge-active" : ""}`}
             style={{
-              background: "var(--btn-primary-bg)",
+              ...(!autoScavengeUnlocked ? { background: "var(--btn-primary-bg)" } : {}),
               color: "var(--btn-primary-text)",
               ...(isHolding ? { ringColor: "var(--info)" } : {}),
             }}
