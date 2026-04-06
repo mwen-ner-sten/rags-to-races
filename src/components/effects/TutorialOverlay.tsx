@@ -26,6 +26,8 @@ interface TutorialStepDef {
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 
+const SHOW_DEV = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+
 const PUSH_MOWER_ENGINES = new Set(["engine_small", "engine_lawn"]);
 const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
 
@@ -116,6 +118,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const advanceTutorial = useGameStore((s) => s.advanceTutorial);
   const skipTutorial = useGameStore((s) => s.skipTutorial);
+  const devQuickStart = useGameStore((s) => s.devQuickStart);
   const dismissTutorial = useGameStore((s) => s.dismissTutorial);
   const tutorialDismissed = useGameStore((s) => s.tutorialDismissed);
 
@@ -328,6 +331,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
             <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip tutorial</button>
             <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Let&apos;s Go &rarr;</button>
           </div>
+          {SHOW_DEV && (
+            <button
+              onClick={() => { devQuickStart(); skipTutorial(); }}
+              className="mt-3 w-full cursor-pointer rounded-md border border-dashed px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ borderColor: "var(--text-muted)", color: "var(--text-muted)", background: "transparent" }}
+            >
+              Dev Jumpstart — skip to race-ready
+            </button>
+          )}
         </div>
       </div>
     );
