@@ -7,6 +7,7 @@ import type { PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateRefurbishCost } from "@/engine/build";
+import { computeTickSpeedMs } from "@/engine/tick";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
@@ -98,6 +99,9 @@ export default function ScavengePanel() {
   const setSelectedSellBelowQuality = useGameStore((s) => s.setSelectedSellBelowQuality);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const tickMs = useGameStore((s) => computeTickSpeedMs(s));
+  // Clamp orbit duration: match tick speed, but floor at 500ms to avoid flicker
+  const orbitDuration = autoScavengeUnlocked ? `${Math.max(500, tickMs)}ms` : undefined;
   const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
@@ -255,6 +259,7 @@ export default function ScavengePanel() {
               ...(!autoScavengeUnlocked ? { background: "var(--btn-primary-bg)" } : {}),
               color: "var(--btn-primary-text)",
               ...(isHolding ? { ringColor: "var(--info)" } : {}),
+              ...(orbitDuration ? { "--orbit-duration": orbitDuration } as React.CSSProperties : {}),
             }}
           >
             {isHolding ? "Scavenging…" : "Scavenge!"}

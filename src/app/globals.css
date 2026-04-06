@@ -142,7 +142,7 @@ html {
   background-image:
     linear-gradient(var(--btn-primary-bg, #c83e0c), var(--btn-primary-bg, #c83e0c)),
     conic-gradient(from var(--border-angle), var(--accent, #c83e0c) 0%, transparent 30%, transparent 70%, var(--accent, #c83e0c) 100%) !important;
-  animation: border-orbit 2s linear infinite;
+  animation: border-orbit var(--orbit-duration, 2s) linear infinite;
 }
 
 /* ── Game animations ────────────────────────────────────────────────────── */
