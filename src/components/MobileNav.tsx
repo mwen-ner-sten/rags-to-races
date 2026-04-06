@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useGameStore } from "@/state/store";
 
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "junkyard", label: "Junkyard" },
@@ -12,6 +12,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "gear",     label: "Gear" },
   { id: "upgrades", label: "Upgrades" },
   { id: "help",     label: "Help" },
+  { id: "log",      label: "Activity" },
   { id: "dev",      label: "Dev" },
 ];
 

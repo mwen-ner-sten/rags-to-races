@@ -8,7 +8,8 @@ import StatsTooltip from "@/components/StatsTooltip";
 import VehicleTooltip from "@/components/VehicleTooltip";
 import FooterThemeSwitcher from "@/components/FooterThemeSwitcher";
 import MobileNav from "@/components/MobileNav";
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
+import DesktopSidebar from "@/components/DesktopSidebar";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 interface Props {
   activeTab: TabId;
@@ -23,6 +24,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "gear",     label: "Gear"     },
   { id: "upgrades", label: "Upgrades" },
   { id: "help",     label: "Help"     },
+  { id: "log",      label: "Activity" },
   { id: "dev",      label: "Dev"      },
 ];
 
@@ -2088,13 +2090,22 @@ export default function ThemeShell(props: Props) {
     tactical:   <TacticalShell   {...props} />,
   };
 
+  const vars = THEME_VARS[theme] ?? THEME_VARS.grease;
+
   return (
     <>
-      {shells[theme] ?? <GreaseShell {...props} />}
+      <div className="shell-content">
+        {shells[theme] ?? <GreaseShell {...props} />}
+      </div>
       <MobileNav
         activeTab={props.activeTab}
         setActiveTab={props.setActiveTab}
-        themeVars={THEME_VARS[theme] ?? THEME_VARS.grease}
+        themeVars={vars}
+      />
+      <DesktopSidebar
+        activeTab={props.activeTab}
+        setActiveTab={props.setActiveTab}
+        themeVars={vars}
       />
     </>
   );
