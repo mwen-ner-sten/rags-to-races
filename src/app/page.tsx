@@ -5,10 +5,9 @@ import ThemeShell from "@/components/ThemeShell";
 import ScavengePanel from "@/components/Junkyard/ScavengePanel";
 import GaragePanel from "@/components/Garage/GaragePanel";
 import RacePanel from "@/components/RaceTrack/RacePanel";
-import ShopPanel from "@/components/Shop/ShopPanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
-import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import LockerPanel from "@/components/Locker/LockerPanel";
+import UpgradesPanel from "@/components/Upgrades/UpgradesPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
 import ToastContainer from "@/components/effects/Toast";
@@ -18,7 +17,7 @@ import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
 
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
 const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
@@ -130,9 +129,8 @@ export default function Home() {
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
         {activeTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
-        {activeTab === "locker"    && <LockerPanel />}
-        {activeTab === "workshop" && <WorkshopPanel />}
-        {activeTab === "shop"     && <ShopPanel />}
+        {activeTab === "gear"     && <LockerPanel />}
+        {activeTab === "upgrades" && <UpgradesPanel />}
         {activeTab === "help"     && <HelpPanel />}
         {activeTab === "settings" && <SettingsPanel />}
         {SHOW_DEV_TAB && activeTab === "dev" && <AdminPanel />}

@@ -7,7 +7,7 @@ import { formatNumber } from "@/utils/format";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
 interface TutorialStepDef {
   icon: string;
@@ -44,11 +44,12 @@ export const STEPS: TutorialStepDef[] = [
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Clyde\u2019s covering your first **Repair** for free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage", "workshop"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** in the Shop wipes it clean and gives permanent bonuses. Visit the **Workshop** to spend your scrap on upgrades along the way." },
-  /* 15 */ { icon: "\u{1F527}", tip: "Time to power up. Head to the **Workshop** tab.", allowedTabs: ["race", "junkyard", "garage", "workshop"], highlightTab: "workshop", goalIntro: "The **Workshop** lets you spend scrap on upgrades that boost your current run. Try **Keen Eye** ($50) for better parts, **Budget Repairs** ($65) for cheaper fixes, **Bargain Builder** ($80) for cheaper builds, or **Tuned Suspension** ($100) for better handling. Workshop upgrades reset on **Scrap Reset**, but the **Legacy Points** you earn from resetting unlock bonuses that stick forever." },
-  /* 16 */ { icon: "\u2B06\uFE0F", tip: "Browse the categories and **buy** an upgrade. Workshop upgrades boost your current run \u2014 you can grab more each time.", allowedTabs: ["workshop"], target: "workshop-upgrade-btn" },
-  /* 17 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Shop** tab.", allowedTabs: ["race", "junkyard", "garage", "workshop", "shop"], highlightTab: "shop" },
-  /* 18 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["shop"], target: "prestige-btn" },
+  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$500 lifetime scrap** and **25 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$500 lifetime scrap** and **25 Rep** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** wipes it clean and gives permanent bonuses. Check the **Upgrades** tab to spend scrap on Workshop upgrades, or the **Gear** tab to equip outfits." },
+  /* 15 */ { icon: "\u{1F527}", tip: "Time to power up. Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades", goalIntro: "The **Upgrades** tab has three sections. **Workshop** upgrades boost your current run \u2014 try **Keen Eye** ($50) for better parts, **Budget Repairs** ($65) for cheaper fixes, or **Tuned Suspension** ($100) for better handling. Workshop upgrades reset on **Scrap Reset**, but the **Legacy Points** you earn from resetting unlock permanent bonuses in the **Legacy** section." },
+  /* 16 */ { icon: "\u2B06\uFE0F", tip: "Browse the categories and **buy** an upgrade. Workshop upgrades boost your current run \u2014 you can grab more each time.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
+  /* 17 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab \u2014 equip outfits and manage your loadout.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "The **Gear** tab is where you equip outfits and manage your loadout. You can buy basic gear now \u2014 better gear unlocks as you earn **Rep**. Gear **persists** through Scrap Resets, so anything you equip carries over." },
+  /* 18 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Upgrades** tab and open the **Prestige** section.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
+  /* 19 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["upgrades"], target: "prestige-btn" },
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
@@ -180,10 +181,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
         break;
       }
       case 14: shouldAdvance = repPoints >= 25 && lifetimeScrapBucks >= 500; break;
-      case 15: shouldAdvance = activeTab === "workshop"; break;
+      case 15: shouldAdvance = activeTab === "upgrades"; break;
       case 16: shouldAdvance = Object.values(workshopLevels).some((v) => v > 0); break;
-      case 17: shouldAdvance = activeTab === "shop"; break;
-      case 18: shouldAdvance = prestigeCount > 0; break;
+      case 17: shouldAdvance = activeTab === "gear"; break;
+      case 18: shouldAdvance = activeTab === "upgrades"; break;
+      case 19: shouldAdvance = prestigeCount > 0; break;
     }
     if (shouldAdvance) advanceTutorial();
   }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing, workshopLevels]);
@@ -249,7 +251,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const nav = document.querySelector("nav");
     if (!nav) { setHighlightRect(null); setBlockerRects([]); return; }
 
-    const tabLabels: TabId[] = ["junkyard", "garage", "race", "locker", "workshop", "shop", "settings", "dev"];
+    const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
     const buttons = Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[];
     const tabButtons = buttons.filter((btn) => {
       const text = btn.textContent?.toLowerCase().trim() ?? "";
@@ -346,7 +348,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       ? (() => {
           const nav = document.querySelector("nav");
           if (!nav) return null;
-          const tabLabels: TabId[] = ["junkyard", "garage", "race", "locker", "workshop", "shop", "settings", "dev"];
+          const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
           const buttons = Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[];
           const fallbackTab = stepDef.allowedTabs![0];
           const btn = buttons.find((b) => {
