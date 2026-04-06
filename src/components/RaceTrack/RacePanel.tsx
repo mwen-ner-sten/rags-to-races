@@ -289,7 +289,7 @@ function StreakDisplay({ streak, best }: { streak: number; best: number }) {
 
 // ── Main RacePanel ──────────────────────────────────────────────────────
 
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
 export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId) => void }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);

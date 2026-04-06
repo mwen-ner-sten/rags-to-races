@@ -894,7 +894,7 @@ function createActions(set: any, get: any) {
 
     advanceTutorial: () => {
       const step = (get() as GameState).tutorialStep;
-      set({ tutorialStep: step >= 16 ? -1 : step + 1 });
+      set({ tutorialStep: step >= 19 ? -1 : step + 1 });
     },
 
     skipTutorial: () => {

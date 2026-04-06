@@ -20,9 +20,9 @@ export const HELP_OVERVIEW_STEPS: string[] = [
   "Head to the Garage to assemble a vehicle. Fill the required slots and pay the build cost.",
   "Race your vehicle on circuits to earn Scrap Bucks and Rep. Higher circuits pay more but are harder.",
   "Sell junk parts for Scrap Bucks, or decompose them into materials for crafting and gear enhancement.",
-  "Upgrade your Workshop for permanent bonuses — faster auto-race, better luck, cheaper builds.",
-  "Equip and enhance gear in the Locker. Loot gear drops from races and scavenging.",
-  "When fatigue climbs and progress stalls, Prestige in the Shop to earn Legacy Points.",
+  "Open the Upgrades tab to buy Workshop upgrades — faster auto-race, better luck, cheaper builds.",
+  "Equip and enhance gear in the Gear tab. Loot gear drops from races and scavenging.",
+  "When fatigue climbs and progress stalls, Prestige via the Upgrades tab to earn Legacy Points.",
   "Spend Legacy Points on permanent upgrades and talent nodes that compound every future run.",
 ];
 
@@ -42,7 +42,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Race result", description: "Win or lose, you earn Scrap Bucks and Rep. Keep racing to improve." },
   { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up." },
   { step: "Build Rep & earn scrap", description: "Earn $500 lifetime scrap and 25 Rep. Watch fatigue — it builds every race and cuts performance." },
-  { step: "Visit the Shop", description: "Head to the Shop tab when fatigue is high or progress stalls." },
+  { step: "Visit Upgrades", description: "Open the Upgrades tab when fatigue is high or progress stalls." },
   { step: "Prestige", description: "Hit Scrap Reset to prestige. You restart stronger with permanent bonuses." },
 ];
 
