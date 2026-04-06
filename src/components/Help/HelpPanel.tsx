@@ -8,6 +8,7 @@ import HelpProgressionTab from "./HelpProgressionTab";
 import HelpReferenceTab from "./HelpReferenceTab";
 import BalanceDashboard from "@/components/Admin/BalanceDashboard";
 import HelpActivityTab from "./HelpActivityTab";
+import MobileSubNav from "@/components/MobileSubNav";
 
 type HelpTab = "basics" | "systems" | "strategy" | "progression" | "reference" | "simulators" | "activity";
 
@@ -26,7 +27,8 @@ export default function HelpPanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
+      {/* Desktop tab bar — hidden on mobile */}
+      <div className="hidden sm:flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -41,6 +43,13 @@ export default function HelpPanel() {
           </button>
         ))}
       </div>
+
+      {/* Mobile sub-nav hamburger */}
+      <MobileSubNav
+        tabs={TABS}
+        activeTab={activeTab}
+        setActiveTab={(id) => setActiveTab(id as HelpTab)}
+      />
 
       {activeTab === "basics"      && <HelpBasicsTab />}
       {activeTab === "systems"     && <HelpSystemsTab />}

@@ -250,7 +250,7 @@ export default function ScavengePanel() {
             onTouchEnd={stopHold}
             className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
               isScavengeAnimating ? "scale-90" : "scale-100"
-            } ${isHolding ? "ring-2 ring-offset-1" : ""}`}
+            } ${isHolding ? "ring-2 ring-offset-1" : ""} ${autoScavengeUnlocked ? "auto-scavenge-active" : ""}`}
             style={{
               background: "var(--btn-primary-bg)",
               color: "var(--btn-primary-text)",
@@ -259,14 +259,7 @@ export default function ScavengePanel() {
           >
             {isHolding ? "Scavenging…" : "Scavenge!"}
           </button>
-          {autoScavengeUnlocked ? (
-            <span
-              className="rounded px-2 py-1 text-xs"
-              style={{ background: "var(--accent-bg)", color: "var(--info)" }}
-            >
-              Auto
-            </span>
-          ) : (
+          {!autoScavengeUnlocked && (
             <div className="flex items-center gap-2">
               <div
                 className="h-1.5 w-24 rounded-full overflow-hidden"
