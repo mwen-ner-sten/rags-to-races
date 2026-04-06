@@ -7,6 +7,7 @@ import type { PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateRefurbishCost } from "@/engine/build";
+import { computeTickSpeedMs } from "@/engine/tick";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
@@ -98,6 +99,9 @@ export default function ScavengePanel() {
   const setSelectedSellBelowQuality = useGameStore((s) => s.setSelectedSellBelowQuality);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const tickMs = useGameStore((s) => computeTickSpeedMs(s));
+  // Clamp orbit duration: match tick speed, but floor at 500ms to avoid flicker
+  const orbitDuration = autoScavengeUnlocked ? `${Math.max(500, tickMs)}ms` : undefined;
   const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
@@ -250,23 +254,17 @@ export default function ScavengePanel() {
             onTouchEnd={stopHold}
             className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
               isScavengeAnimating ? "scale-90" : "scale-100"
-            } ${isHolding ? "ring-2 ring-offset-1" : ""}`}
+            } ${isHolding ? "ring-2 ring-offset-1" : ""} ${autoScavengeUnlocked ? "auto-scavenge-active" : ""}`}
             style={{
-              background: "var(--btn-primary-bg)",
+              ...(!autoScavengeUnlocked ? { background: "var(--btn-primary-bg)" } : {}),
               color: "var(--btn-primary-text)",
               ...(isHolding ? { ringColor: "var(--info)" } : {}),
+              ...(orbitDuration ? { "--orbit-duration": orbitDuration } as React.CSSProperties : {}),
             }}
           >
             {isHolding ? "Scavenging…" : "Scavenge!"}
           </button>
-          {autoScavengeUnlocked ? (
-            <span
-              className="rounded px-2 py-1 text-xs"
-              style={{ background: "var(--accent-bg)", color: "var(--info)" }}
-            >
-              Auto
-            </span>
-          ) : (
+          {!autoScavengeUnlocked && (
             <div className="flex items-center gap-2">
               <div
                 className="h-1.5 w-24 rounded-full overflow-hidden"
