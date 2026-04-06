@@ -47,6 +47,7 @@ export default function AdminPanel() {
   const devClearGarage = useGameStore((s) => s.devClearGarage);
   const devSetAutoUnlocks = useGameStore((s) => s.devSetAutoUnlocks);
   const devResetSave = useGameStore((s) => s.devResetSave);
+  const skipTutorial = useGameStore((s) => s.skipTutorial);
 
   const [scrapInput, setScrapInput] = useState("");
   const [repInput, setRepInput] = useState("");
@@ -125,7 +126,7 @@ export default function AdminPanel() {
           <span style={{ color: "var(--text-muted)" }} className="text-xs">T1 Riding Mower + $500 + 50 Rep — ready to race</span>
         </div>
         <button
-          onClick={() => { devQuickStart(); log("Quick Start: T1 Riding Mower + $500 + 50 Rep"); }}
+          onClick={() => { devQuickStart(); skipTutorial(); log("Quick Start: T1 Riding Mower + $500 + 50 Rep + tutorial skipped"); }}
           style={btnAccent}
           className="rounded px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
         >
@@ -241,6 +242,13 @@ export default function AdminPanel() {
                 className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
               >
                 Launch Tutorial
+              </button>
+              <button
+                onClick={() => { skipTutorial(); log("Tutorial skipped"); }}
+                style={btnOutline}
+                className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              >
+                Skip Tutorial
               </button>
             </div>
           </div>
