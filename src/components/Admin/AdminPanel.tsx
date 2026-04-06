@@ -439,7 +439,7 @@ export default function AdminPanel() {
             {" · "}
             build <span className="font-mono">{BUILD_VERSION}</span>
             {" · "}
-            If this still reads like plain blocks, hard-refresh or restart dev — you may be on a cached bundle.
+            Pixel-style art (crisp blocks, not smooth vector blobs). Hard-refresh if this number does not match your deploy.
           </p>
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-9">
             {VEHICLE_DEFINITIONS.map((v) => (
