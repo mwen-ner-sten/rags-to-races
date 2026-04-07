@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGameStore } from "@/state/store";
+import { AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
 import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
@@ -59,6 +60,13 @@ export default function AdminPanel() {
   const [partCondition, setPartCondition] = useState<PartCondition>("good");
   const [partCount, setPartCount] = useState("1");
   const [addLog, setAddLog] = useState<string[]>([]);
+  const [aiModels, setAiModels] = useState<{ id: string; name: string }[]>([]);
+  const [aiModelsLoading, setAiModelsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("");
+
+  useEffect(() => {
+    setSelectedModel(localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "");
+  }, []);
 
   function log(msg: string) {
     setAddLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 10));
@@ -476,6 +484,68 @@ export default function AdminPanel() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* AI Settings */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION}>
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>AI Settings</p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={async () => {
+                setAiModelsLoading(true);
+                try {
+                  const res = await fetch("/api/models");
+                  if (!res.ok) throw new Error(`Failed (${res.status})`);
+                  const data = await res.json();
+                  setAiModels(data.models ?? []);
+                  log(`Loaded ${data.models?.length ?? 0} models from OpenRouter`);
+                } catch (e) {
+                  log(`Failed to load models: ${e instanceof Error ? e.message : "unknown"}`);
+                } finally {
+                  setAiModelsLoading(false);
+                }
+              }}
+              disabled={aiModelsLoading}
+              style={btnOutline}
+              className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
+            >
+              {aiModelsLoading ? "Loading..." : aiModels.length > 0 ? `Reload Models (${aiModels.length})` : "Load Models"}
+            </button>
+            {aiModels.length > 0 && (
+              <select
+                value={selectedModel}
+                onChange={(e) => {
+                  setSelectedModel(e.target.value);
+                  localStorage.setItem(AI_MODEL_STORAGE_KEY, e.target.value);
+                  const model = aiModels.find((m) => m.id === e.target.value);
+                  log(`AI model set: ${model?.name ?? e.target.value}`);
+                }}
+                className="rounded border px-2 py-1.5 text-xs"
+                style={{
+                  background: "var(--panel-bg)",
+                  borderColor: "var(--panel-border)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <option value="">-- Select a model --</option>
+                {aiModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.id})
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedModel && (
+              <p style={{ color: "var(--text-muted)" }} className="text-xs">
+                Active: <span style={{ color: "var(--accent)" }}>{selectedModel}</span>
+              </p>
+            )}
+            {!selectedModel && (
+              <p style={{ color: "var(--text-muted)" }} className="text-xs">
+                No model selected. Load models and pick one for Gearhead Gary.
+              </p>
+            )}
           </div>
         </div>
 

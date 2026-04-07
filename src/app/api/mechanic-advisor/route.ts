@@ -21,11 +21,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const context: MechanicContext = await request.json();
+  const { modelId, ...context }: MechanicContext & { modelId?: string } = await request.json();
+
+  if (!modelId) {
+    return new Response(
+      JSON.stringify({ error: "No model selected. Pick one in the Dev tab." }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   try {
     const result = streamText({
-      model: openrouter("anthropic/claude-3.5-haiku"),
+      model: openrouter(modelId),
       system: SYSTEM_PROMPT,
       messages: [
         {

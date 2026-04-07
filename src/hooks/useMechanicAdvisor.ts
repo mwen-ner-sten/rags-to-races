@@ -84,6 +84,8 @@ function buildContext(state: GameState): MechanicContext {
   };
 }
 
+export const AI_MODEL_STORAGE_KEY = "rags-ai-model";
+
 export function useMechanicAdvisor() {
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -92,6 +94,7 @@ export function useMechanicAdvisor() {
   const askMechanic = useCallback(async () => {
     const state = useGameStore.getState();
     const context = buildContext(state);
+    const modelId = localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "";
 
     setIsLoading(true);
     setError(null);
@@ -101,14 +104,15 @@ export function useMechanicAdvisor() {
       const res = await fetch("/api/mechanic-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(context),
+        body: JSON.stringify({ ...context, modelId }),
       });
 
       if (!res.ok) {
         if (res.status === 503) {
           throw new Error("Mechanic is off the clock — OPENROUTER_API_KEY not configured.");
         }
-        throw new Error(`Mechanic hit a snag (${res.status})`);
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? `Mechanic hit a snag (${res.status})`);
       }
 
       const reader = res.body!.getReader();

@@ -1,9 +1,21 @@
 "use client";
 
-import { useMechanicAdvisor } from "@/hooks/useMechanicAdvisor";
+import { useState, useEffect } from "react";
+import { useMechanicAdvisor, AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
 
 export default function MechanicAdvisor() {
   const { response, isLoading, error, askMechanic } = useMechanicAdvisor();
+  const [modelId, setModelId] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "" : "",
+  );
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === AI_MODEL_STORAGE_KEY) setModelId(e.newValue ?? "");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   return (
     <div
@@ -11,12 +23,23 @@ export default function MechanicAdvisor() {
       style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
     >
       <div className="flex items-center justify-between mb-2">
-        <h3
-          className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--text-heading)" }}
-        >
-          Gearhead Gary
-        </h3>
+        <div>
+          <h3
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: "var(--text-heading)" }}
+          >
+            Gearhead Gary
+          </h3>
+          {modelId ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              via {modelId}
+            </p>
+          ) : (
+            <p className="text-xs" style={{ color: "var(--danger)" }}>
+              No model selected (pick one in Dev tab)
+            </p>
+          )}
+        </div>
         <button
           onClick={askMechanic}
           disabled={isLoading}
