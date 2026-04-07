@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/state/store";
+import SkillsSubTab from "./SkillsSubTab";
 import {
   GEAR_SLOTS,
   GEAR_SLOT_LABELS,
@@ -52,7 +53,7 @@ const TIER_BORDER = [
   "border-zinc-800", "border-zinc-600", "border-green-800/50", "border-blue-800/50", "border-purple-800/50",
 ];
 
-type LockerTab = "outfit" | "loot" | "mods" | "talents";
+type LockerTab = "outfit" | "loot" | "mods" | "talents" | "skills";
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function LockerPanel() {
@@ -86,6 +87,7 @@ export default function LockerPanel() {
   const bonuses = getGearBonuses(equippedGear, equippedLootGear, lootGearInventory, unlockedTalentNodes, TALENT_NODES);
 
   const TABS: { id: LockerTab; label: string; badge?: number }[] = [
+    { id: "skills",  label: "Skills" },
     { id: "outfit",  label: "Outfit" },
     { id: "loot",    label: "Loot Gear", badge: lootGearInventory.length },
     { id: "mods",    label: "Mods",      badge: gearModInventory.length },
@@ -115,6 +117,9 @@ export default function LockerPanel() {
           </button>
         ))}
       </div>
+
+      {/* Skills tab */}
+      {activeTab === "skills" && <SkillsSubTab />}
 
       {/* Outfit tab */}
       {activeTab === "outfit" && (

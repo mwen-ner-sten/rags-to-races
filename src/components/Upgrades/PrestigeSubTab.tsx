@@ -21,7 +21,7 @@ export default function PrestigeSubTab() {
 
   const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false);
 
-  const canPrestige = garage.length >= 1 && repPoints >= 25 && lifetimeScrapBucks >= 500;
+  const canPrestige = garage.length >= 3 && repPoints >= 5000 && lifetimeScrapBucks >= 50000;
 
   return (
     <div className="flex flex-col gap-4">
@@ -115,7 +115,7 @@ export default function PrestigeSubTab() {
           )}
           {!canPrestige && (
             <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-              Requirements: 1 vehicle built, 25 Rep, $500 lifetime Scrap Bucks
+              Requirements: 3 vehicles built, 5,000 Rep, $50,000 lifetime Scrap Bucks
             </p>
           )}
           <button

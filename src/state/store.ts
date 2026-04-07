@@ -38,6 +38,9 @@ import type { CraftRecipe } from "@/data/craftRecipes";
 import { canAffordRecipe } from "@/data/craftRecipes";
 import { PART_DEFINITIONS } from "@/data/parts";
 import { randInt } from "@/utils/random";
+import type { RacerSkills, SkillName } from "@/data/racerSkills";
+import { createDefaultSkills, levelFromXp, MAX_SKILL_LEVEL } from "@/data/racerSkills";
+import { getSkillBonuses } from "@/engine/skills";
 
 // ── Activity log ────────────────────────────────────────────────────────────
 export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
@@ -87,7 +90,7 @@ export interface GameState {
   selectedSellBelowQuality: PartCondition;
   isScavenging: boolean;
   autoScavengeUnlocked: boolean;
-  /** Counts manual scavenge button clicks; auto-scavenge unlocks at 100 */
+  /** Counts manual scavenge button clicks; auto-scavenge unlocks at 500 */
   manualScavengeClicks: number;
 
   // Racing
@@ -176,6 +179,9 @@ export interface GameState {
   lifetimeTotalTradeUps: number;
   lifetimeTotalRaceSalvage: number;
   highestConditionReached: number; // index into CONDITIONS
+
+  // Racer Skills (within-run XP progression, resets on prestige)
+  racerSkills: RacerSkills;
 
   // Actions
   manualScavenge: () => void;
@@ -315,6 +321,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     highestConditionReached: 0,
     tutorialStep: 0,
     tutorialDismissed: false,
+    racerSkills: createDefaultSkills(),
   };
 }
 
@@ -334,7 +341,7 @@ export function _getUpgradeEffectValue(state: GameState, upgradeId: string): num
 export function calculateFatigue(lifetimeRaces: number, fatigueOffset: number = 0): number {
   const effectiveRaces = Math.max(0, lifetimeRaces - fatigueOffset);
   if (effectiveRaces <= 0) return 0;
-  return Math.min(99, Math.floor(25 * Math.log2(1 + effectiveRaces / 25)));
+  return Math.min(99, Math.floor(25 * Math.log2(1 + effectiveRaces / 100)));
 }
 
 /**
@@ -379,6 +386,17 @@ function _appendLog(set: any, get: any, category: LogCategory, message: string, 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/** Grant XP to a skill and recalculate level. Returns the updated skills object. */
+function _grantXp(skills: RacerSkills, skill: SkillName, amount: number): RacerSkills {
+  const current = skills[skill];
+  const newXp = current.xp + amount;
+  const { level } = levelFromXp(newXp);
+  return {
+    ...skills,
+    [skill]: { xp: newXp, level: Math.min(level, MAX_SKILL_LEVEL) },
+  };
+}
+
 function createActions(set: any, get: any) {
   return {
     manualScavenge: () => {
@@ -439,13 +457,14 @@ function createActions(set: any, get: any) {
       });
       set((s: GameState) => {
         const newClicks = s.manualScavengeClicks + 1;
-        const justUnlocked = !s.autoScavengeUnlocked && newClicks >= 100;
+        const justUnlocked = !s.autoScavengeUnlocked && newClicks >= 500;
         return {
           inventory: [...s.inventory, ...parts],
           lootGearInventory: gearDrops.length > 0 ? [...s.lootGearInventory, ...gearDrops] : s.lootGearInventory,
           gearModInventory: modDrop ? [...s.gearModInventory, modDrop] : s.gearModInventory,
           manualScavengeClicks: newClicks,
           autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
+          racerSkills: _grantXp(s.racerSkills, "scavenging", 5),
           unlockEvents: justUnlocked
             ? [...s.unlockEvents, "Auto-Scavenge Enabled! Parts collect themselves now."]
             : s.unlockEvents,
@@ -617,6 +636,7 @@ function createActions(set: any, get: any) {
           _vehicleIdCounter: s._vehicleIdCounter + 1,
           pendingBuildParts: newPendingParts,
           activeVehicleId: s.activeVehicleId ?? built.id,
+          racerSkills: _grantXp(s.racerSkills, "mechanics", 20),
         };
       });
       _appendLog(set, get, "build", `Built ${vehicleDef.name} for $${actualBuildCost}`, { scrapDelta: -actualBuildCost });
@@ -671,6 +691,7 @@ function createActions(set: any, get: any) {
       const salvageDropChance = scavengerEyeLevel >= 1 ? 0.30 : 0.15;
       const salvageMaxCondition = scavengerEyeLevel >= 1 ? 2 : 1;
       const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
+      const sb = getSkillBonuses(state.racerSkills, circuit.tier);
       const outcome = simulateRace(
         vehicle, circuit,
         state.prestigeBonus.scrapMultiplier,
@@ -681,6 +702,8 @@ function createActions(set: any, get: any) {
         salvageMaxCondition,
         momentumWinBonus,
         gb.forge_token_chance_bonus,
+        sb.drivingPerformanceMult,
+        sb.drivingDnfReduction,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -705,22 +728,22 @@ function createActions(set: any, get: any) {
           const newUnlockEvents = [...s.unlockEvents];
 
           // Unlock circuits by rep
-          if (newRep >= 5000 && !newUnlockedCircuits.includes("dirt_track")) { newUnlockedCircuits.push("dirt_track"); newUnlockEvents.push("Dirt Track Unlocked! Real gravel, real glory."); }
-          if (newRep >= 50000 && !newUnlockedCircuits.includes("regional_circuit")) { newUnlockedCircuits.push("regional_circuit"); newUnlockEvents.push("Regional Circuit Unlocked! Somebody brought a trailer."); }
-          if (newRep >= 200000 && !newUnlockedCircuits.includes("national_circuit")) { newUnlockedCircuits.push("national_circuit"); newUnlockEvents.push("National Circuit Unlocked! Corporate sponsors. Cameras."); }
-          if (newRep >= 600000 && !newUnlockedCircuits.includes("world_championship")) { newUnlockedCircuits.push("world_championship"); newUnlockEvents.push("World Championship Unlocked! The big leagues."); }
+          if (newRep >= 25000 && !newUnlockedCircuits.includes("dirt_track")) { newUnlockedCircuits.push("dirt_track"); newUnlockEvents.push("Dirt Track Unlocked! Real gravel, real glory."); }
+          if (newRep >= 200000 && !newUnlockedCircuits.includes("regional_circuit")) { newUnlockedCircuits.push("regional_circuit"); newUnlockEvents.push("Regional Circuit Unlocked! Somebody brought a trailer."); }
+          if (newRep >= 800000 && !newUnlockedCircuits.includes("national_circuit")) { newUnlockedCircuits.push("national_circuit"); newUnlockEvents.push("National Circuit Unlocked! Corporate sponsors. Cameras."); }
+          if (newRep >= 2500000 && !newUnlockedCircuits.includes("world_championship")) { newUnlockedCircuits.push("world_championship"); newUnlockEvents.push("World Championship Unlocked! The big leagues."); }
 
           // Unlock locations by rep
-          if (newRep >= 8000 && !newUnlockedLocations.includes("neighborhood_yards")) { newUnlockedLocations.push("neighborhood_yards"); newUnlockEvents.push("New Location: Neighborhood Yards!"); }
-          if (newRep >= 35000 && !newUnlockedLocations.includes("local_junkyard")) { newUnlockedLocations.push("local_junkyard"); newUnlockEvents.push("New Location: Local Junkyard — better parts await!"); }
-          if (newRep >= 120000 && !newUnlockedLocations.includes("salvage_auction")) { newUnlockedLocations.push("salvage_auction"); newUnlockEvents.push("New Location: Salvage Auction!"); }
-          if (newRep >= 400000 && !newUnlockedLocations.includes("industrial_surplus")) { newUnlockedLocations.push("industrial_surplus"); newUnlockEvents.push("New Location: Industrial Surplus!"); }
-          if (newRep >= 1000000 && !newUnlockedLocations.includes("military_scrapyard")) { newUnlockedLocations.push("military_scrapyard"); newUnlockEvents.push("New Location: Military Scrapyard!"); }
+          if (newRep >= 40000 && !newUnlockedLocations.includes("neighborhood_yards")) { newUnlockedLocations.push("neighborhood_yards"); newUnlockEvents.push("New Location: Neighborhood Yards!"); }
+          if (newRep >= 175000 && !newUnlockedLocations.includes("local_junkyard")) { newUnlockedLocations.push("local_junkyard"); newUnlockEvents.push("New Location: Local Junkyard — better parts await!"); }
+          if (newRep >= 600000 && !newUnlockedLocations.includes("salvage_auction")) { newUnlockedLocations.push("salvage_auction"); newUnlockEvents.push("New Location: Salvage Auction!"); }
+          if (newRep >= 2000000 && !newUnlockedLocations.includes("industrial_surplus")) { newUnlockedLocations.push("industrial_surplus"); newUnlockEvents.push("New Location: Industrial Surplus!"); }
+          if (newRep >= 5000000 && !newUnlockedLocations.includes("military_scrapyard")) { newUnlockedLocations.push("military_scrapyard"); newUnlockEvents.push("New Location: Military Scrapyard!"); }
 
           // Unlock vehicles by rep
-          if (newRep >= 8000 && !newUnlockedVehicles.includes("beater_car")) { newUnlockedVehicles.push("beater_car"); newUnlockEvents.push("Beater Car Blueprint Unlocked!"); }
-          if (newRep >= 35000 && !newUnlockedVehicles.includes("street_racer")) { newUnlockedVehicles.push("street_racer"); newUnlockEvents.push("Street Racer Blueprint Unlocked!"); }
-          if (newRep >= 100000 && !newUnlockedVehicles.includes("stock_car")) { newUnlockedVehicles.push("stock_car"); newUnlockEvents.push("Stock Car Blueprint Unlocked!"); }
+          if (newRep >= 40000 && !newUnlockedVehicles.includes("beater_car")) { newUnlockedVehicles.push("beater_car"); newUnlockEvents.push("Beater Car Blueprint Unlocked!"); }
+          if (newRep >= 175000 && !newUnlockedVehicles.includes("street_racer")) { newUnlockedVehicles.push("street_racer"); newUnlockEvents.push("Street Racer Blueprint Unlocked!"); }
+          if (newRep >= 500000 && !newUnlockedVehicles.includes("stock_car")) { newUnlockedVehicles.push("stock_car"); newUnlockEvents.push("Stock Car Blueprint Unlocked!"); }
 
           // Win streak
           const newStreak = outcome.result === "win" ? s.winStreak + 1 : 0;
@@ -756,7 +779,7 @@ function createActions(set: any, get: any) {
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
           const racingV = s.garage.find((v) => v.id === racingVehicleId);
-          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction, s.fatigue, gb.race_wear_reduction_pct) : 0;
+          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction, s.fatigue, gb.race_wear_reduction_pct, sb.enduranceWearReduction) : 0;
           const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gb.race_handling_pct;
           const updatedGarage = s.garage.map((v) => {
             if (v.id !== racingVehicleId) return v;
@@ -784,7 +807,7 @@ function createActions(set: any, get: any) {
           if (mScrapMult > 0) finalScraps = Math.floor(finalScraps * (1 + mScrapMult));
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
-          const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
+          const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + sb.enduranceFatigueOffset;
           const rawFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
           const newFatigue = Math.floor(rawFatigue * (1 - gb.fatigue_rate_reduction));
 
@@ -843,6 +866,12 @@ function createActions(set: any, get: any) {
             ? generateDealerBoard(newRep, newTick)
             : s.dealerBoard;
 
+          // Grant Driving XP (10 base + 5 bonus on win)
+          let updatedSkills = _grantXp(s.racerSkills, "driving", outcome.result === "win" ? 15 : 10);
+          // Grant Endurance XP when racing at high fatigue
+          if (newFatigue >= 60) updatedSkills = _grantXp(updatedSkills, "endurance", 10);
+          else if (newFatigue >= 40) updatedSkills = _grantXp(updatedSkills, "endurance", 5);
+
           return {
             isRacing: false,
             lastRaceOutcome: outcome,
@@ -853,8 +882,8 @@ function createActions(set: any, get: any) {
             unlockedCircuitIds: newUnlockedCircuits,
             unlockedLocationIds: newUnlockedLocations,
             unlockedVehicleIds: newUnlockedVehicles,
-            autoRaceUnlocked: s.autoRaceUnlocked || newRep >= 8000,
-            autoScavengeUnlocked: s.autoScavengeUnlocked || newRep >= 3000,
+            autoRaceUnlocked: s.autoRaceUnlocked || newRep >= 50000,
+            autoScavengeUnlocked: s.autoScavengeUnlocked || newRep >= 25000,
             raceEvents: [],
             raceStartTime: null,
             precomputedOutcome: null,
@@ -864,6 +893,7 @@ function createActions(set: any, get: any) {
             garage: updatedGarage,
             lifetimeRaces: newLifetimeRaces,
             fatigue: newFatigue,
+            racerSkills: updatedSkills,
             lootGearInventory: newLootGearInventory,
             gearModInventory: newGearModInventory,
             inventory: newInventory,
@@ -932,6 +962,7 @@ function createActions(set: any, get: any) {
           condition: 100,
           stats: calculateStats(vehicleDef, v.parts, 100, handlingBonus),
         }),
+        racerSkills: _grantXp(s.racerSkills, "mechanics", 5),
       }));
       _appendLog(set, get, "build", `Repaired ${vehicleDef.name} for $${actualCost}`, { scrapDelta: -actualCost });
     },
@@ -1215,7 +1246,7 @@ function createActions(set: any, get: any) {
 
       // Muscle Memory: starting auto-scavenge clicks
       const startingClicks = result.startingScavClicks;
-      const autoScavUnlocked = startingClicks >= 100;
+      const autoScavUnlocked = startingClicks >= 500;
 
       // Merge starting locations/circuits with defaults
       const startingLocations = Array.from(new Set(["curbside", ...result.startingLocationIds]));
@@ -1258,7 +1289,7 @@ function createActions(set: any, get: any) {
         autoRaceUnlocked: newPrestigeCount >= 1,
         // Auto-scavenge stays unlocked once earned, or via Muscle Memory talent
         autoScavengeUnlocked: state.autoScavengeUnlocked || autoScavUnlocked,
-        manualScavengeClicks: Math.min(startingClicks, 100),
+        manualScavengeClicks: Math.min(startingClicks, 500),
         raceTickProgress: 0,
         unlockEvents,
         // Gear persists through prestige
@@ -1355,6 +1386,15 @@ function createActions(set: any, get: any) {
         const gbFatigue = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES);
         const rawFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
         const newFatigue = raced ? Math.floor(rawFatigue * (1 - gbFatigue.fatigue_rate_reduction)) : s.fatigue;
+        // Grant skill XP from auto-tick actions
+        let tickSkills = s.racerSkills;
+        if (partsFound.length > 0) tickSkills = _grantXp(tickSkills, "scavenging", 1);
+        if (raced) {
+          tickSkills = _grantXp(tickSkills, "driving", 10 * (racesCompleted ?? 1));
+          if (newFatigue >= 60) tickSkills = _grantXp(tickSkills, "endurance", 10 * (racesCompleted ?? 1));
+          else if (newFatigue >= 40) tickSkills = _grantXp(tickSkills, "endurance", 5 * (racesCompleted ?? 1));
+        }
+
         return {
           inventory: [...s.inventory, ...partsFound],
           scrapBucks: s.scrapBucks + scrapsEarned,
@@ -1363,6 +1403,7 @@ function createActions(set: any, get: any) {
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
           fatigue: newFatigue,
+          racerSkills: tickSkills,
           lootGearInventory: lootGearDrops && lootGearDrops.length > 0
             ? [...s.lootGearInventory, ...lootGearDrops]
             : s.lootGearInventory,
@@ -1511,6 +1552,7 @@ function createActions(set: any, get: any) {
         completedChallenges: [...s.completedChallenges, ...completed],
         scrapBucks: s.scrapBucks + scrapReward,
         forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        racerSkills: _grantXp(s.racerSkills, "mechanics", 10),
       }));
     },
 

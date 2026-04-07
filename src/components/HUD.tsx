@@ -64,12 +64,12 @@ export default function HUD() {
           {tutorialStep === 14 && (
             <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
               <span className="text-sm">🚀</span>
-              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 500 ? "text-green-400" : "text-zinc-300"}`}>
-                ${formatNumber(lifetimeScrapBucks)}/500
+              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 50000 ? "text-green-400" : "text-zinc-300"}`}>
+                ${formatNumber(lifetimeScrapBucks)}/50k
               </span>
               <span className="text-zinc-600">·</span>
-              <span className={`font-mono text-xs font-semibold ${repPoints >= 25 ? "text-green-400" : "text-zinc-300"}`}>
-                {formatNumber(repPoints)}/25 Rep
+              <span className={`font-mono text-xs font-semibold ${repPoints >= 5000 ? "text-green-400" : "text-zinc-300"}`}>
+                {formatNumber(repPoints)}/5k Rep
               </span>
             </div>
           )}
