@@ -221,6 +221,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const [sellBtnRect, setSellBtnRect] = useState<DOMRect | null>(null);
   const [highlightRect, setHighlightRect] = useState<DOMRect[] | null>(null);
   const [blockerRects, setBlockerRects] = useState<{ rect: DOMRect; idx: number }[]>([]);
+  const [hintRects, setHintRects] = useState<DOMRect[]>([]);
   const [showHelpNudge, setShowHelpNudge] = useState(false);
   const rafRef = useRef<number>(0);
   const helpNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -323,7 +324,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     : undefined;
 
   const updatePositions = useCallback(() => {
-    if (!stepDef) { setTargetRect(null); setSellBtnRect(null); setHighlightRect(null); setBlockerRects([]); return; }
+    if (!stepDef) { setTargetRect(null); setSellBtnRect(null); setHighlightRect(null); setBlockerRects([]); setHintRects([]); return; }
 
     // Always track target for halo (even during goal badge mode)
     if (effectiveTarget) {
@@ -331,6 +332,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
       setTargetRect(el ? el.getBoundingClientRect() : null);
     } else {
       setTargetRect(null);
+    }
+
+    // Per-element hint highlights (e.g. individual part buttons on step 5)
+    if (tutorialStep === 5) {
+      const btns = document.querySelectorAll('[data-tutorial="part-btn"]');
+      setHintRects(Array.from(btns).map((el) => el.getBoundingClientRect()));
+    } else {
+      setHintRects([]);
     }
 
     // Secondary halo on Sell Scrap button when sell nudge is active
@@ -381,7 +390,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     } else {
       setBlockerRects([]);
     }
-  }, [stepDef, effectiveTarget, step2SellReady]);
+  }, [stepDef, effectiveTarget, step2SellReady, tutorialStep]);
 
   useEffect(() => {
     if (tutorialStep < 0) return;
@@ -637,6 +646,19 @@ export default function TutorialOverlay({ activeTab }: Props) {
         />
       )}
 
+      {/* Per-element hint highlights (e.g. clickable parts on step 5) */}
+      {hintRects.map((rect, i) => (
+        <div
+          key={`hint-${i}`}
+          className="tutorial-pulse fixed z-[9998] rounded"
+          style={{
+            left: rect.left - 2, top: rect.top - 2,
+            width: rect.width + 4, height: rect.height + 4,
+            pointerEvents: "none",
+          }}
+        />
+      ))}
+
       {/* Goal intro card — dismissible explanation before goal badge */}
       {showGoalIntro && (
         <div style={cardStyle}>
@@ -724,7 +746,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                     {stepDef.dismissable && (
                       <button
                         onClick={advanceTutorial}
-                        className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                        className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
                         style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
                       >
                         Got it &rarr;
