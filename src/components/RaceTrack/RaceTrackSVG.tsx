@@ -182,7 +182,7 @@ export default function RaceTrackSVG({
                 key={rank}
                 ref={setCarRef(rank)}
                 style={{
-                  transition: "transform 80ms linear",
+                  transition: "transform 120ms ease-out",
                   willChange: "transform",
                 }}
               >

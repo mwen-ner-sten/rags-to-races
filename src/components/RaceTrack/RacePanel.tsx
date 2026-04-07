@@ -127,18 +127,18 @@ function LiveRaceView({
         eventIndexRef.current = latest;
         setCurrentEvent(events[latest - 1]);
       }
-    }, 80);
+    }, 100);
 
     return () => clearInterval(interval);
   }, [events, startTime, durationMs, isActive, countdownMs]);
 
-  // Reset state when race ends
+  // Reset state when race ends — delay so cars don't snap back jarringly
   useEffect(() => {
     if (!isActive) {
       const t = setTimeout(() => {
         setProgress(0);
         setCurrentEvent(null);
-      }, 0);
+      }, 800);
       return () => clearTimeout(t);
     }
   }, [isActive]);

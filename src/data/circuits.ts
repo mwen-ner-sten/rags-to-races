@@ -28,7 +28,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     rewardBase: 10,
     repReward: 1,
     unlockRepCost: 0,
-    raceDuration: 3000,
+    raceDuration: 6000,
   },
   {
     id: "dirt_track",
@@ -42,7 +42,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     rewardBase: 60,
     repReward: 3,
     unlockRepCost: 25000,
-    raceDuration: 4000,
+    raceDuration: 8000,
   },
   {
     id: "regional_circuit",
@@ -56,7 +56,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     rewardBase: 500,
     repReward: 10,
     unlockRepCost: 200000,
-    raceDuration: 5000,
+    raceDuration: 10000,
   },
   {
     id: "national_circuit",
@@ -70,7 +70,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     rewardBase: 4000,
     repReward: 30,
     unlockRepCost: 800000,
-    raceDuration: 6000,
+    raceDuration: 12000,
   },
   {
     id: "world_championship",
@@ -84,7 +84,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     rewardBase: 35000,
     repReward: 100,
     unlockRepCost: 2500000,
-    raceDuration: 8000,
+    raceDuration: 15000,
   },
   {
     id: "continental_grand_prix",
@@ -98,7 +98,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     rewardBase: 150000,
     repReward: 200,
     unlockRepCost: 8000000,
-    raceDuration: 10000,
+    raceDuration: 18000,
     requiredFeature: "advanced_circuits",
   },
   {
@@ -113,7 +113,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     rewardBase: 500000,
     repReward: 500,
     unlockRepCost: 25000000,
-    raceDuration: 12000,
+    raceDuration: 22000,
     requiredFeature: "advanced_circuits",
   },
 ];
