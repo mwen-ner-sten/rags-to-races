@@ -41,6 +41,14 @@ import { randInt } from "@/utils/random";
 import type { RacerSkills, SkillName } from "@/data/racerSkills";
 import { createDefaultSkills, levelFromXp, MAX_SKILL_LEVEL } from "@/data/racerSkills";
 import { getSkillBonuses } from "@/engine/skills";
+import type { RacerAttributes, AttributeName } from "@/data/racerAttributes";
+import { createDefaultAttributes } from "@/data/racerAttributes";
+import { TEAM_UPGRADES_BY_ID, teamUpgradeCost } from "@/data/teamUpgrades";
+import { OWNER_UPGRADES_BY_ID, ownerUpgradeCost } from "@/data/ownerUpgrades";
+import { TRACK_PERKS_BY_ID, trackPerkCost } from "@/data/trackPerks";
+import { calculateTeamPoints, calculateOwnerPoints, calculateTrackTokens } from "@/engine/prestige";
+import { FEATURE_UNLOCK_DEFINITIONS, checkFeatureUnlock } from "@/data/featureUnlocks";
+import type { CrewMember } from "@/data/crew";
 
 // ── Activity log ────────────────────────────────────────────────────────────
 export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
@@ -183,6 +191,43 @@ export interface GameState {
   // Racer Skills (within-run XP progression, resets on prestige)
   racerSkills: RacerSkills;
 
+  // ── Multi-Layer Prestige ────────────────────────────────────────────────────
+
+  // Layer 2: Team Reset
+  teamPoints: number;
+  lifetimeTeamPoints: number;
+  teamUpgradeLevels: Record<string, number>;
+  teamEraCount: number;
+  lifetimeLPThisTeamEra: number;
+
+  // Layer 3: Owner Reset
+  ownerPoints: number;
+  lifetimeOwnerPoints: number;
+  ownerUpgradeLevels: Record<string, number>;
+  ownerEraCount: number;
+  lifetimeTPThisOwnerEra: number;
+
+  // Layer 4: Track Owner
+  trackPrestigeTokens: number;
+  lifetimeTrackTokens: number;
+  trackPerkLevels: Record<string, number>;
+  trackEraCount: number;
+  lifetimeOPThisTrackEra: number;
+
+  // Racer Attributes (persists through Scrap Reset, resets on Team Reset)
+  racerAttributes: RacerAttributes;
+
+  // Feature unlocks (progressive, never reset)
+  unlockedFeatures: string[];
+
+  // Lifetime tracking (never resets)
+  lifetimeLPAllTime: number;
+  lifetimeScrapResets: number;
+
+  // Crew system (persists through Scrap Reset, resets on Team Reset unless Crew Retention)
+  crewRoster: CrewMember[];
+  crewSlots: number;
+
   // Actions
   manualScavenge: () => void;
   sellPart: (partId: string) => void;
@@ -236,6 +281,17 @@ export interface GameState {
   purchaseFatigueDrink: () => void;
 
   clearActivityLog: () => void;
+
+  // ── Multi-layer prestige actions ─────────────────────────────────────────────
+  teamReset: () => void;
+  purchaseTeamUpgrade: (upgradeId: string) => void;
+  ownerReset: () => void;
+  purchaseOwnerUpgrade: (upgradeId: string) => void;
+  trackReset: () => void;
+  purchaseTrackPerk: (perkId: string) => void;
+  allocateAttribute: (attr: AttributeName, delta: number) => void;
+  specializeCrewMember: (crewId: string, spec: string) => void;
+  checkFeatureUnlocks: () => void;
 
   // User actions (destructive)
   resetSave: () => void;
@@ -322,6 +378,28 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     tutorialStep: 0,
     tutorialDismissed: false,
     racerSkills: createDefaultSkills(),
+    // Multi-layer prestige defaults
+    teamPoints: 0,
+    lifetimeTeamPoints: 0,
+    teamUpgradeLevels: {},
+    teamEraCount: 0,
+    lifetimeLPThisTeamEra: 0,
+    ownerPoints: 0,
+    lifetimeOwnerPoints: 0,
+    ownerUpgradeLevels: {},
+    ownerEraCount: 0,
+    lifetimeTPThisOwnerEra: 0,
+    trackPrestigeTokens: 0,
+    lifetimeTrackTokens: 0,
+    trackPerkLevels: {},
+    trackEraCount: 0,
+    lifetimeOPThisTrackEra: 0,
+    racerAttributes: createDefaultAttributes(),
+    unlockedFeatures: [],
+    lifetimeLPAllTime: 0,
+    lifetimeScrapResets: 0,
+    crewRoster: [],
+    crewSlots: 0,
   };
 }
 
@@ -407,9 +485,10 @@ function createActions(set: any, get: any) {
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue;
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
-      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
+      const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
+      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck + scavSkill.scavengingLuckBonus, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus);
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct);
+        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck + scavSkill.scavengingLuckBonus, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       /* ── Early-game boost: first 30 clicks on first prestige guarantee enough to build ── */
@@ -1321,8 +1400,32 @@ function createActions(set: any, get: any) {
         // Activity log persists through prestige
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
+        // Multi-layer prestige: persist through Scrap Reset
+        teamPoints: state.teamPoints,
+        lifetimeTeamPoints: state.lifetimeTeamPoints,
+        teamUpgradeLevels: state.teamUpgradeLevels,
+        teamEraCount: state.teamEraCount,
+        lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra + lpEarned,
+        ownerPoints: state.ownerPoints,
+        lifetimeOwnerPoints: state.lifetimeOwnerPoints,
+        ownerUpgradeLevels: state.ownerUpgradeLevels,
+        ownerEraCount: state.ownerEraCount,
+        lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
+        trackPrestigeTokens: state.trackPrestigeTokens,
+        lifetimeTrackTokens: state.lifetimeTrackTokens,
+        trackPerkLevels: state.trackPerkLevels,
+        trackEraCount: state.trackEraCount,
+        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
+        racerAttributes: state.racerAttributes,
+        unlockedFeatures: state.unlockedFeatures,
+        lifetimeLPAllTime: state.lifetimeLPAllTime + lpEarned,
+        lifetimeScrapResets: state.lifetimeScrapResets + 1,
+        crewRoster: state.crewRoster,
+        crewSlots: state.crewSlots,
       });
       _appendLog(set, get, "prestige", `Prestige #${newPrestigeCount}! Earned ${lpEarned} Legacy Points`, { lpDelta: lpEarned });
+      // Check feature unlocks after prestige
+      (get() as GameState).checkFeatureUnlocks();
     },
 
     purchaseLegacyUpgrade: (upgradeId: string) => {
@@ -1414,8 +1517,9 @@ function createActions(set: any, get: any) {
           lastActiveTimestamp: Date.now(),
         };
       });
-      // Check momentum tier activations after state update
+      // Check momentum tier activations and feature unlocks after state update
       (get() as GameState).checkMomentumTiers();
+      (get() as GameState).checkFeatureUnlocks();
       // Log auto-tick summary
       const tickParts: string[] = [];
       if (scrapsEarned > 0) tickParts.push(`+$${scrapsEarned}`);
@@ -1821,6 +1925,241 @@ function createActions(set: any, get: any) {
 
     devSetAutoUnlocks: (scavengeUnlocked: boolean, raceUnlocked: boolean) => {
       set({ autoScavengeUnlocked: scavengeUnlocked, autoRaceUnlocked: raceUnlocked });
+    },
+
+    // ── Multi-layer prestige actions ────────────────────────────────────────────
+
+    teamReset: () => {
+      const state = get() as GameState;
+      const stats = {
+        lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
+        teamEraCount: state.teamEraCount,
+        unspentLP: state.legacyPoints,
+      };
+      const tpEarned = calculateTeamPoints(stats);
+      const newTP = state.teamPoints + tpEarned;
+      const newLifetimeTP = state.lifetimeTeamPoints + tpEarned;
+
+      set({
+        ...initialState(),
+        // Team layer persists
+        teamPoints: newTP,
+        lifetimeTeamPoints: newLifetimeTP,
+        teamUpgradeLevels: state.teamUpgradeLevels,
+        teamEraCount: state.teamEraCount + 1,
+        lifetimeLPThisTeamEra: 0,
+        // Owner layer persists
+        ownerPoints: state.ownerPoints,
+        lifetimeOwnerPoints: state.lifetimeOwnerPoints,
+        ownerUpgradeLevels: state.ownerUpgradeLevels,
+        ownerEraCount: state.ownerEraCount,
+        lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra + tpEarned,
+        // Track layer persists
+        trackPrestigeTokens: state.trackPrestigeTokens,
+        lifetimeTrackTokens: state.lifetimeTrackTokens,
+        trackPerkLevels: state.trackPerkLevels,
+        trackEraCount: state.trackEraCount,
+        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
+        // Attributes persist through Team Reset
+        racerAttributes: createDefaultAttributes(),
+        // Feature unlocks never reset
+        unlockedFeatures: state.unlockedFeatures,
+        lifetimeLPAllTime: state.lifetimeLPAllTime,
+        lifetimeScrapResets: state.lifetimeScrapResets,
+        // Standard gear persists
+        equippedGear: state.equippedGear,
+        ownedGearIds: state.ownedGearIds,
+        // Challenges persist
+        completedChallenges: state.completedChallenges,
+        // Crew resets on Team Reset
+        crewRoster: [],
+        crewSlots: (state.teamUpgradeLevels["team_crew_slots"] ?? 0),
+        // Log persists
+        activityLog: state.activityLog,
+        _logIdCounter: state._logIdCounter,
+        // Lifetime stats persist
+        lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
+        lifetimeTotalEnhanced: state.lifetimeTotalEnhanced,
+        lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
+        lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
+        highestConditionReached: state.highestConditionReached,
+      });
+      _appendLog(set, get, "prestige", `Team Reset! Earned ${tpEarned} Team Points`, {});
+      (get() as GameState).checkFeatureUnlocks();
+    },
+
+    purchaseTeamUpgrade: (upgradeId: string) => {
+      const state = get() as GameState;
+      const def = TEAM_UPGRADES_BY_ID[upgradeId];
+      if (!def) return;
+      const currentLevel = state.teamUpgradeLevels[upgradeId] ?? 0;
+      if (currentLevel >= def.maxLevel) return;
+      const cost = teamUpgradeCost(def, currentLevel + 1);
+      if (state.teamPoints < cost) return;
+      set({
+        teamPoints: state.teamPoints - cost,
+        teamUpgradeLevels: { ...state.teamUpgradeLevels, [upgradeId]: currentLevel + 1 },
+      });
+    },
+
+    ownerReset: () => {
+      const state = get() as GameState;
+      const stats = {
+        lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
+        ownerEraCount: state.ownerEraCount,
+        unspentTP: state.teamPoints,
+      };
+      const opEarned = calculateOwnerPoints(stats);
+      const newOP = state.ownerPoints + opEarned;
+      const newLifetimeOP = state.lifetimeOwnerPoints + opEarned;
+
+      set({
+        ...initialState(),
+        // Owner layer persists
+        ownerPoints: newOP,
+        lifetimeOwnerPoints: newLifetimeOP,
+        ownerUpgradeLevels: state.ownerUpgradeLevels,
+        ownerEraCount: state.ownerEraCount + 1,
+        lifetimeTPThisOwnerEra: 0,
+        // Track layer persists
+        trackPrestigeTokens: state.trackPrestigeTokens,
+        lifetimeTrackTokens: state.lifetimeTrackTokens,
+        trackPerkLevels: state.trackPerkLevels,
+        trackEraCount: state.trackEraCount,
+        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra + opEarned,
+        // Feature unlocks never reset
+        unlockedFeatures: state.unlockedFeatures,
+        lifetimeLPAllTime: state.lifetimeLPAllTime,
+        lifetimeScrapResets: state.lifetimeScrapResets,
+        // Standard gear persists
+        equippedGear: state.equippedGear,
+        ownedGearIds: state.ownedGearIds,
+        completedChallenges: state.completedChallenges,
+        activityLog: state.activityLog,
+        _logIdCounter: state._logIdCounter,
+        lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
+        lifetimeTotalEnhanced: state.lifetimeTotalEnhanced,
+        lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
+        lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
+        highestConditionReached: state.highestConditionReached,
+      });
+      _appendLog(set, get, "prestige", `Owner Reset! Earned ${opEarned} Owner Points`, {});
+      (get() as GameState).checkFeatureUnlocks();
+    },
+
+    purchaseOwnerUpgrade: (upgradeId: string) => {
+      const state = get() as GameState;
+      const def = OWNER_UPGRADES_BY_ID[upgradeId];
+      if (!def) return;
+      const currentLevel = state.ownerUpgradeLevels[upgradeId] ?? 0;
+      if (currentLevel >= def.maxLevel) return;
+      const cost = ownerUpgradeCost(def, currentLevel + 1);
+      if (state.ownerPoints < cost) return;
+      set({
+        ownerPoints: state.ownerPoints - cost,
+        ownerUpgradeLevels: { ...state.ownerUpgradeLevels, [upgradeId]: currentLevel + 1 },
+      });
+    },
+
+    trackReset: () => {
+      const state = get() as GameState;
+      const stats = {
+        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
+        trackEraCount: state.trackEraCount,
+        unspentOP: state.ownerPoints,
+      };
+      const ptEarned = calculateTrackTokens(stats);
+      const newPT = state.trackPrestigeTokens + ptEarned;
+      const newLifetimePT = state.lifetimeTrackTokens + ptEarned;
+
+      set({
+        ...initialState(),
+        // Track layer persists
+        trackPrestigeTokens: newPT,
+        lifetimeTrackTokens: newLifetimePT,
+        trackPerkLevels: state.trackPerkLevels,
+        trackEraCount: state.trackEraCount + 1,
+        lifetimeOPThisTrackEra: 0,
+        // Feature unlocks never reset
+        unlockedFeatures: state.unlockedFeatures,
+        lifetimeLPAllTime: state.lifetimeLPAllTime,
+        lifetimeScrapResets: state.lifetimeScrapResets,
+        // Standard gear persists
+        equippedGear: state.equippedGear,
+        ownedGearIds: state.ownedGearIds,
+        completedChallenges: state.completedChallenges,
+        activityLog: state.activityLog,
+        _logIdCounter: state._logIdCounter,
+        lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
+        lifetimeTotalEnhanced: state.lifetimeTotalEnhanced,
+        lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
+        lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
+        highestConditionReached: state.highestConditionReached,
+      });
+      _appendLog(set, get, "prestige", `Track Reset! Earned ${ptEarned} Prestige Tokens`, {});
+      (get() as GameState).checkFeatureUnlocks();
+    },
+
+    purchaseTrackPerk: (perkId: string) => {
+      const state = get() as GameState;
+      const def = TRACK_PERKS_BY_ID[perkId];
+      if (!def) return;
+      const currentLevel = state.trackPerkLevels[perkId] ?? 0;
+      if (currentLevel >= def.maxLevel) return;
+      const cost = trackPerkCost(def, currentLevel + 1);
+      if (state.trackPrestigeTokens < cost) return;
+      set({
+        trackPrestigeTokens: state.trackPrestigeTokens - cost,
+        trackPerkLevels: { ...state.trackPerkLevels, [perkId]: currentLevel + 1 },
+      });
+    },
+
+    allocateAttribute: (attr: AttributeName, delta: number) => {
+      const state = get() as GameState;
+      const current = state.racerAttributes[attr];
+      const newVal = Math.max(0, Math.min(20, current + delta));
+      if (newVal === current) return;
+      // Check available points
+      const maxPoints = (state.teamUpgradeLevels["team_attr_points"] ?? 0) * 2;
+      const totalUsed = Object.values(state.racerAttributes).reduce((a, b) => a + b, 0);
+      if (delta > 0 && totalUsed >= maxPoints) return;
+      set({
+        racerAttributes: { ...state.racerAttributes, [attr]: newVal },
+      });
+    },
+
+    specializeCrewMember: (crewId: string, spec: string) => {
+      const state = get() as GameState;
+      set({
+        crewRoster: state.crewRoster.map((m) =>
+          m.id === crewId && m.level >= 5 ? { ...m, specialization: spec as CrewMember["specialization"] } : m
+        ),
+      });
+    },
+
+    checkFeatureUnlocks: () => {
+      const state = get() as GameState;
+      const stats = {
+        lifetimeScrapResets: state.lifetimeScrapResets,
+        lifetimeLPAllTime: state.lifetimeLPAllTime,
+        lifetimeTeamPoints: state.lifetimeTeamPoints,
+        teamEraCount: state.teamEraCount,
+        ownerEraCount: state.ownerEraCount,
+        trackEraCount: state.trackEraCount,
+        reachedCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds),
+        reachedCircuitTierCount: 0,
+      };
+      const newUnlocked = [...state.unlockedFeatures];
+      const newEvents = [...state.unlockEvents];
+      for (const condition of FEATURE_UNLOCK_DEFINITIONS) {
+        if (!newUnlocked.includes(condition.id) && checkFeatureUnlock(condition, stats)) {
+          newUnlocked.push(condition.id);
+          newEvents.push(`Feature Unlocked: ${condition.name}!`);
+        }
+      }
+      if (newUnlocked.length > state.unlockedFeatures.length) {
+        set({ unlockedFeatures: newUnlocked, unlockEvents: newEvents });
+      }
     },
 
     resetSave: () => {

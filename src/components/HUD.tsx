@@ -33,6 +33,12 @@ export default function HUD() {
   const fatigue = useGameStore((s) => s.fatigue);
   const legacyPoints = useGameStore((s) => s.legacyPoints);
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
+  const teamPoints = useGameStore((s) => s.teamPoints);
+  const ownerPoints = useGameStore((s) => s.ownerPoints);
+  const trackPrestigeTokens = useGameStore((s) => s.trackPrestigeTokens);
+  const teamEraCount = useGameStore((s) => s.teamEraCount);
+  const ownerEraCount = useGameStore((s) => s.ownerEraCount);
+  const trackEraCount = useGameStore((s) => s.trackEraCount);
   const saveLabel = useAutoSaveIndicator();
 
   const tutorialStep = useGameStore((s) => s.tutorialStep);
@@ -84,6 +90,15 @@ export default function HUD() {
           )}
           {legacyPoints > 0 && (
             <Stat label="LP" value={String(legacyPoints)} color="text-purple-400" />
+          )}
+          {teamEraCount > 0 && (
+            <Stat label="TP" value={String(teamPoints)} color="text-cyan-400" />
+          )}
+          {ownerEraCount > 0 && (
+            <Stat label="OP" value={String(ownerPoints)} color="text-pink-400" />
+          )}
+          {trackEraCount > 0 && (
+            <Stat label="PT" value={String(trackPrestigeTokens)} color="text-yellow-400" />
           )}
           {activeMomentumTiers.length > 0 && (
             <div className="flex flex-col items-end">

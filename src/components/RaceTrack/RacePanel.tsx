@@ -363,10 +363,6 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
     : null;
   const gb = useMemo(() => getGearBonuses(equippedGear), [equippedGear]);
   const racerSkills = useGameStore((s) => s.racerSkills);
-  const sb = useMemo(
-    () => getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0),
-    [racerSkills, selectedCircuit?.tier],
-  );
 
   const unlockedCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
     unlockedCircuitIds.includes(c.id),
@@ -376,6 +372,10 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   );
 
   const selectedCircuit = CIRCUIT_DEFINITIONS.find((c) => c.id === selectedCircuitId);
+  const sb = useMemo(
+    () => getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0),
+    [racerSkills, selectedCircuit?.tier],
+  );
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const canEnter =
     !isRacing &&

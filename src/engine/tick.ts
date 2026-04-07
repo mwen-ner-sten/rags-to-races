@@ -86,17 +86,18 @@ export function computeTick(state: GameState): TickResult {
   const doubleDropChance          = _getUpgradeEffectValue(state, "double_drop");
   const modDropRateBonus          = _getUpgradeEffectValue(state, "mod_hunter");
 
-  // Auto-scavenge (with workshop upgrade bonuses + gear bonuses) — fires every tick
+  // Auto-scavenge (with workshop upgrade bonuses + gear bonuses + skill bonuses) — fires every tick
   if (state.autoScavengeUnlocked && state.selectedLocationId) {
     const location = getLocationById(state.selectedLocationId);
     if (location) {
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue ?? 0;
-      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gearBonuses.scavenge_luck_bonus, gearBonuses.scavenge_yield_pct);
+      const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
+      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck + scavSkill.scavengingLuckBonus, fatigue, gearBonuses.scavenge_luck_bonus, gearBonuses.scavenge_yield_pct + scavSkill.scavengingYieldBonus);
       // Add extra parts from Deep Pockets
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck, fatigue, gearBonuses.scavenge_luck_bonus, gearBonuses.scavenge_yield_pct);
+        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck + scavSkill.scavengingLuckBonus, fatigue, gearBonuses.scavenge_luck_bonus, gearBonuses.scavenge_yield_pct + scavSkill.scavengingYieldBonus);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       result.partsFound = parts;
