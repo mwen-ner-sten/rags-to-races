@@ -219,7 +219,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const [cardDismissed, setCardDismissed] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [sellBtnRect, setSellBtnRect] = useState<DOMRect | null>(null);
-  const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
+  const [highlightRect, setHighlightRect] = useState<DOMRect[] | null>(null);
   const [blockerRects, setBlockerRects] = useState<{ rect: DOMRect; idx: number }[]>([]);
   const [showHelpNudge, setShowHelpNudge] = useState(false);
   const rafRef = useRef<number>(0);
@@ -363,8 +363,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const allowedSet = stepDef.allowedTabs ? new Set(stepDef.allowedTabs) : null;
 
     if (stepDef.highlightTab) {
-      const t = tabButtons.find((btn) => btn.textContent?.toLowerCase().trim().includes(stepDef.highlightTab!));
-      setHighlightRect(t ? t.getBoundingClientRect() : null);
+      // Highlight ALL matching tab buttons (sidebar + content nav + mobile)
+      const matches = tabButtons.filter((btn) => btn.textContent?.toLowerCase().trim().includes(stepDef.highlightTab!));
+      setHighlightRect(matches.length > 0 ? matches.map((m) => m.getBoundingClientRect()) : null);
     } else {
       setHighlightRect(null);
     }
@@ -472,16 +473,17 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
     return (
       <>
-        {highlightRect && (
+        {highlightRect?.map((rect, i) => (
           <div
+            key={`hl-d-${i}`}
             className="tutorial-pulse fixed z-[9997] rounded"
             style={{
-              left: highlightRect.left - 4, top: highlightRect.top - 4,
-              width: highlightRect.width + 8, height: highlightRect.height + 8,
+              left: rect.left - 4, top: rect.top - 4,
+              width: rect.width + 8, height: rect.height + 8,
               pointerEvents: "none",
             }}
           />
-        )}
+        ))}
         {targetRect && (
           <div
             className="tutorial-pulse fixed z-[9999] rounded-lg"
@@ -516,8 +518,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const showCard = hasIntro ? (cardDismissed && !isGoalStep && !!effectiveTip) : (!cardDismissed && !!effectiveTip);
   const showGoal = cardDismissed && isGoalStep;
 
-  // Pick an anchor rect — prefer target, fall back to highlighted tab
-  const anchorRect = targetRect ?? highlightRect;
+  // Pick an anchor rect — prefer target, fall back to first highlighted tab
+  const anchorRect = targetRect ?? (highlightRect ? highlightRect[0] : null);
 
   // Card position near anchor
   let cardStyle: React.CSSProperties = {};
@@ -596,17 +598,18 @@ export default function TutorialOverlay({ activeTab }: Props) {
         </div>
       ))}
 
-      {/* Highlight pulse on target tab */}
-      {highlightRect && (
+      {/* Highlight pulse on target tab(s) — renders on all matching nav buttons */}
+      {highlightRect?.map((rect, i) => (
         <div
+          key={`hl-${i}`}
           className="tutorial-pulse fixed z-[9997] rounded"
           style={{
-            left: highlightRect.left - 4, top: highlightRect.top - 4,
-            width: highlightRect.width + 8, height: highlightRect.height + 8,
+            left: rect.left - 4, top: rect.top - 4,
+            width: rect.width + 8, height: rect.height + 8,
             pointerEvents: "none",
           }}
         />
-      )}
+      ))}
 
       {/* Pulsing halo on target button (in-panel elements) */}
       {targetRect && (
