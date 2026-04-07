@@ -63,6 +63,7 @@ export default function RaceTrackSVG({
   const pathRef = useRef<SVGPathElement>(null);
   const carRefs = useRef<(SVGGElement | null)[]>([]);
   const lengthRef = useRef(0);
+  const prevAngles = useRef<number[]>(new Array(TOTAL_RACERS).fill(0));
   const [playerPos, setPlayerPos] = useState<{ x: number; y: number }>({ x: 120, y: 40 });
 
   // Initialize path length once mounted
@@ -106,13 +107,20 @@ export default function RaceTrackSVG({
       // Get point on path
       const pt = path.getPointAtLength(distance);
       // Compute tangent angle using a wider sample for stability at curve transitions.
-      // Sample forward and backward to avoid issues near the path closure point.
       const sampleDelta = 8;
       const dBack = Math.max(0, distance - sampleDelta);
       const dFwd = Math.min(totalLength - 0.1, distance + sampleDelta);
       const ptBack = path.getPointAtLength(dBack);
       const ptFwd = path.getPointAtLength(dFwd);
-      const angle = Math.atan2(ptFwd.y - ptBack.y, ptFwd.x - ptBack.x) * (180 / Math.PI);
+      const rawAngle = Math.atan2(ptFwd.y - ptBack.y, ptFwd.x - ptBack.x) * (180 / Math.PI);
+
+      // Unwrap angle relative to previous frame so CSS transition always takes
+      // the shortest rotational path (prevents ±180° flip at bottom straight).
+      let angle = rawAngle;
+      const prev = prevAngles.current[i];
+      while (angle - prev > 180) angle -= 360;
+      while (angle - prev < -180) angle += 360;
+      prevAngles.current[i] = angle;
 
       el.style.transform = `translate(${pt.x}px, ${pt.y}px) rotate(${angle}deg)`;
 
