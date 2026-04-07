@@ -20,6 +20,13 @@ const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
 const VERCEL_ENV = process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development";
 const ENV_LABEL = VERCEL_ENV === "production" ? "PROD" : VERCEL_ENV === "preview" ? "PREVIEW" : "DEV";
 
+type DevSubTab = "general" | "ai" | "system";
+const DEV_TABS: { id: DevSubTab; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "ai", label: "AI Lab" },
+  { id: "system", label: "System" },
+];
+
 const SECTION = "rounded-lg border p-4 flex flex-col gap-3";
 const LABEL = "text-xs font-semibold uppercase tracking-wider mb-1";
 
@@ -56,6 +63,7 @@ export default function AdminPanel() {
   const devResetSave = useGameStore((s) => s.devResetSave);
   const skipTutorial = useGameStore((s) => s.skipTutorial);
 
+  const [devTab, setDevTab] = useState<DevSubTab>("general");
   const [scrapInput, setScrapInput] = useState("");
   const [repInput, setRepInput] = useState("");
   const [prestigeInput, setPrestigeInput] = useState(String(prestigeCount));
@@ -162,6 +170,30 @@ export default function AdminPanel() {
         <span style={{ color: "var(--text-muted)" }} className="text-xs uppercase tracking-wider">Build Version</span>
         <span style={{ color: "var(--accent)" }} className="text-xs font-mono font-semibold">v{BUILD_VERSION}</span>
       </div>
+
+      {/* Sub-tab navigation */}
+      <div
+        className="flex gap-1 rounded-lg border p-1"
+        style={{ borderColor: "var(--panel-border)", background: "var(--surface-bg, var(--panel-bg))" }}
+      >
+        {DEV_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setDevTab(tab.id)}
+            className="flex-1 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+            style={
+              devTab === tab.id
+                ? { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }
+                : { color: "var(--text-muted)" }
+            }
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── General Tab ── */}
+      {devTab === "general" && <>
 
       {/* Quick Start */}
       <div style={{ background: "var(--panel-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4 flex items-center gap-4 flex-wrap">
@@ -520,6 +552,12 @@ export default function AdminPanel() {
             ))}
           </div>
         </div>
+      </div>
+      </>}
+
+      {/* ── AI Lab Tab ── */}
+      {devTab === "ai" && <>
+      <div className="flex flex-col gap-4">
 
         {/* AI Model Picker */}
         <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION + " lg:col-span-3"}>
@@ -640,6 +678,12 @@ export default function AdminPanel() {
 
         {/* Model Comparison */}
         <ModelComparison models={aiModels} />
+      </div>
+      </>}
+
+      {/* ── System Tab ── */}
+      {devTab === "system" && <>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
         {/* Danger zone */}
         <div style={{ background: "var(--panel-bg)", borderColor: "var(--danger)" }} className={SECTION}>
@@ -677,6 +721,8 @@ export default function AdminPanel() {
           )}
         </div>
       </div>
+      </>}
+
     </div>
   );
 }
