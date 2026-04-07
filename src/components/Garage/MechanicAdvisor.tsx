@@ -3,11 +3,34 @@
 import { useState, useEffect } from "react";
 import { useMechanicAdvisor, AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
 
+const COOLDOWN_MS = 30_000;
+
 export default function MechanicAdvisor() {
   const { response, isLoading, error, askMechanic } = useMechanicAdvisor();
   const [modelId, setModelId] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "" : "",
   );
+  const [cooldownEnd, setCooldownEnd] = useState(0);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
+
+  // Tick the cooldown display
+  useEffect(() => {
+    if (cooldownEnd <= Date.now()) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, cooldownEnd - Date.now());
+      setCooldownLeft(remaining);
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldownEnd]);
+
+  const isCoolingDown = cooldownLeft > 0;
+
+  async function handleAsk() {
+    await askMechanic();
+    setCooldownEnd(Date.now() + COOLDOWN_MS);
+    setCooldownLeft(COOLDOWN_MS);
+  }
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -41,17 +64,17 @@ export default function MechanicAdvisor() {
           )}
         </div>
         <button
-          onClick={askMechanic}
-          disabled={isLoading}
+          onClick={handleAsk}
+          disabled={isLoading || isCoolingDown}
           className="rounded-lg border px-3 py-1 text-xs transition-colors"
           style={{
             borderColor: "var(--btn-border)",
-            background: isLoading ? "transparent" : "var(--btn-primary-bg)",
-            color: isLoading ? "var(--text-muted)" : "var(--btn-primary-text)",
-            cursor: isLoading ? "wait" : "pointer",
+            background: isLoading || isCoolingDown ? "transparent" : "var(--btn-primary-bg)",
+            color: isLoading || isCoolingDown ? "var(--text-muted)" : "var(--btn-primary-text)",
+            cursor: isLoading ? "wait" : isCoolingDown ? "not-allowed" : "pointer",
           }}
         >
-          {isLoading ? "Thinking..." : "Ask the Mechanic"}
+          {isLoading ? "Thinking..." : isCoolingDown ? `Wait ${Math.ceil(cooldownLeft / 1000)}s` : "Ask the Mechanic"}
         </button>
       </div>
 

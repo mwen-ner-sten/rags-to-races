@@ -1,4 +1,12 @@
-export async function GET() {
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+
+const RATE_LIMIT = { maxRequests: 3, windowMs: 60_000 }; // 3 req/min
+
+export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const limit = checkRateLimit(`models:${ip}`, RATE_LIMIT);
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterMs);
+
   if (!process.env.OPENROUTER_API_KEY) {
     return new Response(
       JSON.stringify({ error: "OPENROUTER_API_KEY not configured" }),
