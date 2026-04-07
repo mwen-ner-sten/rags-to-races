@@ -87,6 +87,7 @@ export default function AdminPanel() {
     typeof window !== "undefined" ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "" : "",
   );
   const [modelFilter, setModelFilter] = useState("");
+  const [showFreeOnly, setShowFreeOnly] = useState(false);
 
   async function fetchModels() {
     setAiModelsLoading(true);
@@ -556,14 +557,25 @@ export default function AdminPanel() {
           )}
           {aiModels.length > 0 && (
             <>
-              <input
-                type="text"
-                placeholder="Filter models..."
-                value={modelFilter}
-                onChange={(e) => setModelFilter(e.target.value)}
-                className="rounded border px-2 py-1.5 text-xs"
-                style={{ background: "var(--input-bg, var(--panel-bg))", borderColor: "var(--input-border, var(--panel-border))", color: "var(--text-primary)" }}
-              />
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="Filter models..."
+                  value={modelFilter}
+                  onChange={(e) => setModelFilter(e.target.value)}
+                  className="flex-1 rounded border px-2 py-1.5 text-xs"
+                  style={{ background: "var(--input-bg, var(--panel-bg))", borderColor: "var(--input-border, var(--panel-border))", color: "var(--text-primary)" }}
+                />
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: "var(--text-muted)" }}>
+                  <input
+                    type="checkbox"
+                    checked={showFreeOnly}
+                    onChange={(e) => setShowFreeOnly(e.target.checked)}
+                    className="accent-[var(--accent)]"
+                  />
+                  Free only
+                </label>
+              </div>
               <div className="max-h-64 overflow-y-auto rounded border" style={{ borderColor: "var(--panel-border)" }}>
                 <table className="w-full text-xs">
                   <thead>
@@ -577,10 +589,12 @@ export default function AdminPanel() {
                   <tbody>
                     {aiModels
                       .filter((m) => {
+                        if (showFreeOnly && parseFloat(m.pricing.prompt) > 0) return false;
                         if (!modelFilter) return true;
                         const q = modelFilter.toLowerCase();
                         return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
                       })
+                      .sort((a, b) => parseFloat(a.pricing.prompt) - parseFloat(b.pricing.prompt))
                       .map((m) => (
                         <tr
                           key={m.id}
