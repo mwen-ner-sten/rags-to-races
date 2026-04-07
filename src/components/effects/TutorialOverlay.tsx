@@ -329,7 +329,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // Always track target for halo (even during goal badge mode)
     if (effectiveTarget) {
       const el = document.querySelector(`[data-tutorial="${effectiveTarget}"]`);
-      setTargetRect(el ? el.getBoundingClientRect() : null);
+      const r = el ? el.getBoundingClientRect() : null;
+      // Skip zero-size rects (element hidden or off-screen)
+      setTargetRect(r && r.width > 0 && r.height > 0 ? r : null);
     } else {
       setTargetRect(null);
     }
@@ -337,7 +339,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // Per-element hint highlights (e.g. individual part buttons on step 5)
     if (tutorialStep === 5) {
       const btns = document.querySelectorAll('[data-tutorial="part-btn"]');
-      setHintRects(Array.from(btns).map((el) => el.getBoundingClientRect()));
+      setHintRects(Array.from(btns).map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0));
     } else {
       setHintRects([]);
     }
@@ -345,7 +347,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // Secondary halo on Sell Scrap button when sell nudge is active
     if (step2SellReady) {
       const btn = document.querySelector('[data-tutorial="sell-scrap-btn"]');
-      setSellBtnRect(btn ? btn.getBoundingClientRect() : null);
+      const r = btn ? btn.getBoundingClientRect() : null;
+      setSellBtnRect(r && r.width > 0 && r.height > 0 ? r : null);
     } else {
       setSellBtnRect(null);
     }
@@ -374,7 +377,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
     if (stepDef.highlightTab) {
       // Highlight ALL matching tab buttons (sidebar + content nav + mobile)
       const matches = tabButtons.filter((btn) => btn.textContent?.toLowerCase().trim().includes(stepDef.highlightTab!));
-      setHighlightRect(matches.length > 0 ? matches.map((m) => m.getBoundingClientRect()) : null);
+      const rects = matches.map((m) => m.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+      setHighlightRect(rects.length > 0 ? rects : null);
     } else {
       setHighlightRect(null);
     }
@@ -384,7 +388,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
       tabButtons.forEach((btn, idx) => {
         const text = btn.textContent?.toLowerCase().trim() ?? "";
         const tabId = tabLabels.find((l) => text.includes(l));
-        if (tabId && tabId !== "dev" && !allowedSet.has(tabId as TabId)) blocked.push({ rect: btn.getBoundingClientRect(), idx });
+        const r = btn.getBoundingClientRect();
+        if (tabId && tabId !== "dev" && !allowedSet.has(tabId as TabId) && r.width > 0 && r.height > 0) blocked.push({ rect: r, idx });
       });
       setBlockerRects(blocked);
     } else {
