@@ -735,9 +735,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
         </div>
       )}
 
-      {/* Goal badge — positioned top-left, offset for sidebar on desktop */}
+      {/* Goal badge — centered in the content area (offset for sidebar on desktop) */}
       {showGoal && goalContent && (
-        <div className="fixed top-2 left-4 z-[10000] sm:left-[216px] sm:top-2">
+        <div className="fixed top-2 left-1/2 z-[10000] -translate-x-1/2 sm:left-[calc(50%+100px)] sm:top-2">
           <div
             className="animate-fade-up flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium"
             style={{
