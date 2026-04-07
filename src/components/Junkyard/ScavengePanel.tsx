@@ -273,13 +273,13 @@ export default function ScavengePanel() {
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
-                    width: `${Math.min(100, (manualScavengeClicks / 100) * 100)}%`,
+                    width: `${Math.min(100, (manualScavengeClicks / 500) * 100)}%`,
                     background: "var(--info)",
                   }}
                 />
               </div>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {manualScavengeClicks}/100 for Auto
+                {manualScavengeClicks}/500 for Auto
               </span>
             </div>
           )}

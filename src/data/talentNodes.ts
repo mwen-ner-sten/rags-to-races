@@ -37,6 +37,8 @@ export interface TalentNode {
   mutuallyExclusiveWith?: string;
   effect: { type: string; value: number };
   tier: number;
+  /** Feature unlock required to see/purchase this node (e.g. "expanded_talents") */
+  requiredFeature?: string;
 }
 
 export const TALENT_NODES: TalentNode[] = [
@@ -200,6 +202,113 @@ export const TALENT_NODES: TalentNode[] = [
     prerequisiteNodeId: "hunter_t2_dig",
     effect: { type: "scavenge_luck_bonus", value: 0.05 },
     tier: 3,
+  },
+
+  // ── T4/T5 Expanded Talent Nodes (require "expanded_talents" feature unlock) ──
+
+  // Race Driver T4/T5
+  {
+    id: "racer_t4_iron",
+    treeId: "racer",
+    name: "Iron Constitution",
+    description: "Fatigue cap reduced by 10. Your body refuses to quit.",
+    cost: 5000,
+    prerequisiteNodeId: "racer_t3_fatigue",
+    effect: { type: "fatigue_cap_reduction", value: 10 },
+    tier: 4,
+    requiredFeature: "expanded_talents",
+  },
+  {
+    id: "racer_t4_nitro",
+    treeId: "racer",
+    name: "Nitro Instinct",
+    description: "+8% race performance, but +5% DNF risk. All or nothing.",
+    cost: 5000,
+    prerequisiteNodeId: "racer_t3_leadfoot",
+    effect: { type: "race_performance_pct", value: 0.08 },
+    tier: 4,
+    requiredFeature: "expanded_talents",
+  },
+  {
+    id: "racer_t5_aura",
+    treeId: "racer",
+    name: "Champion's Aura",
+    description: "+15% rep earned, -20% vehicle wear. Legends don't burn out.",
+    cost: 15000,
+    prerequisiteNodeId: "racer_t4_iron",
+    effect: { type: "champion_aura", value: 1 },
+    tier: 5,
+    requiredFeature: "expanded_talents",
+  },
+
+  // Wrench Jockey T4/T5
+  {
+    id: "wrench_t4_forger",
+    treeId: "wrench",
+    name: "Master Forger",
+    description: "+3% forge token drop rate, -10% enhancement costs.",
+    cost: 5000,
+    prerequisiteNodeId: "wrench_t3_forge",
+    effect: { type: "forge_token_chance_bonus", value: 0.03 },
+    tier: 4,
+    requiredFeature: "expanded_talents",
+  },
+  {
+    id: "wrench_t4_assembly",
+    treeId: "wrench",
+    name: "Assembly Line",
+    description: "-15% workshop upgrade costs. Industrial efficiency.",
+    cost: 5000,
+    prerequisiteNodeId: "wrench_t3_zero",
+    effect: { type: "workshop_cost_reduction_pct", value: 0.15 },
+    tier: 4,
+    requiredFeature: "expanded_talents",
+  },
+  {
+    id: "wrench_t5_legendary",
+    treeId: "wrench",
+    name: "Legendary Hands",
+    description: "Scavenged parts start at +1 condition tier. Your touch makes junk into gold.",
+    cost: 15000,
+    prerequisiteNodeId: "wrench_t4_forger",
+    effect: { type: "scavenge_condition_boost", value: 1 },
+    tier: 5,
+    requiredFeature: "expanded_talents",
+  },
+
+  // Scrap Hunter T4/T5
+  {
+    id: "hunter_t4_smuggler",
+    treeId: "hunter",
+    name: "Smuggler Network",
+    description: "-15% dealer prices, +50% dealer refresh rate.",
+    cost: 5000,
+    prerequisiteNodeId: "hunter_t3_market",
+    effect: { type: "dealer_discount_pct", value: 0.15 },
+    tier: 4,
+    requiredFeature: "expanded_talents",
+  },
+  {
+    id: "hunter_t4_deep_vein",
+    treeId: "hunter",
+    name: "Deep Vein",
+    description: "+8% scavenge luck. Exotic part drops at high-tier locations.",
+    cost: 5000,
+    prerequisiteNodeId: "hunter_t3_jackpot",
+    effect: { type: "scavenge_luck_bonus", value: 0.08 },
+    tier: 4,
+    requiredFeature: "expanded_talents",
+  },
+  {
+    id: "hunter_t5_midas",
+    treeId: "hunter",
+    name: "Midas Touch",
+    description: "+25% all scrap and sell values. Everything you touch turns to gold.",
+    cost: 15000,
+    prerequisiteNodeId: "hunter_t4_smuggler",
+    effect: { type: "sell_value_bonus_pct", value: 0.25 },
+    tier: 5,
+    requiredFeature: "expanded_talents",
   },
 ];
 

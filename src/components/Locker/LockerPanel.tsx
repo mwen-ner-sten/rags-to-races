@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/state/store";
+import SkillsSubTab from "./SkillsSubTab";
+import AttributesSubTab from "./AttributesSubTab";
+import CrewPanel from "@/components/Crew/CrewPanel";
 import {
   GEAR_SLOTS,
   GEAR_SLOT_LABELS,
@@ -52,7 +55,7 @@ const TIER_BORDER = [
   "border-zinc-800", "border-zinc-600", "border-green-800/50", "border-blue-800/50", "border-purple-800/50",
 ];
 
-type LockerTab = "outfit" | "loot" | "mods" | "talents";
+type LockerTab = "outfit" | "loot" | "mods" | "talents" | "skills" | "attributes" | "crew";
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function LockerPanel() {
@@ -84,13 +87,18 @@ export default function LockerPanel() {
   const salvageBonus = (workshopLevels["gear_recycler"] ?? 0) * 0.25;
 
   const bonuses = getGearBonuses(equippedGear, equippedLootGear, lootGearInventory, unlockedTalentNodes, TALENT_NODES);
+  const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
 
-  const TABS: { id: LockerTab; label: string; badge?: number }[] = [
-    { id: "outfit",  label: "Outfit" },
-    { id: "loot",    label: "Loot Gear", badge: lootGearInventory.length },
-    { id: "mods",    label: "Mods",      badge: gearModInventory.length },
-    { id: "talents", label: "Talents" },
+  const allTabs: { id: LockerTab; label: string; badge?: number; show: boolean }[] = [
+    { id: "skills",     label: "Skills",     show: true },
+    { id: "attributes", label: "Attributes", show: unlockedFeatures.includes("racer_attributes") },
+    { id: "outfit",     label: "Outfit",     show: true },
+    { id: "loot",       label: "Loot Gear",  badge: lootGearInventory.length, show: true },
+    { id: "mods",       label: "Mods",       badge: gearModInventory.length, show: true },
+    { id: "talents",    label: "Talents",    show: true },
+    { id: "crew",       label: "Crew",       show: unlockedFeatures.includes("crew_system") },
   ];
+  const TABS = allTabs.filter((t) => t.show);
 
   return (
     <div className="flex flex-col gap-4">
@@ -115,6 +123,11 @@ export default function LockerPanel() {
           </button>
         ))}
       </div>
+
+      {/* Skills tab */}
+      {activeTab === "skills" && <SkillsSubTab />}
+      {activeTab === "attributes" && <AttributesSubTab />}
+      {activeTab === "crew" && <CrewPanel />}
 
       {/* Outfit tab */}
       {activeTab === "outfit" && (

@@ -41,7 +41,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Enter Race", description: "Hit Enter Race to compete on the circuit." },
   { step: "Race result", description: "Win or lose, you earn Scrap Bucks and Rep. Keep racing to improve." },
   { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up." },
-  { step: "Build Rep & earn scrap", description: "Earn $500 lifetime scrap and 25 Rep. Watch fatigue — it builds every race and cuts performance." },
+  { step: "Build Rep & earn scrap", description: "Earn $50,000 lifetime scrap and 5,000 Rep across 3 vehicles. Watch fatigue — it builds every race and cuts performance." },
   { step: "Visit Upgrades", description: "Open the Upgrades tab when fatigue is high or progress stalls." },
   { step: "Prestige", description: "Hit Scrap Reset to prestige. You restart stronger with permanent bonuses." },
 ];
