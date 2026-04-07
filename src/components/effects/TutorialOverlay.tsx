@@ -222,37 +222,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
   const [blockerRects, setBlockerRects] = useState<{ rect: DOMRect; idx: number }[]>([]);
   const [showHelpNudge, setShowHelpNudge] = useState(false);
-  const [autoDismissCountdown, setAutoDismissCountdown] = useState(0);
   const rafRef = useRef<number>(0);
   const helpNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const stepDef = tutorialStep >= 0 && tutorialStep < STEPS.length ? STEPS[tutorialStep] : null;
 
   const [introSubStep, setIntroSubStep] = useState(0);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
-  useEffect(() => { setCardDismissed(false); setAutoDismissCountdown(0); setIntroSubStep(0); }, [tutorialStep]);
-
-  /* ── Auto-dismiss timer for dismissable steps (9, 12) ───────────────── */
-  const autoDismissRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    if (tutorialStep !== 9 && tutorialStep !== 12) return;
-    // For step 12, wait until race outcome is available
-    if (tutorialStep === 12 && !lastRaceOutcome) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- timer init
-    setAutoDismissCountdown(6);
-    let remaining = 6;
-    autoDismissRef.current = setInterval(() => {
-      remaining--;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick
-      setAutoDismissCountdown(remaining);
-      if (remaining <= 0) {
-        if (autoDismissRef.current) clearInterval(autoDismissRef.current);
-        advanceTutorial();
-      }
-    }, 1000);
-    return () => { if (autoDismissRef.current) clearInterval(autoDismissRef.current); };
-  }, [tutorialStep, lastRaceOutcome, advanceTutorial]);
+  useEffect(() => { setCardDismissed(false); setIntroSubStep(0); }, [tutorialStep]);
 
   /* ── "Need help?" nudge — shows after idle period ───────────────────── */
   useEffect(() => {
@@ -364,12 +341,21 @@ export default function TutorialOverlay({ activeTab }: Props) {
       setSellBtnRect(null);
     }
 
-    const nav = document.querySelector("nav");
-    if (!nav) { setHighlightRect(null); setBlockerRects([]); return; }
-
+    // Collect tab buttons from ALL navs (sidebar nav + content nav + mobile nav)
     const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
-    const buttons = Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[];
-    const tabButtons = buttons.filter((btn) => {
+    const allNavs = document.querySelectorAll("nav");
+    const allSidebarBtns = document.querySelectorAll(".desktop-sidebar button");
+    const navButtons: HTMLButtonElement[] = [];
+    allNavs.forEach((nav) => {
+      navButtons.push(...(Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[]));
+    });
+    // Also include sidebar buttons (sidebar uses <aside> not <nav> wrapper at top level)
+    allSidebarBtns.forEach((btn) => {
+      if (!navButtons.includes(btn as HTMLButtonElement)) navButtons.push(btn as HTMLButtonElement);
+    });
+    if (navButtons.length === 0) { setHighlightRect(null); setBlockerRects([]); return; }
+
+    const tabButtons = navButtons.filter((btn) => {
       const text = btn.textContent?.toLowerCase().trim() ?? "";
       return tabLabels.some((l) => text.includes(l));
     });
@@ -449,8 +435,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
             <StepDots current={0} total={TOTAL_GUIDED_STEPS} />
           </div>
           <div className="flex items-center justify-between gap-3">
-            <button onClick={skipTutorial} className="cursor-pointer rounded-md border px-3 py-1.5 text-xs font-semibold opacity-80 transition-opacity hover:opacity-100" style={{ color: "var(--text-secondary)", borderColor: "rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)" }}>Jump in</button>
-            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Show me the ropes &rarr;</button>
+            <button onClick={skipTutorial} className="shrink-0 cursor-pointer rounded-md border px-3 py-2 text-xs font-semibold opacity-80 transition-opacity hover:opacity-100" style={{ color: "var(--text-secondary)", borderColor: "rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)" }}>Jump in</button>
+            <button onClick={advanceTutorial} className="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Guide me &rarr;</button>
           </div>
           {SHOW_DEV && (
             <button
@@ -594,7 +580,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {blockerRects.map(({ rect, idx }) => (
         <div
           key={idx}
-          className="group fixed z-[9997]"
+          className="group fixed z-[9996]"
           style={{
             left: rect.left, top: rect.top, width: rect.width, height: rect.height,
             background: "rgba(0,0,0,0.5)", cursor: "not-allowed", pointerEvents: "auto",
@@ -625,10 +611,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {/* Pulsing halo on target button (in-panel elements) */}
       {targetRect && (
         <div
-          className="tutorial-pulse fixed z-[9999] rounded-lg"
+          className="tutorial-pulse fixed z-[9998] rounded-lg"
           style={{
-            left: targetRect.left - 5, top: targetRect.top - 5,
-            width: targetRect.width + 10, height: targetRect.height + 10,
+            left: targetRect.left - 3, top: targetRect.top - 3,
+            width: targetRect.width + 6, height: targetRect.height + 6,
             pointerEvents: "none",
           }}
         />
@@ -738,7 +724,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                         className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
                         style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
                       >
-                        {autoDismissCountdown > 0 ? `Got it (${autoDismissCountdown}s)` : "Got it"} &rarr;
+                        Got it &rarr;
                       </button>
                     )}
                   </div>
@@ -749,11 +735,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
         </div>
       )}
 
-      {/* Goal badge */}
+      {/* Goal badge — positioned top-left, offset for sidebar on desktop */}
       {showGoal && goalContent && (
-        <div className="fixed top-2 left-1/2 z-[10000] -translate-x-1/2 sm:top-16">
+        <div className="fixed top-2 left-4 z-[10000] sm:left-[216px] sm:top-2">
           <div
-            className="animate-fade-up flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-medium"
+            className="animate-fade-up flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium"
             style={{
               ...BADGE_BG,
               color: "var(--text-primary)",
