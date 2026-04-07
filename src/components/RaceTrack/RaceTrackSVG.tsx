@@ -105,9 +105,14 @@ export default function RaceTrackSVG({
 
       // Get point on path
       const pt = path.getPointAtLength(distance);
-      // Get direction by sampling a nearby point
-      const pt2 = path.getPointAtLength(Math.min(totalLength - 1, distance + 3));
-      const angle = Math.atan2(pt2.y - pt.y, pt2.x - pt.x) * (180 / Math.PI);
+      // Compute tangent angle using a wider sample for stability at curve transitions.
+      // Sample forward and backward to avoid issues near the path closure point.
+      const sampleDelta = 8;
+      const dBack = Math.max(0, distance - sampleDelta);
+      const dFwd = Math.min(totalLength - 0.1, distance + sampleDelta);
+      const ptBack = path.getPointAtLength(dBack);
+      const ptFwd = path.getPointAtLength(dFwd);
+      const angle = Math.atan2(ptFwd.y - ptBack.y, ptFwd.x - ptBack.x) * (180 / Math.PI);
 
       el.style.transform = `translate(${pt.x}px, ${pt.y}px) rotate(${angle}deg)`;
 
