@@ -23,17 +23,26 @@ export async function POST(request: Request) {
 
   const context: MechanicContext = await request.json();
 
-  const result = streamText({
-    model: openrouter("anthropic/claude-haiku-4-5-20251001"),
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Here's my current situation:\n${JSON.stringify(context, null, 2)}\n\nWhat should I focus on?`,
-      },
-    ],
-    maxOutputTokens: 200,
-  });
+  try {
+    const result = streamText({
+      model: openrouter("anthropic/claude-3.5-haiku"),
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Here's my current situation:\n${JSON.stringify(context, null, 2)}\n\nWhat should I focus on?`,
+        },
+      ],
+      maxOutputTokens: 200,
+    });
 
-  return result.toTextStreamResponse();
+    return result.toTextStreamResponse();
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error("Mechanic advisor error:", message);
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
 }

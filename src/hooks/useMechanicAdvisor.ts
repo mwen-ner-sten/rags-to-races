@@ -120,6 +120,9 @@ export function useMechanicAdvisor() {
         text += decoder.decode(value, { stream: true });
         setResponse(text);
       }
+      if (!text.trim()) {
+        throw new Error("Mechanic mumbled something but nothing came out. Try again.");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
