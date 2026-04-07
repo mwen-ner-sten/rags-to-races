@@ -1,6 +1,11 @@
 import { streamText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { MechanicContext } from "@/lib/mechanic-types";
+
+const openrouter = createOpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 const SYSTEM_PROMPT = `You are Gearhead Gary, a grizzled mechanic NPC in an incremental racing game called "Rags to Races". Players scavenge parts from junkyards, build vehicles, and race them through progressively harder circuits.
 
@@ -9,9 +14,9 @@ You speak in short, punchy sentences with car and racing metaphors. You've been 
 Keep it to 2-4 sentences. Be opinionated but helpful. Never break character. Never use markdown formatting.`;
 
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }),
+      JSON.stringify({ error: "OPENROUTER_API_KEY not configured" }),
       { status: 503, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -19,7 +24,7 @@ export async function POST(request: Request) {
   const context: MechanicContext = await request.json();
 
   const result = streamText({
-    model: anthropic("claude-haiku-4-5-20251001"),
+    model: openrouter("anthropic/claude-haiku-4-5-20251001"),
     system: SYSTEM_PROMPT,
     messages: [
       {

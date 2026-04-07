@@ -106,7 +106,7 @@ export function useMechanicAdvisor() {
 
       if (!res.ok) {
         if (res.status === 503) {
-          throw new Error("Mechanic is off the clock — API key not configured.");
+          throw new Error("Mechanic is off the clock — OPENROUTER_API_KEY not configured.");
         }
         throw new Error(`Mechanic hit a snag (${res.status})`);
       }

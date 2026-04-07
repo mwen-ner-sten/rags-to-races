@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.67",
+    "@ai-sdk/openai": "^3.0.51",
     "@vercel/analytics": "^2.0.1",
     "ai": "^6.0.149",
     "next": "16.2.1",
