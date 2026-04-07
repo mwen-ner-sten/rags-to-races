@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useGameStore } from "@/state/store";
 import { AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
 import type { AIModel } from "@/lib/mechanic-types";
+import { formatPrice, formatContext, formatModality } from "@/lib/format-model";
 import ModelComparison from "./ModelComparison";
 import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
@@ -27,18 +28,6 @@ const QUICK_REP = [5, 10, 50, 100];
 
 const PART_CATEGORIES = ["engine", "wheel", "frame", "fuel"] as const;
 
-function formatPrice(perToken: string): string {
-  const n = parseFloat(perToken);
-  if (!n || n === 0) return "free";
-  const perMillion = n * 1_000_000;
-  return perMillion < 0.01 ? "<$0.01" : `$${perMillion.toFixed(2)}`;
-}
-
-function formatContext(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
-  return String(n);
-}
 
 export default function AdminPanel() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -584,6 +573,8 @@ export default function AdminPanel() {
                       <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>In $/1M</th>
                       <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Out $/1M</th>
                       <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Context</th>
+                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Max Out</th>
+                      <th className="text-center px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Type</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -622,6 +613,21 @@ export default function AdminPanel() {
                           </td>
                           <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
                             {formatContext(m.contextLength)}
+                          </td>
+                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                            {formatContext(m.maxCompletionTokens)}
+                          </td>
+                          <td className="text-center px-2 py-1.5">
+                            <span
+                              className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                              style={{
+                                background: formatModality(m.modality) === "multi" ? "var(--accent-bg, rgba(99,102,241,0.15))" : "transparent",
+                                color: formatModality(m.modality) === "multi" ? "var(--accent)" : "var(--text-muted)",
+                                border: formatModality(m.modality) === "text" ? "1px solid var(--panel-border)" : "none",
+                              }}
+                            >
+                              {formatModality(m.modality)}
+                            </span>
                           </td>
                         </tr>
                       ))}

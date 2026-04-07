@@ -31,6 +31,9 @@ export async function GET(request: Request) {
     id: m.id as string,
     name: m.name as string,
     contextLength: m.context_length ?? 0,
+    maxCompletionTokens: m.max_completion_tokens ?? 0,
+    modality: m.architecture?.modality ?? "text->text",
+    description: m.description ?? "",
     pricing: {
       prompt: m.pricing?.prompt ?? "0",
       completion: m.pricing?.completion ?? "0",

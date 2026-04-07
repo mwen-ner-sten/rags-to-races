@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useGameStore } from "@/state/store";
 import { buildContext } from "@/hooks/useMechanicAdvisor";
 import type { AIModel } from "@/lib/mechanic-types";
+import { formatPrice, formatPricePer1M, formatContext, formatModality } from "@/lib/format-model";
 
 const SECTION = "rounded-lg border p-4 flex flex-col gap-3";
 const LABEL = "text-xs font-semibold uppercase tracking-wider mb-1";
@@ -21,12 +22,13 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, ComparisonResult>>({});
   const [isRunning, setIsRunning] = useState(false);
-  const [addModelId, setAddModelId] = useState("");
+  const [filter, setFilter] = useState("");
+  const [freeOnly, setFreeOnly] = useState(false);
 
-  function addModel(id: string) {
-    if (!id || selectedIds.includes(id) || selectedIds.length >= MAX_MODELS) return;
-    setSelectedIds((prev) => [...prev, id]);
-    setAddModelId("");
+  function toggleModel(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < MAX_MODELS ? [...prev, id] : prev,
+    );
   }
 
   function removeModel(id: string) {
@@ -45,14 +47,12 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
     const state = useGameStore.getState();
     const context = buildContext(state);
 
-    // Initialize results
     const initial: Record<string, ComparisonResult> = {};
     for (const id of selectedIds) {
       initial[id] = { text: "", status: "streaming", startTime: Date.now() };
     }
     setResults(initial);
 
-    // Fire all requests in parallel
     const promises = selectedIds.map(async (modelId) => {
       try {
         const res = await fetch("/api/mechanic-advisor", {
@@ -101,15 +101,24 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
 
   if (models.length === 0) return null;
 
+  const filteredModels = models
+    .filter((m) => {
+      if (freeOnly && parseFloat(m.pricing.prompt) > 0) return false;
+      if (!filter) return true;
+      const q = filter.toLowerCase();
+      return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
+    })
+    .sort((a, b) => parseFloat(a.pricing.prompt) - parseFloat(b.pricing.prompt));
+
   return (
     <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION + " lg:col-span-3"}>
       <p style={{ color: "var(--text-heading)" }} className={LABEL}>Model Comparison</p>
       <p style={{ color: "var(--text-muted)" }} className="text-xs">
-        Select 2-3 models and run the same Gearhead Gary prompt against all of them side-by-side.
+        Check up to 3 models and run the same Gearhead Gary prompt against all of them.
         Each model uses 1 of your 5 req/min rate limit.
       </p>
 
-      {/* Model selection */}
+      {/* Selected models chips + run button */}
       <div className="flex flex-wrap items-center gap-2">
         {selectedIds.map((id) => {
           const m = models.find((x) => x.id === id);
@@ -130,29 +139,112 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
             </span>
           );
         })}
-        {selectedIds.length < MAX_MODELS && (
-          <select
-            value={addModelId}
-            onChange={(e) => addModel(e.target.value)}
-            className="rounded border px-2 py-1 text-xs"
-            style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)", color: "var(--text-primary)" }}
-          >
-            <option value="">+ Add model...</option>
-            {models
-              .filter((m) => !selectedIds.includes(m.id))
-              .map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-          </select>
+        {selectedIds.length === 0 && (
+          <span className="text-xs italic" style={{ color: "var(--text-muted)" }}>No models selected</span>
         )}
         <button
           onClick={runComparison}
           disabled={isRunning || selectedIds.length < 2}
-          className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="ml-auto rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
           style={selectedIds.length >= 2 && !isRunning ? btnPrimary : btnOutline}
         >
-          {isRunning ? "Running..." : "Run Comparison"}
+          {isRunning ? "Running..." : `Run Comparison (${selectedIds.length}/${MAX_MODELS})`}
         </button>
+      </div>
+
+      {/* Searchable model table with checkboxes */}
+      <div className="flex items-center gap-3">
+        <input
+          type="text"
+          placeholder="Filter models..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="flex-1 rounded border px-2 py-1.5 text-xs"
+          style={{ background: "var(--input-bg, var(--panel-bg))", borderColor: "var(--input-border, var(--panel-border))", color: "var(--text-primary)" }}
+        />
+        <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: "var(--text-muted)" }}>
+          <input
+            type="checkbox"
+            checked={freeOnly}
+            onChange={(e) => setFreeOnly(e.target.checked)}
+            className="accent-[var(--accent)]"
+          />
+          Free only
+        </label>
+      </div>
+      <div className="max-h-48 overflow-y-auto rounded border" style={{ borderColor: "var(--panel-border)" }}>
+        <table className="w-full text-xs">
+          <thead>
+            <tr style={{ background: "var(--surface-bg, var(--panel-bg))" }}>
+              <th className="px-2 py-1 w-6"></th>
+              <th className="text-left px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Model</th>
+              <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>In $/1M</th>
+              <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Out $/1M</th>
+              <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Context</th>
+              <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Max Out</th>
+              <th className="text-center px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredModels.map((m) => {
+              const checked = selectedIds.includes(m.id);
+              const disabled = !checked && selectedIds.length >= MAX_MODELS;
+              return (
+                <tr
+                  key={m.id}
+                  onClick={() => !disabled && toggleModel(m.id)}
+                  className="transition-colors"
+                  style={{
+                    background: checked ? "var(--accent-bg, rgba(99,102,241,0.15))" : "transparent",
+                    borderBottom: "1px solid var(--divider, var(--panel-border))",
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    opacity: disabled ? 0.5 : 1,
+                  }}
+                >
+                  <td className="px-2 py-1.5 text-center">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={() => toggleModel(m.id)}
+                      className="accent-[var(--accent)]"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <span style={{ color: checked ? "var(--accent)" : "var(--text-primary)" }}>{m.name}</span>
+                    <br />
+                    <span style={{ color: "var(--text-muted)" }} className="text-[10px]">{m.id}</span>
+                  </td>
+                  <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                    {formatPrice(m.pricing.prompt)}
+                  </td>
+                  <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                    {formatPrice(m.pricing.completion)}
+                  </td>
+                  <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                    {formatContext(m.contextLength)}
+                  </td>
+                  <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                    {formatContext(m.maxCompletionTokens)}
+                  </td>
+                  <td className="text-center px-2 py-1.5">
+                    <span
+                      className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        background: formatModality(m.modality) === "multi" ? "var(--accent-bg, rgba(99,102,241,0.15))" : "transparent",
+                        color: formatModality(m.modality) === "multi" ? "var(--accent)" : "var(--text-muted)",
+                        border: formatModality(m.modality) === "text" ? "1px solid var(--panel-border)" : "none",
+                      }}
+                    >
+                      {formatModality(m.modality)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* Results */}
@@ -163,8 +255,6 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
             if (!r) return null;
             const m = models.find((x) => x.id === id);
             const elapsed = r.startTime && r.endTime ? ((r.endTime - r.startTime) / 1000).toFixed(1) : null;
-            const promptPrice = m ? formatPricePer1M(m.pricing.prompt) : "?";
-            const completionPrice = m ? formatPricePer1M(m.pricing.completion) : "?";
 
             return (
               <div
@@ -179,7 +269,7 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
                       {m?.name ?? id}
                     </p>
                     <p className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
-                      In: {promptPrice} · Out: {completionPrice}
+                      {m?.id}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -206,6 +296,25 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
                   </div>
                 </div>
 
+                {/* Model stats */}
+                {m && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
+                    <span>In: {formatPricePer1M(m.pricing.prompt)}</span>
+                    <span>Out: {formatPricePer1M(m.pricing.completion)}</span>
+                    <span>Ctx: {formatContext(m.contextLength)}</span>
+                    <span>MaxOut: {formatContext(m.maxCompletionTokens)}</span>
+                    <span
+                      className="rounded-full px-1.5 py-0.5 font-semibold"
+                      style={{
+                        background: formatModality(m.modality) === "multi" ? "var(--accent-bg, rgba(99,102,241,0.15))" : "transparent",
+                        color: formatModality(m.modality) === "multi" ? "var(--accent)" : "var(--text-muted)",
+                      }}
+                    >
+                      {formatModality(m.modality)}
+                    </span>
+                  </div>
+                )}
+
                 {/* Response */}
                 <div className="min-h-[3rem]">
                   {r.error ? (
@@ -223,11 +332,4 @@ export default function ModelComparison({ models }: { models: AIModel[] }) {
       )}
     </div>
   );
-}
-
-function formatPricePer1M(perToken: string): string {
-  const n = parseFloat(perToken);
-  if (!n || n === 0) return "free";
-  const perMillion = n * 1_000_000;
-  return perMillion < 0.01 ? "<$0.01/1M" : `$${perMillion.toFixed(2)}/1M`;
 }

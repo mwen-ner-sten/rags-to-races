@@ -2,7 +2,10 @@ export interface AIModel {
   id: string;
   name: string;
   contextLength: number;
-  pricing: { prompt: string; completion: string }; // USD per token as strings
+  maxCompletionTokens: number;
+  modality: string;
+  description: string;
+  pricing: { prompt: string; completion: string };
 }
 
 export interface MechanicContext {
