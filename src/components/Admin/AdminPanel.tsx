@@ -60,13 +60,41 @@ export default function AdminPanel() {
   const [partCondition, setPartCondition] = useState<PartCondition>("good");
   const [partCount, setPartCount] = useState("1");
   const [addLog, setAddLog] = useState<string[]>([]);
-  const [aiModels, setAiModels] = useState<{ id: string; name: string }[]>([]);
+  const [aiModels, setAiModels] = useState<{ id: string; name: string }[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const cached = localStorage.getItem("rags-ai-models");
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const [aiModelsLoading, setAiModelsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("");
+  const [selectedModel, setSelectedModel] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "" : "",
+  );
 
+  async function fetchModels() {
+    setAiModelsLoading(true);
+    try {
+      const res = await fetch("/api/models");
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      const data = await res.json();
+      const models = data.models ?? [];
+      setAiModels(models);
+      localStorage.setItem("rags-ai-models", JSON.stringify(models));
+      log(`Loaded ${models.length} models from OpenRouter`);
+    } catch (e) {
+      log(`Failed to load models: ${e instanceof Error ? e.message : "unknown"}`);
+    } finally {
+      setAiModelsLoading(false);
+    }
+  }
+
+  // Auto-fetch models on mount if cache is empty
   useEffect(() => {
-    setSelectedModel(localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "");
-  }, []);
+    if (aiModels.length === 0) {
+      fetchModels();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function log(msg: string) {
     setAddLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 10));
@@ -492,25 +520,12 @@ export default function AdminPanel() {
           <p style={{ color: "var(--text-heading)" }} className={LABEL}>AI Settings</p>
           <div className="flex flex-col gap-2">
             <button
-              onClick={async () => {
-                setAiModelsLoading(true);
-                try {
-                  const res = await fetch("/api/models");
-                  if (!res.ok) throw new Error(`Failed (${res.status})`);
-                  const data = await res.json();
-                  setAiModels(data.models ?? []);
-                  log(`Loaded ${data.models?.length ?? 0} models from OpenRouter`);
-                } catch (e) {
-                  log(`Failed to load models: ${e instanceof Error ? e.message : "unknown"}`);
-                } finally {
-                  setAiModelsLoading(false);
-                }
-              }}
+              onClick={fetchModels}
               disabled={aiModelsLoading}
               style={btnOutline}
               className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
             >
-              {aiModelsLoading ? "Loading..." : aiModels.length > 0 ? `Reload Models (${aiModels.length})` : "Load Models"}
+              {aiModelsLoading ? "Loading..." : `Refresh Models (${aiModels.length})`}
             </button>
             {aiModels.length > 0 && (
               <select
