@@ -5,8 +5,8 @@ import { useGameStore } from "@/state/store";
 import { computeTickSpeedMs, getRaceTicksNeeded } from "@/engine/tick";
 import { MATERIAL_DEFINITIONS } from "@/data/materials";
 import type { MaterialType } from "@/data/materials";
-import TickRing from "@/components/TickRing";
 import { Section, Row, TooltipPanel, HoverTooltipWrapper } from "@/components/TooltipPrimitives";
+import FatigueRing from "@/components/FatigueRing";
 
 function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -121,7 +121,7 @@ export default function StatsTooltip() {
       renderTooltip={(anchorRect) => <StatsTooltipContent anchorRect={anchorRect} />}
     >
       <div style={{ padding: "0.5rem", margin: "-0.5rem" }}>
-        <TickRing suppressTitle />
+        <FatigueRing />
       </div>
     </HoverTooltipWrapper>
   );

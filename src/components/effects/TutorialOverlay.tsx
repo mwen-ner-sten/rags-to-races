@@ -7,7 +7,7 @@ import { formatNumber } from "@/utils/format";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 interface TutorialStepDef {
   icon: string;
@@ -62,6 +62,7 @@ export function getAllowedTabs(step: number): Set<TabId> | null {
   if (!allowed) return null;
   const s = new Set(allowed);
   s.add("help");
+  s.add("log");
   s.add("settings");
   s.add("dev");
   return s;
