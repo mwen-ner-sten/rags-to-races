@@ -180,6 +180,10 @@ export interface GameState {
   tutorialStep: number;
   /** Cards hidden but highlights/auto-advance still active */
   tutorialDismissed: boolean;
+  /** Steps that were auto-skipped by adaptive logic */
+  tutorialSkippedSteps: number[];
+  /** Timestamp of last tutorial step advance (for help nudge) */
+  tutorialLastAdvanceTime: number;
 
   // Lifetime stats (for challenge tracking, persist through prestige)
   lifetimeTotalDecomposed: number;
@@ -377,6 +381,8 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     highestConditionReached: 0,
     tutorialStep: 0,
     tutorialDismissed: false,
+    tutorialSkippedSteps: [],
+    tutorialLastAdvanceTime: Date.now(),
     racerSkills: createDefaultSkills(),
     // Multi-layer prestige defaults
     teamPoints: 0,
@@ -1005,7 +1011,7 @@ function createActions(set: SetState, get: GetState) {
 
     advanceTutorial: () => {
       const step = (get() as GameState).tutorialStep;
-      set({ tutorialStep: step >= 19 ? -1 : step + 1 });
+      set({ tutorialStep: step >= 19 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now() });
     },
 
     skipTutorial: () => {
@@ -1397,6 +1403,8 @@ function createActions(set: SetState, get: GetState) {
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
+        tutorialSkippedSteps: state.tutorialSkippedSteps,
+        tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         dealerBoard: [],
         gameTick: 0,
         // Activity log persists through prestige
@@ -2294,6 +2302,8 @@ export const useGameStore = create<GameState>()(
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
+        tutorialSkippedSteps: state.tutorialSkippedSteps,
+        tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
       }),

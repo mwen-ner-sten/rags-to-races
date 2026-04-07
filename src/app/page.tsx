@@ -12,7 +12,7 @@ import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
 import HelpActivityTab from "@/components/Help/HelpActivityTab";
 import ToastContainer from "@/components/effects/Toast";
-import TutorialOverlay, { getAllowedTabs } from "@/components/effects/TutorialOverlay";
+import TutorialOverlay, { getAdaptiveAllowedTabs } from "@/components/effects/TutorialOverlay";
 import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
@@ -29,12 +29,16 @@ export default function Home() {
   const applyTickResult = useGameStore((s) => s.applyTickResult);
   const storeRef = useRef(useGameStore.getState());
 
-  // Guard tab switching during tutorial
+  const garage = useGameStore((s) => s.garage);
+  const raceHistory = useGameStore((s) => s.raceHistory);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
+
+  // Guard tab switching during tutorial — adaptive: loosens restrictions when player acts ahead
   const guardedSetActiveTab = useCallback((tab: TabId) => {
-    const allowed = getAllowedTabs(tutorialStep);
+    const allowed = getAdaptiveAllowedTabs(tutorialStep, { garage, raceHistory, workshopLevels });
     if (allowed && !allowed.has(tab)) return;
     setActiveTab(tab);
-  }, [tutorialStep]);
+  }, [tutorialStep, garage, raceHistory, workshopLevels]);
 
   // Keep storeRef in sync without triggering re-renders
   useEffect(() => {

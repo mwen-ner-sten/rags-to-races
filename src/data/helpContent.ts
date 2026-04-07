@@ -11,6 +11,12 @@ import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_I
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 import { TALENT_TREES, TALENT_NODES } from "@/data/talentNodes";
+import { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL } from "@/data/racerSkills";
+import { ATTRIBUTE_DEFINITIONS } from "@/data/racerAttributes";
+import { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATIONS } from "@/data/crew";
+import { TEAM_UPGRADE_DEFINITIONS, TEAM_CATEGORIES, TEAM_CATEGORY_LABELS } from "@/data/teamUpgrades";
+import { OWNER_UPGRADE_DEFINITIONS, OWNER_CATEGORIES, OWNER_CATEGORY_LABELS } from "@/data/ownerUpgrades";
+import { TRACK_PERK_DEFINITIONS, TRACK_PERK_CATEGORIES, TRACK_PERK_CATEGORY_LABELS } from "@/data/trackPerks";
 import type { CoreSlot } from "@/data/parts";
 
 // ── How to Play ─────────────────────────────────────────────────────────────
@@ -69,6 +75,13 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Talent Nodes", meaning: `${TALENT_TREES.length} skill trees (${TALENT_TREES.map(t => t.name).join(", ")}). Permanent nodes costing 200–1,800 LP with mutually exclusive branches.` },
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} milestone goals rewarding materials, Forge Tokens, and Dealer refreshes.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
+  { term: "Team Points (TP)", meaning: "Layer 2 prestige currency earned from Team Reset. Spent on team upgrades that accelerate Scrap Reset runs." },
+  { term: "Owner Points (OP)", meaning: "Layer 3 prestige currency earned from Owner Reset. Spent on powerful franchise-wide upgrades." },
+  { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 prestige currency earned from Track Owner Reset. Spent on meta-game perks like custom circuits and passive income." },
+  { term: "Crew", meaning: "NPC helpers unlocked after first Team Reset. 4 roles (Mechanic, Scout, Driver, Trader) with specializations. Persist through Scrap Resets." },
+  { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
+  { term: "Racer Attributes", meaning: `${ATTRIBUTE_DEFINITIONS.length} allocatable stat points (${ATTRIBUTE_DEFINITIONS.map(a => a.name).join(", ")}). Boost skill ratings or provide flat bonuses.` },
+  { term: "Offline Progress", meaning: "The game continues scavenging and racing while closed (capped at 8 hours). A summary modal shows your offline earnings when you return." },
 ];
 
 // ── FAQ ─────────────────────────────────────────────────────────────────────
@@ -98,6 +111,18 @@ export const HELP_FAQ: FAQItem[] = [
   {
     question: "Should I sell or decompose parts?",
     answer: "Sell if you need Scrap Bucks for builds/upgrades. Decompose if you need materials for gear enhancement or crafting. Tip: decompose high-condition parts for better material yield, sell low-condition junk.",
+  },
+  {
+    question: "What are Team, Owner, and Track resets?",
+    answer: "These are higher prestige layers beyond Scrap Reset. Team Reset (Layer 2) costs accumulated LP and grants Team Points for crew and infrastructure upgrades. Owner Reset (Layer 3) costs Team Points and grants Owner Points for franchise-wide power. Track Owner (Layer 4) costs Owner Points and grants Track Prestige Tokens for meta-game perks. Each layer resets the layers below it.",
+  },
+  {
+    question: "How does the crew system work?",
+    answer: "Crew unlocks after your first Team Reset. You recruit NPC members in 4 roles: Mechanic (-build/repair costs), Scout (+scavenge luck/yield), Driver (+race performance/-DNF), and Trader (+sell value/-dealer prices). Each role has 2 specializations to choose from. Crew gain XP from their associated activities and level up for stronger bonuses. They persist through Scrap Resets but reset on Team Reset (unless you have the Crew Retention upgrade).",
+  },
+  {
+    question: "How do racer skills and attributes work?",
+    answer: "Skills (Driving, Mechanics, Scavenging, Endurance) earn XP from gameplay actions and level up automatically (max level 20). Each level adds rating points that convert to effectiveness with diminishing returns at higher content tiers. Attributes (Reflexes, Endurance, Charisma, Instinct, Engineering, Fortune) are point-allocated — you get points each level to distribute. Some boost skill ratings, others give flat bonuses like +rep or +luck.",
   },
 ];
 
@@ -178,6 +203,27 @@ export const HELP_STRATEGY: StrategyCard[] = [
       "Need materials for enhancement or crafting? Decompose.",
       "High-condition parts yield significantly more materials — decompose those, sell rusted junk.",
       "The Efficient Salvager legacy upgrade adds +10% decompose yield per level — invest early if you craft a lot.",
+    ],
+  },
+  {
+    id: "crew_composition",
+    title: "Crew composition guide",
+    advice: [
+      "First crew slot: Scout (Treasure Hunter) — scavenge luck compounds across your entire run.",
+      "Second slot: Driver (Speed Demon) — direct race performance is always valuable.",
+      "Third slot: Mechanic (Salvage Expert) — repair costs add up fast at high fatigue.",
+      "Fourth slot: Trader (Fence) — sell value boost matters most once you have a steady part flow.",
+    ],
+  },
+  {
+    id: "attribute_allocation",
+    title: "Attribute allocation strategy",
+    advice: [
+      "Early game: Reflexes (Driving rating) for better race performance on low-tier circuits.",
+      "Mid game: Split between Reflexes and Instinct (Scavenging rating) for better finds.",
+      "Late game: Engineering (Mechanics rating) to reduce build/repair costs at scale.",
+      "Fortune is a luxury pick — the luck and forge token bonuses are small but compound over long runs.",
+      "Charisma's +rep per race and -unlock cost are most impactful in the first few prestiges.",
     ],
   },
 ];
@@ -321,4 +367,51 @@ export const HELP_DATA_SNAPSHOT = {
   talentNodes: TALENT_NODES.length,
   legacyUpgrades: LEGACY_UPGRADE_DEFINITIONS.length,
   momentumTiers: MOMENTUM_TIERS.length,
+};
+
+// Racer Skills & Attributes
+export { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL, ATTRIBUTE_DEFINITIONS };
+
+// Crew
+export { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATIONS };
+
+// Team upgrades grouped by category
+export const HELP_TEAM_UPGRADES_BY_CATEGORY = TEAM_CATEGORIES.map((cat) => ({
+  category: cat,
+  label: TEAM_CATEGORY_LABELS[cat],
+  upgrades: TEAM_UPGRADE_DEFINITIONS.filter((u) => u.category === cat).map((u) => ({
+    id: u.id, name: u.name, description: u.description,
+    maxLevel: u.maxLevel, baseCost: u.baseCost,
+  })),
+}));
+
+// Owner upgrades grouped by category
+export const HELP_OWNER_UPGRADES_BY_CATEGORY = OWNER_CATEGORIES.map((cat) => ({
+  category: cat,
+  label: OWNER_CATEGORY_LABELS[cat],
+  upgrades: OWNER_UPGRADE_DEFINITIONS.filter((u) => u.category === cat).map((u) => ({
+    id: u.id, name: u.name, description: u.description,
+    maxLevel: u.maxLevel, baseCost: u.baseCost,
+  })),
+}));
+
+// Track perks grouped by category
+export const HELP_TRACK_PERKS_BY_CATEGORY = TRACK_PERK_CATEGORIES.map((cat) => ({
+  category: cat,
+  label: TRACK_PERK_CATEGORY_LABELS[cat],
+  perks: TRACK_PERK_DEFINITIONS.filter((p) => p.category === cat).map((p) => ({
+    id: p.id, name: p.name, description: p.description,
+    maxLevel: p.maxLevel, baseCost: p.baseCost,
+  })),
+}));
+
+// Updated data snapshot
+export const HELP_DATA_SNAPSHOT_EXTENDED = {
+  ...HELP_DATA_SNAPSHOT,
+  teamUpgrades: TEAM_UPGRADE_DEFINITIONS.length,
+  ownerUpgrades: OWNER_UPGRADE_DEFINITIONS.length,
+  trackPerks: TRACK_PERK_DEFINITIONS.length,
+  skills: SKILL_DEFINITIONS.length,
+  attributes: ATTRIBUTE_DEFINITIONS.length,
+  crewRoles: CREW_ROLES.length,
 };

@@ -34,7 +34,7 @@ const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
 export const STEPS: TutorialStepDef[] = [
   /* 0  */ { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
   /* 1  */ { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search the curb for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
-  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
+  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10 Scrap Bucks** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
   /* 3  */ { icon: "\u{1F449}", tip: "You\u2019ve got parts and cash. Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
   /* 4  */ { icon: "\u{1F6E0}\uFE0F", tip: "Pick the **Push Mower** blueprint.", allowedTabs: ["garage", "junkyard"], target: "blueprint-btn" },
   /* 5  */ { icon: "\u{1F9F0}", tip: "Click a part in each slot to equip it \u2014 pick an **engine** and a **wheel**.", allowedTabs: ["garage", "junkyard"], target: "part-slots" },
@@ -45,7 +45,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 10 */ { icon: "\u{1F3C1}", tip: "Hold on tight \u2014 hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
-  /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Clyde\u2019s covering your first **Repair** for free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
+  /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Your first **Repair** is free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
   /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** wipes it clean and gives permanent bonuses. Check the **Upgrades** tab to spend scrap on Workshop upgrades, or the **Gear** tab to equip outfits." },
   /* 15 */ { icon: "\u{1F527}", tip: "Time to power up. Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades", goalIntro: "The **Upgrades** tab has three sections. **Workshop** upgrades boost your current run \u2014 try **Keen Eye** ($50) for better parts, **Budget Repairs** ($65) for cheaper fixes, or **Tuned Suspension** ($100) for better handling. Workshop upgrades reset on **Scrap Reset**, but the **Legacy Points** you earn from resetting unlock permanent bonuses in the **Legacy** section." },
   /* 16 */ { icon: "\u2B06\uFE0F", tip: "Browse the categories and **buy** an upgrade. Workshop upgrades boost your current run \u2014 you can grab more each time.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
@@ -66,6 +66,77 @@ export function getAllowedTabs(step: number): Set<TabId> | null {
   s.add("settings");
   s.add("dev");
   return s;
+}
+
+/**
+ * Adaptive tab restrictions — loosens step-based restrictions when the player
+ * has already progressed past what the step assumes.
+ */
+export function getAdaptiveAllowedTabs(
+  step: number,
+  state: { garage: unknown[]; raceHistory: unknown[]; workshopLevels: Record<string, number> },
+): Set<TabId> | null {
+  const base = getAllowedTabs(step);
+  if (!base) return null; // no restrictions (step 0 or post-tutorial)
+  // Earn tabs by demonstrating progress
+  if (state.garage.length > 0) base.add("garage");
+  if (state.raceHistory.length > 0) base.add("race");
+  if (Object.values(state.workshopLevels).some((v) => v > 0)) base.add("upgrades");
+  // Gear tab is always useful once garage is available
+  if (state.garage.length > 0) base.add("gear");
+  return base;
+}
+
+/**
+ * Check if a given tutorial step's auto-advance condition is already satisfied.
+ * Used for batch-skipping when the player is ahead of the tutorial.
+ */
+function isStepConditionMet(
+  step: number,
+  state: {
+    inventory: { definitionId: string }[];
+    garage: { id: string; condition?: number }[];
+    activeVehicleId: string | null;
+    raceHistory: unknown[];
+    repPoints: number;
+    lifetimeScrapBucks: number;
+    scrapBucks: number;
+    prestigeCount: number;
+    activeTab: string;
+    pendingBuildVehicleId: string | null;
+    pendingBuildParts: Record<string, unknown>;
+    isRacing: boolean;
+    workshopLevels: Record<string, number>;
+  },
+): boolean {
+  switch (step) {
+    case 1: return state.inventory.length > 0;
+    case 2: {
+      const hasE = state.inventory.some((p) => PUSH_MOWER_ENGINES.has(p.definitionId));
+      const hasW = state.inventory.some((p) => PUSH_MOWER_WHEELS.has(p.definitionId));
+      return hasE && hasW && state.scrapBucks >= 10;
+    }
+    case 3: return state.activeTab === "garage";
+    case 4: return state.pendingBuildVehicleId !== null;
+    case 5: return Object.values(state.pendingBuildParts).filter(Boolean).length >= 2;
+    case 6: return state.garage.length > 0;
+    case 7: return state.activeVehicleId !== null;
+    case 8: return state.activeTab === "race";
+    case 9: return state.isRacing;
+    case 10: return state.isRacing;
+    case 11: return state.raceHistory.length > 0;
+    case 13: {
+      const active = state.garage.find((v) => v.id === state.activeVehicleId);
+      return active ? (active.condition ?? 100) >= 100 : state.garage.length > 1;
+    }
+    case 14: return state.repPoints >= 5000 && state.lifetimeScrapBucks >= 50000 && state.garage.length >= 3;
+    case 15: return state.activeTab === "upgrades";
+    case 16: return Object.values(state.workshopLevels).some((v) => v > 0);
+    case 17: return state.activeTab === "gear";
+    case 18: return state.activeTab === "upgrades";
+    case 19: return state.prestigeCount > 0;
+    default: return false; // step 0, 12 (dismissable) — never auto-skip
+  }
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
@@ -141,57 +212,71 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
 
+  const tutorialLastAdvanceTime = useGameStore((s) => s.tutorialLastAdvanceTime);
+
   const [cardDismissed, setCardDismissed] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [sellBtnRect, setSellBtnRect] = useState<DOMRect | null>(null);
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
   const [blockerRects, setBlockerRects] = useState<{ rect: DOMRect; idx: number }[]>([]);
+  const [showHelpNudge, setShowHelpNudge] = useState(false);
   const rafRef = useRef<number>(0);
+  const helpNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stepDef = tutorialStep >= 0 && tutorialStep < STEPS.length ? STEPS[tutorialStep] : null;
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
   useEffect(() => { setCardDismissed(false); }, [tutorialStep]);
 
-  /* ── Auto-advance ────────────────────────────────────────────────────── */
+  /* ── "Need help?" nudge — shows after 60s of no progress ────────────── */
+  useEffect(() => {
+    if (tutorialStep <= 0 || tutorialStep < 0) return;
+    if (helpNudgeTimerRef.current) clearTimeout(helpNudgeTimerRef.current);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hide on step change
+    setShowHelpNudge(false);
+    helpNudgeTimerRef.current = setTimeout(() => {
+      setShowHelpNudge(true);
+      // Auto-hide after 8 seconds
+      setTimeout(() => setShowHelpNudge(false), 8000);
+    }, 60000);
+    return () => { if (helpNudgeTimerRef.current) clearTimeout(helpNudgeTimerRef.current); };
+  }, [tutorialStep, tutorialLastAdvanceTime]);
+
+  /* ── Auto-advance with adaptive batch-skip ───────────────────────────── */
   useEffect(() => {
     if (tutorialStep < 0) return;
-    let shouldAdvance = false;
-    switch (tutorialStep) {
-      case 1: shouldAdvance = inventory.length > 0; break;
-      case 2: {
-        const hasE = inventory.some((p) => PUSH_MOWER_ENGINES.has(p.definitionId));
-        const hasW = inventory.some((p) => PUSH_MOWER_WHEELS.has(p.definitionId));
-        shouldAdvance = hasE && hasW && scrapBucks >= 10;
-        break;
-      }
-      case 3: shouldAdvance = activeTab === "garage"; break;
-      case 4: shouldAdvance = pendingBuildVehicleId !== null; break;
-      case 5: {
-        const filled = Object.values(pendingBuildParts).filter(Boolean).length;
-        shouldAdvance = filled >= 2;
-        break;
-      }
-      case 6: shouldAdvance = garage.length > 0; break;
-      case 7: shouldAdvance = activeVehicleId !== null; break;
-      case 8: shouldAdvance = activeTab === "race"; break;
-      case 9: shouldAdvance = isRacing; break; // also dismissable via "Got it"
-      case 10: shouldAdvance = isRacing; break;
-      case 11: shouldAdvance = raceHistory.length > 0; break;
-      case 12: break; // dismissable — player clicks "Got it"
-      case 13: {
-        const active = garage.find((v) => v.id === activeVehicleId);
-        shouldAdvance = active ? (active.condition ?? 100) >= 100 : garage.length > 1;
-        break;
-      }
-      case 14: shouldAdvance = repPoints >= 5000 && lifetimeScrapBucks >= 50000 && garage.length >= 3; break;
-      case 15: shouldAdvance = activeTab === "upgrades"; break;
-      case 16: shouldAdvance = Object.values(workshopLevels).some((v) => v > 0); break;
-      case 17: shouldAdvance = activeTab === "gear"; break;
-      case 18: shouldAdvance = activeTab === "upgrades"; break;
-      case 19: shouldAdvance = prestigeCount > 0; break;
+    const stateSnapshot = {
+      inventory, garage, activeVehicleId, raceHistory, repPoints,
+      lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab,
+      pendingBuildVehicleId, pendingBuildParts, isRacing, workshopLevels,
+    };
+    if (!isStepConditionMet(tutorialStep, stateSnapshot)) return;
+
+    // Batch-skip: advance through consecutive steps whose conditions are already met
+    // Cap at 5 to prevent infinite loops (dismissable steps like 12 will stop the chain)
+    const skipped: number[] = [];
+    let nextStep = tutorialStep + 1;
+    let skips = 0;
+    while (nextStep < STEPS.length && skips < 5) {
+      if (!isStepConditionMet(nextStep, stateSnapshot)) break;
+      skipped.push(nextStep);
+      nextStep++;
+      skips++;
     }
-    if (shouldAdvance) advanceTutorial();
+
+    // Record skipped steps for analytics
+    if (skipped.length > 0) {
+      useGameStore.setState((s) => ({
+        tutorialSkippedSteps: [...s.tutorialSkippedSteps, tutorialStep, ...skipped],
+      }));
+    }
+
+    // Advance to the target step (skipping intermediate ones)
+    const targetStep = tutorialStep + 1 + skips;
+    useGameStore.setState({
+      tutorialStep: targetStep >= STEPS.length ? -1 : targetStep,
+      tutorialLastAdvanceTime: Date.now(),
+    });
   }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing, workshopLevels]);
 
   useEffect(() => {
@@ -337,8 +422,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
             <StepDots current={0} total={TOTAL_GUIDED_STEPS} />
           </div>
           <div className="flex items-center justify-between gap-3">
-            <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip tutorial</button>
-            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Let&apos;s Go &rarr;</button>
+            <button onClick={skipTutorial} className="cursor-pointer rounded-md border px-3 py-1.5 text-xs font-semibold opacity-80 transition-opacity hover:opacity-100" style={{ color: "var(--text-secondary)", borderColor: "rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)" }}>Jump in</button>
+            <button onClick={advanceTutorial} className="cursor-pointer rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Show me the ropes &rarr;</button>
           </div>
           {SHOW_DEV && (
             <button
@@ -631,6 +716,33 @@ export default function TutorialOverlay({ activeTab }: Props) {
             <button
               onClick={dismissTutorial}
               className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
+              style={{ color: "#888", background: "#333", fontSize: 9 }}
+            >
+              {"\u2715"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* "Need help?" nudge — appears after 60s of no tutorial progress */}
+      {showHelpNudge && !tutorialDismissed && (
+        <div
+          className="animate-fade-up fixed bottom-20 left-1/2 z-[9996] -translate-x-1/2 sm:bottom-6"
+          style={{ pointerEvents: "auto" }}
+        >
+          <div
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium shadow-lg"
+            style={{
+              background: "linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 100%)",
+              boxShadow: "0 0 24px rgba(234, 179, 8, 0.15), 0 4px 12px rgba(0,0,0,0.4)",
+              color: "var(--text-primary)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <span>Stuck? Check the {renderTip("**Help**")} tab anytime.</span>
+            <button
+              onClick={() => setShowHelpNudge(false)}
+              className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full opacity-40 transition-opacity hover:opacity-100"
               style={{ color: "#888", background: "#333", fontSize: 9 }}
             >
               {"\u2715"}
