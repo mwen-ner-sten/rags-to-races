@@ -1517,9 +1517,8 @@ function createActions(set: any, get: any) {
           lastActiveTimestamp: Date.now(),
         };
       });
-      // Check momentum tier activations and feature unlocks after state update
+      // Check momentum tier activations after state update
       (get() as GameState).checkMomentumTiers();
-      (get() as GameState).checkFeatureUnlocks();
       // Log auto-tick summary
       const tickParts: string[] = [];
       if (scrapsEarned > 0) tickParts.push(`+$${scrapsEarned}`);
