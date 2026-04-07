@@ -446,9 +446,11 @@ function checkChallenges(
   return { completed, rewards };
 }
 
+type SetState = (partial: Partial<GameState> | ((state: GameState) => Partial<GameState>)) => void;
+type GetState = () => GameState;
+
 /** Append an activity log entry (keeps last MAX_LOG_ENTRIES). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function _appendLog(set: any, get: any, category: LogCategory, message: string, deltas?: { scrapDelta?: number; repDelta?: number; lpDelta?: number }) {
+function _appendLog(set: SetState, get: GetState, category: LogCategory, message: string, deltas?: { scrapDelta?: number; repDelta?: number; lpDelta?: number }) {
   const s = get() as GameState;
   const entry: ActivityLogEntry = {
     id: s._logIdCounter,
@@ -475,7 +477,7 @@ function _grantXp(skills: RacerSkills, skill: SkillName, amount: number): RacerS
   };
 }
 
-function createActions(set: any, get: any) {
+function createActions(set: SetState, get: GetState) {
   return {
     manualScavenge: () => {
       const state = get() as GameState;
