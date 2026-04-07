@@ -18,6 +18,8 @@ interface TutorialStepDef {
   hasGoal?: boolean;
   /** Shown as a dismissible explanation card before the goal badge appears. */
   goalIntro?: string;
+  /** Multi-card sequence replacing goalIntro — shows cards one at a time. */
+  goalIntroSequence?: string[];
   /** Player clicks "Got it" to advance — no auto-advance. */
   dismissable?: boolean;
   /** Hide the entire overlay while a race is running. */
@@ -46,7 +48,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Your first **Repair** is free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntro: "You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles** to prove you belong. Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** wipes it clean and gives permanent bonuses. Check the **Upgrades** tab to spend scrap on Workshop upgrades, or the **Gear** tab to equip outfits." },
+  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles** to prove you belong.", "Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** wipes it clean and gives permanent bonuses.", "Check the **Upgrades** tab to spend scrap on Workshop upgrades, or the **Gear** tab to equip outfits. Your goal tracker is in the top bar."] },
   /* 15 */ { icon: "\u{1F527}", tip: "Time to power up. Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades", goalIntro: "The **Upgrades** tab has three sections. **Workshop** upgrades boost your current run \u2014 try **Keen Eye** ($50) for better parts, **Budget Repairs** ($65) for cheaper fixes, or **Tuned Suspension** ($100) for better handling. Workshop upgrades reset on **Scrap Reset**, but the **Legacy Points** you earn from resetting unlock permanent bonuses in the **Legacy** section." },
   /* 16 */ { icon: "\u2B06\uFE0F", tip: "Browse the categories and **buy** an upgrade. Workshop upgrades boost your current run \u2014 you can grab more each time.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
   /* 17 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab \u2014 equip outfits and manage your loadout.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "The **Gear** tab is where you equip outfits and manage your loadout. You can buy basic gear now \u2014 better gear unlocks as you earn **Rep**. Gear **persists** through Scrap Resets, so anything you equip carries over." },
@@ -220,25 +222,50 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
   const [blockerRects, setBlockerRects] = useState<{ rect: DOMRect; idx: number }[]>([]);
   const [showHelpNudge, setShowHelpNudge] = useState(false);
+  const [autoDismissCountdown, setAutoDismissCountdown] = useState(0);
   const rafRef = useRef<number>(0);
   const helpNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stepDef = tutorialStep >= 0 && tutorialStep < STEPS.length ? STEPS[tutorialStep] : null;
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
-  useEffect(() => { setCardDismissed(false); }, [tutorialStep]);
+  const [introSubStep, setIntroSubStep] = useState(0);
 
-  /* ── "Need help?" nudge — shows after 60s of no progress ────────────── */
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
+  useEffect(() => { setCardDismissed(false); setAutoDismissCountdown(0); setIntroSubStep(0); }, [tutorialStep]);
+
+  /* ── Auto-dismiss timer for dismissable steps (9, 12) ───────────────── */
+  const autoDismissRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (tutorialStep !== 9 && tutorialStep !== 12) return;
+    // For step 12, wait until race outcome is available
+    if (tutorialStep === 12 && !lastRaceOutcome) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- timer init
+    setAutoDismissCountdown(6);
+    let remaining = 6;
+    autoDismissRef.current = setInterval(() => {
+      remaining--;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick
+      setAutoDismissCountdown(remaining);
+      if (remaining <= 0) {
+        if (autoDismissRef.current) clearInterval(autoDismissRef.current);
+        advanceTutorial();
+      }
+    }, 1000);
+    return () => { if (autoDismissRef.current) clearInterval(autoDismissRef.current); };
+  }, [tutorialStep, lastRaceOutcome, advanceTutorial]);
+
+  /* ── "Need help?" nudge — shows after idle period ───────────────────── */
   useEffect(() => {
     if (tutorialStep <= 0 || tutorialStep < 0) return;
     if (helpNudgeTimerRef.current) clearTimeout(helpNudgeTimerRef.current);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hide on step change
     setShowHelpNudge(false);
+    const nudgeDelay = tutorialStep === 14 ? 30000 : 60000;
     helpNudgeTimerRef.current = setTimeout(() => {
       setShowHelpNudge(true);
       // Auto-hide after 8 seconds
       setTimeout(() => setShowHelpNudge(false), 8000);
-    }, 60000);
+    }, nudgeDelay);
     return () => { if (helpNudgeTimerRef.current) clearTimeout(helpNudgeTimerRef.current); };
   }, [tutorialStep, tutorialLastAdvanceTime]);
 
@@ -386,11 +413,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
   let effectiveTip = stepDef.tip;
   if (tutorialStep === 12 && lastRaceOutcome) {
     if (lastRaceOutcome.result === "win") {
-      effectiveTip = "You won! From the curb to the podium \u2014 that\u2019s how legends start.";
+      effectiveTip = "You won! From the curb to the podium \u2014 that\u2019s how legends start. You earned **Scrap Bucks** and **Rep** \u2014 Rep unlocks new locations and gear.";
     } else if (lastRaceOutcome.result === "dnf") {
-      effectiveTip = "Your mower exploded. Classic. **Repair** it and try again \u2014 that\u2019s racing!";
+      effectiveTip = "Your mower exploded. Classic. **Repair** it and try again \u2014 that\u2019s racing! Even losses earn a little **Rep** \u2014 it unlocks new locations and gear.";
     } else {
-      effectiveTip = "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you.";
+      effectiveTip = "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 it unlocks new locations and gear.";
     }
   }
   /* Step 11 has no tip (hidden during race) — skip to avoid empty card */
@@ -495,7 +522,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   /* Steps 1+: Guided */
   const isGoalStep = !!stepDef.hasGoal;
-  const hasIntro = !!stepDef.goalIntro;
+  const hasIntro = !!stepDef.goalIntro || !!stepDef.goalIntroSequence;
+  const introSequence = stepDef.goalIntroSequence;
+  const currentIntroText = introSequence ? introSequence[introSubStep] : stepDef.goalIntro;
+  const introSequenceComplete = introSequence ? introSubStep >= introSequence.length - 1 : true;
   const showGoalIntro = !cardDismissed && hasIntro;
   const showCard = hasIntro ? (cardDismissed && !isGoalStep && !!effectiveTip) : (!cardDismissed && !!effectiveTip);
   const showGoal = cardDismissed && isGoalStep;
@@ -564,12 +594,20 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {blockerRects.map(({ rect, idx }) => (
         <div
           key={idx}
-          className="fixed z-[9997]"
+          className="group fixed z-[9997]"
           style={{
             left: rect.left, top: rect.top, width: rect.width, height: rect.height,
             background: "rgba(0,0,0,0.5)", cursor: "not-allowed", pointerEvents: "auto",
+            overflow: "visible",
           }}
-        />
+        >
+          <span
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-xs opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ top: "calc(100% + 4px)", background: "rgba(0,0,0,0.9)", color: "var(--text-secondary)", zIndex: 10001 }}
+          >
+            Complete the current step first
+          </span>
+        </div>
       ))}
 
       {/* Highlight pulse on target tab */}
@@ -632,18 +670,31 @@ export default function TutorialOverlay({ activeTab }: Props) {
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {renderTip(stepDef.goalIntro!)}
+                  {renderTip(currentIntroText!)}
                 </p>
                 <div className="mt-2.5 flex items-center justify-between">
-                  <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+                  <div className="flex items-center gap-2">
+                    <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+                    {introSequence && (
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {introSubStep + 1}/{introSequence.length}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3">
                     <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip</button>
                     <button
-                      onClick={() => setCardDismissed(true)}
+                      onClick={() => {
+                        if (introSequence && !introSequenceComplete) {
+                          setIntroSubStep((s) => s + 1);
+                        } else {
+                          setCardDismissed(true);
+                        }
+                      }}
                       className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
                       style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
                     >
-                      Got it &rarr;
+                      {introSequence && !introSequenceComplete ? "Next" : "Got it"} &rarr;
                     </button>
                   </div>
                 </div>
@@ -687,7 +738,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                         className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
                         style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
                       >
-                        Got it &rarr;
+                        {autoDismissCountdown > 0 ? `Got it (${autoDismissCountdown}s)` : "Got it"} &rarr;
                       </button>
                     )}
                   </div>

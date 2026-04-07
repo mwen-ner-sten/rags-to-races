@@ -4,7 +4,7 @@ import {
   HELP_PARTS_BY_CATEGORY,
   HELP_CONDITIONS,
   HELP_MATERIAL_SOURCES,
-  HELP_DATA_SNAPSHOT,
+  HELP_DATA_SNAPSHOT_EXTENDED,
 } from "@/data/helpContent";
 import { capitalize } from "@/utils/format";
 
@@ -71,19 +71,25 @@ export default function HelpReferenceTab() {
       <SectionCard title="Data Snapshot">
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
           {[
-            { label: "Locations", value: HELP_DATA_SNAPSHOT.locations },
-            { label: "Circuits", value: HELP_DATA_SNAPSHOT.circuits },
-            { label: "Vehicles", value: HELP_DATA_SNAPSHOT.vehicles },
-            { label: "Parts", value: HELP_DATA_SNAPSHOT.parts },
-            { label: "Core Slots", value: HELP_DATA_SNAPSHOT.coreSlots },
-            { label: "Upgrades", value: HELP_DATA_SNAPSHOT.upgrades },
-            { label: "Gear Items", value: HELP_DATA_SNAPSHOT.gear },
-            { label: "Materials", value: HELP_DATA_SNAPSHOT.materials },
-            { label: "Challenges", value: HELP_DATA_SNAPSHOT.challenges },
-            { label: "Craft Recipes", value: HELP_DATA_SNAPSHOT.craftRecipes },
-            { label: "Talent Nodes", value: HELP_DATA_SNAPSHOT.talentNodes },
-            { label: "Legacy Upgrades", value: HELP_DATA_SNAPSHOT.legacyUpgrades },
-            { label: "Momentum Tiers", value: HELP_DATA_SNAPSHOT.momentumTiers },
+            { label: "Locations", value: HELP_DATA_SNAPSHOT_EXTENDED.locations },
+            { label: "Circuits", value: HELP_DATA_SNAPSHOT_EXTENDED.circuits },
+            { label: "Vehicles", value: HELP_DATA_SNAPSHOT_EXTENDED.vehicles },
+            { label: "Parts", value: HELP_DATA_SNAPSHOT_EXTENDED.parts },
+            { label: "Core Slots", value: HELP_DATA_SNAPSHOT_EXTENDED.coreSlots },
+            { label: "Upgrades", value: HELP_DATA_SNAPSHOT_EXTENDED.upgrades },
+            { label: "Gear Items", value: HELP_DATA_SNAPSHOT_EXTENDED.gear },
+            { label: "Materials", value: HELP_DATA_SNAPSHOT_EXTENDED.materials },
+            { label: "Challenges", value: HELP_DATA_SNAPSHOT_EXTENDED.challenges },
+            { label: "Craft Recipes", value: HELP_DATA_SNAPSHOT_EXTENDED.craftRecipes },
+            { label: "Talent Nodes", value: HELP_DATA_SNAPSHOT_EXTENDED.talentNodes },
+            { label: "Legacy Upgrades", value: HELP_DATA_SNAPSHOT_EXTENDED.legacyUpgrades },
+            { label: "Momentum Tiers", value: HELP_DATA_SNAPSHOT_EXTENDED.momentumTiers },
+            { label: "Team Upgrades", value: HELP_DATA_SNAPSHOT_EXTENDED.teamUpgrades },
+            { label: "Owner Upgrades", value: HELP_DATA_SNAPSHOT_EXTENDED.ownerUpgrades },
+            { label: "Track Perks", value: HELP_DATA_SNAPSHOT_EXTENDED.trackPerks },
+            { label: "Skills", value: HELP_DATA_SNAPSHOT_EXTENDED.skills },
+            { label: "Attributes", value: HELP_DATA_SNAPSHOT_EXTENDED.attributes },
+            { label: "Crew Roles", value: HELP_DATA_SNAPSHOT_EXTENDED.crewRoles },
           ].map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">
               <span style={{ color: "var(--text-secondary)" }}>{item.label}</span>

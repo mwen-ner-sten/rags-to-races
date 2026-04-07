@@ -37,6 +37,9 @@ export default function HelpProgressionTab() {
             </div>
           ))}
         </div>
+        <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
+          Auto-Race fires every 3 ticks by default. The Pit Crew workshop upgrade reduces this by 1 tick per level (minimum 1 tick).
+        </p>
       </SectionCard>
 
       {/* Locations & Circuits */}

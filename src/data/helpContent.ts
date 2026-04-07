@@ -78,7 +78,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Team Points (TP)", meaning: "Layer 2 prestige currency earned from Team Reset. Spent on team upgrades that accelerate Scrap Reset runs." },
   { term: "Owner Points (OP)", meaning: "Layer 3 prestige currency earned from Owner Reset. Spent on powerful franchise-wide upgrades." },
   { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 prestige currency earned from Track Owner Reset. Spent on meta-game perks like custom circuits and passive income." },
-  { term: "Crew", meaning: "NPC helpers unlocked after first Team Reset. 4 roles (Mechanic, Scout, Driver, Trader) with specializations. Persist through Scrap Resets." },
+  { term: "Crew", meaning: "NPC helpers unlocked after first Team Reset. 4 roles (Mechanic, Scout, Driver, Trader) with specializations. Persist through Scrap Resets but reset on Team Reset (unless you have the Crew Retention upgrade)." },
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
   { term: "Racer Attributes", meaning: `${ATTRIBUTE_DEFINITIONS.length} allocatable stat points (${ATTRIBUTE_DEFINITIONS.map(a => a.name).join(", ")}). Boost skill ratings or provide flat bonuses.` },
   { term: "Offline Progress", meaning: "The game continues scavenging and racing while closed (capped at 8 hours). A summary modal shows your offline earnings when you return." },

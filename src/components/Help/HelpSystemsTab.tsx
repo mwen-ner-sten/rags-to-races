@@ -308,6 +308,24 @@ export default function HelpSystemsTab() {
             </div>
           </SystemSection>
 
+          {/* Team Reset (Layer 2) */}
+          <SystemSection icon="🏢" title="Team Reset (Layer 2)">
+            <div className="space-y-3">
+              <p>Second prestige layer. Unlocks at 200 lifetime LP. Costs accumulated LP, grants Team Points (TP). Resets LP, legacy upgrades, and everything below.</p>
+              {HELP_TEAM_UPGRADES_BY_CATEGORY.map((group) => (
+                <div key={group.category}>
+                  <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
+                  {group.upgrades.map((u) => (
+                    <div key={u.id} className="mt-1 flex justify-between">
+                      <span style={{ color: "var(--text-primary)" }}>{u.name} <span style={{ color: "var(--text-muted)" }}>({u.maxLevel} lvl)</span></span>
+                      <span style={{ color: "var(--text-muted)" }}>{u.baseCost} TP base</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </SystemSection>
+
           {/* Crew */}
           <SystemSection icon="👥" title="Crew">
             <div className="space-y-2">
@@ -333,28 +351,10 @@ export default function HelpSystemsTab() {
             </div>
           </SystemSection>
 
-          {/* Team Reset (Layer 2) */}
-          <SystemSection icon="🏢" title="Team Reset (Layer 2)">
-            <div className="space-y-3">
-              <p>Second prestige layer. Costs accumulated LP, grants Team Points (TP). Resets LP, legacy upgrades, and everything below.</p>
-              {HELP_TEAM_UPGRADES_BY_CATEGORY.map((group) => (
-                <div key={group.category}>
-                  <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
-                  {group.upgrades.map((u) => (
-                    <div key={u.id} className="mt-1 flex justify-between">
-                      <span style={{ color: "var(--text-primary)" }}>{u.name} <span style={{ color: "var(--text-muted)" }}>({u.maxLevel} lvl)</span></span>
-                      <span style={{ color: "var(--text-muted)" }}>{u.baseCost} TP base</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </SystemSection>
-
           {/* Owner Reset (Layer 3) */}
           <SystemSection icon="🏛️" title="Owner Reset (Layer 3)">
             <div className="space-y-3">
-              <p>Third prestige layer. Costs accumulated TP, grants Owner Points (OP). Resets team upgrades and everything below.</p>
+              <p>Third prestige layer. Unlocks at 500 lifetime TP and 3 team eras. Costs accumulated TP, grants Owner Points (OP). Resets team upgrades and everything below.</p>
               {HELP_OWNER_UPGRADES_BY_CATEGORY.map((group) => (
                 <div key={group.category}>
                   <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
@@ -372,7 +372,7 @@ export default function HelpSystemsTab() {
           {/* Track Owner (Layer 4) */}
           <SystemSection icon="🏟️" title="Track Owner (Layer 4)">
             <div className="space-y-3">
-              <p>Final prestige layer. Costs accumulated OP, grants Track Prestige Tokens (PT). Meta-game perks that reshape the entire game.</p>
+              <p>Final prestige layer. Unlocks at 1,000 lifetime OP and 5 owner eras. Costs accumulated OP, grants Track Prestige Tokens (PT). Meta-game perks that reshape the entire game.</p>
               {HELP_TRACK_PERKS_BY_CATEGORY.map((group) => (
                 <div key={group.category}>
                   <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
