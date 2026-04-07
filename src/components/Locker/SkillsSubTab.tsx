@@ -1,7 +1,7 @@
 "use client";
 
 import { useGameStore } from "@/state/store";
-import { SKILL_DEFINITIONS, xpForLevel, levelFromXp, ratingForLevel, ratingToEffectiveness } from "@/data/racerSkills";
+import { SKILL_DEFINITIONS, levelFromXp, ratingForLevel, ratingToEffectiveness } from "@/data/racerSkills";
 import type { SkillName } from "@/data/racerSkills";
 import { getCircuitById } from "@/data/circuits";
 
