@@ -688,16 +688,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
                   {renderTip(currentIntroText!)}
                 </p>
-                <div className="mt-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+                <div className="mt-2.5 flex flex-col gap-2">
+                  <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+                  <div className="flex items-center justify-end gap-3">
                     {introSequence && (
-                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      <span className="mr-auto text-xs" style={{ color: "var(--text-muted)" }}>
                         {introSubStep + 1}/{introSequence.length}
                       </span>
                     )}
-                  </div>
-                  <div className="flex items-center gap-3">
                     <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip</button>
                     <button
                       onClick={() => {
@@ -707,7 +705,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                           setCardDismissed(true);
                         }
                       }}
-                      className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                      className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
                       style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
                     >
                       {introSequence && !introSequenceComplete ? "Next" : "Got it"} &rarr;
