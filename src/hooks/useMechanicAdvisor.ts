@@ -8,7 +8,7 @@ import { getCircuitById } from "@/data/circuits";
 import type { MechanicContext } from "@/lib/mechanic-types";
 import type { GameState } from "@/state/store";
 
-function buildContext(state: GameState): MechanicContext {
+export function buildContext(state: GameState): MechanicContext {
   // Active vehicle summary
   let activeVehicle: MechanicContext["activeVehicle"] = null;
   if (state.activeVehicleId) {

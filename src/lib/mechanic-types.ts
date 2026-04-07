@@ -1,3 +1,10 @@
+export interface AIModel {
+  id: string;
+  name: string;
+  contextLength: number;
+  pricing: { prompt: string; completion: string }; // USD per token as strings
+}
+
 export interface MechanicContext {
   activeVehicle: {
     name: string;

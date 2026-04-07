@@ -26,9 +26,15 @@ export async function GET(request: Request) {
   }
 
   const data = await res.json();
-  const models = (data.data ?? []).map((m: { id: string; name: string }) => ({
-    id: m.id,
-    name: m.name,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const models = (data.data ?? []).map((m: any) => ({
+    id: m.id as string,
+    name: m.name as string,
+    contextLength: m.context_length ?? 0,
+    pricing: {
+      prompt: m.pricing?.prompt ?? "0",
+      completion: m.pricing?.completion ?? "0",
+    },
   }));
 
   return new Response(JSON.stringify({ models }), {

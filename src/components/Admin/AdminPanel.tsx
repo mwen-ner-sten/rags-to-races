@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useGameStore } from "@/state/store";
 import { AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
+import type { AIModel } from "@/lib/mechanic-types";
+import ModelComparison from "./ModelComparison";
 import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
@@ -24,6 +26,19 @@ const QUICK_SCRAP = [100, 1_000, 10_000, 100_000];
 const QUICK_REP = [5, 10, 50, 100];
 
 const PART_CATEGORIES = ["engine", "wheel", "frame", "fuel"] as const;
+
+function formatPrice(perToken: string): string {
+  const n = parseFloat(perToken);
+  if (!n || n === 0) return "free";
+  const perMillion = n * 1_000_000;
+  return perMillion < 0.01 ? "<$0.01" : `$${perMillion.toFixed(2)}`;
+}
+
+function formatContext(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
 
 export default function AdminPanel() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -60,7 +75,7 @@ export default function AdminPanel() {
   const [partCondition, setPartCondition] = useState<PartCondition>("good");
   const [partCount, setPartCount] = useState("1");
   const [addLog, setAddLog] = useState<string[]>([]);
-  const [aiModels, setAiModels] = useState<{ id: string; name: string }[]>(() => {
+  const [aiModels, setAiModels] = useState<AIModel[]>(() => {
     if (typeof window === "undefined") return [];
     try {
       const cached = localStorage.getItem("rags-ai-models");
@@ -71,6 +86,7 @@ export default function AdminPanel() {
   const [selectedModel, setSelectedModel] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "" : "",
   );
+  const [modelFilter, setModelFilter] = useState("");
 
   async function fetchModels() {
     setAiModelsLoading(true);
@@ -515,54 +531,95 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        {/* AI Settings */}
-        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION}>
-          <p style={{ color: "var(--text-heading)" }} className={LABEL}>AI Settings</p>
-          <div className="flex flex-col gap-2">
+        {/* AI Model Picker */}
+        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION + " lg:col-span-3"}>
+          <div className="flex items-center justify-between">
+            <p style={{ color: "var(--text-heading)" }} className={LABEL}>AI Model Picker</p>
             <button
               onClick={fetchModels}
               disabled={aiModelsLoading}
               style={btnOutline}
               className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
             >
-              {aiModelsLoading ? "Loading..." : `Refresh Models (${aiModels.length})`}
+              {aiModelsLoading ? "Loading..." : `Refresh (${aiModels.length})`}
             </button>
-            {aiModels.length > 0 && (
-              <select
-                value={selectedModel}
-                onChange={(e) => {
-                  setSelectedModel(e.target.value);
-                  localStorage.setItem(AI_MODEL_STORAGE_KEY, e.target.value);
-                  const model = aiModels.find((m) => m.id === e.target.value);
-                  log(`AI model set: ${model?.name ?? e.target.value}`);
-                }}
-                className="rounded border px-2 py-1.5 text-xs"
-                style={{
-                  background: "var(--panel-bg)",
-                  borderColor: "var(--panel-border)",
-                  color: "var(--text-primary)",
-                }}
-              >
-                <option value="">-- Select a model --</option>
-                {aiModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.id})
-                  </option>
-                ))}
-              </select>
-            )}
-            {selectedModel && (
-              <p style={{ color: "var(--text-muted)" }} className="text-xs">
-                Active: <span style={{ color: "var(--accent)" }}>{selectedModel}</span>
-              </p>
-            )}
-            {!selectedModel && (
-              <p style={{ color: "var(--text-muted)" }} className="text-xs">
-                No model selected. Load models and pick one for Gearhead Gary.
-              </p>
-            )}
           </div>
+          {selectedModel && (
+            <p style={{ color: "var(--text-muted)" }} className="text-xs">
+              Active: <span style={{ color: "var(--accent)" }}>{selectedModel}</span>
+            </p>
+          )}
+          {!selectedModel && (
+            <p style={{ color: "var(--text-muted)" }} className="text-xs">
+              No model selected. Pick one below for Gearhead Gary.
+            </p>
+          )}
+          {aiModels.length > 0 && (
+            <>
+              <input
+                type="text"
+                placeholder="Filter models..."
+                value={modelFilter}
+                onChange={(e) => setModelFilter(e.target.value)}
+                className="rounded border px-2 py-1.5 text-xs"
+                style={{ background: "var(--input-bg, var(--panel-bg))", borderColor: "var(--input-border, var(--panel-border))", color: "var(--text-primary)" }}
+              />
+              <div className="max-h-64 overflow-y-auto rounded border" style={{ borderColor: "var(--panel-border)" }}>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr style={{ background: "var(--surface-bg, var(--panel-bg))" }}>
+                      <th className="text-left px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Model</th>
+                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>In $/1M</th>
+                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Out $/1M</th>
+                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Context</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aiModels
+                      .filter((m) => {
+                        if (!modelFilter) return true;
+                        const q = modelFilter.toLowerCase();
+                        return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
+                      })
+                      .map((m) => (
+                        <tr
+                          key={m.id}
+                          onClick={() => {
+                            setSelectedModel(m.id);
+                            localStorage.setItem(AI_MODEL_STORAGE_KEY, m.id);
+                            log(`AI model set: ${m.name}`);
+                          }}
+                          className="cursor-pointer transition-colors"
+                          style={{
+                            background: selectedModel === m.id ? "var(--accent-bg, rgba(99,102,241,0.15))" : "transparent",
+                            borderBottom: "1px solid var(--divider, var(--panel-border))",
+                          }}
+                        >
+                          <td className="px-2 py-1.5">
+                            <span style={{ color: selectedModel === m.id ? "var(--accent)" : "var(--text-primary)" }}>{m.name}</span>
+                            <br />
+                            <span style={{ color: "var(--text-muted)" }} className="text-[10px]">{m.id}</span>
+                          </td>
+                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                            {formatPrice(m.pricing.prompt)}
+                          </td>
+                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                            {formatPrice(m.pricing.completion)}
+                          </td>
+                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
+                            {formatContext(m.contextLength)}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
+
+        {/* Model Comparison */}
+        <ModelComparison models={aiModels} />
 
         {/* Danger zone */}
         <div style={{ background: "var(--panel-bg)", borderColor: "var(--danger)" }} className={SECTION}>
