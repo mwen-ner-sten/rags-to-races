@@ -148,6 +148,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
 
       {/* Hamburger FAB */}
       <button
+        data-tutorial="mobile-hamburger"
         onClick={toggle}
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}

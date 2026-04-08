@@ -376,10 +376,17 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const allowedSet = stepDef.allowedTabs ? new Set(stepDef.allowedTabs) : null;
 
     if (stepDef.highlightTab) {
-      // Highlight ALL matching tab buttons (sidebar + content nav + mobile)
+      // Highlight ALL matching tab buttons (sidebar + content nav + mobile drawer)
       const matches = tabButtons.filter((btn) => btn.textContent?.toLowerCase().trim().includes(stepDef.highlightTab!));
       const rects = matches.map((m) => m.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
-      setHighlightRect(rects.length > 0 ? rects : null);
+      if (rects.length > 0) {
+        setHighlightRect(rects);
+      } else {
+        // No visible tab buttons found — on mobile with drawer closed, pulse the hamburger
+        const hamburger = document.querySelector('[data-tutorial="mobile-hamburger"]');
+        const hr = hamburger ? hamburger.getBoundingClientRect() : null;
+        setHighlightRect(hr && hr.width > 0 && hr.height > 0 ? [hr] : null);
+      }
     } else {
       setHighlightRect(null);
     }
