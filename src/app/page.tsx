@@ -122,7 +122,6 @@ export default function Home() {
   return (
     <>
       <ToastContainer />
-      <TutorialOverlay activeTab={activeTab} />
       {offlineResult && (
         <OfflineProgressModal
           timeAwayMinutes={offlineResult.timeAway}
@@ -131,6 +130,7 @@ export default function Home() {
         />
       )}
       <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
+        <TutorialOverlay activeTab={activeTab} />
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
         {activeTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
