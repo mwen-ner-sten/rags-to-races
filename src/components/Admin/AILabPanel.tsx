@@ -6,7 +6,6 @@ import { buildContext, AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
 import type { AIModel } from "@/lib/mechanic-types";
 import { formatPrice, formatPricePer1M, formatContext, formatModality } from "@/lib/format-model";
 
-const MAX_COMPARE = 3;
 
 interface ComparisonResult {
   text: string;
@@ -64,7 +63,7 @@ export default function AILabPanel() {
 
   function toggleCompare(id: string) {
     setCompareIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < MAX_COMPARE ? [...prev, id] : prev,
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }
 
@@ -213,7 +212,6 @@ export default function AILabPanel() {
             filteredModels.map((m) => {
               const isActive = activeModelId === m.id;
               const isCompare = compareIds.includes(m.id);
-              const compareDisabled = !isCompare && compareIds.length >= MAX_COMPARE;
               return (
                 <div
                   key={m.id}
@@ -231,11 +229,10 @@ export default function AILabPanel() {
                   <input
                     type="checkbox"
                     checked={isCompare}
-                    disabled={compareDisabled}
                     onChange={(e) => { e.stopPropagation(); toggleCompare(m.id); }}
                     onClick={(e) => e.stopPropagation()}
                     className="shrink-0 accent-[var(--accent)]"
-                    title={compareDisabled ? `Max ${MAX_COMPARE} models` : "Add to comparison"}
+                    title="Add to comparison"
                   />
 
                   {/* Model info */}
@@ -287,16 +284,34 @@ export default function AILabPanel() {
         style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
       >
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "var(--text-muted)" }}>
-            Compare
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "var(--text-muted)" }}>
+              Compare
+            </p>
+            <button
+              onClick={() => setCompareIds(filteredModels.map((m) => m.id))}
+              className="rounded border px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80"
+              style={btnOutline}
+            >
+              Select All
+            </button>
+            {compareIds.length > 0 && (
+              <button
+                onClick={() => { setCompareIds([]); setResults({}); }}
+                className="rounded border px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80"
+                style={btnOutline}
+              >
+                Clear
+              </button>
+            )}
+          </div>
           <button
             onClick={runComparison}
             disabled={isRunning || compareIds.length < 2}
             className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
             style={compareIds.length >= 2 && !isRunning ? btnPrimary : btnOutline}
           >
-            {isRunning ? "Running..." : `Run Comparison (${compareIds.length}/${MAX_COMPARE})`}
+            {isRunning ? "Running..." : `Run Comparison (${compareIds.length})`}
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
