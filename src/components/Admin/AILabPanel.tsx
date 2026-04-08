@@ -57,6 +57,7 @@ export default function AILabPanel() {
     typeof window !== "undefined" ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "" : "",
   );
   const [filter, setFilter] = useState("");
+  const [hideMulti, setHideMulti] = useState(true);
 
   // ── Comparison state ──
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -183,6 +184,7 @@ export default function AILabPanel() {
   const activeModel = models.find((m) => m.id === activeModelId);
   const filteredModels = models
     .filter((m) => {
+      if (hideMulti && formatModality(m.modality) === "multi") return false;
       if (!filter) return true;
       const q = filter.toLowerCase();
       return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
@@ -261,20 +263,31 @@ export default function AILabPanel() {
         </div>
       )}
 
-      {/* ── Search ── */}
+      {/* ── Search + Filters ── */}
       {models.length > 0 && (
-        <input
-          type="text"
-          placeholder="Search models..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="rounded-lg border px-3 py-2 text-xs"
-          style={{
-            background: "var(--input-bg, var(--panel-bg))",
-            borderColor: "var(--input-border, var(--panel-border))",
-            color: "var(--text-primary)",
-          }}
-        />
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search models..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="flex-1 rounded-lg border px-3 py-2 text-xs"
+            style={{
+              background: "var(--input-bg, var(--panel-bg))",
+              borderColor: "var(--input-border, var(--panel-border))",
+              color: "var(--text-primary)",
+            }}
+          />
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+            <input
+              type="checkbox"
+              checked={hideMulti}
+              onChange={(e) => setHideMulti(e.target.checked)}
+              className="accent-[var(--accent)]"
+            />
+            Text only
+          </label>
+        </div>
       )}
 
       {/* ── Model List ── */}
