@@ -722,11 +722,17 @@ function createActions(set: SetState, get: GetState) {
           scrapBucks: s.scrapBucks - actualBuildCost,
           _vehicleIdCounter: s._vehicleIdCounter + 1,
           pendingBuildParts: newPendingParts,
-          activeVehicleId: s.activeVehicleId ?? built.id,
+          // Auto-activate is a prestige perk — first run requires manual activation
+          activeVehicleId: (s.activeVehicleId === null && s.prestigeCount >= 1) ? built.id : s.activeVehicleId,
           racerSkills: _grantXp(s.racerSkills, "mechanics", 20),
         };
       });
       _appendLog(set, get, "build", `Built ${vehicleDef.name} for $${actualBuildCost}`, { scrapDelta: -actualBuildCost });
+      // Log auto-activation when it triggers post-prestige
+      const postBuild = get() as GameState;
+      if (postBuild.activeVehicleId === built.id && postBuild.prestigeCount >= 1) {
+        _appendLog(set, get, "build", `Auto-activated ${vehicleDef.name} (prestige perk)`);
+      }
     },
 
     setActiveVehicle: (vehicleId: string) => {
