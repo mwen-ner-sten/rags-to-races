@@ -360,11 +360,13 @@ export default function AILabPanel() {
                 key={id}
                 className="rounded-lg border p-3 flex flex-col gap-2"
                 style={{
-                  borderColor: r.status === "done"
+                  borderColor: r.status === "done" && r.text
                     ? "var(--success, #4ade80)"
-                    : r.status === "error"
-                      ? "var(--danger)"
-                      : "var(--panel-border)",
+                    : r.status === "done" && !r.text
+                      ? "var(--warning, #eab308)"
+                      : r.status === "error"
+                        ? "var(--danger)"
+                        : "var(--panel-border)",
                   background: "var(--panel-bg)",
                 }}
               >
@@ -408,8 +410,10 @@ export default function AILabPanel() {
                     <p className="text-xs" style={{ color: "var(--danger)" }}>{r.error}</p>
                   ) : r.text ? (
                     <p className="text-xs leading-relaxed" style={{ color: "var(--text-primary)" }}>{r.text}</p>
+                  ) : r.status === "done" ? (
+                    <p className="text-xs italic" style={{ color: "var(--danger)" }}>Empty response — model returned nothing. It may not support this prompt format.</p>
                   ) : (
-                    <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>Waiting for response...</p>
+                    <p className="text-xs italic animate-pulse" style={{ color: "var(--text-muted)" }}>Waiting for response...</p>
                   )}
                 </div>
               </div>
