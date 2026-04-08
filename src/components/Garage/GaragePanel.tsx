@@ -174,6 +174,7 @@ export default function GaragePanel() {
                             <button
                               key={group.key}
                               data-tutorial="part-btn"
+                              data-tutorial-selected={selected ? "true" : undefined}
                               onClick={() => {
                                 if (selected) {
                                   setPendingPart(slot, null);

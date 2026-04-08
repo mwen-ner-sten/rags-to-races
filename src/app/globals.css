@@ -211,12 +211,14 @@ html {
 .animate-flag-wave { animation: flag-wave 0.6s ease-in-out infinite; }
 
 @keyframes tutorial-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.5), 0 0 12px 0 rgba(234, 179, 8, 0.25); }
-  50% { box-shadow: 0 0 0 8px rgba(234, 179, 8, 0), 0 0 20px 0 rgba(234, 179, 8, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--tp-glow), 0 0 12px 0 var(--tp-dim); }
+  50% { box-shadow: 0 0 0 8px transparent, 0 0 20px 0 transparent; }
 }
 .tutorial-pulse {
+  --tp-glow: color-mix(in srgb, var(--accent, #eab308) 50%, transparent);
+  --tp-dim: color-mix(in srgb, var(--accent, #eab308) 25%, transparent);
   animation: tutorial-pulse 1.5s ease-in-out infinite;
-  border: 1.5px solid rgba(234, 179, 8, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--accent, #eab308) 35%, transparent);
 }
 
 /* Arrow pointing from tutorial card toward target */

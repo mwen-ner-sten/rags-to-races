@@ -337,8 +337,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
     }
 
     // Per-element hint highlights (e.g. individual part buttons on step 5)
+    // Only glow unselected part buttons — once a part is picked in a slot, stop pulsing that slot's buttons
     if (tutorialStep === 5) {
-      const btns = document.querySelectorAll('[data-tutorial="part-btn"]');
+      const btns = document.querySelectorAll('[data-tutorial="part-btn"]:not([data-tutorial-selected])');
       setHintRects(Array.from(btns).map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0));
     } else {
       setHintRects([]);
