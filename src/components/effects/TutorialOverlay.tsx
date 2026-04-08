@@ -552,17 +552,27 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const viewH = typeof window !== "undefined" ? window.innerHeight : 600;
     const cardW = Math.min(340, viewW - 32);
     const cardH = showGoalIntro ? 160 : 100;
-    const roomBelow = viewH - anchorRect.bottom - 16;
-    const above = roomBelow < cardH && anchorRect.top > cardH + 16;
-    const left = Math.max(16, Math.min(anchorRect.left + anchorRect.width / 2 - cardW / 2, viewW - cardW - 16));
-    const top = above ? anchorRect.top - 16 : anchorRect.bottom + 16;
-    arrowClass = above ? "tutorial-arrow-down" : "tutorial-arrow-up";
-    arrowLeftPx = Math.max(20, Math.min(anchorRect.left + anchorRect.width / 2 - left, cardW - 20));
+    // Detect if anchor is in the sidebar (left edge < 220px on wide screens)
+    const inSidebar = anchorRect.left < 220 && viewW >= 640;
+    let left: number;
+    let top: number;
+    if (inSidebar) {
+      // Position to the right of the sidebar, vertically centered on the anchor
+      left = Math.max(220, anchorRect.right + 12);
+      top = Math.max(16, anchorRect.top + anchorRect.height / 2 - cardH / 2);
+      arrowClass = "";
+    } else {
+      const roomBelow = viewH - anchorRect.bottom - 16;
+      const above = roomBelow < cardH && anchorRect.top > cardH + 16;
+      left = Math.max(16, Math.min(anchorRect.left + anchorRect.width / 2 - cardW / 2, viewW - cardW - 16));
+      top = above ? anchorRect.top - 16 : anchorRect.bottom + 16;
+      arrowClass = above ? "tutorial-arrow-down" : "tutorial-arrow-up";
+    }
+    arrowLeftPx = inSidebar ? 0 : Math.max(20, Math.min(anchorRect.left + anchorRect.width / 2 - left, cardW - 20));
     cardStyle = {
       position: "fixed",
       left,
-      top: above ? undefined : top,
-      bottom: above ? viewH - top : undefined,
+      top,
       width: cardW,
       zIndex: 10000,
     };
