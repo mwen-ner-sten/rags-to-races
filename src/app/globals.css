@@ -215,10 +215,10 @@ html {
   50% { box-shadow: 0 0 0 8px transparent, 0 0 20px 0 transparent; }
 }
 .tutorial-pulse {
-  --tp-glow: color-mix(in srgb, var(--accent, #eab308) 50%, transparent);
-  --tp-dim: color-mix(in srgb, var(--accent, #eab308) 25%, transparent);
+  --tp-glow: color-mix(in srgb, var(--accent-secondary, #ff0090) 55%, transparent);
+  --tp-dim: color-mix(in srgb, var(--accent-secondary, #ff0090) 30%, transparent);
   animation: tutorial-pulse 1.5s ease-in-out infinite;
-  border: 1.5px solid color-mix(in srgb, var(--accent, #eab308) 35%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--accent-secondary, #ff0090) 45%, transparent);
 }
 
 /* Arrow pointing from tutorial card toward target */

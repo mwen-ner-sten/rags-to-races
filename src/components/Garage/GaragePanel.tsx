@@ -151,6 +151,8 @@ export default function GaragePanel() {
                   <div
                     key={slot}
                     className="rounded-lg border p-2 sm:p-3"
+                    data-tutorial-slot={slot}
+                    data-tutorial-slot-filled={selectedPart ? "true" : undefined}
                     style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
                   >
                     <div className="mb-1.5 flex items-center justify-between">

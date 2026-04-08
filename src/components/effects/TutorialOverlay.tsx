@@ -340,10 +340,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
     }
 
     // Per-element hint highlights (e.g. individual part buttons on step 5)
-    // Only glow unselected part buttons — once a part is picked in a slot, stop pulsing that slot's buttons
+    // Only glow parts in unfilled slots — once a slot has a part, stop pulsing all buttons in that slot
     if (tutorialStep === 5) {
-      const btns = document.querySelectorAll('[data-tutorial="part-btn"]:not([data-tutorial-selected])');
-      setHintRects(Array.from(btns).map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0));
+      const unfilledSlots = document.querySelectorAll('[data-tutorial-slot]:not([data-tutorial-slot-filled])');
+      const btns: Element[] = [];
+      unfilledSlots.forEach((slot) => {
+        btns.push(...Array.from(slot.querySelectorAll('[data-tutorial="part-btn"]')));
+      });
+      setHintRects(btns.map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0));
     } else {
       setHintRects([]);
     }
@@ -670,15 +674,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
         />
       )}
 
-      {/* Solid fill on Sell Scrap button to draw the eye */}
+      {/* Pulsing highlight on Sell Scrap area to draw the eye */}
       {sellBtnRect && (
         <div
-          className="fixed z-[9999] rounded"
+          className="tutorial-pulse fixed z-[9999] rounded"
           style={{
-            left: sellBtnRect.left, top: sellBtnRect.top,
-            width: sellBtnRect.width, height: sellBtnRect.height,
-            background: "color-mix(in srgb, var(--accent, #eab308) 18%, transparent)",
-            border: "1.5px solid var(--accent)",
+            left: sellBtnRect.left - 3, top: sellBtnRect.top - 3,
+            width: sellBtnRect.width + 6, height: sellBtnRect.height + 6,
+            background: "color-mix(in srgb, var(--accent-secondary, #ff0090) 12%, transparent)",
             pointerEvents: "none",
           }}
         />
