@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
   const data = await res.json();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const models = (data.data ?? []).map((m: any) => ({
+  const allModels = (data.data ?? []).map((m: any) => ({
     id: m.id as string,
     name: m.name as string,
     contextLength: m.context_length ?? 0,
@@ -39,6 +39,9 @@ export async function GET(request: Request) {
       completion: m.pricing?.completion ?? "0",
     },
   }));
+  const models = allModels.filter((m: { pricing: { prompt: string } }) =>
+    parseFloat(m.pricing.prompt) === 0,
+  );
 
   return new Response(JSON.stringify({ models }), {
     headers: {
