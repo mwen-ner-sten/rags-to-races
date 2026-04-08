@@ -24,6 +24,8 @@ interface TutorialStepDef {
   dismissable?: boolean;
   /** Hide the entire overlay while a race is running. */
   hideDuringRace?: boolean;
+  /** Extra detail shown in a modal when the player taps the ? button. */
+  helpDetail?: string;
 }
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
@@ -35,25 +37,25 @@ const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
 
 export const STEPS: TutorialStepDef[] = [
   /* 0  */ { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
-  /* 1  */ { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search the curb for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
-  /* 2  */ { icon: "\u{1F9F0}", tip: "Scavenge and sell extras. You need an **engine**, a **wheel**, and **$10 Scrap Bucks** to build.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true },
-  /* 3  */ { icon: "\u{1F449}", tip: "You\u2019ve got parts and cash. Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
+  /* 1  */ { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
+  /* 2  */ { icon: "\u{1F9F0}", tip: "Collect an **engine**, a **wheel**, and **$10** to build your first ride.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true, helpDetail: "Scavenge at different locations to find parts. Each has a category (engine, wheel, misc, etc.) and a condition rating. Sell parts you don\u2019t need for Scrap Bucks. You need at least one engine, one wheel, and $10 to build your first vehicle." },
+  /* 3  */ { icon: "\u{1F449}", tip: "Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
   /* 4  */ { icon: "\u{1F6E0}\uFE0F", tip: "Pick the **Push Mower** blueprint.", allowedTabs: ["garage", "junkyard"], target: "blueprint-btn" },
-  /* 5  */ { icon: "\u{1F9F0}", tip: "Click a part in each slot to equip it \u2014 pick an **engine** and a **wheel**.", allowedTabs: ["garage", "junkyard"], target: "part-slots" },
-  /* 6  */ { icon: "\u{1F528}", tip: "Everything\u2019s loaded \u2014 hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
-  /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to set it as your racer.", allowedTabs: ["garage"], target: "activate-btn" },
-  /* 8  */ { icon: "\u{1F449}", tip: "Time to race! Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
-  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your odds \u2014 **35% win** isn\u2019t bad for a garbage mower. **DNF** means your ride breaks down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true },
-  /* 10 */ { icon: "\u{1F3C1}", tip: "Hold on tight \u2014 hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
+  /* 5  */ { icon: "\u{1F9F0}", tip: "Equip an **engine** and a **wheel**.", allowedTabs: ["garage", "junkyard"], target: "part-slots" },
+  /* 6  */ { icon: "\u{1F528}", tip: "Hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
+  /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to race.", allowedTabs: ["garage"], target: "activate-btn" },
+  /* 8  */ { icon: "\u{1F449}", tip: "Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
+  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "**35% win** is solid for a starter. **DNF** = broke down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF (Did Not Finish) means your vehicle broke down mid-race \u2014 higher reliability reduces this risk. Even losses earn some Scrap Bucks and Rep." },
+  /* 10 */ { icon: "\u{1F3C1}", tip: "Hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
-  /* 13 */ { icon: "\u{1F527}", tip: "Racing wears out your ride. Your first **Repair** is free \u2014 head to the **Garage**. After this, repairs cost **Scrap Bucks**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 14 */ { icon: "\u{1F680}", tip: "Race, repair, and scavenge your way to **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019ve got a ride and you know how to race. Now make a name for yourself \u2014 earn **$50,000 lifetime scrap** and **5,000 Rep** across **3 vehicles** to prove you belong.", "Watch your **Fatigue** in the top bar \u2014 it builds every race, cutting performance and raising costs. When it gets too high, a **Scrap Reset** wipes it clean and gives permanent bonuses.", "Check the **Upgrades** tab to spend scrap on Workshop upgrades, or the **Gear** tab to equip outfits. Your goal tracker is in the top bar."] },
-  /* 15 */ { icon: "\u{1F527}", tip: "Time to power up. Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades", goalIntro: "The **Upgrades** tab has three sections. **Workshop** upgrades boost your current run \u2014 try **Keen Eye** ($50) for better parts, **Budget Repairs** ($65) for cheaper fixes, or **Tuned Suspension** ($100) for better handling. Workshop upgrades reset on **Scrap Reset**, but the **Legacy Points** you earn from resetting unlock permanent bonuses in the **Legacy** section." },
-  /* 16 */ { icon: "\u2B06\uFE0F", tip: "Browse the categories and **buy** an upgrade. Workshop upgrades boost your current run \u2014 you can grab more each time.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
-  /* 17 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab \u2014 equip outfits and manage your loadout.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "The **Gear** tab is where you equip outfits and manage your loadout. You can buy basic gear now \u2014 better gear unlocks as you earn **Rep**. Gear **persists** through Scrap Resets, so anything you equip carries over." },
-  /* 18 */ { icon: "\u{1F449}", tip: "You\u2019re ready for a fresh start. Head to the **Upgrades** tab and open the **Prestige** section.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
-  /* 19 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with permanent bonuses.", allowedTabs: ["upgrades"], target: "prestige-btn" },
+  /* 13 */ { icon: "\u{1F527}", tip: "Your ride took damage. First **Repair** is free \u2014 head to the **Garage**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
+  /* 14 */ { icon: "\u{1F680}", tip: "Earn **$50,000 lifetime scrap** and **5,000 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["Time to grind. Earn **$50,000 lifetime scrap** and **5,000 Rep** to prove you belong.", "**Fatigue** builds each race and slows you down. When it\u2019s too much, **Scrap Reset** to restart stronger."], helpDetail: "Lifetime scrap is the total scrap you\u2019ve ever earned (not your current balance). Rep unlocks new locations, circuits, and vehicles as you earn more. Keep racing, repairing, and building to hit both targets." },
+  /* 15 */ { icon: "\u{1F527}", tip: "Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades", goalIntro: "**Workshop** upgrades boost your current run. They reset on **Scrap Reset**, but the **Legacy Points** you earn are permanent.", helpDetail: "Workshop has categories like Scavenging, Building, Racing, and Maintenance. Try Keen Eye ($50) for better parts, Budget Repairs ($65) for cheaper fixes, or Tuned Suspension ($100) for better handling. Workshop upgrades reset on Scrap Reset, but Legacy Points earned from resetting buy permanent upgrades in the Legacy section." },
+  /* 16 */ { icon: "\u2B06\uFE0F", tip: "**Buy** a Workshop upgrade to power up your run.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
+  /* 17 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "Equip **gear** for passive bonuses. Gear **persists** through Scrap Resets." },
+  /* 18 */ { icon: "\u{1F449}", tip: "Head to the **Upgrades** tab \u2014 open the **Prestige** section.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
+  /* 19 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger.", allowedTabs: ["upgrades"], target: "prestige-btn" },
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
@@ -131,7 +133,7 @@ function isStepConditionMet(
       const active = state.garage.find((v) => v.id === state.activeVehicleId);
       return active ? (active.condition ?? 100) >= 100 : state.garage.length > 1;
     }
-    case 14: return state.repPoints >= 5000 && state.lifetimeScrapBucks >= 50000 && state.garage.length >= 3;
+    case 14: return state.repPoints >= 5000 && state.lifetimeScrapBucks >= 50000;
     case 15: return state.activeTab === "upgrades";
     case 16: return Object.values(state.workshopLevels).some((v) => v > 0);
     case 17: return state.activeTab === "gear";
@@ -217,6 +219,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const tutorialLastAdvanceTime = useGameStore((s) => s.tutorialLastAdvanceTime);
 
   const [cardDismissed, setCardDismissed] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [sellBtnRect, setSellBtnRect] = useState<DOMRect | null>(null);
   const [highlightRect, setHighlightRect] = useState<DOMRect[] | null>(null);
@@ -230,7 +233,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const [introSubStep, setIntroSubStep] = useState(0);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
-  useEffect(() => { setCardDismissed(false); setIntroSubStep(0); }, [tutorialStep]);
+  useEffect(() => { setCardDismissed(false); setIntroSubStep(0); setShowHelpModal(false); }, [tutorialStep]);
 
   /* ── "Need help?" nudge — shows after idle period ───────────────────── */
   useEffect(() => {
@@ -605,7 +608,19 @@ export default function TutorialOverlay({ activeTab }: Props) {
         </>
       );
     }
-    // Step 14 goal tracker is rendered in the HUD instead
+    if (tutorialStep === 14) {
+      goalContent = (
+        <>
+          <span style={{ color: lifetimeScrapBucks >= 50000 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            ${formatNumber(lifetimeScrapBucks)} / $50k
+          </span>
+          <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
+          <span style={{ color: repPoints >= 5000 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            {formatNumber(repPoints)} / 5k Rep
+          </span>
+        </>
+      );
+    }
   }
 
   return (
@@ -692,15 +707,24 @@ export default function TutorialOverlay({ activeTab }: Props) {
               ["--arrow-left" as string]: `${arrowLeftPx}px`,
             }}
           >
-            <button
-              onClick={dismissTutorial}
-              className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-              style={{ color: "#888", background: "#333" }}
-            >
+            <div className="absolute top-2 right-2 flex items-center gap-1">
+              {stepDef.helpDetail && (
+                <button
+                  onClick={() => setShowHelpModal(true)}
+                  className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-50 transition-opacity hover:opacity-100"
+                  style={{ color: "var(--accent)", background: "#333", fontSize: 10, fontWeight: 700 }}
+                >?</button>
+              )}
+              <button
+                onClick={dismissTutorial}
+                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
+                style={{ color: "#888", background: "#333" }}
+              >
               {"\u2715"}
-            </button>
+              </button>
+            </div>
 
-            <div className="flex items-start gap-2.5 pr-5">
+            <div className="flex items-start gap-2.5 pr-8">
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
@@ -746,15 +770,24 @@ export default function TutorialOverlay({ activeTab }: Props) {
               ["--arrow-left" as string]: `${arrowLeftPx}px`,
             }}
           >
-            <button
-              onClick={dismissTutorial}
-              className="absolute top-2 right-2 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-              style={{ color: "#888", background: "#333" }}
-            >
-              {"\u2715"}
-            </button>
+            <div className="absolute top-2 right-2 flex items-center gap-1">
+              {stepDef.helpDetail && (
+                <button
+                  onClick={() => setShowHelpModal(true)}
+                  className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-50 transition-opacity hover:opacity-100"
+                  style={{ color: "var(--accent)", background: "#333", fontSize: 10, fontWeight: 700 }}
+                >?</button>
+              )}
+              <button
+                onClick={dismissTutorial}
+                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
+                style={{ color: "#888", background: "#333" }}
+              >
+                {"\u2715"}
+              </button>
+            </div>
 
-            <div className="flex items-start gap-2.5 pr-5">
+            <div className="flex items-start gap-2.5 pr-8">
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
@@ -830,6 +863,33 @@ export default function TutorialOverlay({ activeTab }: Props) {
             >
               {"\u2715"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Help detail modal */}
+      {showHelpModal && stepDef.helpDetail && (
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+          <div
+            className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-5"
+            style={CARD_BG}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">{stepDef.icon}</span>
+              <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>More details</span>
+            </div>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              {stepDef.helpDetail}
+            </p>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setShowHelpModal(false)}
+                className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-bold transition-colors"
+                style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
