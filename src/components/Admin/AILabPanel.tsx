@@ -6,6 +6,7 @@ import { buildContext, AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
 import type { AIModel } from "@/lib/mechanic-types";
 import { formatPrice, formatPricePer1M, formatContext, formatModality } from "@/lib/format-model";
 
+// ── Types ──
 
 interface ComparisonResult {
   text: string;
@@ -14,6 +15,33 @@ interface ComparisonResult {
   startTime?: number;
   endTime?: number;
 }
+
+interface ModelTestRecord {
+  runs: number;
+  successes: number;
+  failures: number;
+  empties: number;
+  totalResponseMs: number;
+  lastTested: number;
+}
+
+type TestHistory = Record<string, ModelTestRecord>;
+
+const HISTORY_KEY = "rags-ai-test-history";
+
+function loadHistory(): TestHistory {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveHistory(h: TestHistory) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+}
+
+// ── Component ──
 
 export default function AILabPanel() {
   // ── Model list state ──
@@ -34,6 +62,9 @@ export default function AILabPanel() {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, ComparisonResult>>({});
   const [isRunning, setIsRunning] = useState(false);
+
+  // ── Test history ──
+  const [history, setHistory] = useState<TestHistory>(loadHistory);
 
   // ── Auto-fetch on mount if cache is empty ──
   useEffect(() => {
@@ -76,8 +107,28 @@ export default function AILabPanel() {
     });
   }
 
+  function recordResult(modelId: string, result: ComparisonResult) {
+    setHistory((prev) => {
+      const rec = prev[modelId] ?? { runs: 0, successes: 0, failures: 0, empties: 0, totalResponseMs: 0, lastTested: 0 };
+      const elapsed = result.startTime && result.endTime ? result.endTime - result.startTime : 0;
+      const updated: TestHistory = {
+        ...prev,
+        [modelId]: {
+          runs: rec.runs + 1,
+          successes: rec.successes + (result.text ? 1 : 0),
+          failures: rec.failures + (result.status === "error" ? 1 : 0),
+          empties: rec.empties + (result.status === "done" && !result.text ? 1 : 0),
+          totalResponseMs: rec.totalResponseMs + elapsed,
+          lastTested: Date.now(),
+        },
+      };
+      saveHistory(updated);
+      return updated;
+    });
+  }
+
   async function runComparison() {
-    if (compareIds.length < 2) return;
+    if (compareIds.length < 1) return;
     setIsRunning(true);
 
     const state = useGameStore.getState();
@@ -90,6 +141,7 @@ export default function AILabPanel() {
     setResults(initial);
 
     const promises = compareIds.map(async (modelId) => {
+      const startTime = Date.now();
       try {
         const res = await fetch("/api/mechanic-advisor", {
           method: "POST",
@@ -112,16 +164,14 @@ export default function AILabPanel() {
             [modelId]: { ...prev[modelId], text, status: "streaming" },
           }));
         }
-        setResults((prev) => ({
-          ...prev,
-          [modelId]: { ...prev[modelId], text, status: "done", endTime: Date.now() },
-        }));
+        const final: ComparisonResult = { text, status: "done", startTime, endTime: Date.now() };
+        setResults((prev) => ({ ...prev, [modelId]: final }));
+        recordResult(modelId, final);
       } catch (e) {
         const error = e instanceof Error ? e.message : "Unknown error";
-        setResults((prev) => ({
-          ...prev,
-          [modelId]: { ...prev[modelId], status: "error", error, endTime: Date.now() },
-        }));
+        const final: ComparisonResult = { text: "", status: "error", error, startTime, endTime: Date.now() };
+        setResults((prev) => ({ ...prev, [modelId]: final }));
+        recordResult(modelId, final);
       }
     });
 
@@ -138,6 +188,14 @@ export default function AILabPanel() {
       return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
     })
     .sort((a, b) => parseFloat(a.pricing.prompt) - parseFloat(b.pricing.prompt));
+
+  const testedCount = Object.keys(history).length;
+  const compatibleIds = Object.entries(history)
+    .filter(([, r]) => r.successes > 0)
+    .map(([id]) => id);
+  const incompatibleIds = Object.entries(history)
+    .filter(([, r]) => r.runs > 0 && r.successes === 0)
+    .map(([id]) => id);
 
   const btnPrimary: React.CSSProperties = { background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" };
   const btnOutline: React.CSSProperties = { borderColor: "var(--btn-border)", color: "var(--text-primary)" };
@@ -182,6 +240,27 @@ export default function AILabPanel() {
         </button>
       </div>
 
+      {/* ── Compatibility Summary ── */}
+      {testedCount > 0 && (
+        <div
+          className="rounded-lg border p-3 flex items-center justify-between gap-3"
+          style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
+        >
+          <div className="flex items-center gap-4 text-[10px] font-mono">
+            <span style={{ color: "var(--text-muted)" }}>Tested: <b style={{ color: "var(--text-primary)" }}>{testedCount}</b></span>
+            <span style={{ color: "var(--text-muted)" }}>Compatible: <b style={{ color: "var(--success, #4ade80)" }}>{compatibleIds.length}</b></span>
+            <span style={{ color: "var(--text-muted)" }}>Incompatible: <b style={{ color: "var(--danger)" }}>{incompatibleIds.length}</b></span>
+          </div>
+          <button
+            onClick={() => { setHistory({}); saveHistory({}); }}
+            className="rounded border px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80"
+            style={btnOutline}
+          >
+            Clear History
+          </button>
+        </div>
+      )}
+
       {/* ── Search ── */}
       {models.length > 0 && (
         <input
@@ -212,6 +291,7 @@ export default function AILabPanel() {
             filteredModels.map((m) => {
               const isActive = activeModelId === m.id;
               const isCompare = compareIds.includes(m.id);
+              const rec = history[m.id];
               return (
                 <div
                   key={m.id}
@@ -245,6 +325,24 @@ export default function AILabPanel() {
                         {isActive && "\u2605 "}{m.name}
                       </span>
                       <div className="flex items-center gap-2 shrink-0">
+                        {/* Test status badge */}
+                        {rec && (
+                          <span
+                            className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{
+                              background: rec.successes > 0
+                                ? "rgba(74,222,128,0.15)"
+                                : "rgba(224,92,92,0.15)",
+                              color: rec.successes > 0
+                                ? "var(--success, #4ade80)"
+                                : "var(--danger)",
+                            }}
+                          >
+                            {rec.successes > 0
+                              ? `${rec.successes}/${rec.runs}`
+                              : "fail"}
+                          </span>
+                        )}
                         <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
                           {formatContext(m.contextLength)}
                         </span>
@@ -269,6 +367,7 @@ export default function AILabPanel() {
                     <p className="text-[10px] font-mono truncate" style={{ color: "var(--text-muted)" }}>
                       {m.id} · {formatPrice(m.pricing.prompt)}
                       {m.maxCompletionTokens > 0 && ` · ${formatContext(m.maxCompletionTokens)} max out`}
+                      {rec && rec.successes > 0 && ` · avg ${(rec.totalResponseMs / rec.runs / 1000).toFixed(1)}s`}
                     </p>
                   </div>
                 </div>
@@ -307,9 +406,9 @@ export default function AILabPanel() {
           </div>
           <button
             onClick={runComparison}
-            disabled={isRunning || compareIds.length < 2}
+            disabled={isRunning || compareIds.length < 1}
             className="rounded px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
-            style={compareIds.length >= 2 && !isRunning ? btnPrimary : btnOutline}
+            style={compareIds.length >= 1 && !isRunning ? btnPrimary : btnOutline}
           >
             {isRunning ? "Running..." : `Run Comparison (${compareIds.length})`}
           </button>
@@ -386,9 +485,14 @@ export default function AILabPanel() {
                         streaming
                       </span>
                     )}
-                    {r.status === "done" && (
+                    {r.status === "done" && r.text && (
                       <span className="text-[10px] font-semibold" style={{ color: "var(--success, #4ade80)" }}>
                         done
+                      </span>
+                    )}
+                    {r.status === "done" && !r.text && (
+                      <span className="text-[10px] font-semibold" style={{ color: "var(--warning, #eab308)" }}>
+                        empty
                       </span>
                     )}
                     {r.status === "error" && (
