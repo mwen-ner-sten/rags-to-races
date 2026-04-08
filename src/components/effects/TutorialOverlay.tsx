@@ -147,13 +147,13 @@ function isStepConditionMet(
 const CARD_BG: React.CSSProperties = {
   background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
   boxShadow:
-    "0 0 48px rgba(234, 179, 8, 0.22), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
+    "0 0 48px color-mix(in srgb, var(--accent, #eab308) 22%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
 };
 
 const BADGE_BG: React.CSSProperties = {
   background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
   boxShadow:
-    "0 0 32px rgba(234, 179, 8, 0.18), 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px -4px rgba(0,0,0,0.4)",
+    "0 0 32px color-mix(in srgb, var(--accent, #eab308) 18%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px -4px rgba(0,0,0,0.4)",
 };
 
 function renderTip(tip: string) {
@@ -459,7 +459,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </div>
           <div className="flex items-center justify-between gap-3">
             <button onClick={skipTutorial} className="shrink-0 cursor-pointer rounded-md border px-3 py-2 text-xs font-semibold opacity-80 transition-opacity hover:opacity-100" style={{ color: "var(--text-secondary)", borderColor: "rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)" }}>Jump in</button>
-            <button onClick={advanceTutorial} className="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px rgba(234,179,8,0.3)" }}>Guide me &rarr;</button>
+            <button onClick={advanceTutorial} className="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}>Guide me &rarr;</button>
           </div>
           {SHOW_DEV && (
             <button
@@ -652,7 +652,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           style={{
             left: sellBtnRect.left, top: sellBtnRect.top,
             width: sellBtnRect.width, height: sellBtnRect.height,
-            background: "rgba(234, 179, 8, 0.18)",
+            background: "color-mix(in srgb, var(--accent, #eab308) 18%, transparent)",
             border: "1.5px solid var(--accent)",
             pointerEvents: "none",
           }}
@@ -714,7 +714,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                         }
                       }}
                       className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
+                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
                     >
                       {introSequence && !introSequenceComplete ? "Next" : "Got it"} &rarr;
                     </button>
@@ -758,7 +758,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                       <button
                         onClick={advanceTutorial}
                         className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                        style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px rgba(234,179,8,0.3)" }}
+                        style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
                       >
                         Got it &rarr;
                       </button>
@@ -807,7 +807,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
             className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium shadow-lg"
             style={{
               background: "linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 100%)",
-              boxShadow: "0 0 24px rgba(234, 179, 8, 0.15), 0 4px 12px rgba(0,0,0,0.4)",
+              boxShadow: "0 0 24px color-mix(in srgb, var(--accent, #eab308) 15%, transparent), 0 4px 12px rgba(0,0,0,0.4)",
               color: "var(--text-primary)",
               border: "1px solid rgba(255,255,255,0.08)",
             }}
