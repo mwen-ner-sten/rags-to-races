@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useGameStore } from "@/state/store";
-import { AI_MODEL_STORAGE_KEY } from "@/hooks/useMechanicAdvisor";
-import type { AIModel } from "@/lib/mechanic-types";
-import { formatPrice, formatContext, formatModality } from "@/lib/format-model";
-import ModelComparison from "./ModelComparison";
+import AILabPanel from "./AILabPanel";
 import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
@@ -72,43 +69,6 @@ export default function AdminPanel() {
   const [partCondition, setPartCondition] = useState<PartCondition>("good");
   const [partCount, setPartCount] = useState("1");
   const [addLog, setAddLog] = useState<string[]>([]);
-  const [aiModels, setAiModels] = useState<AIModel[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const cached = localStorage.getItem("rags-ai-models");
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
-  });
-  const [aiModelsLoading, setAiModelsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem(AI_MODEL_STORAGE_KEY) ?? "" : "",
-  );
-  const [modelFilter, setModelFilter] = useState("");
-  const [showFreeOnly, setShowFreeOnly] = useState(false);
-
-  async function fetchModels() {
-    setAiModelsLoading(true);
-    try {
-      const res = await fetch("/api/models");
-      if (!res.ok) throw new Error(`Failed (${res.status})`);
-      const data = await res.json();
-      const models = data.models ?? [];
-      setAiModels(models);
-      localStorage.setItem("rags-ai-models", JSON.stringify(models));
-      log(`Loaded ${models.length} models from OpenRouter`);
-    } catch (e) {
-      log(`Failed to load models: ${e instanceof Error ? e.message : "unknown"}`);
-    } finally {
-      setAiModelsLoading(false);
-    }
-  }
-
-  // Auto-fetch models on mount if cache is empty
-  useEffect(() => {
-    if (aiModels.length === 0) {
-      fetchModels();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function log(msg: string) {
     setAddLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 10));
@@ -556,130 +516,7 @@ export default function AdminPanel() {
       </>}
 
       {/* ── AI Lab Tab ── */}
-      {devTab === "ai" && <>
-      <div className="flex flex-col gap-4">
-
-        {/* AI Model Picker */}
-        <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className={SECTION + " lg:col-span-3"}>
-          <div className="flex items-center justify-between">
-            <p style={{ color: "var(--text-heading)" }} className={LABEL}>AI Model Picker</p>
-            <button
-              onClick={fetchModels}
-              disabled={aiModelsLoading}
-              style={btnOutline}
-              className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90"
-            >
-              {aiModelsLoading ? "Loading..." : `Refresh (${aiModels.length})`}
-            </button>
-          </div>
-          {selectedModel && (
-            <p style={{ color: "var(--text-muted)" }} className="text-xs">
-              Active: <span style={{ color: "var(--accent)" }}>{selectedModel}</span>
-            </p>
-          )}
-          {!selectedModel && (
-            <p style={{ color: "var(--text-muted)" }} className="text-xs">
-              No model selected. Pick one below for Gearhead Gary.
-            </p>
-          )}
-          {aiModels.length > 0 && (
-            <>
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  placeholder="Filter models..."
-                  value={modelFilter}
-                  onChange={(e) => setModelFilter(e.target.value)}
-                  className="flex-1 rounded border px-2 py-1.5 text-xs"
-                  style={{ background: "var(--input-bg, var(--panel-bg))", borderColor: "var(--input-border, var(--panel-border))", color: "var(--text-primary)" }}
-                />
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: "var(--text-muted)" }}>
-                  <input
-                    type="checkbox"
-                    checked={showFreeOnly}
-                    onChange={(e) => setShowFreeOnly(e.target.checked)}
-                    className="accent-[var(--accent)]"
-                  />
-                  Free only
-                </label>
-              </div>
-              <div className="max-h-64 overflow-y-auto rounded border" style={{ borderColor: "var(--panel-border)" }}>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr style={{ background: "var(--surface-bg, var(--panel-bg))" }}>
-                      <th className="text-left px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Model</th>
-                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>In $/1M</th>
-                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Out $/1M</th>
-                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Context</th>
-                      <th className="text-right px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Max Out</th>
-                      <th className="text-center px-2 py-1 font-semibold" style={{ color: "var(--text-heading)" }}>Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {aiModels
-                      .filter((m) => {
-                        if (showFreeOnly && parseFloat(m.pricing.prompt) > 0) return false;
-                        if (!modelFilter) return true;
-                        const q = modelFilter.toLowerCase();
-                        return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
-                      })
-                      .sort((a, b) => parseFloat(a.pricing.prompt) - parseFloat(b.pricing.prompt))
-                      .map((m) => (
-                        <tr
-                          key={m.id}
-                          onClick={() => {
-                            setSelectedModel(m.id);
-                            localStorage.setItem(AI_MODEL_STORAGE_KEY, m.id);
-                            log(`AI model set: ${m.name}`);
-                          }}
-                          className="cursor-pointer transition-colors"
-                          style={{
-                            background: selectedModel === m.id ? "var(--accent-bg, rgba(99,102,241,0.15))" : "transparent",
-                            borderBottom: "1px solid var(--divider, var(--panel-border))",
-                          }}
-                        >
-                          <td className="px-2 py-1.5">
-                            <span style={{ color: selectedModel === m.id ? "var(--accent)" : "var(--text-primary)" }}>{m.name}</span>
-                            <br />
-                            <span style={{ color: "var(--text-muted)" }} className="text-[10px]">{m.id}</span>
-                          </td>
-                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
-                            {formatPrice(m.pricing.prompt)}
-                          </td>
-                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
-                            {formatPrice(m.pricing.completion)}
-                          </td>
-                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
-                            {formatContext(m.contextLength)}
-                          </td>
-                          <td className="text-right px-2 py-1.5 font-mono" style={{ color: "var(--text-secondary, var(--text-muted))" }}>
-                            {formatContext(m.maxCompletionTokens)}
-                          </td>
-                          <td className="text-center px-2 py-1.5">
-                            <span
-                              className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                              style={{
-                                background: formatModality(m.modality) === "multi" ? "var(--accent-bg, rgba(99,102,241,0.15))" : "transparent",
-                                color: formatModality(m.modality) === "multi" ? "var(--accent)" : "var(--text-muted)",
-                                border: formatModality(m.modality) === "text" ? "1px solid var(--panel-border)" : "none",
-                              }}
-                            >
-                              {formatModality(m.modality)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Model Comparison */}
-        <ModelComparison models={aiModels} />
-      </div>
-      </>}
+      {devTab === "ai" && <AILabPanel />}
 
       {/* ── System Tab ── */}
       {devTab === "system" && <>
