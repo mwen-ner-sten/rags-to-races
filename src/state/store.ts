@@ -49,6 +49,10 @@ import { TRACK_PERKS_BY_ID, trackPerkCost } from "@/data/trackPerks";
 import { calculateTeamPoints, calculateOwnerPoints, calculateTrackTokens } from "@/engine/prestige";
 import { FEATURE_UNLOCK_DEFINITIONS, checkFeatureUnlock } from "@/data/featureUnlocks";
 import type { CrewMember } from "@/data/crew";
+import { getPrestigeMilestoneBonuses, getNewlyUnlockedMilestones } from "@/data/prestigeMilestones";
+import { checkAchievements } from "@/engine/achievements";
+import { ACHIEVEMENTS_BY_ID, type AchievementStats } from "@/data/achievements";
+import { PLAYSTYLE_NODES_BY_ID, canUnlockPlaystyleNode, getPlaystylePathRespecCost, type PlaystylePath } from "@/data/playstyleUpgrades";
 
 // ── Activity log ────────────────────────────────────────────────────────────
 export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
@@ -232,6 +236,23 @@ export interface GameState {
   crewRoster: CrewMember[];
   crewSlots: number;
 
+  // Achievements (never reset across any prestige layer)
+  earnedAchievements: string[];
+
+  // Lifetime stats for achievements (never reset across any prestige layer)
+  lifetimeRacesAllTime: number;
+  lifetimeWinsAllTime: number;
+  lifetimeScrapBucksAllTime: number;
+  lifetimePartsScavengedAllTime: number;
+  lifetimeVehiclesBuiltAllTime: number;
+  bestWinStreakAllTime: number;
+  highestVehicleTierBuilt: number;
+  totalForgeTokensEarned: number;
+  uniqueVehicleTypesBuilt: string[];
+
+  // Playstyle upgrades (persists through Scrap Reset, resets on Team Reset)
+  unlockedPlaystyleNodes: string[];
+
   // Actions
   manualScavenge: () => void;
   sellPart: (partId: string) => void;
@@ -296,6 +317,9 @@ export interface GameState {
   allocateAttribute: (attr: AttributeName, delta: number) => void;
   specializeCrewMember: (crewId: string, spec: string) => void;
   checkFeatureUnlocks: () => void;
+  checkAchievements: () => void;
+  purchasePlaystyleNode: (nodeId: string) => void;
+  respecPlaystylePath: (path: PlaystylePath) => void;
 
   // User actions (destructive)
   resetSave: () => void;
@@ -406,6 +430,19 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lifetimeScrapResets: 0,
     crewRoster: [],
     crewSlots: 0,
+    // Achievements & lifetime stats (never reset)
+    earnedAchievements: [],
+    lifetimeRacesAllTime: 0,
+    lifetimeWinsAllTime: 0,
+    lifetimeScrapBucksAllTime: 0,
+    lifetimePartsScavengedAllTime: 0,
+    lifetimeVehiclesBuiltAllTime: 0,
+    bestWinStreakAllTime: 0,
+    highestVehicleTierBuilt: 0,
+    totalForgeTokensEarned: 0,
+    uniqueVehicleTypesBuilt: [],
+    // Playstyle upgrades (reset on Team Reset)
+    unlockedPlaystyleNodes: [],
   };
 }
 
@@ -555,6 +592,8 @@ function createActions(set: SetState, get: GetState) {
           unlockEvents: justUnlocked
             ? [...s.unlockEvents, "Auto-Scavenge Enabled! Parts collect themselves now."]
             : s.unlockEvents,
+          // Lifetime stats for achievements
+          lifetimePartsScavengedAllTime: s.lifetimePartsScavengedAllTime + parts.length,
         };
       });
       const gearMsg = gearDrops.length > 0 ? ` + ${gearDrops.map((g) => g.name).join(", ")}` : "";
@@ -716,23 +755,33 @@ function createActions(set: SetState, get: GetState) {
             }
           }
         }
+        const mb = getPrestigeMilestoneBonuses(s.prestigeCount);
+        const newUniqueTypes = s.uniqueVehicleTypesBuilt.includes(vehicleDef.id)
+          ? s.uniqueVehicleTypesBuilt
+          : [...s.uniqueVehicleTypesBuilt, vehicleDef.id];
         return {
           garage: [...s.garage, built],
           inventory: remainingInventory,
           scrapBucks: s.scrapBucks - actualBuildCost,
           _vehicleIdCounter: s._vehicleIdCounter + 1,
           pendingBuildParts: newPendingParts,
-          // Auto-activate is a prestige perk — first run requires manual activation
-          activeVehicleId: (s.activeVehicleId === null && s.prestigeCount >= 1) ? built.id : s.activeVehicleId,
+          // Auto-activate via prestige milestone system
+          activeVehicleId: (s.activeVehicleId === null && mb.autoActivateVehicle) ? built.id : s.activeVehicleId,
           racerSkills: _grantXp(s.racerSkills, "mechanics", 20),
+          // Lifetime stats for achievements
+          lifetimeVehiclesBuiltAllTime: s.lifetimeVehiclesBuiltAllTime + 1,
+          highestVehicleTierBuilt: Math.max(s.highestVehicleTierBuilt, vehicleDef.tier),
+          uniqueVehicleTypesBuilt: newUniqueTypes,
         };
       });
       _appendLog(set, get, "build", `Built ${vehicleDef.name} for $${actualBuildCost}`, { scrapDelta: -actualBuildCost });
-      // Log auto-activation when it triggers post-prestige
+      // Log auto-activation when it triggers via milestone
       const postBuild = get() as GameState;
-      if (postBuild.activeVehicleId === built.id && postBuild.prestigeCount >= 1) {
+      if (postBuild.activeVehicleId === built.id && getPrestigeMilestoneBonuses(postBuild.prestigeCount).autoActivateVehicle) {
         _appendLog(set, get, "build", `Auto-activated ${vehicleDef.name} (prestige perk)`);
       }
+      // Check achievements after building
+      postBuild.checkAchievements();
     },
 
     setActiveVehicle: (vehicleId: string) => {
@@ -997,8 +1046,16 @@ function createActions(set: SetState, get: GetState) {
             materials: newMaterials,
             gameTick: newTick,
             dealerBoard: newDealerBoard,
+            // Lifetime stats for achievements (never reset)
+            lifetimeRacesAllTime: s.lifetimeRacesAllTime + 1,
+            lifetimeWinsAllTime: s.lifetimeWinsAllTime + (outcome.result === "win" ? 1 : 0),
+            lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + finalScraps + challengeScrap,
+            bestWinStreakAllTime: Math.max(s.bestWinStreakAllTime, newBestStreak),
+            totalForgeTokensEarned: s.totalForgeTokensEarned + (newForgeTokens - s.forgeTokens),
           };
         });
+        // Check achievements after race
+        (get() as GameState).checkAchievements();
         // Check momentum tiers after race
         (get() as GameState).checkMomentumTiers();
         const resultLabel = outcome.result === "win" ? "Won" : outcome.result === "loss" ? "Lost" : "DNF";
@@ -1351,12 +1408,15 @@ function createActions(set: SetState, get: GetState) {
       const newLifetimeLp = state.lifetimeLegacyPoints + lpEarned;
 
       const unlockEvents: string[] = [];
-      if (newPrestigeCount === 1) {
-        unlockEvents.push("Auto-Race Enabled! Your scrap heap races itself!");
-      }
       if (lpEarned > 0) {
         unlockEvents.push(`+${lpEarned} Legacy Points earned!`);
       }
+      // Prestige milestone notifications
+      const newMilestones = getNewlyUnlockedMilestones(newPrestigeCount);
+      for (const m of newMilestones) {
+        unlockEvents.push(`Milestone: ${m.name} — ${m.description}`);
+      }
+      const milestoneBonuses = getPrestigeMilestoneBonuses(newPrestigeCount);
 
       set({
         ...initialState(),
@@ -1378,10 +1438,10 @@ function createActions(set: SetState, get: GetState) {
         // Seed Money: starting scrap
         scrapBucks: result.startingScrap,
         lifetimeScrapBucks: result.startingScrap,
-        // Auto-race unlocks permanently after first prestige
-        autoRaceUnlocked: newPrestigeCount >= 1,
-        // Auto-scavenge stays unlocked once earned, or via Muscle Memory talent
-        autoScavengeUnlocked: state.autoScavengeUnlocked || autoScavUnlocked,
+        // Auto-race via prestige milestone system
+        autoRaceUnlocked: milestoneBonuses.autoRace,
+        // Auto-scavenge stays unlocked once earned, via Muscle Memory, or via milestone
+        autoScavengeUnlocked: state.autoScavengeUnlocked || autoScavUnlocked || milestoneBonuses.startWithAutoScavenge,
         manualScavengeClicks: Math.min(startingClicks, 500),
         raceTickProgress: 0,
         unlockEvents,
@@ -1438,10 +1498,24 @@ function createActions(set: SetState, get: GetState) {
         lifetimeScrapResets: state.lifetimeScrapResets + 1,
         crewRoster: state.crewRoster,
         crewSlots: state.crewSlots,
+        // Achievements & lifetime stats persist through all resets
+        earnedAchievements: state.earnedAchievements,
+        lifetimeRacesAllTime: state.lifetimeRacesAllTime,
+        lifetimeWinsAllTime: state.lifetimeWinsAllTime,
+        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
+        lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
+        lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
+        bestWinStreakAllTime: state.bestWinStreakAllTime,
+        highestVehicleTierBuilt: state.highestVehicleTierBuilt,
+        totalForgeTokensEarned: state.totalForgeTokensEarned,
+        uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
+        // Playstyle nodes persist through Scrap Reset
+        unlockedPlaystyleNodes: state.unlockedPlaystyleNodes,
       });
       _appendLog(set, get, "prestige", `Prestige #${newPrestigeCount}! Earned ${lpEarned} Legacy Points`, { lpDelta: lpEarned });
-      // Check feature unlocks after prestige
+      // Check feature unlocks and achievements after prestige
       (get() as GameState).checkFeatureUnlocks();
+      (get() as GameState).checkAchievements();
     },
 
     purchaseLegacyUpgrade: (upgradeId: string) => {
@@ -1531,6 +1605,10 @@ function createActions(set: SetState, get: GetState) {
             : s.gearModInventory,
           raceTickProgress: newRaceTickProgress ?? s.raceTickProgress,
           lastActiveTimestamp: Date.now(),
+          // Lifetime stats for achievements
+          lifetimePartsScavengedAllTime: s.lifetimePartsScavengedAllTime + partsFound.length,
+          lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + scrapsEarned,
+          lifetimeRacesAllTime: raced ? s.lifetimeRacesAllTime + (racesCompleted ?? 1) : s.lifetimeRacesAllTime,
         };
       });
       // Check momentum tier activations after state update
@@ -1998,9 +2076,23 @@ function createActions(set: SetState, get: GetState) {
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
+        // Achievements & lifetime stats persist through all resets
+        earnedAchievements: state.earnedAchievements,
+        lifetimeRacesAllTime: state.lifetimeRacesAllTime,
+        lifetimeWinsAllTime: state.lifetimeWinsAllTime,
+        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
+        lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
+        lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
+        bestWinStreakAllTime: state.bestWinStreakAllTime,
+        highestVehicleTierBuilt: state.highestVehicleTierBuilt,
+        totalForgeTokensEarned: state.totalForgeTokensEarned,
+        uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
+        // Playstyle nodes RESET on Team Reset
+        unlockedPlaystyleNodes: [],
       });
       _appendLog(set, get, "prestige", `Team Reset! Earned ${tpEarned} Team Points`, {});
       (get() as GameState).checkFeatureUnlocks();
+      (get() as GameState).checkAchievements();
     },
 
     purchaseTeamUpgrade: (upgradeId: string) => {
@@ -2057,9 +2149,23 @@ function createActions(set: SetState, get: GetState) {
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
+        // Achievements & lifetime stats persist through all resets
+        earnedAchievements: state.earnedAchievements,
+        lifetimeRacesAllTime: state.lifetimeRacesAllTime,
+        lifetimeWinsAllTime: state.lifetimeWinsAllTime,
+        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
+        lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
+        lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
+        bestWinStreakAllTime: state.bestWinStreakAllTime,
+        highestVehicleTierBuilt: state.highestVehicleTierBuilt,
+        totalForgeTokensEarned: state.totalForgeTokensEarned,
+        uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
+        // Playstyle nodes reset on Team Reset (already reset in parent layer)
+        unlockedPlaystyleNodes: [],
       });
       _appendLog(set, get, "prestige", `Owner Reset! Earned ${opEarned} Owner Points`, {});
       (get() as GameState).checkFeatureUnlocks();
+      (get() as GameState).checkAchievements();
     },
 
     purchaseOwnerUpgrade: (upgradeId: string) => {
@@ -2110,9 +2216,23 @@ function createActions(set: SetState, get: GetState) {
         lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
+        // Achievements & lifetime stats persist through all resets
+        earnedAchievements: state.earnedAchievements,
+        lifetimeRacesAllTime: state.lifetimeRacesAllTime,
+        lifetimeWinsAllTime: state.lifetimeWinsAllTime,
+        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
+        lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
+        lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
+        bestWinStreakAllTime: state.bestWinStreakAllTime,
+        highestVehicleTierBuilt: state.highestVehicleTierBuilt,
+        totalForgeTokensEarned: state.totalForgeTokensEarned,
+        uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
+        // Playstyle nodes reset
+        unlockedPlaystyleNodes: [],
       });
       _appendLog(set, get, "prestige", `Track Reset! Earned ${ptEarned} Prestige Tokens`, {});
       (get() as GameState).checkFeatureUnlocks();
+      (get() as GameState).checkAchievements();
     },
 
     purchaseTrackPerk: (perkId: string) => {
@@ -2175,6 +2295,72 @@ function createActions(set: SetState, get: GetState) {
       if (newUnlocked.length > state.unlockedFeatures.length) {
         set({ unlockedFeatures: newUnlocked, unlockEvents: newEvents });
       }
+    },
+
+    checkAchievements: () => {
+      const state = get() as GameState;
+      const stats: AchievementStats = {
+        lifetimeRacesAllTime: state.lifetimeRacesAllTime,
+        lifetimeWinsAllTime: state.lifetimeWinsAllTime,
+        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
+        lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
+        lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
+        bestWinStreakAllTime: state.bestWinStreakAllTime,
+        highestVehicleTierBuilt: state.highestVehicleTierBuilt,
+        totalForgeTokensEarned: state.totalForgeTokensEarned,
+        uniqueVehicleTypesBuiltCount: state.uniqueVehicleTypesBuilt.length,
+        lifetimeScrapResets: state.lifetimeScrapResets,
+        lifetimeLPAllTime: state.lifetimeLPAllTime,
+        teamEraCount: state.teamEraCount,
+        ownerEraCount: state.ownerEraCount,
+        lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
+        highestConditionReached: state.highestConditionReached,
+      };
+      const newlyEarned = checkAchievements(stats, state.earnedAchievements);
+      if (newlyEarned.length > 0) {
+        const newEvents = [...state.unlockEvents];
+        for (const id of newlyEarned) {
+          const def = ACHIEVEMENTS_BY_ID[id];
+          if (def) {
+            const rewardText = def.reward.type === "bonus" ? ` — ${def.reward.description}` : def.reward.type === "title" ? ` — Title: ${def.reward.title}` : "";
+            newEvents.push(`Achievement: ${def.name}!${rewardText}`);
+          }
+        }
+        set({
+          earnedAchievements: [...state.earnedAchievements, ...newlyEarned],
+          unlockEvents: newEvents,
+        });
+        _appendLog(set, get, "prestige", `Earned ${newlyEarned.length} achievement(s)`);
+      }
+    },
+
+    purchasePlaystyleNode: (nodeId: string) => {
+      const state = get() as GameState;
+      const node = PLAYSTYLE_NODES_BY_ID[nodeId];
+      if (!node) return;
+      if (!canUnlockPlaystyleNode(nodeId, state.unlockedPlaystyleNodes)) return;
+      if (state.legacyPoints < node.lpCost) return;
+      set({
+        legacyPoints: state.legacyPoints - node.lpCost,
+        unlockedPlaystyleNodes: [...state.unlockedPlaystyleNodes, nodeId],
+      });
+      _appendLog(set, get, "prestige", `Unlocked playstyle node: ${node.name} for ${node.lpCost} LP`, { lpDelta: -node.lpCost });
+    },
+
+    respecPlaystylePath: (path: PlaystylePath) => {
+      const state = get() as GameState;
+      const invested = getPlaystylePathRespecCost(path, state.unlockedPlaystyleNodes);
+      if (invested === 0) return;
+      const refund = Math.floor(invested * 0.5);
+      const remaining = state.unlockedPlaystyleNodes.filter((id) => {
+        const n = PLAYSTYLE_NODES_BY_ID[id];
+        return n && n.path !== path;
+      });
+      set({
+        unlockedPlaystyleNodes: remaining,
+        legacyPoints: state.legacyPoints + refund,
+      });
+      _appendLog(set, get, "prestige", `Respecced ${path} playstyle path — refunded ${refund} LP`, { lpDelta: refund });
     },
 
     resetSave: () => {
@@ -2312,6 +2498,42 @@ export const useGameStore = create<GameState>()(
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
+        // Multi-layer prestige (was missing from partialize)
+        racerSkills: state.racerSkills,
+        teamPoints: state.teamPoints,
+        lifetimeTeamPoints: state.lifetimeTeamPoints,
+        teamUpgradeLevels: state.teamUpgradeLevels,
+        teamEraCount: state.teamEraCount,
+        lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
+        ownerPoints: state.ownerPoints,
+        lifetimeOwnerPoints: state.lifetimeOwnerPoints,
+        ownerUpgradeLevels: state.ownerUpgradeLevels,
+        ownerEraCount: state.ownerEraCount,
+        lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
+        trackPrestigeTokens: state.trackPrestigeTokens,
+        lifetimeTrackTokens: state.lifetimeTrackTokens,
+        trackPerkLevels: state.trackPerkLevels,
+        trackEraCount: state.trackEraCount,
+        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
+        racerAttributes: state.racerAttributes,
+        unlockedFeatures: state.unlockedFeatures,
+        lifetimeLPAllTime: state.lifetimeLPAllTime,
+        lifetimeScrapResets: state.lifetimeScrapResets,
+        crewRoster: state.crewRoster,
+        crewSlots: state.crewSlots,
+        // Achievements & lifetime stats
+        earnedAchievements: state.earnedAchievements,
+        lifetimeRacesAllTime: state.lifetimeRacesAllTime,
+        lifetimeWinsAllTime: state.lifetimeWinsAllTime,
+        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
+        lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
+        lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
+        bestWinStreakAllTime: state.bestWinStreakAllTime,
+        highestVehicleTierBuilt: state.highestVehicleTierBuilt,
+        totalForgeTokensEarned: state.totalForgeTokensEarned,
+        uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
+        // Playstyle
+        unlockedPlaystyleNodes: state.unlockedPlaystyleNodes,
       }),
     },
   ),

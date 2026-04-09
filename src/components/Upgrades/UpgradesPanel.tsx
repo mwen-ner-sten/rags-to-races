@@ -8,23 +8,28 @@ import PrestigeSubTab from "./PrestigeSubTab";
 import TeamSubTab from "./TeamSubTab";
 import OwnerSubTab from "./OwnerSubTab";
 import TrackSubTab from "./TrackSubTab";
+import AchievementsSubTab from "./AchievementsSubTab";
+import PlaystyleSubTab from "./PlaystyleSubTab";
 
-type UpgradeSubTab = "workshop" | "legacy" | "prestige" | "team" | "owner" | "track";
+type UpgradeSubTab = "workshop" | "legacy" | "prestige" | "trophies" | "playstyle" | "team" | "owner" | "track";
 
 export default function UpgradesPanel() {
   const [activeTab, setActiveTab] = useState<UpgradeSubTab>("workshop");
   const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
+  const prestigeCount = useGameStore((s) => s.prestigeCount);
   const teamEraCount = useGameStore((s) => s.teamEraCount);
   const ownerEraCount = useGameStore((s) => s.ownerEraCount);
   const trackEraCount = useGameStore((s) => s.trackEraCount);
 
   const TABS: { id: UpgradeSubTab; label: string; show: boolean }[] = [
-    { id: "workshop", label: "Workshop", show: true },
-    { id: "legacy",   label: "Legacy", show: true },
-    { id: "prestige", label: "Prestige", show: true },
-    { id: "team",     label: "Team", show: teamEraCount > 0 || unlockedFeatures.includes("crew_system") },
-    { id: "owner",    label: "Owner", show: ownerEraCount > 0 },
-    { id: "track",    label: "Track", show: trackEraCount > 0 },
+    { id: "workshop",  label: "Workshop", show: true },
+    { id: "legacy",    label: "Legacy", show: true },
+    { id: "prestige",  label: "Prestige", show: true },
+    { id: "trophies",  label: "Trophies", show: true },
+    { id: "playstyle", label: "Playstyle", show: prestigeCount >= 3 },
+    { id: "team",      label: "Team", show: teamEraCount > 0 || unlockedFeatures.includes("crew_system") },
+    { id: "owner",     label: "Owner", show: ownerEraCount > 0 },
+    { id: "track",     label: "Track", show: trackEraCount > 0 },
   ];
 
   const visibleTabs = TABS.filter((t) => t.show);
@@ -50,8 +55,10 @@ export default function UpgradesPanel() {
 
       {activeTab === "workshop" && <WorkshopPanel />}
       {activeTab === "legacy"   && <LegacyShop />}
-      {activeTab === "prestige" && <PrestigeSubTab />}
-      {activeTab === "team"     && <TeamSubTab />}
+      {activeTab === "prestige"  && <PrestigeSubTab />}
+      {activeTab === "trophies"  && <AchievementsSubTab />}
+      {activeTab === "playstyle" && <PlaystyleSubTab />}
+      {activeTab === "team"      && <TeamSubTab />}
       {activeTab === "owner"    && <OwnerSubTab />}
       {activeTab === "track"    && <TrackSubTab />}
     </div>

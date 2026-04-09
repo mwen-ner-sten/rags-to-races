@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import MomentumTracker from "@/components/Shop/MomentumTracker";
+import PrestigeMilestoneTrack from "./PrestigeMilestoneTrack";
 import PrestigeConfirm from "@/components/Shop/PrestigeConfirm";
 
 export default function PrestigeSubTab() {
@@ -70,6 +71,8 @@ export default function PrestigeSubTab() {
           </div>
         </>
       )}
+
+      <PrestigeMilestoneTrack />
 
       <MomentumTracker />
 

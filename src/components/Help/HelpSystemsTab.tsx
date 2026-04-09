@@ -22,6 +22,9 @@ import {
   HELP_TEAM_UPGRADES_BY_CATEGORY,
   HELP_OWNER_UPGRADES_BY_CATEGORY,
   HELP_TRACK_PERKS_BY_CATEGORY,
+  HELP_PRESTIGE_MILESTONES,
+  HELP_ACHIEVEMENTS_BY_CATEGORY,
+  HELP_PLAYSTYLE_PATHS,
   type LegacyUpgradeCategory,
 } from "@/data/helpContent";
 import { formatNumber, capitalize } from "@/utils/format";

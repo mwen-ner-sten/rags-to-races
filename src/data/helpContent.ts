@@ -17,6 +17,9 @@ import { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATI
 import { TEAM_UPGRADE_DEFINITIONS, TEAM_CATEGORIES, TEAM_CATEGORY_LABELS } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS, OWNER_CATEGORIES, OWNER_CATEGORY_LABELS } from "@/data/ownerUpgrades";
 import { TRACK_PERK_DEFINITIONS, TRACK_PERK_CATEGORIES, TRACK_PERK_CATEGORY_LABELS } from "@/data/trackPerks";
+import { PRESTIGE_MILESTONE_DEFINITIONS } from "@/data/prestigeMilestones";
+import { ACHIEVEMENT_DEFINITIONS, ACHIEVEMENT_CATEGORIES } from "@/data/achievements";
+import { PLAYSTYLE_PATHS, PLAYSTYLE_NODE_DEFINITIONS } from "@/data/playstyleUpgrades";
 import type { CoreSlot } from "@/data/parts";
 
 // ── How to Play ─────────────────────────────────────────────────────────────
@@ -82,6 +85,10 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
   { term: "Racer Attributes", meaning: `${ATTRIBUTE_DEFINITIONS.length} allocatable stat points (${ATTRIBUTE_DEFINITIONS.map(a => a.name).join(", ")}). Boost skill ratings or provide flat bonuses.` },
   { term: "Offline Progress", meaning: "The game continues scavenging and racing while closed (capped at 8 hours). A summary modal shows your offline earnings when you return." },
+  { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
+  { term: "Prestige Milestone", meaning: "Free reward earned at prestige count thresholds. Some shape your run strategy. View in Upgrades > Prestige." },
+  { term: "Playstyle Node", meaning: "LP-bought specialization in Scrapper/Speedster/Engineer trees. Resets on Team Reset. View in Upgrades > Playstyle." },
+  { term: "Softwall", meaning: "A large bonus to a specific activity at certain prestige counts that naturally encourages that playstyle." },
 ];
 
 // ── FAQ ─────────────────────────────────────────────────────────────────────
@@ -123,6 +130,22 @@ export const HELP_FAQ: FAQItem[] = [
   {
     question: "How do racer skills and attributes work?",
     answer: "Skills (Driving, Mechanics, Scavenging, Endurance) earn XP from gameplay actions and level up automatically (max level 20). Each level adds rating points that convert to effectiveness with diminishing returns at higher content tiers. Attributes (Reflexes, Endurance, Charisma, Instinct, Engineering, Fortune) are point-allocated — you get points each level to distribute. Some boost skill ratings, others give flat bonuses like +rep or +luck.",
+  },
+  {
+    question: "What's the difference between challenges and achievements?",
+    answer: "Challenges are per-run tasks with material rewards that reset progress each run. Achievements are lifetime milestones with permanent bonuses that persist through all resets.",
+  },
+  {
+    question: "Do achievements reset on prestige?",
+    answer: "Never. Achievements and their bonuses persist through all resets including Team, Owner, and Track.",
+  },
+  {
+    question: "What are softwall milestones?",
+    answer: "Large bonuses to specific activities at certain prestige counts. They naturally guide your playstyle for a few runs without restricting you.",
+  },
+  {
+    question: "Why did my playstyle nodes reset?",
+    answer: "Playstyle upgrades reset on Team Reset, giving you a natural respec opportunity each era. You can also manually respec for a 50% LP refund.",
   },
 ];
 
@@ -224,6 +247,27 @@ export const HELP_STRATEGY: StrategyCard[] = [
       "Late game: Engineering (Mechanics rating) to reduce build/repair costs at scale.",
       "Fortune is a luxury pick — the luck and forge token bonuses are small but compound over long runs.",
       "Charisma's +rep per race and -unlock cost are most impactful in the first few prestiges.",
+    ],
+  },
+  {
+    id: "milestone_planning",
+    title: "Milestone Planning",
+    advice: [
+      "Check upcoming prestige milestones before resetting. Softwall bonuses at prestige 7 (scavenging), 10 (racing), and 12 (workshop) dramatically shape your runs — plan accordingly.",
+    ],
+  },
+  {
+    id: "achievement_hunting",
+    title: "Achievement Hunting",
+    advice: [
+      "Target bonus-granting achievements first: Century Racer (+15% race scrap) and Scrap Tycoon (+20% scrap) provide the biggest early boosts. Hidden achievements exist — keep pushing boundaries.",
+    ],
+  },
+  {
+    id: "playstyle_paths",
+    title: "Playstyle Paths",
+    advice: [
+      "Scrapper path accelerates early runs via scavenging. Speedster shines in mid-game racing. Engineer dominates late-game with workshop and build bonuses. You can invest in all three, but T2 branches force a choice.",
     ],
   },
 ];
@@ -402,6 +446,39 @@ export const HELP_TRACK_PERKS_BY_CATEGORY = TRACK_PERK_CATEGORIES.map((cat) => (
   perks: TRACK_PERK_DEFINITIONS.filter((p) => p.category === cat).map((p) => ({
     id: p.id, name: p.name, description: p.description,
     maxLevel: p.maxLevel, baseCost: p.baseCost,
+  })),
+}));
+
+// Prestige Milestones
+export const HELP_PRESTIGE_MILESTONES = PRESTIGE_MILESTONE_DEFINITIONS.map((m) => ({
+  prestigeRequired: m.prestigeRequired,
+  name: m.name,
+  description: m.description,
+  flavorText: m.flavorText,
+  rewardType: m.reward.type,
+}));
+
+// Achievements by category
+export const HELP_ACHIEVEMENTS_BY_CATEGORY = ACHIEVEMENT_CATEGORIES.map((cat) => ({
+  category: cat.label,
+  achievements: ACHIEVEMENT_DEFINITIONS.filter((a) => a.category === cat.id).map((a) => ({
+    name: a.name,
+    description: a.description,
+    target: a.target,
+    reward: a.reward.type === "bonus" ? a.reward.description : a.reward.type === "title" ? `Title: ${a.reward.title}` : "Trophy",
+    hidden: a.hidden ?? false,
+  })),
+}));
+
+// Playstyle Paths
+export const HELP_PLAYSTYLE_PATHS = PLAYSTYLE_PATHS.map((path) => ({
+  name: path.name,
+  description: path.description,
+  nodes: PLAYSTYLE_NODE_DEFINITIONS.filter((n) => n.path === path.id).map((n) => ({
+    tier: n.tier,
+    name: n.name,
+    description: n.description,
+    lpCost: n.lpCost,
   })),
 }));
 
