@@ -391,6 +391,83 @@ export default function HelpSystemsTab() {
           </SystemSection>
         </div>
       </SectionCard>
+
+      {/* Prestige Milestones */}
+      <SectionCard title="Prestige Milestones">
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          Free rewards earned at prestige count thresholds. Softwall milestones give large bonuses that shape your playstyle.
+        </p>
+        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+          {HELP_PRESTIGE_MILESTONES.map((m) => (
+            <div key={m.name} className="rounded border p-2 text-xs" style={{ borderColor: m.rewardType === "softwall" ? "var(--accent-border)" : "var(--panel-border)" }}>
+              <div className="flex justify-between">
+                <span className="font-semibold" style={{ color: "var(--text-white)" }}>{m.name}</span>
+                <span style={{ color: "var(--text-muted)" }}>Prestige {m.prestigeRequired}</span>
+              </div>
+              <div style={{ color: "var(--text-secondary)" }}>{m.description}</div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Achievements */}
+      <SectionCard title="Achievements">
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          Lifetime milestones that grant permanent bonuses. Persist through all resets.
+        </p>
+        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          {HELP_ACHIEVEMENTS_BY_CATEGORY.map((group) => (
+            <div key={group.category}>
+              <div className="text-xs font-semibold uppercase mb-1" style={{ color: "var(--text-muted)" }}>
+                {group.category}
+              </div>
+              <div className="space-y-1">
+                {group.achievements.map((a) => (
+                  <div key={a.name} className="rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)", opacity: a.hidden ? 0.6 : 1 }}>
+                    <div className="flex justify-between">
+                      <span className="font-semibold" style={{ color: "var(--text-white)" }}>
+                        {a.hidden ? "???" : a.name}
+                      </span>
+                      <span style={{ color: "var(--text-muted)" }}>Target: {a.target.toLocaleString()}</span>
+                    </div>
+                    <div style={{ color: "var(--text-secondary)" }}>{a.hidden ? "Hidden achievement" : a.description}</div>
+                    <div style={{ color: "var(--accent)" }}>{a.reward}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Playstyle Upgrades */}
+      <SectionCard title="Playstyle Upgrades">
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          LP-bought specialization trees. Resets on Team Reset. You can manually respec for a 50% LP refund.
+        </p>
+        <div className="space-y-3">
+          {HELP_PLAYSTYLE_PATHS.map((path) => (
+            <div key={path.name} className="rounded border p-3" style={{ borderColor: "var(--panel-border)" }}>
+              <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-white)" }}>
+                {path.name}
+              </div>
+              <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+                {path.description}
+              </div>
+              <div className="space-y-0.5">
+                {path.nodes.map((n) => (
+                  <div key={n.name} className="flex justify-between text-xs">
+                    <span style={{ color: "var(--text-primary)" }}>
+                      T{n.tier}: {n.name}
+                    </span>
+                    <span style={{ color: "var(--text-muted)" }}>{n.lpCost} LP</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
     </div>
   );
 }
