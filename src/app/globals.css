@@ -55,9 +55,10 @@ html {
 
   /* nav hidden via .shell-content rule below */
 
-  /* Content: less padding on mobile */
+  /* Content: less padding on mobile, room for bottom tab bar */
   main {
     padding: .75rem !important;
+    padding-bottom: calc(.75rem + 56px) !important;
   }
 
   /* Footer: center, compact */

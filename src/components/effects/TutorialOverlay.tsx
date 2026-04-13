@@ -389,9 +389,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       if (rects.length > 0) {
         setHighlightRect(rects);
       } else {
-        // No visible tab buttons found — on mobile with drawer closed, pulse the hamburger
-        const hamburger = document.querySelector('[data-tutorial="mobile-hamburger"]');
-        const hr = hamburger ? hamburger.getBoundingClientRect() : null;
+        // No visible tab buttons found — fallback to mobile "More" button
+        const moreBtn = document.querySelector('[data-tutorial="mobile-more"]');
+        const hr = moreBtn ? moreBtn.getBoundingClientRect() : null;
         setHighlightRect(hr && hr.width > 0 && hr.height > 0 ? [hr] : null);
       }
     } else {
@@ -586,7 +586,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   } else if (showCard || showGoalIntro) {
     cardStyle = {
       position: "fixed",
-      bottom: 72,
+      bottom: 120,
       left: "50%",
       transform: "translateX(-50%)",
       width: "min(340px, calc(100% - 2rem))",
