@@ -50,12 +50,15 @@ export const STEPS: TutorialStepDef[] = [
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Your ride took damage. First **Repair** is free \u2014 head to the **Garage**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  /* 14 */ { icon: "\u{1F680}", tip: "Earn **$50,000 lifetime scrap** and **5,000 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["Time to grind. Earn **$50,000 lifetime scrap** and **5,000 Rep** to prove you belong.", "**Fatigue** builds each race and slows you down. When it\u2019s too much, **Scrap Reset** to restart stronger."], helpDetail: "Lifetime scrap is the total scrap you\u2019ve ever earned (not your current balance). Rep unlocks new locations, circuits, and vehicles as you earn more. Keep racing, repairing, and building to hit both targets." },
-  /* 15 */ { icon: "\u{1F527}", tip: "Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades", goalIntro: "**Workshop** upgrades boost your current run. They reset on **Scrap Reset**, but the **Legacy Points** you earn are permanent.", helpDetail: "Workshop has categories like Scavenging, Building, Racing, and Maintenance. Try Keen Eye ($50) for better parts, Budget Repairs ($65) for cheaper fixes, or Tuned Suspension ($100) for better handling. Workshop upgrades reset on Scrap Reset, but Legacy Points earned from resetting buy permanent upgrades in the Legacy section." },
-  /* 16 */ { icon: "\u2B06\uFE0F", tip: "**Buy** a Workshop upgrade to power up your run.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
-  /* 17 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "Equip **gear** for passive bonuses. Gear **persists** through Scrap Resets." },
-  /* 18 */ { icon: "\u{1F449}", tip: "Head to the **Upgrades** tab \u2014 open the **Prestige** section.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
-  /* 19 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger.", allowedTabs: ["upgrades"], target: "prestige-btn" },
+  // ── Post-first-race: teach systems during the early grind ──────────────
+  /* 14 */ { icon: "\u{1F527}", tip: "Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "upgrades"], highlightTab: "upgrades", goalIntro: "**Workshop** upgrades boost your current run. Try **Keen Eye** ($75) for better scavenge luck or **Budget Repairs** for cheaper fixes.", helpDetail: "Workshop has categories like Scavenging, Building, Racing, and Maintenance. Upgrades reset on Scrap Reset, but the bonuses help you earn more each run." },
+  /* 15 */ { icon: "\u2B06\uFE0F", tip: "**Buy** a Workshop upgrade to power up your run.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
+  /* 16 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab \u2014 equip gear for passive bonuses.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "**Gear** gives passive bonuses that **persist through Scrap Resets**. Equip what you\u2019ve found from scavenging and racing." },
+  /* 17 */ { icon: "\u{1F3CE}\uFE0F", tip: "Race and scavenge to earn **$500** and **100 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, helpDetail: "Keep racing and selling spare parts. Rep unlocks new scavenging locations and circuits. Once you hit these targets, you\u2019ll be ready for the next step." },
+  /* 18 */ { icon: "\u{1F528}", tip: "Build a **second vehicle** \u2014 try a better blueprint or upgrade your parts.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "garage", goalIntro: "Better vehicles = higher win rates = more Scrap Bucks. Scavenge for higher-quality parts and try new blueprints as they unlock." },
+  /* 19 */ { icon: "\u{1F680}", tip: "Earn **$5,000 lifetime scrap** and **500 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019re getting the hang of it. Keep racing, building, and upgrading.", "**Fatigue** builds each race and cuts performance. When progress stalls, it\u2019s time to **Scrap Reset**."], helpDetail: "Lifetime scrap is the total scrap you\u2019ve ever earned (not your current balance). Rep unlocks new locations, circuits, and vehicles. Keep pushing \u2014 you\u2019re almost ready to prestige." },
+  /* 20 */ { icon: "\u{1F449}", tip: "Head to **Upgrades > Prestige** \u2014 it\u2019s time to reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
+  /* 21 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with **Legacy Points**.", allowedTabs: ["upgrades"], target: "prestige-btn" },
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
@@ -133,12 +136,15 @@ function isStepConditionMet(
       const active = state.garage.find((v) => v.id === state.activeVehicleId);
       return active ? (active.condition ?? 100) >= 100 : state.garage.length > 1;
     }
-    case 14: return state.repPoints >= 5000 && state.lifetimeScrapBucks >= 50000;
-    case 15: return state.activeTab === "upgrades";
-    case 16: return Object.values(state.workshopLevels).some((v) => v > 0);
-    case 17: return state.activeTab === "gear";
-    case 18: return state.activeTab === "upgrades";
-    case 19: return state.prestigeCount > 0;
+    // Post-first-race: teach systems during the early grind
+    case 14: return state.activeTab === "upgrades";
+    case 15: return Object.values(state.workshopLevels).some((v) => v > 0);
+    case 16: return state.activeTab === "gear";
+    case 17: return state.repPoints >= 100 && state.lifetimeScrapBucks >= 500;
+    case 18: return state.garage.length >= 2;
+    case 19: return state.repPoints >= 500 && state.lifetimeScrapBucks >= 5000;
+    case 20: return state.activeTab === "upgrades";
+    case 21: return state.prestigeCount > 0;
     default: return false; // step 0, 12 (dismissable) — never auto-skip
   }
 }
@@ -241,7 +247,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     if (helpNudgeTimerRef.current) clearTimeout(helpNudgeTimerRef.current);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hide on step change
     setShowHelpNudge(false);
-    const nudgeDelay = tutorialStep === 14 ? 30000 : 60000;
+    const nudgeDelay = (tutorialStep === 17 || tutorialStep === 19) ? 30000 : 60000;
     helpNudgeTimerRef.current = setTimeout(() => {
       setShowHelpNudge(true);
       // Auto-hide after 8 seconds
@@ -612,15 +618,28 @@ export default function TutorialOverlay({ activeTab }: Props) {
         </>
       );
     }
-    if (tutorialStep === 14) {
+    if (tutorialStep === 17) {
       goalContent = (
         <>
-          <span style={{ color: lifetimeScrapBucks >= 50000 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            ${formatNumber(lifetimeScrapBucks)} / $50k
+          <span style={{ color: lifetimeScrapBucks >= 500 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            ${formatNumber(lifetimeScrapBucks)} / $500
           </span>
           <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
-          <span style={{ color: repPoints >= 5000 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            {formatNumber(repPoints)} / 5k Rep
+          <span style={{ color: repPoints >= 100 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            {formatNumber(repPoints)} / 100 Rep
+          </span>
+        </>
+      );
+    }
+    if (tutorialStep === 19) {
+      goalContent = (
+        <>
+          <span style={{ color: lifetimeScrapBucks >= 5000 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            ${formatNumber(lifetimeScrapBucks)} / $5k
+          </span>
+          <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
+          <span style={{ color: repPoints >= 500 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            {formatNumber(repPoints)} / 500 Rep
           </span>
         </>
       );

@@ -1074,7 +1074,7 @@ function createActions(set: SetState, get: GetState) {
 
     advanceTutorial: () => {
       const step = (get() as GameState).tutorialStep;
-      set({ tutorialStep: step >= 19 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now() });
+      set({ tutorialStep: step >= 21 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now() });
     },
 
     skipTutorial: () => {

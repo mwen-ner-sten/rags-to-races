@@ -46,8 +46,8 @@ export default function HUD() {
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
   const vehicleDef = activeVehicle ? getVehicleById(activeVehicle.definitionId) : null;
 
-  // Show fatigue during the tutorial step that teaches about it (step 14)
-  const showFatigue = fatigue > 0 || tutorialStep === 14;
+  // Show fatigue during the tutorial grind steps that teach about it
+  const showFatigue = fatigue > 0 || tutorialStep === 17 || tutorialStep === 19;
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
@@ -67,15 +67,27 @@ export default function HUD() {
               ✓ {saveLabel}
             </span>
           )}
-          {tutorialStep === 14 && (
+          {tutorialStep === 17 && (
             <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
               <span className="text-sm">🚀</span>
-              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 50000 ? "text-green-400" : "text-zinc-300"}`}>
-                ${formatNumber(lifetimeScrapBucks)}/50k
+              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 500 ? "text-green-400" : "text-zinc-300"}`}>
+                ${formatNumber(lifetimeScrapBucks)}/$500
               </span>
               <span className="text-zinc-600">·</span>
-              <span className={`font-mono text-xs font-semibold ${repPoints >= 5000 ? "text-green-400" : "text-zinc-300"}`}>
-                {formatNumber(repPoints)}/5k Rep
+              <span className={`font-mono text-xs font-semibold ${repPoints >= 100 ? "text-green-400" : "text-zinc-300"}`}>
+                {formatNumber(repPoints)}/100 Rep
+              </span>
+            </div>
+          )}
+          {tutorialStep === 19 && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
+              <span className="text-sm">🚀</span>
+              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 5000 ? "text-green-400" : "text-zinc-300"}`}>
+                ${formatNumber(lifetimeScrapBucks)}/$5k
+              </span>
+              <span className="text-zinc-600">·</span>
+              <span className={`font-mono text-xs font-semibold ${repPoints >= 500 ? "text-green-400" : "text-zinc-300"}`}>
+                {formatNumber(repPoints)}/500 Rep
               </span>
             </div>
           )}
