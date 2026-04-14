@@ -135,6 +135,11 @@ export function simulateRace(
   const totalRacers = 8;
   const { performance } = vehicle.stats;
 
+  // Consolation Rep on DNF — matches the tutorial tip ("even losses earn a little Rep")
+  // and keeps long-tail progression moving during reliability droughts.
+  // Minimum 1 so the integer-floored HUD display actually reflects the gain.
+  const dnfRep = Math.max(1, circuit.repReward * 0.25);
+
   // Forced DNF (used to guarantee the first tutorial race teaches repairs)
   if (forceDNF) {
     return {
@@ -142,8 +147,8 @@ export function simulateRace(
       position: totalRacers,
       totalRacers,
       scrapsEarned: 0,
-      repEarned: 0,
-      log: [pickFlavor("dnf")],
+      repEarned: dnfRep,
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
     };
   }
 
@@ -156,8 +161,8 @@ export function simulateRace(
       position: totalRacers,
       totalRacers,
       scrapsEarned: 0,
-      repEarned: 0,
-      log: [pickFlavor("dnf")],
+      repEarned: dnfRep,
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
     };
   }
 

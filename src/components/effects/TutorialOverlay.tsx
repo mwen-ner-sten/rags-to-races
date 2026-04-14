@@ -474,10 +474,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
       effectiveTip = "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 it unlocks new locations and gear.";
     }
   }
-  /* Dynamic tip for step 15: if player can't afford the cheapest upgrade ($75 Keen Eye), redirect them back to racing */
+  /* Dynamic tip for step 15: if player can't afford the cheapest upgrade ($75 Keen Eye), send them back to earn more */
   const WORKSHOP_AFFORD_THRESHOLD = 75;
   if (tutorialStep === 15 && scrapBucks < WORKSHOP_AFFORD_THRESHOLD) {
-    effectiveTip = `You need **$${WORKSHOP_AFFORD_THRESHOLD}** for **Keen Eye**. Head to **Race** and earn more scrap, then come back.`;
+    effectiveTip = `You need **$${WORKSHOP_AFFORD_THRESHOLD}** for **Keen Eye**. **Race** for prize money or **scavenge and sell parts** to earn more, then come back.`;
   }
   /* Step 11 has no tip (hidden during race) — skip to avoid empty card */
 
