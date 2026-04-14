@@ -947,16 +947,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
       )}
 
       {/* Minimized chip — click to restore the tutorial card/badge */}
+      {/* Mobile: sit 16px above the 56px bottom nav (bottom-[72px]).        */}
+      {/* Desktop: sit 88px above viewport bottom to clear the ~60px footer. */}
       {showMinimizedChip && (
         <button
           onClick={toggleTutorialMinimized}
           aria-label="Restore tutorial"
           title="Restore tutorial"
-          className="animate-fade-up fixed z-[10000] flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-lg"
+          className="animate-fade-up fixed right-4 bottom-[72px] sm:bottom-[88px] z-[10000] flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-lg"
           style={{
-            // Mobile: sit 16px above the 56px bottom nav. Desktop: just 16px from bottom.
-            bottom: typeof window !== "undefined" && window.innerWidth <= 640 ? 72 : 16,
-            right: 16,
             borderColor: "var(--accent-border, rgba(200,62,12,.4))",
             background: "var(--panel-bg, #181008)",
             color: "var(--accent, #c83e0c)",
