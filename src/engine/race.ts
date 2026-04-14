@@ -135,10 +135,10 @@ export function simulateRace(
   const totalRacers = 8;
   const { performance } = vehicle.stats;
 
-  // Consolation Rep on DNF — matches the tutorial tip ("even losses earn a little Rep")
-  // and keeps long-tail progression moving during reliability droughts.
-  // Minimum 1 so the integer-floored HUD display actually reflects the gain.
-  const dnfRep = Math.max(1, circuit.repReward * 0.25);
+  // Consolation Rep on DNF — matches what a last-place loss would earn
+  // (repReward * 0.1 worst-position * 0.5 loss-mult = repReward * 0.05).
+  // Keeps the economy consistent: DNF is never more rewarding than finishing last.
+  const dnfRep = circuit.repReward * 0.05;
 
   // Forced DNF (used to guarantee the first tutorial race teaches repairs)
   if (forceDNF) {

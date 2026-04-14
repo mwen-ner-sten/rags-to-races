@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useGameStore } from "@/state/store";
-import { formatNumber } from "@/utils/format";
+import { formatNumber, formatRep } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { touchLastSaved } from "@/utils/saveLoad";
 
@@ -75,7 +75,7 @@ export default function HUD() {
               </span>
               <span className="text-zinc-600">·</span>
               <span className={`font-mono text-xs font-semibold ${repPoints >= 100 ? "text-green-400" : "text-zinc-300"}`}>
-                {formatNumber(repPoints)}/100 Rep
+                {formatRep(repPoints)}/100 Rep
               </span>
             </div>
           )}
@@ -87,12 +87,12 @@ export default function HUD() {
               </span>
               <span className="text-zinc-600">·</span>
               <span className={`font-mono text-xs font-semibold ${repPoints >= 500 ? "text-green-400" : "text-zinc-300"}`}>
-                {formatNumber(repPoints)}/500 Rep
+                {formatRep(repPoints)}/500 Rep
               </span>
             </div>
           )}
           <Stat label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} color="text-green-400" />
-          <Stat label="Rep" value={formatNumber(repPoints)} color="text-blue-400" />
+          <Stat label="Rep" value={formatRep(repPoints)} color="text-blue-400" />
           {showFatigue && (
             <Stat
               label="Fatigue"

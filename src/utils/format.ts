@@ -5,6 +5,19 @@ export function formatNumber(n: number): string {
   return Math.floor(n).toString();
 }
 
+/**
+ * Like formatNumber, but preserves fractional values under 10 so small
+ * early-game gains (e.g. 0.1 rep from a DNF) are visible instead of
+ * flooring to 0. Used for Rep in the HUD and progress trackers.
+ */
+export function formatRep(n: number): string {
+  if (n >= 10) return formatNumber(n);
+  if (n === 0) return "0";
+  // Show one decimal, trim trailing zero (0.5 → "0.5", 1.0 → "1")
+  const s = n.toFixed(1);
+  return s.endsWith(".0") ? s.slice(0, -2) : s;
+}
+
 export function formatTime(ms: number): string {
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s}s`;

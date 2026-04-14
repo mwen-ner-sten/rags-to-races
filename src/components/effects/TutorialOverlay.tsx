@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useGameStore } from "@/state/store";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
-import { formatNumber } from "@/utils/format";
+import { formatNumber, formatRep } from "@/utils/format";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -677,7 +677,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </span>
           <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
           <span style={{ color: repPoints >= 100 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            {formatNumber(repPoints)} / 100 Rep
+            {formatRep(repPoints)} / 100 Rep
           </span>
         </>
       );
@@ -690,7 +690,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           </span>
           <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
           <span style={{ color: repPoints >= 500 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            {formatNumber(repPoints)} / 500 Rep
+            {formatRep(repPoints)} / 500 Rep
           </span>
         </>
       );
