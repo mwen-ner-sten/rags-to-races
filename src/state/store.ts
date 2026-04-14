@@ -184,6 +184,8 @@ export interface GameState {
   tutorialStep: number;
   /** Cards hidden but highlights/auto-advance still active */
   tutorialDismissed: boolean;
+  /** Temporarily hidden — shows a restore chip instead of card/badge. Auto-resets on step advance. */
+  tutorialMinimized: boolean;
   /** Steps that were auto-skipped by adaptive logic */
   tutorialSkippedSteps: number[];
   /** Timestamp of last tutorial step advance (for help nudge) */
@@ -272,6 +274,7 @@ export interface GameState {
   advanceTutorial: () => void;
   skipTutorial: () => void;
   dismissTutorial: () => void;
+  toggleTutorialMinimized: () => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   refurbishPart: (partId: string) => void;
@@ -405,6 +408,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     highestConditionReached: 0,
     tutorialStep: 0,
     tutorialDismissed: false,
+    tutorialMinimized: false,
     tutorialSkippedSteps: [],
     tutorialLastAdvanceTime: Date.now(),
     racerSkills: createDefaultSkills(),
@@ -834,6 +838,10 @@ function createActions(set: SetState, get: GetState) {
       const salvageMaxCondition = scavengerEyeLevel >= 1 ? 2 : 1;
       const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
       const sb = getSkillBonuses(state.racerSkills, circuit.tier);
+      // Force DNF on the very first race of a new save so the tutorial
+      // reliably reaches the repair step. Tutorial step 10 is "Hit Enter Race!"
+      // right before the one-and-only race we want to break down.
+      const isFirstEverRace = state.lifetimeRacesAllTime === 0 && state.tutorialStep === 10;
       const outcome = simulateRace(
         vehicle, circuit,
         state.prestigeBonus.scrapMultiplier,
@@ -846,6 +854,7 @@ function createActions(set: SetState, get: GetState) {
         gb.forge_token_chance_bonus,
         sb.drivingPerformanceMult,
         sb.drivingDnfReduction,
+        isFirstEverRace,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -1074,11 +1083,16 @@ function createActions(set: SetState, get: GetState) {
 
     advanceTutorial: () => {
       const step = (get() as GameState).tutorialStep;
-      set({ tutorialStep: step >= 21 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now() });
+      // Each new step starts fully visible — minimized state is per-step, not persistent
+      set({ tutorialStep: step >= 21 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now(), tutorialMinimized: false });
     },
 
     skipTutorial: () => {
-      set({ tutorialStep: -1, tutorialDismissed: false });
+      set({ tutorialStep: -1, tutorialDismissed: false, tutorialMinimized: false });
+    },
+
+    toggleTutorialMinimized: () => {
+      set({ tutorialMinimized: !(get() as GameState).tutorialMinimized });
     },
 
     dismissTutorial: () => {
@@ -1469,6 +1483,7 @@ function createActions(set: SetState, get: GetState) {
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
+        tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         dealerBoard: [],
@@ -2494,6 +2509,7 @@ export const useGameStore = create<GameState>()(
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
+        tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         activityLog: state.activityLog,

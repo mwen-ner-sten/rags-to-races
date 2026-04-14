@@ -91,6 +91,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
           return (
             <button
               key={t.id}
+              data-tutorial-tab={t.id}
               onClick={() => pick(t.id)}
               style={{
                 flex: 1,
@@ -190,6 +191,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
                 return (
                   <button
                     key={t.id}
+                    data-tutorial-tab={t.id}
                     onClick={() => pick(t.id)}
                     style={{
                       display: "flex",

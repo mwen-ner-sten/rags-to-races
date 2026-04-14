@@ -130,9 +130,22 @@ export function simulateRace(
   forgeTokenChanceBonus: number = 0,
   skillPerformanceMult: number = 0,
   skillDnfReduction: number = 0,
+  forceDNF: boolean = false,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
+
+  // Forced DNF (used to guarantee the first tutorial race teaches repairs)
+  if (forceDNF) {
+    return {
+      result: "dnf",
+      position: totalRacers,
+      totalRacers,
+      scrapsEarned: 0,
+      repEarned: 0,
+      log: [pickFlavor("dnf")],
+    };
+  }
 
   // DNF chance based on reliability (gear + skill reduces DNF chance)
   const reliabilityScore = vehicle.stats.reliability;

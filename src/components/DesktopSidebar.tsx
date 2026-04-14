@@ -85,6 +85,7 @@ export default function DesktopSidebar({ activeTab, setActiveTab, themeVars }: P
           return (
             <button
               key={t.id}
+              data-tutorial-tab={t.id}
               onClick={() => setActiveTab(t.id)}
               style={{
                 display: "flex",
@@ -123,6 +124,7 @@ export default function DesktopSidebar({ activeTab, setActiveTab, themeVars }: P
         }}
       >
         <button
+          data-tutorial-tab="settings"
           onClick={() => setActiveTab("settings")}
           style={{
             display: "flex",

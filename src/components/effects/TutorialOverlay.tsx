@@ -52,7 +52,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 13 */ { icon: "\u{1F527}", tip: "Your ride took damage. First **Repair** is free \u2014 head to the **Garage**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
   // ── Post-first-race: teach systems during the early grind ──────────────
   /* 14 */ { icon: "\u{1F527}", tip: "Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "upgrades"], highlightTab: "upgrades", goalIntro: "**Workshop** upgrades boost your current run. Try **Keen Eye** ($75) for better scavenge luck or **Budget Repairs** for cheaper fixes.", helpDetail: "Workshop has categories like Scavenging, Building, Racing, and Maintenance. Upgrades reset on Scrap Reset, but the bonuses help you earn more each run." },
-  /* 15 */ { icon: "\u2B06\uFE0F", tip: "**Buy** a Workshop upgrade to power up your run.", allowedTabs: ["upgrades"], target: "workshop-upgrade-btn" },
+  /* 15 */ { icon: "\u2B06\uFE0F", tip: "**Buy** a Workshop upgrade to power up your run.", allowedTabs: ["race", "junkyard", "garage", "upgrades"], target: "workshop-upgrade-btn" },
   /* 16 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab \u2014 equip gear for passive bonuses.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "**Gear** gives passive bonuses that **persist through Scrap Resets**. Equip what you\u2019ve found from scavenging and racing." },
   /* 17 */ { icon: "\u{1F3CE}\uFE0F", tip: "Race and scavenge to earn **$500** and **100 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, helpDetail: "Keep racing and selling spare parts. Rep unlocks new scavenging locations and circuits. Once you hit these targets, you\u2019ll be ready for the next step." },
   /* 18 */ { icon: "\u{1F528}", tip: "Build a **second vehicle** \u2014 try a better blueprint or upgrade your parts.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "garage", goalIntro: "Better vehicles = higher win rates = more Scrap Bucks. Scavenge for higher-quality parts and try new blueprints as they unlock." },
@@ -207,6 +207,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const devQuickStart = useGameStore((s) => s.devQuickStart);
   const dismissTutorial = useGameStore((s) => s.dismissTutorial);
   const tutorialDismissed = useGameStore((s) => s.tutorialDismissed);
+  const tutorialMinimized = useGameStore((s) => s.tutorialMinimized);
+  const toggleTutorialMinimized = useGameStore((s) => s.toggleTutorialMinimized);
 
   const inventory = useGameStore((s) => s.inventory);
   const garage = useGameStore((s) => s.garage);
@@ -389,13 +391,26 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const allowedSet = stepDef.allowedTabs ? new Set(stepDef.allowedTabs) : null;
 
     if (stepDef.highlightTab) {
-      // Highlight ALL matching tab buttons (sidebar + content nav + mobile drawer)
-      const matches = tabButtons.filter((btn) => btn.textContent?.toLowerCase().trim().includes(stepDef.highlightTab!));
-      const rects = matches.map((m) => m.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+      // Prefer exact matching via data-tutorial-tab attribute (robust to abbreviated labels)
+      const attrMatches = Array.from(
+        document.querySelectorAll(`[data-tutorial-tab="${stepDef.highlightTab}"]`),
+      ) as HTMLElement[];
+      let rects = attrMatches
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0);
+      // Fall back to text-based matching if no elements have the attribute yet
+      if (rects.length === 0) {
+        const textMatches = tabButtons.filter((btn) =>
+          btn.textContent?.toLowerCase().trim().includes(stepDef.highlightTab!),
+        );
+        rects = textMatches
+          .map((m) => m.getBoundingClientRect())
+          .filter((r) => r.width > 0 && r.height > 0);
+      }
       if (rects.length > 0) {
         setHighlightRect(rects);
       } else {
-        // No visible tab buttons found — fallback to mobile "More" button
+        // Last resort: the mobile "More" overflow button
         const moreBtn = document.querySelector('[data-tutorial="mobile-more"]');
         const hr = moreBtn ? moreBtn.getBoundingClientRect() : null;
         setHighlightRect(hr && hr.width > 0 && hr.height > 0 ? [hr] : null);
@@ -406,12 +421,29 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
     if (allowedSet) {
       const blocked: { rect: DOMRect; idx: number }[] = [];
-      tabButtons.forEach((btn, idx) => {
-        const text = btn.textContent?.toLowerCase().trim() ?? "";
-        const tabId = tabLabels.find((l) => text.includes(l));
+      // Collect every button with a data-tutorial-tab attribute (both navs)
+      const attrButtons = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-tutorial-tab]"),
+      );
+      attrButtons.forEach((btn, idx) => {
+        const tabId = btn.getAttribute("data-tutorial-tab") as TabId | null;
+        if (!tabId || tabId === "dev") return;
         const r = btn.getBoundingClientRect();
-        if (tabId && tabId !== "dev" && !allowedSet.has(tabId as TabId) && r.width > 0 && r.height > 0) blocked.push({ rect: r, idx });
+        if (!allowedSet.has(tabId) && r.width > 0 && r.height > 0) {
+          blocked.push({ rect: r, idx });
+        }
       });
+      // Fall back to text-based matching if nothing had attributes
+      if (attrButtons.length === 0) {
+        tabButtons.forEach((btn, idx) => {
+          const text = btn.textContent?.toLowerCase().trim() ?? "";
+          const tabId = tabLabels.find((l) => text.includes(l));
+          const r = btn.getBoundingClientRect();
+          if (tabId && tabId !== "dev" && !allowedSet.has(tabId as TabId) && r.width > 0 && r.height > 0) {
+            blocked.push({ rect: r, idx });
+          }
+        });
+      }
       setBlockerRects(blocked);
     } else {
       setBlockerRects([]);
@@ -441,6 +473,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
     } else {
       effectiveTip = "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 it unlocks new locations and gear.";
     }
+  }
+  /* Dynamic tip for step 15: if player can't afford the cheapest upgrade ($75 Keen Eye), redirect them back to racing */
+  const WORKSHOP_AFFORD_THRESHOLD = 75;
+  if (tutorialStep === 15 && scrapBucks < WORKSHOP_AFFORD_THRESHOLD) {
+    effectiveTip = `You need **$${WORKSHOP_AFFORD_THRESHOLD}** for **Keen Eye**. Head to **Race** and earn more scrap, then come back.`;
   }
   /* Step 11 has no tip (hidden during race) — skip to avoid empty card */
 
@@ -493,11 +530,17 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // If the target element isn't visible (wrong tab), pulse the first allowed tab as a fallback
     const fallbackTabRect = !targetRect && !highlightRect && stepDef.allowedTabs?.[0]
       ? (() => {
+          const fallbackTab = stepDef.allowedTabs![0];
+          // Prefer exact match via data-tutorial-tab attribute
+          const attrBtn = document.querySelector<HTMLElement>(`[data-tutorial-tab="${fallbackTab}"]`);
+          if (attrBtn) {
+            const r = attrBtn.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) return r;
+          }
           const nav = document.querySelector("nav");
           if (!nav) return null;
           const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
           const buttons = Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[];
-          const fallbackTab = stepDef.allowedTabs![0];
           const btn = buttons.find((b) => {
             const text = b.textContent?.toLowerCase().trim() ?? "";
             return tabLabels.some((l) => l === fallbackTab && text.includes(l));
@@ -549,9 +592,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const introSequence = stepDef.goalIntroSequence;
   const currentIntroText = introSequence ? introSequence[introSubStep] : stepDef.goalIntro;
   const introSequenceComplete = introSequence ? introSubStep >= introSequence.length - 1 : true;
-  const showGoalIntro = !cardDismissed && hasIntro;
-  const showCard = hasIntro ? (cardDismissed && !isGoalStep && !!effectiveTip) : (!cardDismissed && !!effectiveTip);
-  const showGoal = cardDismissed && isGoalStep;
+  const showGoalIntro = !cardDismissed && hasIntro && !tutorialMinimized;
+  const showCard = (hasIntro ? (cardDismissed && !isGoalStep && !!effectiveTip) : (!cardDismissed && !!effectiveTip)) && !tutorialMinimized;
+  const showGoal = cardDismissed && isGoalStep && !tutorialMinimized;
+  // Show restore chip when tutorial is minimized AND there's something to restore (card or goal)
+  const showMinimizedChip = tutorialMinimized && (
+    (hasIntro && !cardDismissed) ||
+    (!!effectiveTip && (!hasIntro || cardDismissed) && !isGoalStep) ||
+    (isGoalStep && cardDismissed)
+  );
 
   // Pick an anchor rect — prefer target, fall back to first highlighted tab
   const anchorRect = targetRect ?? (highlightRect ? highlightRect[0] : null);
@@ -740,7 +789,18 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 >?</button>
               )}
               <button
+                onClick={toggleTutorialMinimized}
+                aria-label="Minimize tutorial"
+                title="Minimize"
+                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-50 transition-opacity hover:opacity-100"
+                style={{ color: "#888", background: "#333", fontSize: 14, lineHeight: 1 }}
+              >
+              {"\u2013"}
+              </button>
+              <button
                 onClick={dismissTutorial}
+                aria-label="Dismiss tutorial"
+                title="Dismiss"
                 className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
                 style={{ color: "#888", background: "#333" }}
               >
@@ -748,7 +808,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
               </button>
             </div>
 
-            <div className="flex items-start gap-2.5 pr-8">
+            <div className="flex items-start gap-2.5 pr-16">
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
@@ -803,7 +863,18 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 >?</button>
               )}
               <button
+                onClick={toggleTutorialMinimized}
+                aria-label="Minimize tutorial"
+                title="Minimize"
+                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-50 transition-opacity hover:opacity-100"
+                style={{ color: "#888", background: "#333", fontSize: 14, lineHeight: 1 }}
+              >
+                {"\u2013"}
+              </button>
+              <button
                 onClick={dismissTutorial}
+                aria-label="Dismiss tutorial"
+                title="Dismiss"
                 className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
                 style={{ color: "#888", background: "#333" }}
               >
@@ -811,7 +882,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
               </button>
             </div>
 
-            <div className="flex items-start gap-2.5 pr-8">
+            <div className="flex items-start gap-2.5 pr-16">
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
@@ -854,14 +925,50 @@ export default function TutorialOverlay({ activeTab }: Props) {
               <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
             </div>
             <button
+              onClick={toggleTutorialMinimized}
+              aria-label="Minimize tutorial"
+              title="Minimize"
+              className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-50 transition-opacity hover:opacity-100"
+              style={{ color: "#888", background: "#333", fontSize: 12, lineHeight: 1 }}
+            >
+              {"\u2013"}
+            </button>
+            <button
               onClick={dismissTutorial}
-              className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
+              aria-label="Dismiss tutorial"
+              title="Dismiss"
+              className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
               style={{ color: "#888", background: "#333", fontSize: 9 }}
             >
               {"\u2715"}
             </button>
           </div>
         </div>
+      )}
+
+      {/* Minimized chip — click to restore the tutorial card/badge */}
+      {showMinimizedChip && (
+        <button
+          onClick={toggleTutorialMinimized}
+          aria-label="Restore tutorial"
+          title="Restore tutorial"
+          className="animate-fade-up fixed z-[10000] flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-lg"
+          style={{
+            // Mobile: sit 16px above the 56px bottom nav. Desktop: just 16px from bottom.
+            bottom: typeof window !== "undefined" && window.innerWidth <= 640 ? 72 : 16,
+            right: 16,
+            borderColor: "var(--accent-border, rgba(200,62,12,.4))",
+            background: "var(--panel-bg, #181008)",
+            color: "var(--accent, #c83e0c)",
+            boxShadow: "0 4px 16px rgba(0,0,0,.5), 0 0 12px color-mix(in srgb, var(--accent, #c83e0c) 25%, transparent)",
+            cursor: "pointer",
+            pointerEvents: "auto",
+          }}
+        >
+          <span style={{ fontSize: "1rem" }}>{stepDef.icon}</span>
+          <span>Tutorial</span>
+          <span style={{ fontSize: "1rem", lineHeight: 1 }}>{"\u21E7"}</span>
+        </button>
       )}
 
       {/* "Need help?" nudge — appears after 60s of no tutorial progress */}
