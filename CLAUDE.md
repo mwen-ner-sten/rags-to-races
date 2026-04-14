@@ -58,6 +58,22 @@ When in doubt, search for existing `zIndex` or `z-[...]` usage to find the right
   - Matching HUD tracker for long grind steps
 - Tutorial halos target elements via `data-tutorial="name"`. If you rename an element or add a fallback, update BOTH the element and the tutorial's target lookup.
 
+## Game terminology — don't conflate these
+
+- **Scrap** = the physical parts/materials you scavenge in the Junkyard (engine, wheel, etc.). Never use "scrap" to mean money.
+- **Scrap Bucks** = the currency. Earned from racing (prize money) and from *selling* scavenged scrap/parts. Always write the full phrase in player-facing copy: "Scrap Bucks", not "scrap", not "bucks".
+- **Rep** = reputation points earned from races. Unlocks locations, circuits, vehicles.
+- **LP / Legacy Points** = prestige currency earned on Scrap Reset.
+- **Scrap Reset** = the prestige action (proper noun, capitalized both words).
+
+Player-facing examples:
+- ✅ "Earn more **Scrap Bucks** by racing or selling parts."
+- ❌ "Earn more scrap by racing." (ambiguous — sounds like parts)
+- ✅ "Collect an **engine** and a **wheel**" (scrap = parts)
+- ❌ "Lifetime scrap" when you mean "Lifetime Scrap Bucks"
+
+In bonus-description text inside `achievements.ts` / `upgrades.ts`, prefer the full "Scrap Bucks" to keep UI copy precise.
+
 ## Theming
 
 - There are **16 theme shells** in `ThemeShell.tsx`, each with inline `<header>/<nav>/<main>/<footer>` styles. Global CSS rules for these elements need `!important` to override the inline styles.

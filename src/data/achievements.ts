@@ -56,7 +56,7 @@ const achWins100: AchievementDefinition = {
   category: "racing",
   statKey: "lifetimeWinsAllTime",
   target: 100,
-  reward: { type: "bonus", bonusId: "ach_race_scrap_15", description: "+15% scrap from races" },
+  reward: { type: "bonus", bonusId: "ach_race_scrap_15", description: "+15% Scrap Bucks from races" },
   flavorText: "A hundred checkered flags. They stop counting after this.",
 };
 
@@ -113,7 +113,7 @@ const achVehicles50: AchievementDefinition = {
   category: "building",
   statKey: "lifetimeVehiclesBuiltAllTime",
   target: 50,
-  reward: { type: "bonus", bonusId: "ach_starting_scrap_500", description: "+500 starting scrap" },
+  reward: { type: "bonus", bonusId: "ach_starting_scrap_500", description: "+500 starting Scrap Bucks" },
   flavorText: "You could stock a dealership. A weird one.",
 };
 
@@ -247,18 +247,18 @@ const achOwnerEra: AchievementDefinition = {
 const achScrap1M: AchievementDefinition = {
   id: "ach_scrap_1m",
   name: "Scrap Tycoon",
-  description: "Earn 1,000,000 lifetime scrap.",
+  description: "Earn $1,000,000 lifetime Scrap Bucks.",
   category: "wealth",
   statKey: "lifetimeScrapBucksAllTime",
   target: 1_000_000,
-  reward: { type: "bonus", bonusId: "ach_scrap_all_20", description: "+20% scrap from all sources" },
+  reward: { type: "bonus", bonusId: "ach_scrap_all_20", description: "+20% Scrap Bucks from all sources" },
   flavorText: "A million bucks made from literal garbage.",
 };
 
 const achScrap10M: AchievementDefinition = {
   id: "ach_scrap_10m",
   name: "Mogul",
-  description: "Earn 10,000,000 lifetime scrap.",
+  description: "Earn $10,000,000 lifetime Scrap Bucks.",
   category: "wealth",
   statKey: "lifetimeScrapBucksAllTime",
   target: 10_000_000,
@@ -273,7 +273,7 @@ const achLp100: AchievementDefinition = {
   category: "wealth",
   statKey: "lifetimeLPAllTime",
   target: 100,
-  reward: { type: "bonus", bonusId: "ach_starting_scrap_300", description: "+300 starting scrap" },
+  reward: { type: "bonus", bonusId: "ach_starting_scrap_300", description: "+300 starting Scrap Bucks" },
   flavorText: "Your legacy grows with every reset.",
 };
 
