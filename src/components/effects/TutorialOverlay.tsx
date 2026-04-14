@@ -39,12 +39,12 @@ export const STEPS: TutorialStepDef[] = [
   /* 0  */ { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
   /* 1  */ { icon: "\u{1F5D1}\uFE0F", tip: "Click **Scavenge** to search for parts.", allowedTabs: ["junkyard"], target: "scavenge-btn" },
   /* 2  */ { icon: "\u{1F9F0}", tip: "Collect an **engine**, a **wheel**, and **$10** to build your first ride.", allowedTabs: ["junkyard"], target: "scavenge-btn", hasGoal: true, helpDetail: "Scavenge at different locations to find parts. Each has a category (engine, wheel, misc, etc.) and a condition rating. Sell parts you don\u2019t need for Scrap Bucks. You need at least one engine, one wheel, and $10 to build your first vehicle." },
-  /* 3  */ { icon: "\u{1F449}", tip: "Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
+  /* 3  */ { icon: "\u{1F4CD}", tip: "Head to the **Garage** tab.", allowedTabs: ["junkyard", "garage"], highlightTab: "garage" },
   /* 4  */ { icon: "\u{1F6E0}\uFE0F", tip: "Pick the **Push Mower** blueprint.", allowedTabs: ["garage", "junkyard"], target: "blueprint-btn" },
   /* 5  */ { icon: "\u{1F9F0}", tip: "Equip an **engine** and a **wheel**.", allowedTabs: ["garage", "junkyard"], target: "part-slots" },
   /* 6  */ { icon: "\u{1F528}", tip: "Hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
   /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to race.", allowedTabs: ["garage"], target: "activate-btn" },
-  /* 8  */ { icon: "\u{1F449}", tip: "Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
+  /* 8  */ { icon: "\u{1F4CD}", tip: "Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
   /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your **Win** chance and **DNF Risk**. **DNF** = your vehicle broke down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF (Did Not Finish) means your vehicle broke down mid-race \u2014 higher reliability reduces this risk. Even losses earn some Scrap Bucks and Rep." },
   /* 10 */ { icon: "\u{1F3C1}", tip: "Hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
   /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
@@ -57,7 +57,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 17 */ { icon: "\u{1F3CE}\uFE0F", tip: "Race and scavenge to earn **$500** and **100 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, helpDetail: "Keep racing and selling spare parts. Rep unlocks new scavenging locations and circuits. Once you hit these targets, you\u2019ll be ready for the next step." },
   /* 18 */ { icon: "\u{1F528}", tip: "Build a **second vehicle** \u2014 try a better blueprint or upgrade your parts.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "garage", goalIntro: "Better vehicles = higher win rates = more Scrap Bucks. Scavenge for higher-quality parts and try new blueprints as they unlock." },
   /* 19 */ { icon: "\u{1F680}", tip: "Earn **$5,000 lifetime Scrap Bucks** and **500 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019re getting the hang of it. Keep racing, building, and upgrading.", "**Fatigue** builds each race and cuts performance. When progress stalls, it\u2019s time to **Scrap Reset**."], helpDetail: "Lifetime Scrap Bucks is the total currency you\u2019ve ever earned (not your current balance). Rep unlocks new locations, circuits, and vehicles. Keep pushing \u2014 you\u2019re almost ready to prestige." },
-  /* 20 */ { icon: "\u{1F449}", tip: "Head to **Upgrades > Prestige** \u2014 it\u2019s time to reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
+  /* 20 */ { icon: "\u{1F4CD}", tip: "Head to **Upgrades > Prestige** \u2014 it\u2019s time to reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
   /* 21 */ { icon: "\u{1F510}", tip: "Hit **Scrap Reset** to prestige. You\u2019ll restart stronger with **Legacy Points**.", allowedTabs: ["upgrades"], target: "prestige-btn" },
 ];
 
