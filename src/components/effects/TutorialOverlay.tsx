@@ -578,7 +578,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       const roomBelow = viewH - anchorRect.bottom - 16;
       const above = roomBelow < cardH && anchorRect.top > cardH + 16;
       left = Math.max(16, Math.min(anchorRect.left + anchorRect.width / 2 - cardW / 2, viewW - cardW - 16));
-      top = above ? anchorRect.top - 16 : anchorRect.bottom + 16;
+      // When above: card's bottom sits 16px above anchor's top
+      // When below: card's top sits 16px below anchor's bottom
+      top = above ? anchorRect.top - cardH - 16 : anchorRect.bottom + 16;
       arrowClass = above ? "tutorial-arrow-down" : "tutorial-arrow-up";
     }
     arrowLeftPx = inSidebar ? 0 : Math.max(20, Math.min(anchorRect.left + anchorRect.width / 2 - left, cardW - 20));

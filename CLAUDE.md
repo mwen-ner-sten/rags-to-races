@@ -89,6 +89,8 @@ These are real mistakes we've made. Don't make them again.
 - ❌ Adding `any` types to silence TypeScript strict warnings.
 - ❌ Inventing new CSS color values instead of using theme variables.
 - ❌ Assuming `npm test` = 70 tests (we've added tests; check actual count).
+- ❌ Positioning an element "above" another by setting `top = anchorRect.top - offset`. That puts the TOP of the element at that position, extending DOWN and overlapping the anchor. Correct: `top = anchorRect.top - elementHeight - offset`.
+- ❌ Tutorial card positioning needs to account for fixed bottom nav. If the anchor is IN the nav, the card's top is `anchorRect.top - cardH - 16`, not `anchorRect.top - 16`.
 
 ## When adding a new fixed-position element — template
 
