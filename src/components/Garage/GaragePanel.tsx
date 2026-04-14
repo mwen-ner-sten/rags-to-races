@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
-import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS } from "@/data/parts";
 import { calculateRepairCost } from "@/engine/build";
 import type { BuiltVehicle } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
@@ -70,6 +70,7 @@ export default function GaragePanel() {
   const swapPart = useGameStore((s) => s.swapPart);
 
   const toolkitUnlocked = (workshopLevels["toolkit"] ?? 0) >= 1;
+  const autoFitterUnlocked = (workshopLevels["auto_fitter"] ?? 0) >= 1;
 
   const unlockedVehicles = VEHICLE_DEFINITIONS.filter((v) =>
     unlockedVehicleIds.includes(v.id),
@@ -81,9 +82,34 @@ export default function GaragePanel() {
   const buildReduction = _getUpgradeEffectValue(useGameStore.getState(), "bargain_builder");
   const actualBuildCost = pendingDef ? Math.max(0, Math.floor(pendingDef.buildCost * (1 - buildReduction))) : 0;
 
-  const canBuild = pendingDef &&
-    pendingDef.slots.every((s) => !s.required || pendingBuildParts[s.slot]) &&
-    scrapBucks >= actualBuildCost;
+  // Auto-Fitter: when blueprint changes and the upgrade is owned, pre-select
+  // the best-condition compatible part for each required slot. Skips slots
+  // the player has already filled so we don't overwrite intentional choices.
+  useEffect(() => {
+    if (!autoFitterUnlocked || !pendingDef) return;
+    for (const slotCfg of pendingDef.slots) {
+      if (!slotCfg.required) continue;
+      if (pendingBuildParts[slotCfg.slot]) continue;
+      const best = inventory
+        .filter((p) => p.type !== "addon" && slotCfg.acceptableParts.includes(p.definitionId))
+        .sort((a, b) => CONDITIONS.indexOf(b.condition) - CONDITIONS.indexOf(a.condition))[0];
+      if (best) setPendingPart(slotCfg.slot, best);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to blueprint change
+  }, [pendingBuildVehicleId, autoFitterUnlocked]);
+
+  const requiredSlotsFilled = pendingDef
+    ? pendingDef.slots.every((s) => !s.required || pendingBuildParts[s.slot])
+    : false;
+  const hasFunds = pendingDef ? scrapBucks >= actualBuildCost : false;
+  const canBuild = !!pendingDef && requiredSlotsFilled && hasFunds;
+  const buildBlockReason = !pendingDef
+    ? null
+    : !requiredSlotsFilled
+      ? "Select a part for each slot"
+      : !hasFunds
+        ? `Need $${formatNumber(actualBuildCost - scrapBucks)} more`
+        : null;
 
   function eligibleGroups(slot: string): PartGroup[] {
     if (!pendingDef) return [];
@@ -225,6 +251,15 @@ export default function GaragePanel() {
             >
               Build {pendingDef.name}
             </button>
+            {buildBlockReason && (
+              <p
+                aria-live="polite"
+                className="text-xs"
+                style={{ color: "var(--text-muted)", marginTop: -4 }}
+              >
+                {buildBlockReason}
+              </p>
+            )}
           </>
         )}
       </div>

@@ -7,6 +7,7 @@ import { MATERIAL_DEFINITIONS } from "@/data/materials";
 import type { MaterialType } from "@/data/materials";
 import { Section, Row, TooltipPanel, HoverTooltipWrapper } from "@/components/TooltipPrimitives";
 import FatigueRing from "@/components/FatigueRing";
+import MomentumChip from "@/components/Shop/MomentumChip";
 
 function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
   // Currencies are now shown via per-currency hover tooltips (see CurrencyBar).
@@ -104,8 +105,9 @@ export default function StatsTooltip() {
     <HoverTooltipWrapper
       renderTooltip={(anchorRect) => <StatsTooltipContent anchorRect={anchorRect} />}
     >
-      <div style={{ padding: "0.5rem", margin: "-0.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0.5rem", margin: "-0.5rem" }}>
         <FatigueRing />
+        <MomentumChip />
       </div>
     </HoverTooltipWrapper>
   );
