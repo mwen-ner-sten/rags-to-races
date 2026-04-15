@@ -256,7 +256,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const advanceTutorial = useGameStore((s) => s.advanceTutorial);
   const skipTutorial = useGameStore((s) => s.skipTutorial);
   const devQuickStart = useGameStore((s) => s.devQuickStart);
-  const dismissTutorial = useGameStore((s) => s.dismissTutorial);
+  // Legacy: older saves may have tutorialDismissed === true (the old X button
+  // set it). We still respect that flag to keep those saves working — the
+  // X button itself is gone (replaced by minimize + Skip with confirm).
   const tutorialDismissed = useGameStore((s) => s.tutorialDismissed);
   const tutorialMinimized = useGameStore((s) => s.tutorialMinimized);
   const toggleTutorialMinimized = useGameStore((s) => s.toggleTutorialMinimized);
@@ -538,13 +540,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
           className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-6"
           style={CARD_BG}
         >
-          <button
-            onClick={dismissTutorial}
-            className="absolute top-3 right-3 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-            style={{ color: "#888", background: "#333" }}
-          >
-            {"\u2715"}
-          </button>
           <div className="mb-4 text-center text-5xl">{"\u{1F3CE}\uFE0F"}</div>
           <h2 className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)" }}>Rags to Races</h2>
           <div className="mx-auto mb-4 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
@@ -871,15 +866,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
               >
               {"\u2013"}
               </button>
-              <button
-                onClick={dismissTutorial}
-                aria-label="Dismiss tutorial"
-                title="Dismiss"
-                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-                style={{ color: "#888", background: "#333" }}
-              >
-              {"\u2715"}
-              </button>
             </div>
 
             <div className="flex items-start gap-2.5 pr-16">
@@ -945,15 +931,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
               >
                 {"\u2013"}
               </button>
-              <button
-                onClick={dismissTutorial}
-                aria-label="Dismiss tutorial"
-                title="Dismiss"
-                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-                style={{ color: "#888", background: "#333" }}
-              >
-                {"\u2715"}
-              </button>
             </div>
 
             <div className="flex items-start gap-2.5 pr-16">
@@ -1006,15 +983,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
               style={{ color: "#888", background: "#333", fontSize: 12, lineHeight: 1 }}
             >
               {"\u2013"}
-            </button>
-            <button
-              onClick={dismissTutorial}
-              aria-label="Dismiss tutorial"
-              title="Dismiss"
-              className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-40 transition-opacity hover:opacity-100"
-              style={{ color: "#888", background: "#333", fontSize: 9 }}
-            >
-              {"\u2715"}
             </button>
           </div>
         </div>

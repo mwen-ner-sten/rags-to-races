@@ -10,7 +10,10 @@ import { useGameStore } from "@/state/store";
 export default function SettingsPanel() {
   const [theme, setTheme] = useTheme();
   const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const tutorialDismissed = useGameStore((s) => s.tutorialDismissed);
   const skipTutorial = useGameStore((s) => s.skipTutorial);
+  // Tutorial is "off" when it's been skipped (step -1) or legacy-dismissed.
+  const tutorialOff = tutorialStep < 0 || tutorialDismissed;
   const [skipConfirming, setSkipConfirming] = useState(false);
   const skipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,7 +125,7 @@ export default function SettingsPanel() {
           style={{ borderColor: "var(--accent)", background: "var(--panel-bg)" }}
           className="flex flex-col gap-3 rounded-lg border p-4"
         >
-          {tutorialStep >= 0 ? (
+          {!tutorialOff ? (
             <>
               <div className="flex items-center gap-3">
                 <button
