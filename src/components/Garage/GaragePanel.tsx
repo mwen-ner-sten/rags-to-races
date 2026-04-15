@@ -9,6 +9,7 @@ import { calculateRepairCost } from "@/engine/build";
 import type { BuiltVehicle } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
+import MechanicAdvisor from "./MechanicAdvisor";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -289,6 +290,8 @@ export default function GaragePanel() {
 
       {/* Garage — built vehicles */}
       <div className="flex flex-col gap-3 sm:gap-4">
+        {/* AI Mechanic Advisor */}
+        <MechanicAdvisor />
         <h2
           className="text-sm font-semibold uppercase tracking-widest"
           style={{ color: "var(--text-heading)" }}
