@@ -879,36 +879,37 @@ export default function TutorialOverlay({ activeTab }: Props) {
               </button>
             </div>
 
+            {/* Top row — icon + intro text, pr-16 for the top-right action icons. */}
             <div className="flex items-start gap-2.5 pr-16">
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {renderTip(currentIntroText!)}
-                </p>
-                <div className="mt-2.5 flex flex-col gap-2">
-                  <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
-                  <div className="flex items-center justify-end gap-3">
-                    {introSequence && (
-                      <span className="mr-auto text-xs" style={{ color: "var(--text-muted)" }}>
-                        {introSubStep + 1}/{introSequence.length}
-                      </span>
-                    )}
-                    <SkipWithConfirm onSkip={skipTutorial} />
-                    <button
-                      onClick={() => {
-                        if (introSequence && !introSequenceComplete) {
-                          setIntroSubStep((s) => s + 1);
-                        } else {
-                          setCardDismissed(true);
-                        }
-                      }}
-                      className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                      style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
-                    >
-                      {introSequence && !introSequenceComplete ? "Next" : "Got it"} &rarr;
-                    </button>
-                  </div>
-                </div>
+              <p className="flex-1 min-w-0 text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                {renderTip(currentIntroText!)}
+              </p>
+            </div>
+            {/* Footer — step dots on their own row, actions below. Full card width so
+                buttons like "Got it →" don't overflow when the dot strip is long. */}
+            <div className="mt-2.5 flex flex-col gap-2">
+              <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {introSequence && (
+                  <span className="mr-auto text-xs" style={{ color: "var(--text-muted)" }}>
+                    {introSubStep + 1}/{introSequence.length}
+                  </span>
+                )}
+                <SkipWithConfirm onSkip={skipTutorial} />
+                <button
+                  onClick={() => {
+                    if (introSequence && !introSequenceComplete) {
+                      setIntroSubStep((s) => s + 1);
+                    } else {
+                      setCardDismissed(true);
+                    }
+                  }}
+                  className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                  style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
+                >
+                  {introSequence && !introSequenceComplete ? "Next" : "Got it"} &rarr;
+                </button>
               </div>
             </div>
           </div>
@@ -944,27 +945,28 @@ export default function TutorialOverlay({ activeTab }: Props) {
               </button>
             </div>
 
+            {/* Top row — icon + tip. pr-16 reserves space for top-right action icons. */}
             <div className="flex items-start gap-2.5 pr-16">
               <span className="mt-0.5 shrink-0 text-lg">{stepDef.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {renderTip(effectiveTip)}
-                </p>
-                <div className="mt-2 flex items-center justify-between">
-                  <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
-                  <div className="flex items-center gap-3">
-                    <SkipWithConfirm onSkip={skipTutorial} />
-                    {stepDef.dismissable && (
-                      <button
-                        onClick={advanceTutorial}
-                        className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
-                        style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
-                      >
-                        Got it &rarr;
-                      </button>
-                    )}
-                  </div>
-                </div>
+              <p className="flex-1 min-w-0 text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+                {renderTip(effectiveTip)}
+              </p>
+            </div>
+            {/* Footer — uses full card width so long step-dot strings and the
+                "Got it" button don't overflow when pr-16 would otherwise squeeze them. */}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+              <div className="flex items-center gap-3">
+                <SkipWithConfirm onSkip={skipTutorial} />
+                {stepDef.dismissable && (
+                  <button
+                    onClick={advanceTutorial}
+                    className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
+                  >
+                    Got it &rarr;
+                  </button>
+                )}
               </div>
             </div>
           </div>
