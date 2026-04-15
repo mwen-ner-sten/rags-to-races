@@ -130,9 +130,27 @@ export function simulateRace(
   forgeTokenChanceBonus: number = 0,
   skillPerformanceMult: number = 0,
   skillDnfReduction: number = 0,
+  forceDNF: boolean = false,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
+
+  // Consolation Rep on DNF — matches what a last-place loss would earn
+  // (repReward * 0.1 worst-position * 0.5 loss-mult = repReward * 0.05).
+  // Keeps the economy consistent: DNF is never more rewarding than finishing last.
+  const dnfRep = circuit.repReward * 0.05;
+
+  // Forced DNF (used to guarantee the first tutorial race teaches repairs)
+  if (forceDNF) {
+    return {
+      result: "dnf",
+      position: totalRacers,
+      totalRacers,
+      scrapsEarned: 0,
+      repEarned: dnfRep,
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+    };
+  }
 
   // DNF chance based on reliability (gear + skill reduces DNF chance)
   const reliabilityScore = vehicle.stats.reliability;
@@ -143,8 +161,8 @@ export function simulateRace(
       position: totalRacers,
       totalRacers,
       scrapsEarned: 0,
-      repEarned: 0,
-      log: [pickFlavor("dnf")],
+      repEarned: dnfRep,
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
     };
   }
 

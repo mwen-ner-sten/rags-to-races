@@ -67,6 +67,17 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     effect: { type: "build_cost_reduction", valuePerLevel: 0.10 },
   },
   {
+    id: "auto_fitter",
+    name: "Auto-Fitter",
+    description: "Auto-selects the best compatible part for each slot when you switch blueprints. No more clicking through chips.",
+    category: "building",
+    maxLevel: 1,
+    baseCost: 350,
+    costScaling: 1,
+    effect: { type: "unlock_auto_fitter", valuePerLevel: 1 },
+    unlockRequirement: { repPoints: 50 },
+  },
+  {
     id: "refurbishment_bench",
     name: "Refurbishment Bench",
     description: "Unlocks part refurbishment — improve part condition for scrap.",

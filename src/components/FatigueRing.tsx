@@ -18,6 +18,10 @@ export default function FatigueRing() {
   const fatigue = useGameStore((s) => s.fatigue);
   const progress = Math.min(1, fatigue / 99);
   const color = fatigueColor(fatigue);
+  // Single-expression label: avoids hydration mismatch in SVG <title>, where
+  // mixed text + expression children get split into multiple text nodes on
+  // the client but render as one text node from SSR.
+  const label = `Fatigue ${fatigue}%`;
 
   return (
     <svg
@@ -25,9 +29,9 @@ export default function FatigueRing() {
       height={SIZE}
       viewBox={`0 0 ${SIZE} ${SIZE}`}
       style={{ transform: "rotate(-90deg)", flexShrink: 0, opacity: 0.85, cursor: "default" }}
-      aria-label={`Fatigue ${fatigue}%`}
+      aria-label={label}
     >
-      <title>Fatigue {fatigue}%</title>
+      <title>{label}</title>
       {/* Track */}
       <circle
         cx={SIZE / 2}

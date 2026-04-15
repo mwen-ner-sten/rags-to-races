@@ -132,13 +132,14 @@ function LiveRaceView({
     return () => clearInterval(interval);
   }, [events, startTime, durationMs, isActive, countdownMs]);
 
-  // Reset state when race ends — delay so cars don't snap back jarringly
+  // Reset state when race ends — hold cars at finish positions long enough for
+  // the result block to land and the player to read it before the grid resets.
   useEffect(() => {
     if (!isActive) {
       const t = setTimeout(() => {
         setProgress(0);
         setCurrentEvent(null);
-      }, 800);
+      }, 2800);
       return () => clearTimeout(t);
     }
   }, [isActive]);

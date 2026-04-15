@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { useGameStore } from "@/state/store";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "junkyard", label: "Junkyard" },
-  { id: "garage",   label: "Garage" },
-  { id: "race",     label: "Race" },
-  { id: "gear",     label: "Gear" },
-  { id: "upgrades", label: "Upgrades" },
-  { id: "help",     label: "Help" },
-  { id: "log",      label: "Activity" },
-  { id: "dev",      label: "Dev" },
+/** Primary tabs shown directly in the bottom bar */
+const PRIMARY_TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "junkyard", label: "Junk",    icon: "\u{1F5D1}\uFE0F" },  // 🗑️
+  { id: "garage",   label: "Garage",  icon: "\u{1F527}" },          // 🔧
+  { id: "race",     label: "Race",    icon: "\u{1F3CE}\uFE0F" },   // 🏎️
+  { id: "gear",     label: "Gear",    icon: "\u{1F9F0}" },          // 🧰
+  { id: "upgrades", label: "Upgr",    icon: "\u2B06\uFE0F" },      // ⬆️
+];
+
+/** Overflow tabs behind the "More" button */
+const OVERFLOW_TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "help",     label: "Help",     icon: "\u2753" },    // ❓
+  { id: "log",      label: "Activity", icon: "\u{1F4DC}" }, // 📜
+  { id: "settings", label: "Settings", icon: "\u2699\uFE0F" }, // ⚙️
 ];
 
 const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
@@ -25,213 +29,199 @@ interface Props {
 }
 
 export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props) {
-  const [open, setOpen] = useState(false);
-  const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
-
-  const toggle = useCallback(() => setOpen((v) => !v), []);
-  const close = useCallback(() => setOpen(false), []);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   const pick = useCallback(
     (id: TabId) => {
       setActiveTab(id);
-      setOpen(false);
+      setMoreOpen(false);
     },
     [setActiveTab],
   );
 
+  // Close popover on outside click
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreOpen]);
+
   // Close on Escape
   useEffect(() => {
-    if (!open) return;
+    if (!moreOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setMoreOpen(false);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open]);
+  }, [moreOpen]);
 
-  const visibleTabs = TABS.filter((t) => SHOW_DEV_TAB || t.id !== "dev");
-  const activeLabel = visibleTabs.find((t) => t.id === activeTab)?.label ?? "";
+  const overflowTabs = SHOW_DEV_TAB
+    ? [...OVERFLOW_TABS, { id: "dev" as TabId, label: "Dev", icon: "\u{1F6E0}\uFE0F" }]
+    : OVERFLOW_TABS;
+
+  const isOverflowActive = overflowTabs.some((t) => t.id === activeTab);
 
   return (
     <div className="mobile-nav" style={{ ...themeVars as React.CSSProperties }}>
-      {/* Backdrop */}
-      {open && (
-        <div
-          onClick={close}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.6)",
-            zIndex: 998,
-          }}
-        />
-      )}
-
-      {/* Slide-up drawer */}
-      <div
+      {/* Bottom tab bar */}
+      <nav
         style={{
           position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
-          zIndex: 999,
+          zIndex: 1000,
+          height: 56,
+          display: "flex",
+          alignItems: "stretch",
           background: "var(--panel-bg, #181008)",
           borderTop: "1px solid var(--panel-border, #3a2510)",
-          transform: open ? "translateY(0)" : "translateY(100%)",
-          transition: "transform .25s cubic-bezier(.4,0,.2,1)",
-          maxHeight: "60vh",
-          overflowY: "auto",
-          padding: "0.5rem 0",
+          boxShadow: "0 -2px 12px rgba(0,0,0,.4)",
         }}
       >
-        {visibleTabs.map((t) => {
+        {PRIMARY_TABS.map((t) => {
           const isActive = activeTab === t.id;
           return (
             <button
               key={t.id}
+              data-tutorial-tab={t.id}
               onClick={() => pick(t.id)}
               style={{
+                flex: 1,
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                width: "100%",
-                padding: ".85rem 1.25rem",
+                justifyContent: "center",
+                gap: 2,
                 background: "none",
                 border: "none",
-                borderLeft: isActive
-                  ? "3px solid var(--accent, #c83e0c)"
-                  : "3px solid transparent",
+                borderTop: isActive
+                  ? "2px solid var(--accent, #c83e0c)"
+                  : "2px solid transparent",
                 color: isActive
                   ? "var(--accent, #c83e0c)"
-                  : "var(--text-primary, #d4b896)",
-                fontSize: ".95rem",
-                fontWeight: isActive ? 700 : 500,
-                letterSpacing: ".06em",
+                  : "var(--text-muted, #7a6040)",
                 cursor: "pointer",
-                textAlign: "left",
                 transition: "color .12s, border-color .12s",
+                padding: "4px 0 2px",
+                minWidth: 0,
               }}
             >
-              {t.label.toUpperCase()}
+              <span style={{ fontSize: "1.15rem", lineHeight: 1 }}>{t.icon}</span>
+              <span
+                style={{
+                  fontSize: ".58rem",
+                  fontWeight: isActive ? 700 : 500,
+                  letterSpacing: ".04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {t.label}
+              </span>
             </button>
           );
         })}
 
-        {/* Settings shortcut */}
-        <button
-          onClick={() => pick("settings")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            width: "100%",
-            padding: ".85rem 1.25rem",
-            background: "none",
-            border: "none",
-            borderLeft:
-              activeTab === "settings"
-                ? "3px solid var(--accent, #c83e0c)"
-                : "3px solid transparent",
-            color:
-              activeTab === "settings"
+        {/* More button + popover */}
+        <div ref={moreRef} style={{ flex: 1, position: "relative" }}>
+          <button
+            data-tutorial="mobile-more"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-label="More tabs"
+            aria-expanded={moreOpen}
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              background: "none",
+              border: "none",
+              borderTop: isOverflowActive
+                ? "2px solid var(--accent, #c83e0c)"
+                : "2px solid transparent",
+              color: isOverflowActive || moreOpen
                 ? "var(--accent, #c83e0c)"
                 : "var(--text-muted, #7a6040)",
-            fontSize: ".95rem",
-            fontWeight: activeTab === "settings" ? 700 : 500,
-            letterSpacing: ".06em",
-            cursor: "pointer",
-            textAlign: "left",
-            transition: "color .12s, border-color .12s",
-          }}
-        >
-          &#9881; SETTINGS
-        </button>
-      </div>
-
-      {/* Hamburger FAB */}
-      <button
-        onClick={toggle}
-        aria-label={open ? "Close menu" : "Open menu"}
-        aria-expanded={open}
-        style={{
-          position: "fixed",
-          bottom: "1rem",
-          right: "1rem",
-          zIndex: 1000,
-          width: 52,
-          height: 52,
-          borderRadius: "50%",
-          border: "1px solid var(--panel-border, #3a2510)",
-          background: "var(--panel-bg, #181008)",
-          boxShadow: "0 2px 12px rgba(0,0,0,.5)",
-          cursor: "pointer",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: open ? 0 : 4,
-          transition: "gap .2s",
-        }}
-      >
-        {/* Three bars → X morph */}
-        <span
-          style={{
-            display: "block",
-            width: 20,
-            height: 2,
-            borderRadius: 1,
-            background: "var(--accent, #c83e0c)",
-            transition: "transform .2s, opacity .2s",
-            transform: open ? "translateY(3px) rotate(45deg)" : "none",
-          }}
-        />
-        <span
-          style={{
-            display: "block",
-            width: 20,
-            height: 2,
-            borderRadius: 1,
-            background: "var(--accent, #c83e0c)",
-            transition: "opacity .2s",
-            opacity: open ? 0 : 1,
-          }}
-        />
-        <span
-          style={{
-            display: "block",
-            width: 20,
-            height: 2,
-            borderRadius: 1,
-            background: "var(--accent, #c83e0c)",
-            transition: "transform .2s, opacity .2s",
-            transform: open ? "translateY(-3px) rotate(-45deg)" : "none",
-          }}
-        />
-      </button>
-
-      {/* Active tab label next to FAB */}
-      {!open && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "1.65rem",
-            right: "4.5rem",
-            zIndex: 1000,
-            fontSize: ".6rem",
-            fontWeight: 700,
-            letterSpacing: ".15em",
-            color: "var(--accent, #c83e0c)",
-            textTransform: "uppercase",
-            pointerEvents: "none",
-            textShadow: "0 1px 4px rgba(0,0,0,.6)",
-          }}
-        >
-          {activeLabel || (activeTab === "settings" ? "SETTINGS" : "")}
-          {autoScavengeUnlocked && (
-            <span style={{ marginLeft: ".5rem", color: "var(--text-muted, #7a6040)" }}>
-              &#9679; AUTO
+              cursor: "pointer",
+              transition: "color .12s, border-color .12s",
+              padding: "4px 0 2px",
+            }}
+          >
+            <span style={{ fontSize: "1.15rem", lineHeight: 1 }}>{"\u2022\u2022\u2022"}</span>
+            <span
+              style={{
+                fontSize: ".58rem",
+                fontWeight: isOverflowActive ? 700 : 500,
+                letterSpacing: ".04em",
+                textTransform: "uppercase",
+              }}
+            >
+              More
             </span>
+          </button>
+
+          {/* Popover */}
+          {moreOpen && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 8px)",
+                right: 0,
+                minWidth: 150,
+                background: "var(--panel-bg, #181008)",
+                border: "1px solid var(--panel-border, #3a2510)",
+                borderRadius: 8,
+                boxShadow: "0 -4px 20px rgba(0,0,0,.5)",
+                overflow: "hidden",
+                zIndex: 1001,
+              }}
+            >
+              {overflowTabs.map((t) => {
+                const isActive = activeTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    data-tutorial-tab={t.id}
+                    onClick={() => pick(t.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      width: "100%",
+                      padding: ".7rem 1rem",
+                      background: isActive
+                        ? "var(--accent-bg, rgba(200,62,12,.1))"
+                        : "none",
+                      border: "none",
+                      color: isActive
+                        ? "var(--accent, #c83e0c)"
+                        : "var(--text-primary, #d4b896)",
+                      fontSize: ".85rem",
+                      fontWeight: isActive ? 700 : 500,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "color .12s, background .12s",
+                    }}
+                  >
+                    <span>{t.icon}</span>
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
-      )}
+      </nav>
     </div>
   );
 }

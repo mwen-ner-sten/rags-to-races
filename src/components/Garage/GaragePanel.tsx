@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
-import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS } from "@/data/parts";
 import { calculateRepairCost } from "@/engine/build";
 import type { BuiltVehicle } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
@@ -70,9 +70,15 @@ export default function GaragePanel() {
   const swapPart = useGameStore((s) => s.swapPart);
 
   const toolkitUnlocked = (workshopLevels["toolkit"] ?? 0) >= 1;
+  const autoFitterUnlocked = (workshopLevels["auto_fitter"] ?? 0) >= 1;
 
-  const unlockedVehicles = VEHICLE_DEFINITIONS.filter((v) =>
-    unlockedVehicleIds.includes(v.id),
+  const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
+
+  // Show every blueprint whose required feature is available. Vehicles the
+  // player hasn't unlocked yet are rendered dimmed with their unlock hint
+  // so players know what to work toward.
+  const visibleBlueprints = VEHICLE_DEFINITIONS.filter(
+    (v) => !v.requiredFeature || unlockedFeatures.includes(v.requiredFeature),
   );
 
   const pendingDef = VEHICLE_DEFINITIONS.find((v) => v.id === pendingBuildVehicleId);
@@ -81,9 +87,34 @@ export default function GaragePanel() {
   const buildReduction = _getUpgradeEffectValue(useGameStore.getState(), "bargain_builder");
   const actualBuildCost = pendingDef ? Math.max(0, Math.floor(pendingDef.buildCost * (1 - buildReduction))) : 0;
 
-  const canBuild = pendingDef &&
-    pendingDef.slots.every((s) => !s.required || pendingBuildParts[s.slot]) &&
-    scrapBucks >= actualBuildCost;
+  // Auto-Fitter: when blueprint changes and the upgrade is owned, pre-select
+  // the best-condition compatible part for each required slot. Skips slots
+  // the player has already filled so we don't overwrite intentional choices.
+  useEffect(() => {
+    if (!autoFitterUnlocked || !pendingDef) return;
+    for (const slotCfg of pendingDef.slots) {
+      if (!slotCfg.required) continue;
+      if (pendingBuildParts[slotCfg.slot]) continue;
+      const best = inventory
+        .filter((p) => p.type !== "addon" && slotCfg.acceptableParts.includes(p.definitionId))
+        .sort((a, b) => CONDITIONS.indexOf(b.condition) - CONDITIONS.indexOf(a.condition))[0];
+      if (best) setPendingPart(slotCfg.slot, best);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to blueprint change
+  }, [pendingBuildVehicleId, autoFitterUnlocked]);
+
+  const requiredSlotsFilled = pendingDef
+    ? pendingDef.slots.every((s) => !s.required || pendingBuildParts[s.slot])
+    : false;
+  const hasFunds = pendingDef ? scrapBucks >= actualBuildCost : false;
+  const canBuild = !!pendingDef && requiredSlotsFilled && hasFunds;
+  const buildBlockReason = !pendingDef
+    ? null
+    : !requiredSlotsFilled
+      ? "Select a part for each slot"
+      : !hasFunds
+        ? `Need $${formatNumber(actualBuildCost - scrapBucks)} more`
+        : null;
 
   function eligibleGroups(slot: string): PartGroup[] {
     if (!pendingDef) return [];
@@ -112,21 +143,39 @@ export default function GaragePanel() {
         </h2>
 
         <div className="flex flex-wrap gap-1.5 sm:gap-2" data-tutorial="blueprint-btn">
-          {unlockedVehicles.map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setPendingVehicle(v.id)}
-              className="rounded-lg border px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm transition-colors"
-              style={
-                pendingBuildVehicleId === v.id
-                  ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--text-white)" }
-                  : { borderColor: "var(--panel-border)", color: "var(--text-secondary)" }
-              }
-            >
-              T{v.tier} {v.name}
-            </button>
-          ))}
+          {visibleBlueprints.map((v) => {
+            const isUnlocked = unlockedVehicleIds.includes(v.id);
+            const isSelected = pendingBuildVehicleId === v.id;
+            return (
+              <button
+                key={v.id}
+                onClick={isUnlocked ? () => setPendingVehicle(v.id) : undefined}
+                disabled={!isUnlocked}
+                title={isUnlocked ? undefined : `Locked \u2014 ${v.unlockCondition}`}
+                className="rounded-lg border px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm transition-colors"
+                style={
+                  !isUnlocked
+                    ? {
+                        borderColor: "var(--panel-border)",
+                        color: "var(--text-muted)",
+                        opacity: 0.45,
+                        cursor: "not-allowed",
+                        borderStyle: "dashed",
+                      }
+                    : isSelected
+                    ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--text-white)" }
+                    : { borderColor: "var(--panel-border)", color: "var(--text-secondary)" }
+                }
+              >
+                {!isUnlocked && <span style={{ marginRight: 4 }}>{"\u{1F512}"}</span>}
+                T{v.tier} {v.name}
+              </button>
+            );
+          })}
         </div>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Locked blueprints show how to unlock them on hover. Most unlock via <strong style={{ color: "var(--text-secondary)" }}>Rep</strong> or <strong style={{ color: "var(--text-secondary)" }}>circuit wins</strong>.
+        </p>
 
         {pendingDef && (
           <>
@@ -151,6 +200,8 @@ export default function GaragePanel() {
                   <div
                     key={slot}
                     className="rounded-lg border p-2 sm:p-3"
+                    data-tutorial-slot={slot}
+                    data-tutorial-slot-filled={selectedPart ? "true" : undefined}
                     style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
                   >
                     <div className="mb-1.5 flex items-center justify-between">
@@ -173,6 +224,8 @@ export default function GaragePanel() {
                           return (
                             <button
                               key={group.key}
+                              data-tutorial="part-btn"
+                              data-tutorial-selected={selected ? "true" : undefined}
                               onClick={() => {
                                 if (selected) {
                                   setPendingPart(slot, null);
@@ -221,6 +274,15 @@ export default function GaragePanel() {
             >
               Build {pendingDef.name}
             </button>
+            {buildBlockReason && (
+              <p
+                aria-live="polite"
+                className="text-xs"
+                style={{ color: "var(--text-muted)", marginTop: -4 }}
+              >
+                {buildBlockReason}
+              </p>
+            )}
           </>
         )}
       </div>
