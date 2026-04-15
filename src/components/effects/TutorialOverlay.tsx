@@ -775,13 +775,19 @@ export default function TutorialOverlay({ activeTab }: Props) {
       )}
 
       {/* Per-element hint highlights (e.g. clickable parts on step 5) */}
+      {/* Per-element hints (e.g. clickable parts on step 5). Solid shading
+          without pulse — the outer slot-container halo carries the animation
+          so we don't end up with 3-5 competing pulses fighting for attention. */}
       {hintRects.map((rect, i) => (
         <div
           key={`hint-${i}`}
-          className="tutorial-pulse fixed z-[9998] rounded"
+          className="fixed z-[9998] rounded-md"
           style={{
             left: rect.left - 2, top: rect.top - 2,
             width: rect.width + 4, height: rect.height + 4,
+            background: "color-mix(in srgb, var(--accent-secondary, #ff0090) 20%, transparent)",
+            border: "1.5px solid color-mix(in srgb, var(--accent-secondary, #ff0090) 65%, transparent)",
+            boxShadow: "0 0 10px color-mix(in srgb, var(--accent-secondary, #ff0090) 30%, transparent)",
             pointerEvents: "none",
           }}
         />
