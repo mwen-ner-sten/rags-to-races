@@ -10,14 +10,15 @@ import LockerPanel from "@/components/Locker/LockerPanel";
 import UpgradesPanel from "@/components/Upgrades/UpgradesPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
+import HelpActivityTab from "@/components/Help/HelpActivityTab";
 import ToastContainer from "@/components/effects/Toast";
-import TutorialOverlay, { getAllowedTabs } from "@/components/effects/TutorialOverlay";
+import TutorialOverlay, { getAdaptiveAllowedTabs } from "@/components/effects/TutorialOverlay";
 import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
 
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
@@ -28,12 +29,16 @@ export default function Home() {
   const applyTickResult = useGameStore((s) => s.applyTickResult);
   const storeRef = useRef(useGameStore.getState());
 
-  // Guard tab switching during tutorial
+  const garage = useGameStore((s) => s.garage);
+  const raceHistory = useGameStore((s) => s.raceHistory);
+  const workshopLevels = useGameStore((s) => s.workshopLevels);
+
+  // Guard tab switching during tutorial — adaptive: loosens restrictions when player acts ahead
   const guardedSetActiveTab = useCallback((tab: TabId) => {
-    const allowed = getAllowedTabs(tutorialStep);
+    const allowed = getAdaptiveAllowedTabs(tutorialStep, { garage, raceHistory, workshopLevels });
     if (allowed && !allowed.has(tab)) return;
     setActiveTab(tab);
-  }, [tutorialStep]);
+  }, [tutorialStep, garage, raceHistory, workshopLevels]);
 
   // Keep storeRef in sync without triggering re-renders
   useEffect(() => {
@@ -41,6 +46,15 @@ export default function Home() {
       storeRef.current = state;
     });
   }, []);
+
+  // After a Full Save Reset (or any path that puts the tutorial back at step 0),
+  // jump the user to the Junkyard tab — the starting surface — regardless of
+  // which tab they were on when they triggered the reset.
+  useEffect(() => {
+    if (tutorialStep === 0 && activeTab !== "junkyard") {
+      setActiveTab("junkyard");
+    }
+  }, [tutorialStep, activeTab]);
 
   const lastTickTimeRef = useRef<number>(Date.now());
 
@@ -117,7 +131,6 @@ export default function Home() {
   return (
     <>
       <ToastContainer />
-      <TutorialOverlay activeTab={activeTab} />
       {offlineResult && (
         <OfflineProgressModal
           timeAwayMinutes={offlineResult.timeAway}
@@ -126,12 +139,14 @@ export default function Home() {
         />
       )}
       <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
+        <TutorialOverlay activeTab={activeTab} />
         {activeTab === "junkyard" && <ScavengePanel />}
         {activeTab === "garage"   && <GaragePanel />}
         {activeTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
         {activeTab === "gear"     && <LockerPanel />}
         {activeTab === "upgrades" && <UpgradesPanel />}
         {activeTab === "help"     && <HelpPanel />}
+        {activeTab === "log"      && <HelpActivityTab />}
         {activeTab === "settings" && <SettingsPanel />}
         {SHOW_DEV_TAB && activeTab === "dev" && <AdminPanel />}
       </ThemeShell>

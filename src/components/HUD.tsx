@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useGameStore } from "@/state/store";
-import { formatNumber } from "@/utils/format";
+import { formatNumber, formatRep } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { touchLastSaved } from "@/utils/saveLoad";
 
@@ -33,6 +33,12 @@ export default function HUD() {
   const fatigue = useGameStore((s) => s.fatigue);
   const legacyPoints = useGameStore((s) => s.legacyPoints);
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
+  const teamPoints = useGameStore((s) => s.teamPoints);
+  const ownerPoints = useGameStore((s) => s.ownerPoints);
+  const trackPrestigeTokens = useGameStore((s) => s.trackPrestigeTokens);
+  const teamEraCount = useGameStore((s) => s.teamEraCount);
+  const ownerEraCount = useGameStore((s) => s.ownerEraCount);
+  const trackEraCount = useGameStore((s) => s.trackEraCount);
   const saveLabel = useAutoSaveIndicator();
 
   const tutorialStep = useGameStore((s) => s.tutorialStep);
@@ -40,8 +46,8 @@ export default function HUD() {
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
   const vehicleDef = activeVehicle ? getVehicleById(activeVehicle.definitionId) : null;
 
-  // Show fatigue during the tutorial step that teaches about it (step 14)
-  const showFatigue = fatigue > 0 || tutorialStep === 14;
+  // Show fatigue during the tutorial grind steps that teach about it
+  const showFatigue = fatigue > 0 || tutorialStep === 17 || tutorialStep === 19;
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
@@ -61,20 +67,32 @@ export default function HUD() {
               ✓ {saveLabel}
             </span>
           )}
-          {tutorialStep === 14 && (
+          {tutorialStep === 17 && (
             <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
               <span className="text-sm">🚀</span>
               <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 500 ? "text-green-400" : "text-zinc-300"}`}>
-                ${formatNumber(lifetimeScrapBucks)}/500
+                ${formatNumber(lifetimeScrapBucks)}/$500
               </span>
               <span className="text-zinc-600">·</span>
-              <span className={`font-mono text-xs font-semibold ${repPoints >= 25 ? "text-green-400" : "text-zinc-300"}`}>
-                {formatNumber(repPoints)}/25 Rep
+              <span className={`font-mono text-xs font-semibold ${repPoints >= 100 ? "text-green-400" : "text-zinc-300"}`}>
+                {formatRep(repPoints)}/100 Rep
+              </span>
+            </div>
+          )}
+          {tutorialStep === 19 && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
+              <span className="text-sm">🚀</span>
+              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 5000 ? "text-green-400" : "text-zinc-300"}`}>
+                ${formatNumber(lifetimeScrapBucks)}/$5k
+              </span>
+              <span className="text-zinc-600">·</span>
+              <span className={`font-mono text-xs font-semibold ${repPoints >= 500 ? "text-green-400" : "text-zinc-300"}`}>
+                {formatRep(repPoints)}/500 Rep
               </span>
             </div>
           )}
           <Stat label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} color="text-green-400" />
-          <Stat label="Rep" value={formatNumber(repPoints)} color="text-blue-400" />
+          <Stat label="Rep" value={formatRep(repPoints)} color="text-blue-400" />
           {showFatigue && (
             <Stat
               label="Fatigue"
@@ -84,6 +102,15 @@ export default function HUD() {
           )}
           {legacyPoints > 0 && (
             <Stat label="LP" value={String(legacyPoints)} color="text-purple-400" />
+          )}
+          {teamEraCount > 0 && (
+            <Stat label="TP" value={String(teamPoints)} color="text-cyan-400" />
+          )}
+          {ownerEraCount > 0 && (
+            <Stat label="OP" value={String(ownerPoints)} color="text-pink-400" />
+          )}
+          {trackEraCount > 0 && (
+            <Stat label="PT" value={String(trackPrestigeTokens)} color="text-yellow-400" />
           )}
           {activeMomentumTiers.length > 0 && (
             <div className="flex flex-col items-end">

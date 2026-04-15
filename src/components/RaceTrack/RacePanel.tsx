@@ -5,6 +5,7 @@ import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateOdds } from "@/engine/race";
 import { getGearBonuses } from "@/engine/gear";
+import { getSkillBonuses } from "@/engine/skills";
 import { RACE_TICKS_DEFAULT } from "@/engine/tick";
 import { formatNumber } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -126,18 +127,19 @@ function LiveRaceView({
         eventIndexRef.current = latest;
         setCurrentEvent(events[latest - 1]);
       }
-    }, 80);
+    }, 100);
 
     return () => clearInterval(interval);
   }, [events, startTime, durationMs, isActive, countdownMs]);
 
-  // Reset state when race ends
+  // Reset state when race ends — hold cars at finish positions long enough for
+  // the result block to land and the player to read it before the grid resets.
   useEffect(() => {
     if (!isActive) {
       const t = setTimeout(() => {
         setProgress(0);
         setCurrentEvent(null);
-      }, 0);
+      }, 2800);
       return () => clearTimeout(t);
     }
   }, [isActive]);
@@ -206,6 +208,8 @@ function OddsDisplay({
   fatigue,
   gearPerformanceBonus,
   gearDnfReduction,
+  skillPerformanceMult,
+  skillDnfReduction,
 }: {
   performance: number;
   reliability: number;
@@ -214,10 +218,12 @@ function OddsDisplay({
   fatigue: number;
   gearPerformanceBonus: number;
   gearDnfReduction: number;
+  skillPerformanceMult: number;
+  skillDnfReduction: number;
 }) {
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction],
+    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction),
+    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction],
   );
 
   const winStyle: React.CSSProperties = odds.winChance >= 0.5
@@ -357,6 +363,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
     ? VEHICLE_DEFINITIONS.find((v) => v.id === activeVehicle.definitionId)
     : null;
   const gb = useMemo(() => getGearBonuses(equippedGear), [equippedGear]);
+  const racerSkills = useGameStore((s) => s.racerSkills);
 
   const unlockedCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
     unlockedCircuitIds.includes(c.id),
@@ -366,6 +373,10 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   );
 
   const selectedCircuit = CIRCUIT_DEFINITIONS.find((c) => c.id === selectedCircuitId);
+  const sb = useMemo(
+    () => getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0),
+    [racerSkills, selectedCircuit?.tier],
+  );
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const canEnter =
     !isRacing &&
@@ -532,6 +543,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             fatigue={fatigue}
             gearPerformanceBonus={gb.race_performance_pct}
             gearDnfReduction={gb.race_dnf_reduction}
+            skillPerformanceMult={sb.drivingPerformanceMult}
+            skillDnfReduction={sb.drivingDnfReduction}
           />
           </div>
         )}

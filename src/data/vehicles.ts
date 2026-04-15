@@ -22,6 +22,8 @@ export interface VehicleDefinition {
   buildCost: number; // Scrap Bucks to build (workbench fee)
   sellValue: number;
   raceTiers: number[]; // which race circuits this can enter
+  /** Feature unlock required to see this vehicle (e.g. "vehicle_mastery") */
+  requiredFeature?: string;
 }
 
 export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
@@ -194,6 +196,52 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     buildCost: 60000,
     sellValue: 80000,
     raceTiers: [7, 8],
+  },
+  {
+    id: "hypercar",
+    name: "Hypercar",
+    tier: 9,
+    description: "Carbon fiber dreams and turbocharged nightmares. Built from scrap, faster than anything on Earth.",
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_turbo_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_racing"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_carbon"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: true, acceptableParts: ["elec_racing"] },
+      { slot: "drivetrain", required: true, acceptableParts: ["drive_dualclutch"] },
+      { slot: "exhaust", required: true, acceptableParts: ["exhaust_titanium"] },
+      { slot: "suspension", required: true, acceptableParts: ["susp_active"] },
+      { slot: "aero", required: true, acceptableParts: ["aero_carbon"] },
+    ],
+    baseStats: { speed: 550, handling: 250, reliability: 90, weight: 900 },
+    unlockCondition: "Owner upgrade: Vehicle Mastery",
+    buildCost: 200000,
+    sellValue: 250000,
+    raceTiers: [8, 9],
+    requiredFeature: "vehicle_mastery",
+  },
+  {
+    id: "prototype_x",
+    name: "Prototype Racer X",
+    tier: 10,
+    description: "They said it couldn't be done. A car built entirely from scrap that defies physics. You proved them wrong.",
+    slots: [
+      { slot: "engine", required: true, acceptableParts: ["engine_turbo_v6"] },
+      { slot: "wheel", required: true, acceptableParts: ["wheel_racing"] },
+      { slot: "frame", required: true, acceptableParts: ["frame_carbon"] },
+      { slot: "fuel", required: true, acceptableParts: ["fuel_tank_large"] },
+      { slot: "electronics", required: true, acceptableParts: ["elec_racing"] },
+      { slot: "drivetrain", required: true, acceptableParts: ["drive_dualclutch"] },
+      { slot: "exhaust", required: true, acceptableParts: ["exhaust_titanium"] },
+      { slot: "suspension", required: true, acceptableParts: ["susp_active"] },
+      { slot: "aero", required: true, acceptableParts: ["aero_carbon"] },
+    ],
+    baseStats: { speed: 700, handling: 300, reliability: 95, weight: 800 },
+    unlockCondition: "Owner upgrade: Vehicle Mastery",
+    buildCost: 800000,
+    sellValue: 1000000,
+    raceTiers: [9, 10],
+    requiredFeature: "vehicle_mastery",
   },
 ];
 

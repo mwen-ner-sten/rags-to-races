@@ -53,41 +53,24 @@ html {
     flex-wrap: wrap !important;
   }
 
-  /* Tabs: fixed bottom nav bar for thumb reach */
-  nav {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    margin: 0 !important;
-    z-index: 900 !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    padding: 0 .25rem !important;
-    scrollbar-width: none !important;
-    border-top: 1px solid rgba(255,255,255,.1) !important;
-    border-bottom: none !important;
-    justify-content: flex-start !important;
-    backdrop-filter: blur(12px) saturate(1.5) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
-  }
-  nav::-webkit-scrollbar { display: none; }
+  /* nav hidden via .shell-content rule below */
 
-  /* Content: less padding, room for bottom nav */
+  /* Content: less padding on mobile */
   main {
     padding: .75rem !important;
-    padding-bottom: 3.5rem !important;
   }
 
-  /* Footer: center, compact, sits above bottom nav */
+  /* Shell: reserve space for fixed bottom nav (56px) so no content is covered */
+  .shell-content {
+    padding-bottom: 56px;
+  }
+
+  /* Footer: center, compact */
   footer {
     flex-wrap: wrap !important;
     justify-content: center !important;
     gap: .4rem !important;
     padding: .5rem .75rem !important;
-    padding-bottom: 3.5rem !important;
     color: rgba(255,255,255,.65) !important;
   }
   footer button {
@@ -123,6 +106,48 @@ html {
     color: rgba(255,255,255,.85) !important;
     opacity: 1 !important;
   }
+}
+
+/* ── Shell nav hidden — replaced by sidebar (desktop) and hamburger (mobile) */
+.shell-content nav { display: none !important; }
+
+/* ── Desktop sidebar ───────────────────────────────────────────────────── */
+.desktop-sidebar { display: none; }
+@media (min-width: 641px) {
+  .desktop-sidebar { display: flex; }
+  .shell-content { margin-left: 200px; }
+}
+
+/* ── Mobile nav visibility ──────────────────────────────────────────────── */
+/* Hidden on desktop by default */
+.mobile-nav { display: none; }
+.mobile-sub-nav { display: none; }
+@media (max-width: 640px) {
+  .mobile-nav { display: block; }
+  .mobile-sub-nav { display: block; }
+}
+
+/* ── Auto-scavenge circling border ─────────────────────────────────────── */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes border-orbit {
+  from { --border-angle: 0deg; }
+  to   { --border-angle: 360deg; }
+}
+
+.auto-scavenge-active {
+  position: relative;
+  border: 2px solid transparent !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, border-box !important;
+  background-image:
+    linear-gradient(var(--btn-primary-bg, #c83e0c), var(--btn-primary-bg, #c83e0c)),
+    conic-gradient(from var(--border-angle), var(--accent, #c83e0c) 0%, transparent 30%, transparent 70%, var(--accent, #c83e0c) 100%) !important;
+  animation: border-orbit var(--orbit-duration, 2s) linear infinite;
 }
 
 /* ── Game animations ────────────────────────────────────────────────────── */
@@ -191,12 +216,14 @@ html {
 .animate-flag-wave { animation: flag-wave 0.6s ease-in-out infinite; }
 
 @keyframes tutorial-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.5), 0 0 12px 0 rgba(234, 179, 8, 0.25); }
-  50% { box-shadow: 0 0 0 8px rgba(234, 179, 8, 0), 0 0 20px 0 rgba(234, 179, 8, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--tp-glow), 0 0 12px 0 var(--tp-dim); }
+  50% { box-shadow: 0 0 0 8px transparent, 0 0 20px 0 transparent; }
 }
 .tutorial-pulse {
+  --tp-glow: color-mix(in srgb, var(--accent-secondary, #ff0090) 55%, transparent);
+  --tp-dim: color-mix(in srgb, var(--accent-secondary, #ff0090) 30%, transparent);
   animation: tutorial-pulse 1.5s ease-in-out infinite;
-  border: 1.5px solid rgba(234, 179, 8, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--accent-secondary, #ff0090) 45%, transparent);
 }
 
 /* Arrow pointing from tutorial card toward target */

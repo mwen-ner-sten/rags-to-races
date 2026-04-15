@@ -1,9 +1,10 @@
 /**
- * Inline SVG sprites for each vehicle tier (top-down view, pointing right).
- *
- * All sprites use a 32×32 viewBox and accept a `color` prop for theming.
- * Internal details reference CSS custom properties so they adapt to any theme.
+ * Top-down vehicle sprites (32×32), pixel-art style: integer rects only, crisp edges.
+ * Body uses `currentColor` from the `color` prop (theme accent on track / dev viewer).
  */
+
+/** Shown in Dev → Vehicle Sprites so you can confirm the running bundle has new art. */
+export const VEHICLE_SPRITE_ART_REVISION = 3;
 
 interface VehicleSpriteProps {
   vehicleId: string;
@@ -14,232 +15,288 @@ interface VehicleSpriteProps {
 
 type SpriteRenderer = (color: string) => React.ReactNode;
 
-/* ── Sprite definitions ─────────────────────────────────────────────────── */
+/* ── Pixel helpers (1 unit = 1 “pixel” in viewBox) ───────────────────────── */
+
+const OUTLINE = "#0d0d0d";
+const TIRE = "#242424";
+const TIRE_HI = "#3d3d3d";
+const CHROME = "var(--text-muted)";
+/** Windshield / cabin glass — reads on any theme */
+const GLASS =
+  "color-mix(in srgb, var(--panel-bg) 62%, rgb(120, 180, 220) 38%)";
+const RALLY_LAMP = "#f4e8a0";
+const HEADLIGHT = "#eef4ff";
+
+function R(x: number, y: number, w: number, h: number, fill: string) {
+  return <rect x={x} y={y} width={w} height={h} fill={fill} />;
+}
+
+/** Darker body shade (works when parent sets `color` to vehicle paint). */
+const DARK = "color-mix(in srgb, currentColor 48%, #000)";
+const MID = "color-mix(in srgb, currentColor 68%, #000)";
+const LIGHT = "color-mix(in srgb, currentColor 82%, #fff)";
+
+function wheel4(x: number, y: number) {
+  return (
+    <g>
+      {R(x + 1, y, 2, 1, OUTLINE)}
+      {R(x, y + 1, 4, 2, OUTLINE)}
+      {R(x + 1, y + 1, 2, 2, TIRE)}
+      {R(x + 1, y + 1, 1, 1, TIRE_HI)}
+      {R(x + 2, y + 2, 1, 1, TIRE_HI)}
+    </g>
+  );
+}
+
+function wheel5(x: number, y: number) {
+  return (
+    <g>
+      {R(x + 1, y, 3, 1, OUTLINE)}
+      {R(x, y + 1, 5, 3, OUTLINE)}
+      {R(x + 1, y + 1, 3, 3, TIRE)}
+      {R(x + 1, y + 1, 1, 1, TIRE_HI)}
+      {R(x + 3, y + 1, 1, 1, TIRE_HI)}
+      {R(x + 2, y + 2, 1, 1, TIRE_HI)}
+      {R(x + 1, y + 3, 1, 1, TIRE_HI)}
+      {R(x + 3, y + 3, 1, 1, TIRE_HI)}
+    </g>
+  );
+}
+
+function shadowStrip() {
+  return (
+    <g opacity={0.45}>
+      {R(6, 26, 20, 1, "#000")}
+      {R(5, 27, 22, 1, "#000")}
+      {R(6, 28, 20, 1, "#000")}
+    </g>
+  );
+}
+
+function bodyWrap(color: string, children: React.ReactNode) {
+  return (
+    <g style={{ color }} shapeRendering="crispEdges">
+      {children}
+    </g>
+  );
+}
+
+/* ── Per-vehicle pixel layouts (+X = front / nose of vehicle) ───────────── */
 
 export const sprites: Record<string, SpriteRenderer> = {
-  /* T0 — Push Mower: small body, handle bar, two wheels */
-  push_mower: (c) => (
-    <>
-      {/* wheels */}
-      <rect x="9" y="8" width="4" height="3" rx="1" fill="var(--text-muted)" />
-      <rect x="9" y="21" width="4" height="3" rx="1" fill="var(--text-muted)" />
-      {/* body */}
-      <rect x="11" y="10" width="12" height="12" rx="2" fill={c} />
-      {/* engine block */}
-      <rect x="19" y="12" width="5" height="8" rx="1" fill={c} opacity={0.7} />
-      {/* handle */}
-      <rect x="4" y="14" width="8" height="1.5" rx="0.5" fill="var(--text-muted)" />
-      <rect x="3" y="13" width="2" height="4" rx="1" fill="var(--text-muted)" />
-      {/* blade housing */}
-      <circle cx="17" cy="16" r="3.5" fill={c} opacity={0.5} stroke="var(--text-muted)" strokeWidth="0.5" />
-    </>
-  ),
+  push_mower: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel4(6, 6)}
+        {wheel4(6, 22)}
+        {R(3, 14, 2, 4, CHROME)}
+        {R(5, 15, 5, 2, CHROME)}
+        {R(10, 10, 12, 12, OUTLINE)}
+        {R(11, 11, 10, 10, "currentColor")}
+        {R(19, 12, 4, 8, MID)}
+        {R(12, 12, 6, 3, LIGHT)}
+        {R(14, 15, 6, 5, DARK)}
+        {R(15, 16, 4, 3, MID)}
+        {R(16, 17, 2, 1, OUTLINE)}
+        {R(22, 13, 2, 6, DARK)}
+        {R(23, 14, 1, 4, LIGHT)}
+        {R(24, 15, 3, 2, CHROME)}
+      </>
+    )),
 
-  /* T1 — Riding Mower: wider body, seat, 4 wheels, steering column */
-  riding_mower: (c) => (
-    <>
-      {/* rear wheels */}
-      <rect x="8" y="6" width="5" height="3.5" rx="1.2" fill="var(--text-muted)" />
-      <rect x="8" y="22.5" width="5" height="3.5" rx="1.2" fill="var(--text-muted)" />
-      {/* front wheels */}
-      <rect x="22" y="8" width="3" height="3" rx="1" fill="var(--text-muted)" />
-      <rect x="22" y="21" width="3" height="3" rx="1" fill="var(--text-muted)" />
-      {/* body */}
-      <rect x="10" y="8" width="14" height="16" rx="3" fill={c} />
-      {/* engine hood */}
-      <rect x="21" y="10" width="6" height="12" rx="2" fill={c} opacity={0.8} />
-      {/* seat */}
-      <rect x="11" y="12" width="5" height="8" rx="2" fill="var(--panel-bg)" opacity={0.6} />
-      {/* steering column */}
-      <line x1="17" y1="16" x2="21" y2="16" stroke="var(--text-muted)" strokeWidth="1" />
-      <circle cx="21" cy="16" r="1.5" fill="var(--text-muted)" opacity={0.7} />
-    </>
-  ),
+  riding_mower: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel5(5, 4)}
+        {wheel5(5, 21)}
+        {wheel4(22, 7)}
+        {wheel4(22, 21)}
+        {R(9, 8, 14, 16, OUTLINE)}
+        {R(10, 9, 12, 14, "currentColor")}
+        {R(11, 10, 10, 4, LIGHT)}
+        {R(19, 10, 5, 12, MID)}
+        {R(20, 11, 3, 10, DARK)}
+        {R(11, 14, 5, 7, GLASS)}
+        {R(12, 15, 3, 5, "color-mix(in srgb, var(--panel-bg) 40%, #000)")}
+        {R(16, 15, 3, 1, CHROME)}
+        {R(19, 15, 2, 1, CHROME)}
+        {R(20, 16, 1, 1, OUTLINE)}
+      </>
+    )),
 
-  /* T2 — Go-Kart: low narrow open body, exposed rear axle, front fairing */
-  go_kart: (c) => (
-    <>
-      {/* rear axle */}
-      <rect x="8" y="6" width="1.5" height="20" rx="0.5" fill="var(--text-muted)" />
-      {/* rear wheels */}
-      <rect x="6" y="5" width="5" height="3.5" rx="1.2" fill="var(--text-muted)" />
-      <rect x="6" y="23.5" width="5" height="3.5" rx="1.2" fill="var(--text-muted)" />
-      {/* front wheels */}
-      <rect x="24" y="8" width="3.5" height="3" rx="1" fill="var(--text-muted)" />
-      <rect x="24" y="21" width="3.5" height="3" rx="1" fill="var(--text-muted)" />
-      {/* chassis */}
-      <rect x="10" y="11" width="16" height="10" rx="2" fill={c} />
-      {/* cockpit */}
-      <rect x="12" y="13" width="6" height="6" rx="1.5" fill="var(--panel-bg)" opacity={0.5} />
-      {/* front nose fairing */}
-      <path d="M24,12 L29,15 L29,17 L24,20 Z" fill={c} opacity={0.85} />
-      {/* steering tie rods */}
-      <line x1="24" y1="9.5" x2="24" y2="13" stroke="var(--text-muted)" strokeWidth="0.7" />
-      <line x1="24" y1="19" x2="24" y2="22.5" stroke="var(--text-muted)" strokeWidth="0.7" />
-    </>
-  ),
+  go_kart: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel5(3, 4)}
+        {wheel5(3, 21)}
+        {wheel4(23, 7)}
+        {wheel4(23, 21)}
+        {R(6, 7, 1, 18, CHROME)}
+        {R(9, 11, 16, 10, OUTLINE)}
+        {R(10, 12, 14, 8, "currentColor")}
+        {R(11, 13, 6, 6, DARK)}
+        {R(12, 14, 4, 4, GLASS)}
+        {R(18, 13, 5, 6, MID)}
+        {R(23, 13, 6, 6, OUTLINE)}
+        {R(24, 14, 4, 4, "currentColor")}
+        {R(25, 15, 2, 2, LIGHT)}
+        {R(13, 10, 4, 1, CHROME)}
+        {R(13, 21, 4, 1, CHROME)}
+      </>
+    )),
 
-  /* T3 — Beater Car: basic sedan, rectangular with rounded hood */
-  beater_car: (c) => (
-    <>
-      {/* wheels */}
-      <ellipse cx="9" cy="7" rx="2.5" ry="2" fill="var(--text-muted)" />
-      <ellipse cx="9" cy="25" rx="2.5" ry="2" fill="var(--text-muted)" />
-      <ellipse cx="24" cy="7" rx="2.5" ry="2" fill="var(--text-muted)" />
-      <ellipse cx="24" cy="25" rx="2.5" ry="2" fill="var(--text-muted)" />
-      {/* body */}
-      <rect x="6" y="8" width="22" height="16" rx="3" fill={c} />
-      {/* hood */}
-      <path d="M25,9 Q30,12 30,16 Q30,20 25,23 L25,9Z" fill={c} opacity={0.8} />
-      {/* trunk */}
-      <path d="M8,10 Q4,12 4,16 Q4,20 8,22 L8,10Z" fill={c} opacity={0.75} />
-      {/* windshield */}
-      <rect x="20" y="10.5" width="4" height="11" rx="1.5" fill="var(--panel-bg)" opacity={0.45} />
-      {/* rear window */}
-      <rect x="9" y="11" width="3" height="10" rx="1" fill="var(--panel-bg)" opacity={0.35} />
-      {/* roof */}
-      <rect x="13" y="10" width="7" height="12" rx="2" fill={c} opacity={0.6} />
-      {/* rust spot */}
-      <circle cx="11" cy="20" r="1" fill="var(--text-muted)" opacity={0.3} />
-    </>
-  ),
+  beater_car: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel4(5, 5)}
+        {wheel4(5, 21)}
+        {wheel4(22, 5)}
+        {wheel4(22, 21)}
+        {R(7, 9, 19, 14, OUTLINE)}
+        {R(8, 10, 17, 12, "currentColor")}
+        {R(9, 11, 4, 4, GLASS)}
+        {R(20, 11, 4, 4, GLASS)}
+        {R(13, 10, 6, 12, MID)}
+        {R(14, 11, 4, 10, DARK)}
+        {R(10, 15, 14, 2, OUTLINE)}
+        {R(11, 15, 12, 1, "color-mix(in srgb, currentColor 35%, #000)")}
+        {R(9, 19, 2, 1, CHROME)}
+        {R(9, 20, 3, 1, CHROME)}
+        {R(25, 11, 4, 2, LIGHT)}
+        {R(25, 17, 4, 2, LIGHT)}
+      </>
+    )),
 
-  /* T4 — Street Racer: sleek coupe, rear spoiler, refined curves */
-  street_racer: (c) => (
-    <>
-      {/* wheels */}
-      <ellipse cx="8" cy="6.5" rx="2.5" ry="2.2" fill="var(--text-muted)" />
-      <ellipse cx="8" cy="25.5" rx="2.5" ry="2.2" fill="var(--text-muted)" />
-      <ellipse cx="25" cy="6.5" rx="2.5" ry="2.2" fill="var(--text-muted)" />
-      <ellipse cx="25" cy="25.5" rx="2.5" ry="2.2" fill="var(--text-muted)" />
-      {/* body — sleek shape */}
-      <path d="M7,8 L26,7 Q31,10 31,16 Q31,22 26,25 L7,24 Q4,22 4,16 Q4,10 7,8Z" fill={c} />
-      {/* windshield */}
-      <path d="M21,9.5 L25,8.5 Q27,12 27,16 Q27,20 25,23.5 L21,22.5 Q22,19 22,16 Q22,13 21,9.5Z" fill="var(--panel-bg)" opacity={0.45} />
-      {/* roof line */}
-      <path d="M13,9.5 L21,9.5 Q22,13 22,16 Q22,19 21,22.5 L13,22.5 Q14,19 14,16 Q14,13 13,9.5Z" fill={c} opacity={0.6} />
-      {/* rear window */}
-      <path d="M10,10 L13,9.5 Q14,13 14,16 Q14,19 13,22.5 L10,22 Q11,19 11,16 Q11,13 10,10Z" fill="var(--panel-bg)" opacity={0.35} />
-      {/* spoiler */}
-      <rect x="4" y="6" width="1.5" height="20" rx="0.5" fill="var(--text-muted)" opacity={0.7} />
-      {/* headlights */}
-      <rect x="29" y="11" width="1.5" height="2.5" rx="0.5" fill="var(--text-muted)" opacity={0.8} />
-      <rect x="29" y="18.5" width="1.5" height="2.5" rx="0.5" fill="var(--text-muted)" opacity={0.8} />
-    </>
-  ),
+  street_racer: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel4(4, 5)}
+        {wheel4(4, 21)}
+        {wheel5(21, 4)}
+        {wheel5(21, 21)}
+        {R(6, 8, 22, 16, OUTLINE)}
+        {R(7, 9, 20, 14, "currentColor")}
+        {R(8, 10, 6, 12, DARK)}
+        {R(9, 11, 4, 10, MID)}
+        {R(19, 10, 7, 4, GLASS)}
+        {R(20, 18, 6, 3, GLASS)}
+        {R(14, 9, 5, 14, LIGHT)}
+        {R(3, 9, 2, 14, OUTLINE)}
+        {R(4, 10, 1, 12, CHROME)}
+        {R(2, 11, 2, 10, CHROME)}
+        {R(28, 12, 3, 2, HEADLIGHT)}
+        {R(28, 18, 3, 2, HEADLIGHT)}
+        {R(10, 15, 14, 1, "color-mix(in srgb, currentColor 40%, #fff)")}
+      </>
+    )),
 
-  /* T5 — Rally Car: roof rack/lights, wider fenders, raised stance */
-  rally_car: (c) => (
-    <>
-      {/* wheels — slightly larger / raised */}
-      <ellipse cx="8" cy="5.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      <ellipse cx="8" cy="26.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      <ellipse cx="24" cy="5.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      <ellipse cx="24" cy="26.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      {/* wide body / fenders */}
-      <path d="M6,7 L26,6 Q31,10 31,16 Q31,22 26,26 L6,25 Q3,22 3,16 Q3,10 6,7Z" fill={c} />
-      {/* windshield */}
-      <path d="M21,8 L25,7.5 Q27,11 27,16 Q27,21 25,24.5 L21,24 Q22,20 22,16 Q22,12 21,8Z" fill="var(--panel-bg)" opacity={0.4} />
-      {/* roof */}
-      <rect x="12" y="9" width="9" height="14" rx="2" fill={c} opacity={0.6} />
-      {/* roof rack / light bar */}
-      <rect x="14" y="8" width="6" height="1.2" rx="0.4" fill="var(--text-muted)" />
-      <rect x="14" y="22.8" width="6" height="1.2" rx="0.4" fill="var(--text-muted)" />
-      {/* rally lights on hood */}
-      <circle cx="28" cy="12" r="1.2" fill="var(--text-muted)" opacity={0.9} />
-      <circle cx="28" cy="20" r="1.2" fill="var(--text-muted)" opacity={0.9} />
-      {/* side stripe */}
-      <rect x="8" y="15" width="17" height="2" rx="0.5" fill="var(--text-muted)" opacity={0.25} />
-      {/* mud flaps */}
-      <rect x="5" y="6" width="1.5" height="3" rx="0.5" fill="var(--text-muted)" opacity={0.5} />
-      <rect x="5" y="23" width="1.5" height="3" rx="0.5" fill="var(--text-muted)" opacity={0.5} />
-    </>
-  ),
+  rally_car: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel5(3, 3)}
+        {wheel5(3, 22)}
+        {wheel5(20, 3)}
+        {wheel5(20, 22)}
+        {R(6, 7, 22, 18, OUTLINE)}
+        {R(7, 8, 20, 16, "currentColor")}
+        {R(8, 9, 6, 14, DARK)}
+        {R(19, 8, 7, 5, GLASS)}
+        {R(20, 19, 6, 4, GLASS)}
+        {R(13, 8, 6, 16, MID)}
+        {R(14, 9, 4, 14, LIGHT)}
+        {R(15, 7, 4, 2, OUTLINE)}
+        {R(16, 6, 2, 2, CHROME)}
+        {R(15, 23, 4, 2, OUTLINE)}
+        {R(16, 24, 2, 1, CHROME)}
+        {R(26, 10, 2, 2, RALLY_LAMP)}
+        {R(26, 18, 2, 2, RALLY_LAMP)}
+        {R(9, 15, 14, 2, "#fff")}
+        {R(4, 6, 2, 3, CHROME)}
+        {R(4, 23, 2, 3, CHROME)}
+      </>
+    )),
 
-  /* T6 — Stock Car: wide oval body, number circle, very rounded */
-  stock_car: (c) => (
-    <>
-      {/* wheels */}
-      <ellipse cx="8" cy="5.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      <ellipse cx="8" cy="26.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      <ellipse cx="25" cy="5.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      <ellipse cx="25" cy="26.5" rx="3" ry="2.5" fill="var(--text-muted)" />
-      {/* body — wide, rounded, NASCAR-style */}
-      <ellipse cx="16" cy="16" rx="14" ry="10.5" fill={c} />
-      {/* hood slope */}
-      <path d="M27,8 Q32,12 32,16 Q32,20 27,24 L27,8Z" fill={c} opacity={0.8} />
-      {/* windshield */}
-      <path d="M21,9 L25,8 Q27,12 27,16 Q27,20 25,24 L21,23 Q22,19 22,16 Q22,13 21,9Z" fill="var(--panel-bg)" opacity={0.4} />
-      {/* roof */}
-      <ellipse cx="15" cy="16" rx="6" ry="6.5" fill={c} opacity={0.55} />
-      {/* number circle */}
-      <circle cx="14" cy="16" r="3.5" fill="var(--panel-bg)" opacity={0.5} />
-      <text x="14" y="18" textAnchor="middle" fontSize="5" fontWeight="bold" fill="var(--text-muted)" opacity={0.7}>6</text>
-      {/* rear spoiler */}
-      <rect x="2" y="7" width="1.5" height="18" rx="0.5" fill="var(--text-muted)" opacity={0.6} />
-      {/* decal stripe */}
-      <rect x="5" y="15" width="22" height="2" rx="0.5" fill="var(--text-muted)" opacity={0.2} />
-    </>
-  ),
+  stock_car: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel5(3, 4)}
+        {wheel5(3, 21)}
+        {wheel5(20, 4)}
+        {wheel5(20, 21)}
+        {R(4, 7, 24, 18, OUTLINE)}
+        {R(5, 8, 22, 16, "currentColor")}
+        {R(6, 9, 20, 14, MID)}
+        {R(7, 10, 18, 12, "currentColor")}
+        {R(19, 9, 7, 5, GLASS)}
+        {R(8, 11, 6, 8, DARK)}
+        {R(9, 12, 4, 6, LIGHT)}
+        {R(14, 13, 6, 6, OUTLINE)}
+        {R(15, 14, 4, 4, "color-mix(in srgb, var(--panel-bg) 55%, #000)")}
+        {R(16, 15, 2, 2, CHROME)}
+        {R(2, 10, 2, 12, OUTLINE)}
+        {R(3, 11, 1, 10, CHROME)}
+        {R(6, 14, 20, 2, "#fff")}
+        {R(6, 14, 20, 1, "color-mix(in srgb, currentColor 50%, #fff)")}
+        {R(7, 11, 16, 1, LIGHT)}
+      </>
+    )),
 
-  /* T7 — Prototype Racer: low, wide, aero elements, open-wheel hints */
-  prototype_racer: (c) => (
-    <>
-      {/* exposed wheels */}
-      <ellipse cx="7" cy="4.5" rx="3.5" ry="2.8" fill="var(--text-muted)" />
-      <ellipse cx="7" cy="27.5" rx="3.5" ry="2.8" fill="var(--text-muted)" />
-      <ellipse cx="26" cy="5.5" rx="2.5" ry="2.2" fill="var(--text-muted)" />
-      <ellipse cx="26" cy="26.5" rx="2.5" ry="2.2" fill="var(--text-muted)" />
-      {/* monocoque / central body */}
-      <path d="M9,9 L28,10 Q31,13 31,16 Q31,19 28,22 L9,23 Q6,20 6,16 Q6,12 9,9Z" fill={c} />
-      {/* front splitter */}
-      <path d="M28,8 L32,9 L32,23 L28,24 Z" fill="var(--text-muted)" opacity={0.5} />
-      {/* cockpit */}
-      <path d="M16,12 L22,11.5 Q23,14 23,16 Q23,18 22,20.5 L16,20 Q17,18 17,16 Q17,14 16,12Z" fill="var(--panel-bg)" opacity={0.5} />
-      {/* rear diffuser */}
-      <path d="M6,8 L9,9 L9,23 L6,24 L4,22 L4,10 Z" fill="var(--text-muted)" opacity={0.4} />
-      {/* rear wing */}
-      <rect x="3" y="4" width="2" height="24" rx="0.7" fill="var(--text-muted)" opacity={0.65} />
-      <rect x="2" y="5" width="1" height="22" rx="0.3" fill="var(--text-muted)" opacity={0.4} />
-      {/* side pods */}
-      <rect x="11" y="8" width="8" height="2.5" rx="1" fill={c} opacity={0.7} />
-      <rect x="11" y="21.5" width="8" height="2.5" rx="1" fill={c} opacity={0.7} />
-      {/* air intake */}
-      <rect x="14" y="11" width="2" height="1.5" rx="0.5" fill="var(--text-muted)" opacity={0.5} />
-    </>
-  ),
+  prototype_racer: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel5(2, 2)}
+        {wheel5(2, 23)}
+        {wheel4(23, 5)}
+        {wheel4(23, 21)}
+        {R(7, 9, 21, 14, OUTLINE)}
+        {R(8, 10, 19, 12, "currentColor")}
+        {R(9, 11, 8, 10, DARK)}
+        {R(17, 11, 9, 10, MID)}
+        {R(18, 12, 6, 8, GLASS)}
+        {R(26, 8, 4, 16, OUTLINE)}
+        {R(27, 9, 2, 14, CHROME)}
+        {R(5, 10, 3, 12, OUTLINE)}
+        {R(4, 11, 2, 10, CHROME)}
+        {R(1, 5, 3, 22, OUTLINE)}
+        {R(2, 6, 2, 20, CHROME)}
+        {R(10, 8, 8, 2, LIGHT)}
+        {R(10, 22, 8, 2, LIGHT)}
+        {R(15, 10, 2, 2, OUTLINE)}
+      </>
+    )),
 
-  /* T8 — Supercar: flowing curves, large rear wing, wide body — the pinnacle */
-  supercar: (c) => (
-    <>
-      {/* wheels */}
-      <ellipse cx="8" cy="5" rx="3" ry="2.8" fill="var(--text-muted)" />
-      <ellipse cx="8" cy="27" rx="3" ry="2.8" fill="var(--text-muted)" />
-      <ellipse cx="26" cy="5.5" rx="2.8" ry="2.5" fill="var(--text-muted)" />
-      <ellipse cx="26" cy="26.5" rx="2.8" ry="2.5" fill="var(--text-muted)" />
-      {/* body — flowing supercar shape */}
-      <path d="M6,7 L27,6 Q33,10 33,16 Q33,22 27,26 L6,25 Q2,22 2,16 Q2,10 6,7Z" fill={c} />
-      {/* hood contour */}
-      <path d="M24,7 Q30,10 30,16 Q30,22 24,25 L24,7Z" fill={c} opacity={0.75} />
-      {/* windshield */}
-      <path d="M20,8 L24,7 Q26,11 26,16 Q26,21 24,25 L20,24 Q21,20 21,16 Q21,12 20,8Z" fill="var(--panel-bg)" opacity={0.5} />
-      {/* roof / canopy */}
-      <path d="M14,9 L20,8 Q21,12 21,16 Q21,20 20,24 L14,23 Q15,19 15,16 Q15,13 14,9Z" fill={c} opacity={0.55} />
-      {/* rear window */}
-      <path d="M11,10 L14,9 Q15,13 15,16 Q15,19 14,23 L11,22 Q12,19 12,16 Q12,13 11,10Z" fill="var(--panel-bg)" opacity={0.35} />
-      {/* large rear wing */}
-      <rect x="2" y="4" width="2.5" height="24" rx="0.8" fill="var(--text-muted)" opacity={0.7} />
-      <rect x="4" y="6" width="2" height="20" rx="0.5" fill="var(--text-muted)" opacity={0.3} />
-      {/* side intakes */}
-      <path d="M16,8 L19,7.5 L19,9 L16,9.5Z" fill="var(--text-muted)" opacity={0.4} />
-      <path d="M16,24 L19,24.5 L19,23 L16,22.5Z" fill="var(--text-muted)" opacity={0.4} />
-      {/* headlights */}
-      <rect x="30" y="11" width="2" height="2" rx="0.8" fill="var(--text-muted)" opacity={0.85} />
-      <rect x="30" y="19" width="2" height="2" rx="0.8" fill="var(--text-muted)" opacity={0.85} />
-      {/* center stripe */}
-      <rect x="6" y="15.2" width="24" height="1.6" rx="0.5" fill="var(--text-muted)" opacity={0.15} />
-    </>
-  ),
+  supercar: (c) =>
+    bodyWrap(c, (
+      <>
+        {shadowStrip()}
+        {wheel5(3, 3)}
+        {wheel5(3, 22)}
+        {wheel5(20, 4)}
+        {wheel5(20, 21)}
+        {R(5, 7, 23, 18, OUTLINE)}
+        {R(6, 8, 21, 16, "currentColor")}
+        {R(7, 9, 8, 14, DARK)}
+        {R(19, 8, 7, 5, GLASS)}
+        {R(20, 19, 6, 4, GLASS)}
+        {R(14, 8, 5, 16, MID)}
+        {R(15, 9, 3, 14, LIGHT)}
+        {R(1, 5, 3, 22, OUTLINE)}
+        {R(2, 6, 2, 20, CHROME)}
+        {R(27, 11, 3, 3, HEADLIGHT)}
+        {R(27, 18, 3, 3, HEADLIGHT)}
+        {R(16, 7, 3, 2, OUTLINE)}
+        {R(17, 23, 3, 2, OUTLINE)}
+        {R(8, 15, 16, 2, "color-mix(in srgb, currentColor 55%, #fff)")}
+      </>
+    )),
 };
 
 /* ── Component ──────────────────────────────────────────────────────────── */
@@ -259,12 +316,11 @@ export default function VehicleSprite({
       width={size}
       height={size}
       className={className}
-      style={{ display: "block" }}
+      style={{ display: "block", shapeRendering: "crispEdges" }}
     >
       {renderer ? (
         renderer(color)
       ) : (
-        /* Fallback: original triangle */
         <polygon points="9,11 23,16 9,21" fill={color} />
       )}
     </svg>
