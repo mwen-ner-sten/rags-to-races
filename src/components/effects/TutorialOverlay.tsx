@@ -387,6 +387,17 @@ export default function TutorialOverlay({ activeTab }: Props) {
     ? (tutorialStep === 2 && step2SellReady ? "sell-area" : stepDef.target)
     : undefined;
 
+  // Dynamic tab highlight overrides. On step 15, once the player can afford
+  // Keen Eye but they're off the Upgrades tab, pulse the Upgrades tab to
+  // pull them back in. (On Upgrades, the workshop-upgrade-btn target halo
+  // takes over.)
+  const effectiveHighlightTab = (() => {
+    if (tutorialStep === 15 && scrapBucks >= 75 && activeTab !== "upgrades") {
+      return "upgrades";
+    }
+    return stepDef?.highlightTab;
+  })();
+
   const updatePositions = useCallback(() => {
     if (!stepDef) { setTargetRect(null); setSellBtnRect(null); setHighlightRect(null); setBlockerRects([]); setHintRects([]); return; }
 
@@ -443,10 +454,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
     const allowedSet = stepDef.allowedTabs ? new Set(stepDef.allowedTabs) : null;
 
-    if (stepDef.highlightTab) {
+    if (effectiveHighlightTab) {
       // Prefer exact matching via data-tutorial-tab attribute (robust to abbreviated labels)
       const attrMatches = Array.from(
-        document.querySelectorAll(`[data-tutorial-tab="${stepDef.highlightTab}"]`),
+        document.querySelectorAll(`[data-tutorial-tab="${effectiveHighlightTab}"]`),
       ) as HTMLElement[];
       let rects = attrMatches
         .map((el) => el.getBoundingClientRect())
@@ -454,7 +465,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       // Fall back to text-based matching if no elements have the attribute yet
       if (rects.length === 0) {
         const textMatches = tabButtons.filter((btn) =>
-          btn.textContent?.toLowerCase().trim().includes(stepDef.highlightTab!),
+          btn.textContent?.toLowerCase().trim().includes(effectiveHighlightTab!),
         );
         rects = textMatches
           .map((m) => m.getBoundingClientRect())
@@ -501,7 +512,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     } else {
       setBlockerRects([]);
     }
-  }, [stepDef, effectiveTarget, step2SellReady, tutorialStep]);
+  }, [stepDef, effectiveTarget, effectiveHighlightTab, step2SellReady, tutorialStep]);
 
   useEffect(() => {
     if (tutorialStep < 0) return;
