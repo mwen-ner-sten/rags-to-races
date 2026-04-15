@@ -102,6 +102,22 @@ export default function LockerPanel() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* WIP banner */}
+      <div
+        className="rounded-md border px-3 py-2 text-xs"
+        style={{
+          borderColor: "var(--accent-border, rgba(200,62,12,.4))",
+          background: "var(--accent-bg, rgba(200,62,12,.08))",
+          color: "var(--text-secondary, #9a8570)",
+        }}
+      >
+        <span style={{ color: "var(--accent, #c83e0c)", fontWeight: 700, letterSpacing: ".05em" }}>
+          {"\u{1F6A7} WORK IN PROGRESS "}
+        </span>
+        The Gear section is still being built out — expect balance changes, new
+        gear, and more slots. Report anything broken in Activity/Settings.
+      </div>
+
       {/* Tab bar */}
       <div className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
         {TABS.map((tab) => (

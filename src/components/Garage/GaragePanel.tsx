@@ -72,8 +72,13 @@ export default function GaragePanel() {
   const toolkitUnlocked = (workshopLevels["toolkit"] ?? 0) >= 1;
   const autoFitterUnlocked = (workshopLevels["auto_fitter"] ?? 0) >= 1;
 
-  const unlockedVehicles = VEHICLE_DEFINITIONS.filter((v) =>
-    unlockedVehicleIds.includes(v.id),
+  const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
+
+  // Show every blueprint whose required feature is available. Vehicles the
+  // player hasn't unlocked yet are rendered dimmed with their unlock hint
+  // so players know what to work toward.
+  const visibleBlueprints = VEHICLE_DEFINITIONS.filter(
+    (v) => !v.requiredFeature || unlockedFeatures.includes(v.requiredFeature),
   );
 
   const pendingDef = VEHICLE_DEFINITIONS.find((v) => v.id === pendingBuildVehicleId);
@@ -138,21 +143,39 @@ export default function GaragePanel() {
         </h2>
 
         <div className="flex flex-wrap gap-1.5 sm:gap-2" data-tutorial="blueprint-btn">
-          {unlockedVehicles.map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setPendingVehicle(v.id)}
-              className="rounded-lg border px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm transition-colors"
-              style={
-                pendingBuildVehicleId === v.id
-                  ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--text-white)" }
-                  : { borderColor: "var(--panel-border)", color: "var(--text-secondary)" }
-              }
-            >
-              T{v.tier} {v.name}
-            </button>
-          ))}
+          {visibleBlueprints.map((v) => {
+            const isUnlocked = unlockedVehicleIds.includes(v.id);
+            const isSelected = pendingBuildVehicleId === v.id;
+            return (
+              <button
+                key={v.id}
+                onClick={isUnlocked ? () => setPendingVehicle(v.id) : undefined}
+                disabled={!isUnlocked}
+                title={isUnlocked ? undefined : `Locked \u2014 ${v.unlockCondition}`}
+                className="rounded-lg border px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm transition-colors"
+                style={
+                  !isUnlocked
+                    ? {
+                        borderColor: "var(--panel-border)",
+                        color: "var(--text-muted)",
+                        opacity: 0.45,
+                        cursor: "not-allowed",
+                        borderStyle: "dashed",
+                      }
+                    : isSelected
+                    ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--text-white)" }
+                    : { borderColor: "var(--panel-border)", color: "var(--text-secondary)" }
+                }
+              >
+                {!isUnlocked && <span style={{ marginRight: 4 }}>{"\u{1F512}"}</span>}
+                T{v.tier} {v.name}
+              </button>
+            );
+          })}
         </div>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Locked blueprints show how to unlock them on hover. Most unlock via <strong style={{ color: "var(--text-secondary)" }}>Rep</strong> or <strong style={{ color: "var(--text-secondary)" }}>circuit wins</strong>.
+        </p>
 
         {pendingDef && (
           <>

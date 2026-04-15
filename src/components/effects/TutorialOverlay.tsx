@@ -52,7 +52,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 13 */ { icon: "\u{1F527}", tip: "Your ride took damage. First **Repair** is free \u2014 head to the **Garage**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
   // ── Post-first-race: teach systems during the early grind ──────────────
   /* 14 */ { icon: "\u{1F527}", tip: "Head to the **Upgrades** tab.", allowedTabs: ["race", "junkyard", "garage", "upgrades"], highlightTab: "upgrades", goalIntro: "**Workshop** upgrades boost your current run. Try **Keen Eye** ($75) for better scavenge luck or **Budget Repairs** for cheaper fixes.", helpDetail: "Workshop has categories like Scavenging, Building, Racing, and Maintenance. Upgrades reset on Scrap Reset, but the bonuses help you earn more each run." },
-  /* 15 */ { icon: "\u2B06\uFE0F", tip: "**Buy** a Workshop upgrade to power up your run.", allowedTabs: ["race", "junkyard", "garage", "upgrades"], target: "workshop-upgrade-btn" },
+  /* 15 */ { icon: "\u2B06\uFE0F", tip: "**Buy** a Workshop upgrade to power up your run.", allowedTabs: ["race", "junkyard", "garage", "upgrades"], target: "workshop-upgrade-btn", hasGoal: true, goalIntro: "**Keen Eye** costs **$75**. If you can\u2019t afford it yet, **race** or **scavenge then sell parts** to earn more **Scrap Bucks**." },
   /* 16 */ { icon: "\u{1F45C}", tip: "Check out the **Gear** tab \u2014 equip gear for passive bonuses.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "**Gear** gives passive bonuses that **persist through Scrap Resets**. Equip what you\u2019ve found from scavenging and racing." },
   /* 17 */ { icon: "\u{1F3CE}\uFE0F", tip: "Race and scavenge to earn **$500** and **100 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, helpDetail: "Keep racing and selling spare parts. Rep unlocks new scavenging locations and circuits. Once you hit these targets, you\u2019ll be ready for the next step." },
   /* 18 */ { icon: "\u{1F528}", tip: "Build a **second vehicle** \u2014 try a better blueprint or upgrade your parts.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "garage", goalIntro: "Better vehicles = higher win rates = more Scrap Bucks. Scavenge for higher-quality parts and try new blueprints as they unlock." },
@@ -474,11 +474,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       effectiveTip = "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 it unlocks new locations and gear.";
     }
   }
-  /* Dynamic tip for step 15: if player can't afford the cheapest upgrade ($75 Keen Eye), send them back to earn more */
+  /* Step 15 uses hasGoal + goalIntro — the affordability context is in the
+     intro card, and the goal badge (below) tracks Scrap Bucks toward $75. */
   const WORKSHOP_AFFORD_THRESHOLD = 75;
-  if (tutorialStep === 15 && scrapBucks < WORKSHOP_AFFORD_THRESHOLD) {
-    effectiveTip = `You need **$${WORKSHOP_AFFORD_THRESHOLD}** for **Keen Eye**. **Race** for prize money or **scavenge then sell parts** to earn more **Scrap Bucks**, then come back.`;
-  }
   /* Step 11 has no tip (hidden during race) — skip to avoid empty card */
 
   /* Step 0: Intro card */
@@ -669,6 +667,21 @@ export default function TutorialOverlay({ activeTab }: Props) {
         </>
       );
     }
+    if (tutorialStep === 15) {
+      const canAfford = scrapBucks >= WORKSHOP_AFFORD_THRESHOLD;
+      goalContent = canAfford ? (
+        <span style={{ color: "var(--success, #4ade80)" }}>
+          Ready! Buy Keen Eye {"\u2192"}
+        </span>
+      ) : (
+        <>
+          <span style={{ color: "var(--text-muted)" }}>Keen Eye:</span>
+          <span style={{ color: scrapBucks >= WORKSHOP_AFFORD_THRESHOLD ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            ${formatNumber(scrapBucks)} / ${WORKSHOP_AFFORD_THRESHOLD}
+          </span>
+        </>
+      );
+    }
     if (tutorialStep === 17) {
       goalContent = (
         <>
@@ -744,14 +757,18 @@ export default function TutorialOverlay({ activeTab }: Props) {
         />
       )}
 
-      {/* Pulsing highlight on Sell Scrap area to draw the eye */}
+      {/* Inner Sell Scrap button: solid shading (no pulse) so the outer
+          sell-area halo carries the animation without a competing second
+          pulse on top. Gives the "this is THE button" cue. */}
       {sellBtnRect && (
         <div
-          className="tutorial-pulse fixed z-[9999] rounded"
+          className="fixed z-[9999] rounded-md"
           style={{
-            left: sellBtnRect.left - 3, top: sellBtnRect.top - 3,
-            width: sellBtnRect.width + 6, height: sellBtnRect.height + 6,
-            background: "color-mix(in srgb, var(--accent-secondary, #ff0090) 12%, transparent)",
+            left: sellBtnRect.left - 2, top: sellBtnRect.top - 2,
+            width: sellBtnRect.width + 4, height: sellBtnRect.height + 4,
+            background: "color-mix(in srgb, var(--accent-secondary, #ff0090) 22%, transparent)",
+            border: "1.5px solid color-mix(in srgb, var(--accent-secondary, #ff0090) 70%, transparent)",
+            boxShadow: "0 0 14px color-mix(in srgb, var(--accent-secondary, #ff0090) 35%, transparent)",
             pointerEvents: "none",
           }}
         />

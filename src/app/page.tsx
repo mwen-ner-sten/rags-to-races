@@ -47,6 +47,15 @@ export default function Home() {
     });
   }, []);
 
+  // After a Full Save Reset (or any path that puts the tutorial back at step 0),
+  // jump the user to the Junkyard tab — the starting surface — regardless of
+  // which tab they were on when they triggered the reset.
+  useEffect(() => {
+    if (tutorialStep === 0 && activeTab !== "junkyard") {
+      setActiveTab("junkyard");
+    }
+  }, [tutorialStep, activeTab]);
+
   const lastTickTimeRef = useRef<number>(Date.now());
 
   // Offline catch-up: runs once on mount after the store has hydrated
