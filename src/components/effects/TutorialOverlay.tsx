@@ -196,6 +196,57 @@ function StepDots({ current, total }: { current: number; total: number }) {
   );
 }
 
+/**
+ * Two-click skip: first tap flips to "Really skip?" in danger colors, second
+ * tap commits. Auto-reverts after 3s of inactivity so a stray mis-click can't
+ * kill the tutorial by itself. Users can also re-enable the tutorial later
+ * from Settings.
+ */
+function SkipWithConfirm({ onSkip }: { onSkip: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const reset = useCallback(() => {
+    setConfirming(false);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }, []);
+
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
+
+  const handleClick = () => {
+    if (!confirming) {
+      setConfirming(true);
+      timeoutRef.current = setTimeout(reset, 3000);
+      return;
+    }
+    reset();
+    onSkip();
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseLeave={confirming ? reset : undefined}
+      className="cursor-pointer rounded px-1.5 py-0.5 text-xs transition-all"
+      style={
+        confirming
+          ? {
+              color: "var(--danger, #f87171)",
+              border: "1px solid var(--danger, #f87171)",
+              fontWeight: 700,
+              opacity: 1,
+            }
+          : { color: "var(--text-muted)", opacity: 0.5 }
+      }
+    >
+      {confirming ? "Really skip?" : "Skip"}
+    </button>
+  );
+}
+
 /* ── Component ─────────────────────────────────────────────────────────────── */
 
 interface Props { activeTab: TabId; }
@@ -845,7 +896,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                         {introSubStep + 1}/{introSequence.length}
                       </span>
                     )}
-                    <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip</button>
+                    <SkipWithConfirm onSkip={skipTutorial} />
                     <button
                       onClick={() => {
                         if (introSequence && !introSequenceComplete) {
@@ -914,7 +965,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 <div className="mt-2 flex items-center justify-between">
                   <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
                   <div className="flex items-center gap-3">
-                    <button onClick={skipTutorial} className="cursor-pointer text-xs opacity-50 transition-opacity hover:opacity-100" style={{ color: "var(--text-muted)" }}>Skip</button>
+                    <SkipWithConfirm onSkip={skipTutorial} />
                     {stepDef.dismissable && (
                       <button
                         onClick={advanceTutorial}
