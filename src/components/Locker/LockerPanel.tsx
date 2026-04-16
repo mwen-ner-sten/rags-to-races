@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/state/store";
+import SkillsSubTab from "./SkillsSubTab";
+import AttributesSubTab from "./AttributesSubTab";
+import CrewPanel from "@/components/Crew/CrewPanel";
 import {
   GEAR_SLOTS,
   GEAR_SLOT_LABELS,
@@ -52,7 +55,7 @@ const TIER_BORDER = [
   "border-zinc-800", "border-zinc-600", "border-green-800/50", "border-blue-800/50", "border-purple-800/50",
 ];
 
-type LockerTab = "outfit" | "loot" | "mods" | "talents";
+type LockerTab = "outfit" | "loot" | "mods" | "talents" | "skills" | "attributes" | "crew";
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function LockerPanel() {
@@ -84,16 +87,37 @@ export default function LockerPanel() {
   const salvageBonus = (workshopLevels["gear_recycler"] ?? 0) * 0.25;
 
   const bonuses = getGearBonuses(equippedGear, equippedLootGear, lootGearInventory, unlockedTalentNodes, TALENT_NODES);
+  const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
 
-  const TABS: { id: LockerTab; label: string; badge?: number }[] = [
-    { id: "outfit",  label: "Outfit" },
-    { id: "loot",    label: "Loot Gear", badge: lootGearInventory.length },
-    { id: "mods",    label: "Mods",      badge: gearModInventory.length },
-    { id: "talents", label: "Talents" },
+  const allTabs: { id: LockerTab; label: string; badge?: number; show: boolean }[] = [
+    { id: "skills",     label: "Skills",     show: true },
+    { id: "attributes", label: "Attributes", show: unlockedFeatures.includes("racer_attributes") },
+    { id: "outfit",     label: "Outfit",     show: true },
+    { id: "loot",       label: "Loot Gear",  badge: lootGearInventory.length, show: true },
+    { id: "mods",       label: "Mods",       badge: gearModInventory.length, show: true },
+    { id: "talents",    label: "Talents",    show: true },
+    { id: "crew",       label: "Crew",       show: unlockedFeatures.includes("crew_system") },
   ];
+  const TABS = allTabs.filter((t) => t.show);
 
   return (
     <div className="flex flex-col gap-4">
+      {/* WIP banner */}
+      <div
+        className="rounded-md border px-3 py-2 text-xs"
+        style={{
+          borderColor: "var(--accent-border, rgba(200,62,12,.4))",
+          background: "var(--accent-bg, rgba(200,62,12,.08))",
+          color: "var(--text-secondary, #9a8570)",
+        }}
+      >
+        <span style={{ color: "var(--accent, #c83e0c)", fontWeight: 700, letterSpacing: ".05em" }}>
+          {"\u{1F6A7} WORK IN PROGRESS "}
+        </span>
+        The Gear section is still being built out — expect balance changes, new
+        gear, and more slots. Report anything broken in Activity/Settings.
+      </div>
+
       {/* Tab bar */}
       <div className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
         {TABS.map((tab) => (
@@ -115,6 +139,11 @@ export default function LockerPanel() {
           </button>
         ))}
       </div>
+
+      {/* Skills tab */}
+      {activeTab === "skills" && <SkillsSubTab />}
+      {activeTab === "attributes" && <AttributesSubTab />}
+      {activeTab === "crew" && <CrewPanel />}
 
       {/* Outfit tab */}
       {activeTab === "outfit" && (
@@ -301,7 +330,7 @@ function SlotPanel({
   enhanceLootGear: (id: string) => void;
   salvageLootGear: (id: string) => void;
 }) {
-  const [subTab, setSubTab] = useState<"shop" | "loot">(lootGearForSlot.length > 0 ? "loot" : "shop");
+  const [subTab, setSubTab] = useState<"outfit" | "loot">(lootGearForSlot.length > 0 ? "loot" : "outfit");
   const slotInfo = GEAR_SLOT_LABELS[slot];
   const staticItems = getGearForSlot(slot);
 
@@ -312,9 +341,9 @@ function SlotPanel({
         <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">{slotInfo.label}</h3>
         <div className="ml-auto flex gap-1">
           <button
-            onClick={() => setSubTab("shop")}
-            className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "shop" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-          >Shop</button>
+            onClick={() => setSubTab("outfit")}
+            className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "outfit" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+          >Outfit</button>
           <button
             onClick={() => setSubTab("loot")}
             className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "loot" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
@@ -324,7 +353,7 @@ function SlotPanel({
         </div>
       </div>
 
-      {subTab === "shop" && (
+      {subTab === "outfit" && (
         <div className="flex flex-col gap-2">
           {staticItems.map((gear) => {
             const owned = ownedGearIds.includes(gear.id);

@@ -6,6 +6,9 @@ import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
+import VehicleSprite, {
+  VEHICLE_SPRITE_ART_REVISION,
+} from "@/components/RaceTrack/VehicleSprite";
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
 
@@ -33,6 +36,7 @@ export default function AdminPanel() {
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
 
+  const devQuickStart = useGameStore((s) => s.devQuickStart);
   const devSetScrapBucks = useGameStore((s) => s.devSetScrapBucks);
   const devAddScrapBucks = useGameStore((s) => s.devAddScrapBucks);
   const devSetRepPoints = useGameStore((s) => s.devSetRepPoints);
@@ -45,6 +49,7 @@ export default function AdminPanel() {
   const devClearGarage = useGameStore((s) => s.devClearGarage);
   const devSetAutoUnlocks = useGameStore((s) => s.devSetAutoUnlocks);
   const devResetSave = useGameStore((s) => s.devResetSave);
+  const skipTutorial = useGameStore((s) => s.skipTutorial);
 
   const [scrapInput, setScrapInput] = useState("");
   const [repInput, setRepInput] = useState("");
@@ -114,6 +119,21 @@ export default function AdminPanel() {
       <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border px-4 py-2 flex items-center justify-between">
         <span style={{ color: "var(--text-muted)" }} className="text-xs uppercase tracking-wider">Build Version</span>
         <span style={{ color: "var(--accent)" }} className="text-xs font-mono font-semibold">v{BUILD_VERSION}</span>
+      </div>
+
+      {/* Quick Start */}
+      <div style={{ background: "var(--panel-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4 flex items-center gap-4 flex-wrap">
+        <div className="flex flex-col gap-0.5">
+          <span style={{ color: "var(--text-heading)" }} className="text-xs font-semibold uppercase tracking-wider">Quick Start</span>
+          <span style={{ color: "var(--text-muted)" }} className="text-xs">T1 Riding Mower + $500 + 50 Rep — ready to race</span>
+        </div>
+        <button
+          onClick={() => { devQuickStart(); skipTutorial(); log("Quick Start: T1 Riding Mower + $500 + 50 Rep + tutorial skipped"); }}
+          style={btnAccent}
+          className="rounded px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+        >
+          Go!
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -224,6 +244,13 @@ export default function AdminPanel() {
                 className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
               >
                 Launch Tutorial
+              </button>
+              <button
+                onClick={() => { skipTutorial(); log("Tutorial skipped"); }}
+                style={btnOutline}
+                className="rounded border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              >
+                Skip Tutorial
               </button>
             </div>
           </div>
@@ -399,6 +426,57 @@ export default function AdminPanel() {
           <p style={{ color: "var(--text-muted)" }} className="text-xs">
             Adjusts prestige bonuses without resetting game state.
           </p>
+        </div>
+
+        {/* Vehicle Sprites — uses VehicleSprite (same as race track). Checkerboard makes shadows/tires visible. */}
+        <div
+          style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
+          className={SECTION + " lg:col-span-3"}
+        >
+          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Vehicle Sprites</p>
+          <p style={{ color: "var(--text-muted)" }} className="text-xs leading-snug">
+            Art revision <span className="font-mono text-[var(--accent)]">{VEHICLE_SPRITE_ART_REVISION}</span>
+            {" · "}
+            build <span className="font-mono">{BUILD_VERSION}</span>
+            {" · "}
+            Pixel-style art (crisp blocks, not smooth vector blobs). Hard-refresh if this number does not match your deploy.
+          </p>
+          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-9">
+            {VEHICLE_DEFINITIONS.map((v) => (
+              <div key={v.id} className="flex flex-col items-center gap-2">
+                <div
+                  style={{
+                    borderColor: "var(--panel-border)",
+                    backgroundColor: "var(--surface-bg, var(--panel-bg))",
+                    backgroundImage:
+                      "repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0deg 90deg, transparent 90deg 180deg)",
+                    backgroundSize: "14px 14px",
+                  }}
+                  className="flex items-center justify-center rounded-lg border p-3"
+                >
+                  <VehicleSprite vehicleId={v.id} size={96} />
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span
+                    style={{ color: "var(--accent)" }}
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                  >
+                    T{v.tier}
+                  </span>
+                  <span
+                    style={{ color: "var(--text-secondary)" }}
+                    className="text-center text-xs leading-tight"
+                  >
+                    {v.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <VehicleSprite vehicleId={v.id} size={24} color="var(--accent)" />
+                  <VehicleSprite vehicleId={v.id} size={24} color="var(--text-muted)" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Danger zone */}

@@ -56,11 +56,13 @@ export function calculateOdds(
   fatigue: number = 0,
   gearPerformanceBonus: number = 0,
   gearDnfReduction: number = 0,
+  skillPerformanceMult: number = 0,
+  skillDnfReduction: number = 0,
 ): { winChance: number; dnfChance: number; oddsLabel: string } {
   const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
-  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus);
+  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult);
   const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2)));
-  const dnfChance = Math.max(0, 0.3 - reliability / 200 - gearDnfReduction);
+  const dnfChance = Math.max(0, 0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction);
 
   // Convert to odds format (e.g., 2:1, 5:1)
   let oddsLabel: string;
@@ -126,27 +128,47 @@ export function simulateRace(
   salvageMaxCondition: number = 1,
   momentumWinBonus: number = 0,
   forgeTokenChanceBonus: number = 0,
+  skillPerformanceMult: number = 0,
+  skillDnfReduction: number = 0,
+  forceDNF: boolean = false,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
 
-  // DNF chance based on reliability (gear reduces DNF chance)
+  // Consolation Rep on DNF — matches what a last-place loss would earn
+  // (repReward * 0.1 worst-position * 0.5 loss-mult = repReward * 0.05).
+  // Keeps the economy consistent: DNF is never more rewarding than finishing last.
+  const dnfRep = circuit.repReward * 0.05;
+
+  // Forced DNF (used to guarantee the first tutorial race teaches repairs)
+  if (forceDNF) {
+    return {
+      result: "dnf",
+      position: totalRacers,
+      totalRacers,
+      scrapsEarned: 0,
+      repEarned: dnfRep,
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+    };
+  }
+
+  // DNF chance based on reliability (gear + skill reduces DNF chance)
   const reliabilityScore = vehicle.stats.reliability;
-  const dnfChance = Math.max(0, 0.3 - reliabilityScore / 200 - gearDnfReduction);
+  const dnfChance = Math.max(0, 0.3 - reliabilityScore / 200 - gearDnfReduction - skillDnfReduction);
   if (Math.random() < dnfChance) {
     return {
       result: "dnf",
       position: totalRacers,
       totalRacers,
       scrapsEarned: 0,
-      repEarned: 0,
-      log: [pickFlavor("dnf")],
+      repEarned: dnfRep,
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
     };
   }
 
-  // Win chance: performance vs difficulty (fatigue reduces effective performance, gear boosts)
+  // Win chance: performance vs difficulty (fatigue reduces effective performance, gear + skill boosts)
   const fatigueMult = 1 - fatigue * 0.005;
-  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus);
+  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult);
   const difficultyThreshold = circuit.difficulty * 2;
   const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / difficultyThreshold + momentumWinBonus));
 
@@ -194,6 +216,7 @@ export function calculateWear(
   wearReductionPct: number,
   fatigue: number = 0,
   gearWearReduction: number = 0,
+  skillWearReduction: number = 0,
 ): number {
   let wear = BASE_WEAR_PER_RACE;
   if (result === "dnf") wear += DNF_WEAR_BONUS;
@@ -204,8 +227,8 @@ export function calculateWear(
     wear *= Math.max(0.3, 1 - reliabilityBonus);
   }
 
-  // Workshop upgrade + gear reduction
-  wear *= Math.max(0, 1 - wearReductionPct - gearWearReduction);
+  // Workshop upgrade + gear + skill reduction
+  wear *= Math.max(0, 1 - wearReductionPct - gearWearReduction - skillWearReduction);
 
   // Fatigue increases wear (tired mechanic = sloppier work)
   wear *= (1 + fatigue * 0.008);

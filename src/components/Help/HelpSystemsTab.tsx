@@ -13,6 +13,18 @@ import {
   TALENT_NODES,
   HELP_GEAR_STATS,
   HELP_DATA_SNAPSHOT,
+  SKILL_DEFINITIONS,
+  MAX_SKILL_LEVEL,
+  ATTRIBUTE_DEFINITIONS,
+  CREW_ROLE_LABELS,
+  CREW_ROLE_DESCRIPTIONS,
+  CREW_SPECIALIZATIONS,
+  HELP_TEAM_UPGRADES_BY_CATEGORY,
+  HELP_OWNER_UPGRADES_BY_CATEGORY,
+  HELP_TRACK_PERKS_BY_CATEGORY,
+  HELP_PRESTIGE_MILESTONES,
+  HELP_ACHIEVEMENTS_BY_CATEGORY,
+  HELP_PLAYSTYLE_PATHS,
   type LegacyUpgradeCategory,
 } from "@/data/helpContent";
 import { formatNumber, capitalize } from "@/utils/format";
@@ -204,7 +216,7 @@ export default function HelpSystemsTab() {
           {/* Workshop */}
           <SystemSection icon="⚙️" title="Workshop">
             <div className="space-y-3">
-              <p>{HELP_DATA_SNAPSHOT.upgrades} upgrades across {HELP_DATA_SNAPSHOT.upgradeCategories} categories. Workshop levels persist through prestige.</p>
+              <p>{HELP_DATA_SNAPSHOT.upgrades} upgrades across {HELP_DATA_SNAPSHOT.upgradeCategories} categories. Workshop levels reset on prestige.</p>
               {HELP_UPGRADES_BY_CATEGORY.map((group) => (
                 <div key={group.category}>
                   <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
@@ -256,6 +268,204 @@ export default function HelpSystemsTab() {
               <p>Dealer refreshes can be earned as challenge rewards.</p>
             </div>
           </SystemSection>
+
+          {/* Racer Skills */}
+          <SystemSection icon="📊" title="Racer Skills">
+            <div className="space-y-2">
+              <p>{SKILL_DEFINITIONS.length} skills that earn XP from gameplay. Max level: {MAX_SKILL_LEVEL}.</p>
+              <div>
+                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Skills</p>
+                {SKILL_DEFINITIONS.map((s) => (
+                  <div key={s.id} className="mt-1 flex justify-between">
+                    <span style={{ color: "var(--text-primary)" }}>{s.icon} {s.name}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{s.bonusDescription}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>XP & Rating</p>
+                <Formula label="XP per level" formula="100 × 1.5^(level - 1)" />
+                <p>Each level grants 5 rating. Rating converts to effectiveness via diminishing returns:</p>
+                <Formula label="Effectiveness" formula="rating / (rating + tierConstant)" />
+                <p>Tier constants scale with content tier (T0: 50, T3: 400, T6: 1000), so the same rating is weaker at higher tiers.</p>
+              </div>
+              <p>Skills reset on prestige. Invest in skills that match your current bottleneck.</p>
+            </div>
+          </SystemSection>
+
+          {/* Racer Attributes */}
+          <SystemSection icon="🎯" title="Racer Attributes">
+            <div className="space-y-2">
+              <p>{ATTRIBUTE_DEFINITIONS.length} attributes. Allocate points earned each level.</p>
+              {ATTRIBUTE_DEFINITIONS.map((a) => (
+                <div key={a.id} className="mt-1 flex justify-between">
+                  <span style={{ color: "var(--text-primary)" }}>
+                    {a.icon} {a.name}
+                    <span className="ml-1" style={{ color: "var(--text-muted)" }}>
+                      {a.ratingType !== "flat" ? `(+${a.ratingPerPoint} ${a.ratingType} rating/pt)` : `(flat bonuses)`}
+                    </span>
+                  </span>
+                </div>
+              ))}
+              <p className="mt-2">Rating-based attributes boost skill effectiveness. Flat-bonus attributes (Charisma, Fortune) give direct perks like +rep/race or +luck.</p>
+            </div>
+          </SystemSection>
+
+          {/* Team Reset (Layer 2) */}
+          <SystemSection icon="🏢" title="Team Reset (Layer 2)">
+            <div className="space-y-3">
+              <p>Second prestige layer. Unlocks at 200 lifetime LP. Costs accumulated LP, grants Team Points (TP). Resets LP, legacy upgrades, and everything below.</p>
+              {HELP_TEAM_UPGRADES_BY_CATEGORY.map((group) => (
+                <div key={group.category}>
+                  <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
+                  {group.upgrades.map((u) => (
+                    <div key={u.id} className="mt-1 flex justify-between">
+                      <span style={{ color: "var(--text-primary)" }}>{u.name} <span style={{ color: "var(--text-muted)" }}>({u.maxLevel} lvl)</span></span>
+                      <span style={{ color: "var(--text-muted)" }}>{u.baseCost} TP base</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </SystemSection>
+
+          {/* Crew */}
+          <SystemSection icon="👥" title="Crew">
+            <div className="space-y-2">
+              <p>NPC crew members unlocked after first Team Reset. {Object.keys(CREW_ROLE_LABELS).length} roles with specializations.</p>
+              {(Object.keys(CREW_ROLE_LABELS) as Array<keyof typeof CREW_ROLE_LABELS>).map((role) => {
+                const specs = CREW_SPECIALIZATIONS.filter((s) => s.role === role);
+                return (
+                  <div key={role} className="rounded border p-2" style={{ borderColor: "var(--panel-border)" }}>
+                    <div className="text-xs font-semibold" style={{ color: "var(--text-white)" }}>{CREW_ROLE_LABELS[role]}</div>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{CREW_ROLE_DESCRIPTIONS[role]}</p>
+                    <div className="mt-1 space-y-0.5">
+                      {specs.map((s) => (
+                        <div key={s.id} className="flex justify-between">
+                          <span style={{ color: "var(--text-primary)" }}>{s.name}</span>
+                          <span style={{ color: "var(--text-muted)" }}>{s.bonusDescription}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              <p>Crew persist through Scrap Resets. They reset on Team Reset unless you have Crew Retention.</p>
+            </div>
+          </SystemSection>
+
+          {/* Owner Reset (Layer 3) */}
+          <SystemSection icon="🏛️" title="Owner Reset (Layer 3)">
+            <div className="space-y-3">
+              <p>Third prestige layer. Unlocks at 500 lifetime TP and 3 team eras. Costs accumulated TP, grants Owner Points (OP). Resets team upgrades and everything below.</p>
+              {HELP_OWNER_UPGRADES_BY_CATEGORY.map((group) => (
+                <div key={group.category}>
+                  <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
+                  {group.upgrades.map((u) => (
+                    <div key={u.id} className="mt-1 flex justify-between">
+                      <span style={{ color: "var(--text-primary)" }}>{u.name} <span style={{ color: "var(--text-muted)" }}>({u.maxLevel} lvl)</span></span>
+                      <span style={{ color: "var(--text-muted)" }}>{u.baseCost} OP base</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </SystemSection>
+
+          {/* Track Owner (Layer 4) */}
+          <SystemSection icon="🏟️" title="Track Owner (Layer 4)">
+            <div className="space-y-3">
+              <p>Final prestige layer. Unlocks at 1,000 lifetime OP and 5 owner eras. Costs accumulated OP, grants Track Prestige Tokens (PT). Meta-game perks that reshape the entire game.</p>
+              {HELP_TRACK_PERKS_BY_CATEGORY.map((group) => (
+                <div key={group.category}>
+                  <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
+                  {group.perks.map((p) => (
+                    <div key={p.id} className="mt-1 flex justify-between">
+                      <span style={{ color: "var(--text-primary)" }}>{p.name} <span style={{ color: "var(--text-muted)" }}>({p.maxLevel} lvl)</span></span>
+                      <span style={{ color: "var(--text-muted)" }}>{p.baseCost} PT base</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </SystemSection>
+        </div>
+      </SectionCard>
+
+      {/* Prestige Milestones */}
+      <SectionCard title="Prestige Milestones">
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          Free rewards earned at prestige count thresholds. Softwall milestones give large bonuses that shape your playstyle.
+        </p>
+        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+          {HELP_PRESTIGE_MILESTONES.map((m) => (
+            <div key={m.name} className="rounded border p-2 text-xs" style={{ borderColor: m.rewardType === "softwall" ? "var(--accent-border)" : "var(--panel-border)" }}>
+              <div className="flex justify-between">
+                <span className="font-semibold" style={{ color: "var(--text-white)" }}>{m.name}</span>
+                <span style={{ color: "var(--text-muted)" }}>Prestige {m.prestigeRequired}</span>
+              </div>
+              <div style={{ color: "var(--text-secondary)" }}>{m.description}</div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Achievements */}
+      <SectionCard title="Achievements">
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          Lifetime milestones that grant permanent bonuses. Persist through all resets.
+        </p>
+        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          {HELP_ACHIEVEMENTS_BY_CATEGORY.map((group) => (
+            <div key={group.category}>
+              <div className="text-xs font-semibold uppercase mb-1" style={{ color: "var(--text-muted)" }}>
+                {group.category}
+              </div>
+              <div className="space-y-1">
+                {group.achievements.map((a) => (
+                  <div key={a.name} className="rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)", opacity: a.hidden ? 0.6 : 1 }}>
+                    <div className="flex justify-between">
+                      <span className="font-semibold" style={{ color: "var(--text-white)" }}>
+                        {a.hidden ? "???" : a.name}
+                      </span>
+                      <span style={{ color: "var(--text-muted)" }}>Target: {a.target.toLocaleString()}</span>
+                    </div>
+                    <div style={{ color: "var(--text-secondary)" }}>{a.hidden ? "Hidden achievement" : a.description}</div>
+                    <div style={{ color: "var(--accent)" }}>{a.reward}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Playstyle Upgrades */}
+      <SectionCard title="Playstyle Upgrades">
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          LP-bought specialization trees. Resets on Team Reset. You can manually respec for a 50% LP refund.
+        </p>
+        <div className="space-y-3">
+          {HELP_PLAYSTYLE_PATHS.map((path) => (
+            <div key={path.name} className="rounded border p-3" style={{ borderColor: "var(--panel-border)" }}>
+              <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-white)" }}>
+                {path.name}
+              </div>
+              <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+                {path.description}
+              </div>
+              <div className="space-y-0.5">
+                {path.nodes.map((n) => (
+                  <div key={n.name} className="flex justify-between text-xs">
+                    <span style={{ color: "var(--text-primary)" }}>
+                      T{n.tier}: {n.name}
+                    </span>
+                    <span style={{ color: "var(--text-muted)" }}>{n.lpCost} LP</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </SectionCard>
     </div>

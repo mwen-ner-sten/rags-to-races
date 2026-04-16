@@ -11,6 +11,15 @@ import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_I
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 import { TALENT_TREES, TALENT_NODES } from "@/data/talentNodes";
+import { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL } from "@/data/racerSkills";
+import { ATTRIBUTE_DEFINITIONS } from "@/data/racerAttributes";
+import { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATIONS } from "@/data/crew";
+import { TEAM_UPGRADE_DEFINITIONS, TEAM_CATEGORIES, TEAM_CATEGORY_LABELS } from "@/data/teamUpgrades";
+import { OWNER_UPGRADE_DEFINITIONS, OWNER_CATEGORIES, OWNER_CATEGORY_LABELS } from "@/data/ownerUpgrades";
+import { TRACK_PERK_DEFINITIONS, TRACK_PERK_CATEGORIES, TRACK_PERK_CATEGORY_LABELS } from "@/data/trackPerks";
+import { PRESTIGE_MILESTONE_DEFINITIONS } from "@/data/prestigeMilestones";
+import { ACHIEVEMENT_DEFINITIONS, ACHIEVEMENT_CATEGORIES } from "@/data/achievements";
+import { PLAYSTYLE_PATHS, PLAYSTYLE_NODE_DEFINITIONS } from "@/data/playstyleUpgrades";
 import type { CoreSlot } from "@/data/parts";
 
 // ── How to Play ─────────────────────────────────────────────────────────────
@@ -20,9 +29,9 @@ export const HELP_OVERVIEW_STEPS: string[] = [
   "Head to the Garage to assemble a vehicle. Fill the required slots and pay the build cost.",
   "Race your vehicle on circuits to earn Scrap Bucks and Rep. Higher circuits pay more but are harder.",
   "Sell junk parts for Scrap Bucks, or decompose them into materials for crafting and gear enhancement.",
-  "Upgrade your Workshop for permanent bonuses — faster auto-race, better luck, cheaper builds.",
-  "Equip and enhance gear in the Locker. Loot gear drops from races and scavenging.",
-  "When fatigue climbs and progress stalls, Prestige in the Shop to earn Legacy Points.",
+  "Open the Upgrades tab to buy Workshop upgrades — faster auto-race, better luck, cheaper builds.",
+  "Equip and enhance gear in the Gear tab. Loot gear drops from races and scavenging.",
+  "When fatigue climbs and progress stalls, Prestige via the Upgrades tab to earn Legacy Points.",
   "Spend Legacy Points on permanent upgrades and talent nodes that compound every future run.",
 ];
 
@@ -41,8 +50,8 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Enter Race", description: "Hit Enter Race to compete on the circuit." },
   { step: "Race result", description: "Win or lose, you earn Scrap Bucks and Rep. Keep racing to improve." },
   { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up." },
-  { step: "Build Rep & earn scrap", description: "Earn $500 lifetime scrap and 25 Rep. Watch fatigue — it builds every race and cuts performance." },
-  { step: "Visit the Shop", description: "Head to the Shop tab when fatigue is high or progress stalls." },
+  { step: "Build Rep & earn scrap", description: "Earn $50,000 lifetime scrap and 5,000 Rep across 3 vehicles. Watch fatigue — it builds every race and cuts performance." },
+  { step: "Visit Upgrades", description: "Open the Upgrades tab when fatigue is high or progress stalls." },
   { step: "Prestige", description: "Hit Scrap Reset to prestige. You restart stronger with permanent bonuses." },
 ];
 
@@ -69,6 +78,17 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Talent Nodes", meaning: `${TALENT_TREES.length} skill trees (${TALENT_TREES.map(t => t.name).join(", ")}). Permanent nodes costing 200–1,800 LP with mutually exclusive branches.` },
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} milestone goals rewarding materials, Forge Tokens, and Dealer refreshes.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
+  { term: "Team Points (TP)", meaning: "Layer 2 prestige currency earned from Team Reset. Spent on team upgrades that accelerate Scrap Reset runs." },
+  { term: "Owner Points (OP)", meaning: "Layer 3 prestige currency earned from Owner Reset. Spent on powerful franchise-wide upgrades." },
+  { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 prestige currency earned from Track Owner Reset. Spent on meta-game perks like custom circuits and passive income." },
+  { term: "Crew", meaning: "NPC helpers unlocked after first Team Reset. 4 roles (Mechanic, Scout, Driver, Trader) with specializations. Persist through Scrap Resets but reset on Team Reset (unless you have the Crew Retention upgrade)." },
+  { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
+  { term: "Racer Attributes", meaning: `${ATTRIBUTE_DEFINITIONS.length} allocatable stat points (${ATTRIBUTE_DEFINITIONS.map(a => a.name).join(", ")}). Boost skill ratings or provide flat bonuses.` },
+  { term: "Offline Progress", meaning: "The game continues scavenging and racing while closed (capped at 8 hours). A summary modal shows your offline earnings when you return." },
+  { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
+  { term: "Prestige Milestone", meaning: "Free reward earned at prestige count thresholds. Some shape your run strategy. View in Upgrades > Prestige." },
+  { term: "Playstyle Node", meaning: "LP-bought specialization in Scrapper/Speedster/Engineer trees. Resets on Team Reset. View in Upgrades > Playstyle." },
+  { term: "Softwall", meaning: "A large bonus to a specific activity at certain prestige counts that naturally encourages that playstyle." },
 ];
 
 // ── FAQ ─────────────────────────────────────────────────────────────────────
@@ -98,6 +118,34 @@ export const HELP_FAQ: FAQItem[] = [
   {
     question: "Should I sell or decompose parts?",
     answer: "Sell if you need Scrap Bucks for builds/upgrades. Decompose if you need materials for gear enhancement or crafting. Tip: decompose high-condition parts for better material yield, sell low-condition junk.",
+  },
+  {
+    question: "What are Team, Owner, and Track resets?",
+    answer: "These are higher prestige layers beyond Scrap Reset. Team Reset (Layer 2) costs accumulated LP and grants Team Points for crew and infrastructure upgrades. Owner Reset (Layer 3) costs Team Points and grants Owner Points for franchise-wide power. Track Owner (Layer 4) costs Owner Points and grants Track Prestige Tokens for meta-game perks. Each layer resets the layers below it.",
+  },
+  {
+    question: "How does the crew system work?",
+    answer: "Crew unlocks after your first Team Reset. You recruit NPC members in 4 roles: Mechanic (-build/repair costs), Scout (+scavenge luck/yield), Driver (+race performance/-DNF), and Trader (+sell value/-dealer prices). Each role has 2 specializations to choose from. Crew gain XP from their associated activities and level up for stronger bonuses. They persist through Scrap Resets but reset on Team Reset (unless you have the Crew Retention upgrade).",
+  },
+  {
+    question: "How do racer skills and attributes work?",
+    answer: "Skills (Driving, Mechanics, Scavenging, Endurance) earn XP from gameplay actions and level up automatically (max level 20). Each level adds rating points that convert to effectiveness with diminishing returns at higher content tiers. Attributes (Reflexes, Endurance, Charisma, Instinct, Engineering, Fortune) are point-allocated — you get points each level to distribute. Some boost skill ratings, others give flat bonuses like +rep or +luck.",
+  },
+  {
+    question: "What's the difference between challenges and achievements?",
+    answer: "Challenges are per-run tasks with material rewards that reset progress each run. Achievements are lifetime milestones with permanent bonuses that persist through all resets.",
+  },
+  {
+    question: "Do achievements reset on prestige?",
+    answer: "Never. Achievements and their bonuses persist through all resets including Team, Owner, and Track.",
+  },
+  {
+    question: "What are softwall milestones?",
+    answer: "Large bonuses to specific activities at certain prestige counts. They naturally guide your playstyle for a few runs without restricting you.",
+  },
+  {
+    question: "Why did my playstyle nodes reset?",
+    answer: "Playstyle upgrades reset on Team Reset, giving you a natural respec opportunity each era. You can also manually respec for a 50% LP refund.",
   },
 ];
 
@@ -178,6 +226,48 @@ export const HELP_STRATEGY: StrategyCard[] = [
       "Need materials for enhancement or crafting? Decompose.",
       "High-condition parts yield significantly more materials — decompose those, sell rusted junk.",
       "The Efficient Salvager legacy upgrade adds +10% decompose yield per level — invest early if you craft a lot.",
+    ],
+  },
+  {
+    id: "crew_composition",
+    title: "Crew composition guide",
+    advice: [
+      "First crew slot: Scout (Treasure Hunter) — scavenge luck compounds across your entire run.",
+      "Second slot: Driver (Speed Demon) — direct race performance is always valuable.",
+      "Third slot: Mechanic (Salvage Expert) — repair costs add up fast at high fatigue.",
+      "Fourth slot: Trader (Fence) — sell value boost matters most once you have a steady part flow.",
+    ],
+  },
+  {
+    id: "attribute_allocation",
+    title: "Attribute allocation strategy",
+    advice: [
+      "Early game: Reflexes (Driving rating) for better race performance on low-tier circuits.",
+      "Mid game: Split between Reflexes and Instinct (Scavenging rating) for better finds.",
+      "Late game: Engineering (Mechanics rating) to reduce build/repair costs at scale.",
+      "Fortune is a luxury pick — the luck and forge token bonuses are small but compound over long runs.",
+      "Charisma's +rep per race and -unlock cost are most impactful in the first few prestiges.",
+    ],
+  },
+  {
+    id: "milestone_planning",
+    title: "Milestone Planning",
+    advice: [
+      "Check upcoming prestige milestones before resetting. Softwall bonuses at prestige 7 (scavenging), 10 (racing), and 12 (workshop) dramatically shape your runs — plan accordingly.",
+    ],
+  },
+  {
+    id: "achievement_hunting",
+    title: "Achievement Hunting",
+    advice: [
+      "Target bonus-granting achievements first: Century Racer (+15% race scrap) and Scrap Tycoon (+20% scrap) provide the biggest early boosts. Hidden achievements exist — keep pushing boundaries.",
+    ],
+  },
+  {
+    id: "playstyle_paths",
+    title: "Playstyle Paths",
+    advice: [
+      "Scrapper path accelerates early runs via scavenging. Speedster shines in mid-game racing. Engineer dominates late-game with workshop and build bonuses. You can invest in all three, but T2 branches force a choice.",
     ],
   },
 ];
@@ -321,4 +411,84 @@ export const HELP_DATA_SNAPSHOT = {
   talentNodes: TALENT_NODES.length,
   legacyUpgrades: LEGACY_UPGRADE_DEFINITIONS.length,
   momentumTiers: MOMENTUM_TIERS.length,
+};
+
+// Racer Skills & Attributes
+export { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL, ATTRIBUTE_DEFINITIONS };
+
+// Crew
+export { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATIONS };
+
+// Team upgrades grouped by category
+export const HELP_TEAM_UPGRADES_BY_CATEGORY = TEAM_CATEGORIES.map((cat) => ({
+  category: cat,
+  label: TEAM_CATEGORY_LABELS[cat],
+  upgrades: TEAM_UPGRADE_DEFINITIONS.filter((u) => u.category === cat).map((u) => ({
+    id: u.id, name: u.name, description: u.description,
+    maxLevel: u.maxLevel, baseCost: u.baseCost,
+  })),
+}));
+
+// Owner upgrades grouped by category
+export const HELP_OWNER_UPGRADES_BY_CATEGORY = OWNER_CATEGORIES.map((cat) => ({
+  category: cat,
+  label: OWNER_CATEGORY_LABELS[cat],
+  upgrades: OWNER_UPGRADE_DEFINITIONS.filter((u) => u.category === cat).map((u) => ({
+    id: u.id, name: u.name, description: u.description,
+    maxLevel: u.maxLevel, baseCost: u.baseCost,
+  })),
+}));
+
+// Track perks grouped by category
+export const HELP_TRACK_PERKS_BY_CATEGORY = TRACK_PERK_CATEGORIES.map((cat) => ({
+  category: cat,
+  label: TRACK_PERK_CATEGORY_LABELS[cat],
+  perks: TRACK_PERK_DEFINITIONS.filter((p) => p.category === cat).map((p) => ({
+    id: p.id, name: p.name, description: p.description,
+    maxLevel: p.maxLevel, baseCost: p.baseCost,
+  })),
+}));
+
+// Prestige Milestones
+export const HELP_PRESTIGE_MILESTONES = PRESTIGE_MILESTONE_DEFINITIONS.map((m) => ({
+  prestigeRequired: m.prestigeRequired,
+  name: m.name,
+  description: m.description,
+  flavorText: m.flavorText,
+  rewardType: m.reward.type,
+}));
+
+// Achievements by category
+export const HELP_ACHIEVEMENTS_BY_CATEGORY = ACHIEVEMENT_CATEGORIES.map((cat) => ({
+  category: cat.label,
+  achievements: ACHIEVEMENT_DEFINITIONS.filter((a) => a.category === cat.id).map((a) => ({
+    name: a.name,
+    description: a.description,
+    target: a.target,
+    reward: a.reward.type === "bonus" ? a.reward.description : a.reward.type === "title" ? `Title: ${a.reward.title}` : "Trophy",
+    hidden: a.hidden ?? false,
+  })),
+}));
+
+// Playstyle Paths
+export const HELP_PLAYSTYLE_PATHS = PLAYSTYLE_PATHS.map((path) => ({
+  name: path.name,
+  description: path.description,
+  nodes: PLAYSTYLE_NODE_DEFINITIONS.filter((n) => n.path === path.id).map((n) => ({
+    tier: n.tier,
+    name: n.name,
+    description: n.description,
+    lpCost: n.lpCost,
+  })),
+}));
+
+// Updated data snapshot
+export const HELP_DATA_SNAPSHOT_EXTENDED = {
+  ...HELP_DATA_SNAPSHOT,
+  teamUpgrades: TEAM_UPGRADE_DEFINITIONS.length,
+  ownerUpgrades: OWNER_UPGRADE_DEFINITIONS.length,
+  trackPerks: TRACK_PERK_DEFINITIONS.length,
+  skills: SKILL_DEFINITIONS.length,
+  attributes: ATTRIBUTE_DEFINITIONS.length,
+  crewRoles: CREW_ROLES.length,
 };

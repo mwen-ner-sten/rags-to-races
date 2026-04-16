@@ -1,13 +1,15 @@
 "use client";
 
 import { useGameStore } from "@/state/store";
-import { formatNumber } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import StatsTooltip from "@/components/StatsTooltip";
 import VehicleTooltip from "@/components/VehicleTooltip";
+import CurrencyBar from "@/components/currency/CurrencyBar";
 import FooterThemeSwitcher from "@/components/FooterThemeSwitcher";
-type TabId = "junkyard" | "garage" | "race" | "locker" | "workshop" | "shop" | "help" | "settings" | "dev";
+import MobileNav from "@/components/MobileNav";
+import DesktopSidebar from "@/components/DesktopSidebar";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 interface Props {
   activeTab: TabId;
@@ -19,10 +21,10 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "junkyard", label: "Junkyard" },
   { id: "garage",   label: "Garage"   },
   { id: "race",     label: "Race"     },
-  { id: "locker",   label: "Locker"   },
-  { id: "workshop", label: "Workshop" },
-  { id: "shop",     label: "Shop"     },
+  { id: "gear",     label: "Gear"     },
+  { id: "upgrades", label: "Upgrades" },
   { id: "help",     label: "Help"     },
+  { id: "log",      label: "Activity" },
   { id: "dev",      label: "Dev"      },
 ];
 
@@ -467,18 +469,17 @@ export const THEME_VARS: Record<Theme, Record<string, string>> = {
 };
 
 // ─── Shared store hook ─────────────────────────────────────────────────────────
+// Currency values are rendered inside <CurrencyBar>, so the shells only need
+// identity info for the vehicle stat and the prestige badge.
 function useHUDData() {
-  const scrapBucks   = useGameStore((s) => s.scrapBucks);
-  const repPoints    = useGameStore((s) => s.repPoints);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const garage       = useGameStore((s) => s.garage);
-  const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
 
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
   const vehicleDef    = activeVehicle ? getVehicleById(activeVehicle.definitionId) : null;
 
-  return { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked };
+  return { prestigeCount, activeVehicle, vehicleDef };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -486,7 +487,7 @@ function useHUDData() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function GreaseShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.grease as React.CSSProperties, fontFamily: "'Share Tech Mono', monospace", background: "#0f0a04", minHeight: "100vh", color: "#d4b896", display: "flex", flexDirection: "column" }}>
@@ -514,15 +515,8 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
           )}
           <span style={{ fontSize: ".58rem", color: "#5a3a20", letterSpacing: ".2em" }}>BUILT FROM GARBAGE</span>
         </div>
-        <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="gm" style={{ fontSize: "1.25rem", color: "#c4872a", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="gm" style={{ fontSize: "1.25rem", color: "#6aaa3a", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div style={{ fontSize: ".55rem", color: "#6a5030", letterSpacing: ".18em" }}>REP</div>
-          </div>
+        <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -550,11 +544,6 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".6rem", color: "#6a5030", marginRight: ".5rem", letterSpacing: ".12em" }}>
-            <span style={{ color: "#c83e0c" }}>&#9673;</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -583,7 +572,7 @@ function GreaseShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function NeonShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.neon as React.CSSProperties, fontFamily: "'Rajdhani', sans-serif", background: "#000", minHeight: "100vh", color: "#c0d8e0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -617,14 +606,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
           <div style={{ fontSize: ".55rem", color: "rgba(0,229,255,.45)", letterSpacing: ".2em", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>MIDNIGHT CIRCUIT</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="mc mc-glow-c" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#00e5ff", letterSpacing: ".06em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="mc-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="mc" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#ff0090", letterSpacing: ".06em", textShadow: "0 0 12px rgba(255,0,144,.6)" }}>{formatNumber(repPoints)}</div>
-            <div className="mc-stat-label" style={{ color: "rgba(255,0,144,.5)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -652,11 +634,6 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".55rem", color: "rgba(0,229,255,.45)", marginRight: ".5rem", fontFamily: "'Orbitron', sans-serif", fontWeight: 700, letterSpacing: ".12em" }}>
-            <span style={{ color: "#00e5ff", textShadow: "0 0 8px #00e5ff" }}>&#9679;</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -685,7 +662,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.prestige as React.CSSProperties, fontFamily: "'Lato', sans-serif", background: "#080810", minHeight: "100vh", color: "#c8c0d0", display: "flex", flexDirection: "column" }}>
@@ -717,15 +694,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
           <div style={{ fontSize: ".5rem", color: "rgba(184,151,90,.4)", letterSpacing: ".25em", fontFamily: "'Lato', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>The Collector&apos;s Edition</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="pc" style={{ fontSize: "1.25rem", color: "#b8975a", fontWeight: 400, letterSpacing: ".02em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="pc-stat-label">Scrap Bucks</div>
-          </div>
-          <div className="pc-rule" />
-          <div style={{ textAlign: "right" }}>
-            <div className="pc" style={{ fontSize: "1.25rem", color: "rgba(200,192,208,.8)", fontWeight: 400 }}>{formatNumber(repPoints)}</div>
-            <div className="pc-stat-label">Reputation</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ display: "flex", alignItems: "center", gap: "inherit" }}>
@@ -759,11 +728,6 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".52rem", color: "rgba(184,151,90,.4)", marginRight: ".5rem", fontFamily: "'Lato', sans-serif", fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" }}>
-            <span style={{ color: "rgba(184,151,90,.6)" }}>&#9670;</span> Auto
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -792,7 +756,7 @@ function PrestigeShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function OutlawShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.outlaw as React.CSSProperties, fontFamily: "'Libre Baskerville', serif", background: "#0e0a06", minHeight: "100vh", color: "#c0a880", display: "flex", flexDirection: "column" }}>
@@ -822,14 +786,7 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".55rem", color: "#884020", letterSpacing: ".18em", fontFamily: "'Rye', cursive" }}>WANTED: SPEED</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="ol" style={{ fontSize: "1.2rem", color: "#c88830", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="ol-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="ol" style={{ fontSize: "1.2rem", color: "#a08848", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="ol-stat-label">REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -857,11 +814,6 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#6a5030", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Rye', cursive" }}>
-            <span style={{ color: "#c88830" }}>★</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -890,7 +842,7 @@ function OutlawShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function ChromeShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.chrome as React.CSSProperties, fontFamily: "'Inter', sans-serif", background: "#0a0a0c", minHeight: "100vh", color: "#b0b8c0", display: "flex", flexDirection: "column" }}>
@@ -921,14 +873,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
           <div className="cr" style={{ fontSize: ".5rem", color: "rgba(208,216,224,.35)", letterSpacing: ".25em", fontWeight: 500 }}>PURE MACHINE</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="cr" style={{ fontSize: "1.15rem", fontWeight: 700, color: "#d0d8e0", letterSpacing: ".06em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="cr-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="cr" style={{ fontSize: "1.15rem", fontWeight: 700, color: "#5878a8", letterSpacing: ".06em" }}>{formatNumber(repPoints)}</div>
-            <div className="cr-stat-label" style={{ color: "rgba(88,120,168,.5)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -957,11 +902,6 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(208,216,224,.4)", marginRight: ".5rem", fontFamily: "'Exo 2', sans-serif", fontWeight: 600, letterSpacing: ".14em" }}>
-            <span style={{ color: "#d0d8e0" }}>◈</span> AUTO
-          </div>
-        )}
       </nav>
       <div className="cr-chrome-line" />
 
@@ -992,7 +932,7 @@ function ChromeShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function TerminalShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.terminal as React.CSSProperties, fontFamily: "'Fira Code', monospace", background: "#000800", minHeight: "100vh", color: "#30b830", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -1031,14 +971,7 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
           <span className="tm" style={{ fontSize: ".9rem", color: "#30a030" }}>&gt; RUN RACE.EXE</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="tm tm-glow" style={{ fontSize: "1.3rem", color: "#40d840" }}>${formatNumber(scrapBucks)}</div>
-            <div className="tm-stat-label">SCRAP_BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="tm" style={{ fontSize: "1.3rem", color: "#30b830" }}>{formatNumber(repPoints)}</div>
-            <div className="tm-stat-label">REP_PTS</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1066,11 +999,6 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".85rem", color: "#208020", marginRight: ".5rem", fontFamily: "'VT323', monospace" }}>
-            <span style={{ color: "#40d840" }} className="tm-cursor">●</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1099,7 +1027,7 @@ function TerminalShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function SandstormShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.sandstorm as React.CSSProperties, fontFamily: "'Barlow', sans-serif", background: "#100c06", minHeight: "100vh", color: "#c0a878", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -1135,14 +1063,7 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
           <span className="sd" style={{ fontSize: ".85rem", color: "#a06020", letterSpacing: ".18em", fontWeight: 500 }}>EAT MY DUST</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="sd" style={{ fontSize: "1.5rem", fontWeight: 600, color: "#d89030", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="sd-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="sd" style={{ fontSize: "1.5rem", fontWeight: 600, color: "#a08040", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="sd-stat-label">REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1170,11 +1091,6 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".75rem", color: "#8a6838", marginRight: ".5rem", fontFamily: "'Teko', sans-serif", fontWeight: 600, letterSpacing: ".12em" }}>
-            <span style={{ color: "#d89030" }}>◉</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1204,7 +1120,7 @@ function SandstormShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function SunsetShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.sunset as React.CSSProperties, fontFamily: "'Quicksand', sans-serif", background: "#120808", minHeight: "100vh", color: "#d8b0a0", display: "flex", flexDirection: "column" }}>
@@ -1233,14 +1149,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".55rem", color: "#6a4030", letterSpacing: ".2em", fontFamily: "'Quicksand', sans-serif", fontWeight: 700 }}>DUST TILL DAWN</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="ss" style={{ fontSize: "1.25rem", color: "#e85020" }}>${formatNumber(scrapBucks)}</div>
-            <div className="ss-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="ss" style={{ fontSize: "1.25rem", color: "#a830a0" }}>{formatNumber(repPoints)}</div>
-            <div className="ss-stat-label" style={{ color: "#7a3870" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1271,11 +1180,6 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#8a5840", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Quicksand', sans-serif", fontWeight: 700 }}>
-            <span style={{ color: "#e85020" }}>◉</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1305,7 +1209,7 @@ function SunsetShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.deepsix as React.CSSProperties, fontFamily: "'Exo 2', sans-serif", background: "#020810", minHeight: "100vh", color: "#68a8b8", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -1343,14 +1247,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
           <div style={{ fontSize: ".5rem", color: "rgba(0,184,156,.4)", letterSpacing: ".2em", fontFamily: "'Audiowide', cursive" }}>SUBMERGED</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="ds ds-glow-t" style={{ fontSize: "1.15rem", color: "#00b89c", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="ds-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="ds ds-glow-b" style={{ fontSize: "1.15rem", color: "#2060d0", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="ds-stat-label" style={{ color: "rgba(32,96,208,.45)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1378,11 +1275,6 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(0,184,156,.4)", marginRight: ".5rem", fontFamily: "'Audiowide', cursive", letterSpacing: ".12em" }}>
-            <span style={{ color: "#00b89c", textShadow: "0 0 8px rgba(0,184,156,.6)" }}>●</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1411,7 +1303,7 @@ function DeepSixShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.bloodmoon as React.CSSProperties, fontFamily: "'Crimson Text', serif", background: "#0a0404", minHeight: "100vh", color: "#a08080", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -1444,14 +1336,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
           <span className="bm" style={{ fontSize: ".7rem", color: "#6a3030", letterSpacing: ".15em" }}>DEAD HEAT</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="bm bm-glow" style={{ fontSize: "1.25rem", color: "#c01020" }}>${formatNumber(scrapBucks)}</div>
-            <div className="bm-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="bm" style={{ fontSize: "1.25rem", color: "#801020", textShadow: "0 0 8px rgba(128,16,32,.4)" }}>{formatNumber(repPoints)}</div>
-            <div className="bm-stat-label" style={{ color: "#5a2828" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1479,11 +1364,6 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#6a3535", marginRight: ".5rem", letterSpacing: ".12em", fontFamily: "'Creepster', cursive" }}>
-            <span style={{ color: "#c01020", textShadow: "0 0 6px rgba(192,16,32,.5)" }}>☠</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1512,7 +1392,7 @@ function BloodmoonShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function SakuraShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.sakura as React.CSSProperties, fontFamily: "'Noto Sans JP', sans-serif", background: "#100810", minHeight: "100vh", color: "#d0b8c8", display: "flex", flexDirection: "column" }}>
@@ -1545,14 +1425,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
           <div className="sk" style={{ fontSize: ".6rem", color: "rgba(232,112,152,.4)", letterSpacing: ".15em", fontWeight: 500 }}>花見レース</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="sk" style={{ fontSize: "1.2rem", color: "#e87098", fontWeight: 700, letterSpacing: ".02em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="sk-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="sk" style={{ fontSize: "1.2rem", color: "#88c088", fontWeight: 700, letterSpacing: ".02em" }}>{formatNumber(repPoints)}</div>
-            <div className="sk-stat-label" style={{ color: "rgba(136,192,136,.45)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1583,11 +1456,6 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".52rem", color: "rgba(232,112,152,.4)", marginRight: ".5rem", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 500, letterSpacing: ".12em" }}>
-            <span style={{ color: "#e87098" }}>❀</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1617,7 +1485,7 @@ function SakuraShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.rustbelt as React.CSSProperties, fontFamily: "'IBM Plex Mono', monospace", background: "#0c0806", minHeight: "100vh", color: "#b8a090", display: "flex", flexDirection: "column", position: "relative" }}>
@@ -1649,14 +1517,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".55rem", color: "#5a3a20", letterSpacing: ".22em", fontWeight: 600 }}>CORRODED BUT RUNNING</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="rb" style={{ fontSize: "1.2rem", color: "#b44a1a", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="rb-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="rb" style={{ fontSize: "1.2rem", color: "#8a6a40", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="rb-stat-label">REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1684,11 +1545,6 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".58rem", color: "#7a5230", marginRight: ".5rem", letterSpacing: ".12em", fontWeight: 600 }}>
-            <span style={{ color: "#b44a1a", textShadow: "0 0 6px rgba(180,74,26,.5)" }}>&#9673;</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1717,7 +1573,7 @@ function RustBeltShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function ArcticShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.arctic as React.CSSProperties, fontFamily: "'Nunito Sans', sans-serif", background: "#060a10", minHeight: "100vh", color: "#b0c8d8", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -1752,14 +1608,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
           <div style={{ fontSize: ".48rem", color: "rgba(72,184,232,.4)", letterSpacing: ".22em", fontFamily: "'Michroma', sans-serif" }}>COLD START</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="ar" style={{ fontSize: "1.05rem", color: "#48b8e8", letterSpacing: ".06em", textShadow: "0 0 10px rgba(72,184,232,.3)" }}>${formatNumber(scrapBucks)}</div>
-            <div className="ar-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="ar" style={{ fontSize: "1.05rem", color: "#88d0f0", letterSpacing: ".06em" }}>{formatNumber(repPoints)}</div>
-            <div className="ar-stat-label" style={{ color: "rgba(136,208,240,.45)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1787,11 +1636,6 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".5rem", color: "rgba(72,184,232,.4)", marginRight: ".5rem", fontFamily: "'Michroma', sans-serif", letterSpacing: ".12em" }}>
-            <span style={{ color: "#48b8e8", textShadow: "0 0 8px rgba(72,184,232,.6)" }}>&#10052;</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1820,7 +1664,7 @@ function ArcticShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.vaporwave as React.CSSProperties, fontFamily: "'Space Mono', monospace", background: "#1a0030", minHeight: "100vh", color: "#e0b0f0", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -1860,14 +1704,7 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
           <div className="vw" style={{ fontSize: ".42rem", color: "rgba(1,205,254,.4)", letterSpacing: ".3em" }}>A E S T H E T I C</div>
         </div>
         <div style={{ display: "flex", gap: "1.8rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="vw vw-glow-cyan" style={{ fontSize: ".7rem", color: "#01cdfe" }}>${formatNumber(scrapBucks)}</div>
-            <div className="vw-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="vw vw-glow-pink" style={{ fontSize: ".7rem", color: "#ff71ce" }}>{formatNumber(repPoints)}</div>
-            <div className="vw-stat-label" style={{ color: "rgba(255,113,206,.4)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -1895,11 +1732,6 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".45rem", color: "rgba(1,205,254,.45)", marginRight: ".5rem", fontFamily: "'Press Start 2P', cursive", letterSpacing: ".1em" }}>
-            <span style={{ color: "#01cdfe", textShadow: "0 0 8px #01cdfe" }}>&#9830;</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -1931,7 +1763,7 @@ function VaporwaveShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function TacticalShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.tactical as React.CSSProperties, fontFamily: "'Source Code Pro', monospace", background: "#0a0c08", minHeight: "100vh", color: "#8a9a78", display: "flex", flexDirection: "column", position: "relative" }}>
@@ -1970,14 +1802,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
           <span style={{ fontSize: ".52rem", color: "rgba(74,138,40,.45)", letterSpacing: ".22em", fontWeight: 600 }}>OPERATION SCRAPYARD</span>
         </div>
         <div style={{ display: "flex", gap: "2rem" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="tc" style={{ fontSize: "1.1rem", color: "#4a8a28", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="tc-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="tc" style={{ fontSize: "1.1rem", color: "#c8a848", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="tc-stat-label" style={{ color: "rgba(200,168,72,.5)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -2005,11 +1830,6 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".55rem", color: "rgba(74,138,40,.45)", marginRight: ".5rem", fontFamily: "'Source Code Pro', monospace", fontWeight: 600, letterSpacing: ".12em" }}>
-            <span style={{ color: "#4a8a28", textShadow: "0 0 6px rgba(74,138,40,.5)" }}>&#9654;</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -2038,7 +1858,7 @@ function TacticalShell({ activeTab, setActiveTab, children }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function MidnightShell({ activeTab, setActiveTab, children }: Props) {
-  const { scrapBucks, repPoints, prestigeCount, activeVehicle, vehicleDef, autoScavengeUnlocked } = useHUDData();
+  const { prestigeCount, activeVehicle, vehicleDef } = useHUDData();
 
   return (
     <div style={{ ...THEME_VARS.midnight as React.CSSProperties, fontFamily: "'IBM Plex Mono', monospace", background: "#080c18", minHeight: "100vh", color: "#b0c4dc", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -2078,14 +1898,7 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
           <div className="mn" style={{ fontSize: ".55rem", color: "rgba(59,130,246,.45)", letterSpacing: ".2em", fontWeight: 600 }}>LIGHTS OUT. SEND IT.</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-          <div style={{ textAlign: "right" }}>
-            <div className="mn mn-glow-b" style={{ fontSize: "1.15rem", fontWeight: 700, color: "#3b82f6", letterSpacing: ".04em" }}>${formatNumber(scrapBucks)}</div>
-            <div className="mn-stat-label">SCRAP BUCKS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="mn mn-glow-a" style={{ fontSize: "1.15rem", fontWeight: 700, color: "#f59e0b", letterSpacing: ".04em" }}>{formatNumber(repPoints)}</div>
-            <div className="mn-stat-label" style={{ color: "rgba(245,158,11,.45)" }}>REP</div>
-          </div>
+          <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
@@ -2113,11 +1926,6 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
             </button>
           );
         })}
-        {autoScavengeUnlocked && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".55rem", color: "rgba(59,130,246,.45)", marginRight: ".5rem", fontFamily: "'Chakra Petch', sans-serif", fontWeight: 600, letterSpacing: ".12em" }}>
-            <span style={{ color: "#3b82f6", textShadow: "0 0 8px rgba(59,130,246,.6)" }}>&#9679;</span> AUTO
-          </div>
-        )}
       </nav>
 
       {/* Content */}
@@ -2151,20 +1959,41 @@ function MidnightShell({ activeTab, setActiveTab, children }: Props) {
 export default function ThemeShell(props: Props) {
   const [theme] = useTheme();
 
-  if (theme === "neon")       return <NeonShell       {...props} />;
-  if (theme === "prestige")   return <PrestigeShell   {...props} />;
-  if (theme === "outlaw")     return <OutlawShell     {...props} />;
-  if (theme === "chrome")     return <ChromeShell     {...props} />;
-  if (theme === "terminal")   return <TerminalShell   {...props} />;
-  if (theme === "sandstorm")  return <SandstormShell  {...props} />;
-  if (theme === "sunset")     return <SunsetShell     {...props} />;
-  if (theme === "deepsix")    return <DeepSixShell    {...props} />;
-  if (theme === "bloodmoon")  return <BloodmoonShell  {...props} />;
-  if (theme === "sakura")     return <SakuraShell     {...props} />;
-  if (theme === "rustbelt")   return <RustBeltShell   {...props} />;
-  if (theme === "arctic")     return <ArcticShell     {...props} />;
-  if (theme === "vaporwave")  return <VaporwaveShell  {...props} />;
-  if (theme === "midnight")   return <MidnightShell   {...props} />;
-  if (theme === "tactical")   return <TacticalShell   {...props} />;
-  return <GreaseShell {...props} />;
+  const shells: Record<string, React.ReactNode> = {
+    neon:       <NeonShell       {...props} />,
+    prestige:   <PrestigeShell   {...props} />,
+    outlaw:     <OutlawShell     {...props} />,
+    chrome:     <ChromeShell     {...props} />,
+    terminal:   <TerminalShell   {...props} />,
+    sandstorm:  <SandstormShell  {...props} />,
+    sunset:     <SunsetShell     {...props} />,
+    deepsix:    <DeepSixShell    {...props} />,
+    bloodmoon:  <BloodmoonShell  {...props} />,
+    sakura:     <SakuraShell     {...props} />,
+    rustbelt:   <RustBeltShell   {...props} />,
+    arctic:     <ArcticShell     {...props} />,
+    vaporwave:  <VaporwaveShell  {...props} />,
+    midnight:   <MidnightShell   {...props} />,
+    tactical:   <TacticalShell   {...props} />,
+  };
+
+  const vars = THEME_VARS[theme] ?? THEME_VARS.grease;
+
+  return (
+    <>
+      <div className="shell-content">
+        {shells[theme] ?? <GreaseShell {...props} />}
+      </div>
+      <MobileNav
+        activeTab={props.activeTab}
+        setActiveTab={props.setActiveTab}
+        themeVars={vars}
+      />
+      <DesktopSidebar
+        activeTab={props.activeTab}
+        setActiveTab={props.setActiveTab}
+        themeVars={vars}
+      />
+    </>
+  );
 }

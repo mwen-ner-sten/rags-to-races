@@ -1,6 +1,7 @@
 "use client";
 
 import { HELP_OVERVIEW_STEPS, HELP_GLOSSARY, HELP_FAQ, HELP_TUTORIAL_WALKTHROUGH } from "@/data/helpContent";
+import { useGameStore } from "@/state/store";
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -17,8 +18,35 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 export default function HelpBasicsTab() {
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const showNewPlayerBanner = tutorialStep >= 0;
+
   return (
     <div className="space-y-4 sm:space-y-5">
+      {/* New player banner — only shows during active tutorial */}
+      {showNewPlayerBanner && (
+        <section
+          className="rounded-lg border-2 p-4 sm:p-5"
+          style={{
+            borderColor: "var(--accent)",
+            background: "linear-gradient(180deg, rgba(234,179,8,0.08) 0%, var(--panel-bg) 100%)",
+          }}
+        >
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+            New to idle games? Start here.
+          </h2>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Idle games are about building up resources and systems that grow over time.
+            In Rags to Races, you scavenge parts, build vehicles, and race for currency &mdash;
+            then reset (prestige) to earn permanent bonuses that make each run faster.
+            The loop compounds: every reset makes you stronger.
+          </p>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+            Follow the in-game tutorial hints, or read the walkthrough below for a complete guide.
+          </p>
+        </section>
+      )}
+
       {/* Getting Started */}
       <SectionCard title="Getting Started">
         <ol className="list-decimal space-y-2 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>

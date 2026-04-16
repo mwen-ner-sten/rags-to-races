@@ -5,17 +5,15 @@ import { useGameStore } from "@/state/store";
 import { computeTickSpeedMs, getRaceTicksNeeded } from "@/engine/tick";
 import { MATERIAL_DEFINITIONS } from "@/data/materials";
 import type { MaterialType } from "@/data/materials";
-import TickRing from "@/components/TickRing";
 import { Section, Row, TooltipPanel, HoverTooltipWrapper } from "@/components/TooltipPrimitives";
+import FatigueRing from "@/components/FatigueRing";
+import MomentumChip from "@/components/Shop/MomentumChip";
 
 function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
-  const scrapBucks = useGameStore((s) => s.scrapBucks);
-  const repPoints = useGameStore((s) => s.repPoints);
-  const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
+  // Currencies are now shown via per-currency hover tooltips (see CurrencyBar).
+  // This tooltip covers tick/race/prestige/material details only.
   const fatigue = useGameStore((s) => s.fatigue);
   const lifetimeRaces = useGameStore((s) => s.lifetimeRaces);
-  const legacyPoints = useGameStore((s) => s.legacyPoints);
-  const forgeTokens = useGameStore((s) => s.forgeTokens);
   const materials = useGameStore((s) => s.materials);
   const winStreak = useGameStore((s) => s.winStreak);
   const bestWinStreak = useGameStore((s) => s.bestWinStreak);
@@ -66,19 +64,6 @@ function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
         )}
       </Section>
 
-      {/* Currencies */}
-      <Section label="Currencies">
-        <Row label="Scrap Bucks" value={`$${scrapBucks.toLocaleString()}`} color="var(--success, #6aaa3a)" />
-        <Row label="Lifetime Scrap" value={`$${lifetimeScrapBucks.toLocaleString()}`} dim />
-        <Row label="Rep Points" value={repPoints.toLocaleString()} color="var(--info, #6aaa3a)" />
-        {legacyPoints > 0 && (
-          <Row label="Legacy Points" value={legacyPoints.toLocaleString()} color="#a78bfa" />
-        )}
-        {forgeTokens > 0 && (
-          <Row label="Forge Tokens" value={forgeTokens.toLocaleString()} color="var(--accent-secondary, #c4872a)" />
-        )}
-      </Section>
-
       {/* Fatigue & Racing */}
       <Section label="Racing">
         <Row label="Fatigue" value={`${fatigue}%`} color={fatigueColor} />
@@ -120,8 +105,9 @@ export default function StatsTooltip() {
     <HoverTooltipWrapper
       renderTooltip={(anchorRect) => <StatsTooltipContent anchorRect={anchorRect} />}
     >
-      <div style={{ padding: "0.5rem", margin: "-0.5rem" }}>
-        <TickRing suppressTitle />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0.5rem", margin: "-0.5rem" }}>
+        <FatigueRing />
+        <MomentumChip />
       </div>
     </HoverTooltipWrapper>
   );
