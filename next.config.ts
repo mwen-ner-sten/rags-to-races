@@ -1,40 +1,25 @@
 import type { NextConfig } from "next";
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
 
 /**
- * CalVer build version: `YYYY.MM.DD.BUILD` from `.build-counter.json`
- * (bumped by CI on PR merges to `main`).
+ * Build version string surfaced as `NEXT_PUBLIC_BUILD_VERSION`.
  *
- * On preview / non-production deploys we append the first 7 chars of the
- * Vercel commit SHA so every preview has a unique, identifiable version.
- * Production (main) stays clean.
+ * Format: `YYYY.MM.DD-<sha7>` on any Vercel deploy (prod or preview),
+ * `dev` locally. The build date is captured at `next build` time; the
+ * short SHA comes from `VERCEL_GIT_COMMIT_SHA`.
  *
- * Priority:
- *   1. counter file present + production → "2026.04.04.12"
- *   2. counter file present + preview     → "2026.04.04.12·a3f21bc"
- *   3. counter missing + preview          → "dev·a3f21bc"
- *   4. counter missing + local dev        → "dev"
+ * This replaces the old `.build-counter.json` + `bump-build.yml` system,
+ * which required pushing directly to `main` and was incompatible with
+ * our pull-request-required branch protection.
  */
 function generateVersion(): string {
-  let base = "dev";
-  try {
-    const dir = typeof __dirname !== "undefined" ? __dirname : dirname(fileURLToPath(import.meta.url));
-    const counterPath = resolve(dir, ".build-counter.json");
-    const raw = readFileSync(counterPath, "utf-8");
-    const { date, build } = JSON.parse(raw);
-    base = `${date}.${build}`;
-  } catch {
-    // counter file missing — leave base as "dev"
-  }
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7);
+  if (!sha) return "dev";
 
-  const vercelEnv = process.env.VERCEL_ENV;
-  const sha = process.env.VERCEL_GIT_COMMIT_SHA;
-  if (vercelEnv && vercelEnv !== "production" && sha) {
-    return `${base}\u00B7${sha.slice(0, 7)}`;
-  }
-  return base;
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(now.getUTCDate()).padStart(2, "0");
+  return `${y}.${m}.${d}-${sha}`;
 }
 
 const nextConfig: NextConfig = {
