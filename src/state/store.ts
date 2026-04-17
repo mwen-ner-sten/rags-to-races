@@ -19,6 +19,9 @@ import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 import { TALENT_NODES, getTalentNodeById } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
 import { rollGearDrops } from "@/engine/gearDrop";
+import { forgeItem, FORGE_COST } from "@/engine/forge";
+import { reforgeItem, SHARDS_PER_SALVAGE, REFORGE_COST_SHARDS } from "@/engine/reforge";
+import type { GearRarity } from "@/data/lootGear";
 import { calculatePrestigeBonus, calculatePrestigeBonusLegacy, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
@@ -141,6 +144,8 @@ export interface GameState {
   equippedLootGear: Record<GearSlot, string | null>;
   gearModInventory: InstalledMod[];
   unlockedTalentNodes: string[];
+  /** Reforge currency — earned from salvaging gear, spent to re-roll secondary affixes */
+  reforgeShards: number;
 
   // Workshop upgrades
   workshopLevels: Record<string, number>;
@@ -285,6 +290,8 @@ export interface GameState {
   unequipLootGear: (slot: GearSlot) => void;
   enhanceLootGear: (lootGearId: string) => void;
   salvageLootGear: (lootGearId: string) => void;
+  forgeGearItem: (slot: GearSlot, rarity: GearRarity) => void;
+  reforgeLootGear: (lootGearId: string) => void;
   installMod: (lootGearId: string, modInstanceId: string) => void;
   removeMod: (lootGearId: string, modIndex: number) => void;
   unlockTalentNode: (nodeId: string) => void;
@@ -384,6 +391,7 @@ function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>>
     lootGearInventory: [],
     equippedLootGear: { head: null, body: null, hands: null, feet: null, tool: null, accessory: null },
     gearModInventory: [],
+    reforgeShards: 0,
     unlockedTalentNodes: [],
     workshopLevels: {},
     pendingBuildParts: {},
@@ -512,7 +520,6 @@ function _appendLog(set: SetState, get: GetState, category: LogCategory, message
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 /** Grant XP to a skill and recalculate level. Returns the updated skills object. */
 function _grantXp(skills: RacerSkills, skill: SkillName, amount: number): RacerSkills {
   const current = skills[skill];
@@ -1284,18 +1291,45 @@ function createActions(set: SetState, get: GetState) {
       if (!item) return;
       const salvageBonus = _getUpgradeEffectValue(state, "gear_recycler");
       const value = getSalvageValue(item, salvageBonus);
+      const shards = SHARDS_PER_SALVAGE[item.rarity];
       // Return installed mods to inventory
       const returnedMods = item.mods;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks + value,
         lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+        reforgeShards: s.reforgeShards + shards,
         lootGearInventory: s.lootGearInventory.filter((g) => g.id !== lootGearId),
-        // Unequip if this item was equipped
         equippedLootGear: s.equippedLootGear[item.slot] === lootGearId
           ? { ...s.equippedLootGear, [item.slot]: null }
           : s.equippedLootGear,
         gearModInventory: [...s.gearModInventory, ...returnedMods],
       }));
+    },
+
+    forgeGearItem: (slot: GearSlot, rarity: GearRarity) => {
+      const state = get() as GameState;
+      const cost = FORGE_COST[rarity];
+      if (state.scrapBucks < cost) return;
+      const item = forgeItem(slot, rarity);
+      set((s: GameState) => ({
+        scrapBucks: s.scrapBucks - cost,
+        lootGearInventory: [...s.lootGearInventory, item],
+      }));
+      _appendLog(set, get, "gear", `Forged ${item.name} for $${cost}`, { scrapDelta: -cost });
+    },
+
+    reforgeLootGear: (lootGearId: string) => {
+      const state = get() as GameState;
+      const item = state.lootGearInventory.find((g) => g.id === lootGearId);
+      if (!item) return;
+      const shardCost = REFORGE_COST_SHARDS[item.rarity];
+      if (state.reforgeShards < shardCost) return;
+      const reforged = reforgeItem(item);
+      set((s: GameState) => ({
+        reforgeShards: s.reforgeShards - shardCost,
+        lootGearInventory: s.lootGearInventory.map((g) => (g.id === lootGearId ? reforged : g)),
+      }));
+      _appendLog(set, get, "gear", `Reforged ${item.name} for ${shardCost} shards`);
     },
 
     installMod: (lootGearId: string, modInstanceId: string) => {
@@ -1466,6 +1500,7 @@ function createActions(set: SetState, get: GetState) {
         lootGearInventory: state.lootGearInventory,
         equippedLootGear: state.equippedLootGear,
         gearModInventory: state.gearModInventory,
+        reforgeShards: state.reforgeShards,
         unlockedTalentNodes: state.unlockedTalentNodes,
         // New systems: materials, tokens, challenges persist
         materials: newMaterials,
@@ -2492,6 +2527,7 @@ export const useGameStore = create<GameState>()(
         lootGearInventory: state.lootGearInventory,
         equippedLootGear: state.equippedLootGear,
         gearModInventory: state.gearModInventory,
+        reforgeShards: state.reforgeShards,
         unlockedTalentNodes: state.unlockedTalentNodes,
         pendingBuildVehicleId: state.pendingBuildVehicleId,
         // New systems (all persist)

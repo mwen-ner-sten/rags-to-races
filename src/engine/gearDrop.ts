@@ -1,15 +1,21 @@
-import { GEAR_SLOTS, type GearSlot } from "@/data/gear";
+import { GEAR_SLOTS, type GearSlot } from "@/data/gearSlots";
 import {
   type GearRarity,
   type LootGearItem,
   type InstalledMod,
   RARITY_WEIGHTS_BY_TIER,
-  RARITY_VALUE_MULTS,
-  RARITY_EFFECT_COUNT,
-  LOOT_EFFECT_POOLS,
+  RARITY_PRIMARY_RANGE,
+  RARITY_SECONDARY_RANGE,
+  RARITY_SECONDARY_COUNT,
   generateLootName,
 } from "@/data/lootGear";
+import {
+  SLOT_AFFINITIES,
+  attributeEffectType,
+  type GearAttributeId,
+} from "@/data/gearAttributes";
 import { GEAR_MOD_TEMPLATES } from "@/data/gearMods";
+import { GEAR_SETS } from "@/data/gearSets";
 import { weightedPick, randInt } from "@/utils/random";
 
 let _instanceCounter = 0;
@@ -54,25 +60,62 @@ function rollRarity(sourceTier: number, rarityBonus: number): GearRarity {
   return weightedPick(baseWeights);
 }
 
-/** Roll a set of effects for the given slot + rarity */
+function pickAttribute(pool: GearAttributeId[]): GearAttributeId {
+  return pool[randInt(0, pool.length - 1)];
+}
+
+/** Roll attribute-based effects: 1 primary + N secondaries by rarity. */
 function rollEffects(
   slot: GearSlot,
   rarity: GearRarity,
 ): LootGearItem["effects"] {
-  const pool = LOOT_EFFECT_POOLS[slot];
-  const [minCount, maxCount] = RARITY_EFFECT_COUNT[rarity];
-  const count = randInt(minCount, Math.min(maxCount, pool.length));
-  const [multMin, multMax] = RARITY_VALUE_MULTS[rarity];
+  const affinity = SLOT_AFFINITIES[slot];
+  const effects: LootGearItem["effects"] = [];
+  const usedAttrs = new Set<GearAttributeId>();
 
-  // Shuffle pool and take first `count` entries
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, count);
-
-  return picked.map(([type, baseMin, baseMax]) => {
-    const mult = lerp(multMin, multMax, Math.random());
-    const value = parseFloat((lerp(baseMin, baseMax, Math.random()) * mult).toFixed(4));
-    return { type, value };
+  // Primary
+  const primaryId = pickAttribute(affinity.primary);
+  const [primMin, primMax] = RARITY_PRIMARY_RANGE[rarity];
+  effects.push({
+    type: attributeEffectType(primaryId),
+    value: randInt(primMin, primMax),
   });
+  usedAttrs.add(primaryId);
+
+  // Secondaries
+  const secondaryCount = RARITY_SECONDARY_COUNT[rarity];
+  const [secMin, secMax] = RARITY_SECONDARY_RANGE[rarity];
+  const secondaryPool = [
+    ...affinity.secondary,
+    ...affinity.primary, // allow re-roll into primary pool
+  ].filter((id) => !usedAttrs.has(id));
+
+  for (let i = 0; i < secondaryCount && secondaryPool.length > 0; i++) {
+    const pickIdx = randInt(0, secondaryPool.length - 1);
+    const id = secondaryPool.splice(pickIdx, 1)[0];
+    const value = randInt(secMin, secMax);
+    if (value <= 0) continue;
+    effects.push({ type: attributeEffectType(id), value });
+    usedAttrs.add(id);
+  }
+
+  return effects;
+}
+
+// Chance a drop belongs to a gear set, scaled up by rarity
+const SET_CHANCE_BY_RARITY: Record<GearRarity, number> = {
+  common:    0.00,
+  uncommon:  0.05,
+  rare:      0.12,
+  epic:      0.22,
+  legendary: 0.35,
+};
+
+function rollSetId(slot: GearSlot, rarity: GearRarity): string | undefined {
+  if (Math.random() > SET_CHANCE_BY_RARITY[rarity]) return undefined;
+  const eligible = GEAR_SETS.filter((s) => s.slots.includes(slot));
+  if (eligible.length === 0) return undefined;
+  return eligible[randInt(0, eligible.length - 1)].id;
 }
 
 /** Build a complete LootGearItem */
@@ -81,6 +124,7 @@ function buildLootGear(
   rarity: GearRarity,
   source: string,
 ): LootGearItem {
+  const setId = rollSetId(slot, rarity);
   return {
     id: makeGearId(),
     slot,
@@ -91,6 +135,7 @@ function buildLootGear(
     modSlots: 0,
     mods: [],
     source,
+    ...(setId ? { setId } : {}),
   };
 }
 

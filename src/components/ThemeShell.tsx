@@ -9,7 +9,7 @@ import CurrencyBar from "@/components/currency/CurrencyBar";
 import FooterThemeSwitcher from "@/components/FooterThemeSwitcher";
 import MobileNav from "@/components/MobileNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "talents" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 interface Props {
   activeTab: TabId;
@@ -22,6 +22,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "garage",   label: "Garage"   },
   { id: "race",     label: "Race"     },
   { id: "gear",     label: "Gear"     },
+  { id: "talents",  label: "Talents"  },
   { id: "upgrades", label: "Upgrades" },
   { id: "help",     label: "Help"     },
   { id: "log",      label: "Activity" },

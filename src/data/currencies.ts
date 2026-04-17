@@ -12,7 +12,7 @@
 import type { GameState } from "@/state/store";
 
 export type TabId =
-  | "junkyard" | "garage" | "race" | "gear" | "upgrades"
+  | "junkyard" | "garage" | "race" | "gear" | "talents" | "upgrades"
   | "help" | "log" | "settings" | "dev";
 
 export interface CurrencyTooltipRow {
