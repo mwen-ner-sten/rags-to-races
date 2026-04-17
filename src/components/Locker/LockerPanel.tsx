@@ -8,11 +8,13 @@ import CrewPanel from "@/components/Crew/CrewPanel";
 import {
   GEAR_SLOTS,
   GEAR_SLOT_LABELS,
-  getGearById,
-  getGearForSlot,
   type GearSlot,
-} from "@/data/gear";
-import { getGearBonuses } from "@/engine/gear";
+} from "@/data/gearSlots";
+import {
+  getGearBonuses,
+  getGearAttributes,
+  type GearAttributes,
+} from "@/engine/gear";
 import {
   RARITY_COLORS,
   RARITY_BORDER,
@@ -21,13 +23,31 @@ import {
   type LootGearItem,
   type InstalledMod,
 } from "@/data/lootGear";
+import {
+  GEAR_ATTRIBUTES,
+  ATTRIBUTE_LABELS,
+  ATTRIBUTE_SHORT_LABELS,
+  RACER_ATTRIBUTES,
+  VEHICLE_ATTRIBUTES,
+  parseAttributeEffectType,
+  type GearAttributeId,
+} from "@/data/gearAttributes";
 import { getModTemplateById } from "@/data/gearMods";
-import { TALENT_NODES, TALENT_TREES, getTalentNodesForTree } from "@/data/talentNodes";
+import { getGearSetById } from "@/data/gearSets";
+import { getActiveSets, type ActiveSetInfo } from "@/engine/gearSets";
+import { TALENT_NODES } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getEnhancedEffects, getSalvageValue } from "@/engine/gearEnhance";
+import { FORGE_COST } from "@/engine/forge";
+import { REFORGE_COST_SHARDS } from "@/engine/reforge";
 import { formatNumber } from "@/utils/format";
 
 // ── Effect label helper ──────────────────────────────────────────────────────
 function effectLabel(type: string, value: number): string {
+  const attrId = parseAttributeEffectType(type);
+  if (attrId) {
+    const sign = value > 0 ? "+" : "";
+    return `${sign}${Math.round(value)} ${ATTRIBUTE_LABELS[attrId]}`;
+  }
   const pct = (v: number) => `${v > 0 ? "+" : ""}${Math.round(v * 100)}%`;
   switch (type) {
     case "scavenge_luck_bonus":      return `${pct(value)} scavenge luck`;
@@ -48,76 +68,50 @@ function effectLabel(type: string, value: number): string {
   }
 }
 
-const TIER_COLORS = [
-  "text-zinc-500", "text-zinc-300", "text-green-400", "text-blue-400", "text-purple-400",
-];
-const TIER_BORDER = [
-  "border-zinc-800", "border-zinc-600", "border-green-800/50", "border-blue-800/50", "border-purple-800/50",
-];
-
-type LockerTab = "outfit" | "loot" | "mods" | "talents" | "skills" | "attributes" | "crew";
+type LockerTab = "gear" | "mods" | "skills" | "attributes" | "crew";
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function LockerPanel() {
-  const [activeTab, setActiveTab] = useState<LockerTab>("outfit");
+  const [activeTab, setActiveTab] = useState<LockerTab>("gear");
 
   const scrapBucks        = useGameStore((s) => s.scrapBucks);
-  const repPoints         = useGameStore((s) => s.repPoints);
+  const reforgeShards     = useGameStore((s) => s.reforgeShards);
   const equippedGear      = useGameStore((s) => s.equippedGear);
-  const ownedGearIds      = useGameStore((s) => s.ownedGearIds);
   const equippedLootGear  = useGameStore((s) => s.equippedLootGear);
   const lootGearInventory = useGameStore((s) => s.lootGearInventory);
   const gearModInventory  = useGameStore((s) => s.gearModInventory);
   const unlockedTalentNodes = useGameStore((s) => s.unlockedTalentNodes);
   const workshopLevels    = useGameStore((s) => s.workshopLevels);
 
-  const purchaseGear   = useGameStore((s) => s.purchaseGear);
-  const equipGear      = useGameStore((s) => s.equipGear);
   const equipLootGear  = useGameStore((s) => s.equipLootGear);
   const unequipLootGear = useGameStore((s) => s.unequipLootGear);
   const enhanceLootGear = useGameStore((s) => s.enhanceLootGear);
   const salvageLootGear = useGameStore((s) => s.salvageLootGear);
+  const forgeGearItem   = useGameStore((s) => s.forgeGearItem);
+  const reforgeLootGear = useGameStore((s) => s.reforgeLootGear);
   const installMod      = useGameStore((s) => s.installMod);
   const removeMod       = useGameStore((s) => s.removeMod);
-  const unlockTalentNode  = useGameStore((s) => s.unlockTalentNode);
-  const respecTalentTree  = useGameStore((s) => s.respecTalentTree);
 
   const masteryLevel = Math.floor((workshopLevels["enhancement_mastery"] ?? 0) * 3);
   const maxEnhance   = getMaxEnhancementLevel(masteryLevel);
   const salvageBonus = (workshopLevels["gear_recycler"] ?? 0) * 0.25;
 
   const bonuses = getGearBonuses(equippedGear, equippedLootGear, lootGearInventory, unlockedTalentNodes, TALENT_NODES);
+  const attributes = getGearAttributes(equippedLootGear, lootGearInventory, unlockedTalentNodes, TALENT_NODES);
+  const activeSets = getActiveSets(equippedLootGear, lootGearInventory);
   const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
 
   const allTabs: { id: LockerTab; label: string; badge?: number; show: boolean }[] = [
     { id: "skills",     label: "Skills",     show: true },
     { id: "attributes", label: "Attributes", show: unlockedFeatures.includes("racer_attributes") },
-    { id: "outfit",     label: "Outfit",     show: true },
-    { id: "loot",       label: "Loot Gear",  badge: lootGearInventory.length, show: true },
+    { id: "gear",       label: "Gear",       badge: lootGearInventory.length, show: true },
     { id: "mods",       label: "Mods",       badge: gearModInventory.length, show: true },
-    { id: "talents",    label: "Talents",    show: true },
     { id: "crew",       label: "Crew",       show: unlockedFeatures.includes("crew_system") },
   ];
   const TABS = allTabs.filter((t) => t.show);
 
   return (
     <div className="flex flex-col gap-4">
-      {/* WIP banner */}
-      <div
-        className="rounded-md border px-3 py-2 text-xs"
-        style={{
-          borderColor: "var(--accent-border, rgba(200,62,12,.4))",
-          background: "var(--accent-bg, rgba(200,62,12,.08))",
-          color: "var(--text-secondary, #9a8570)",
-        }}
-      >
-        <span style={{ color: "var(--accent, #c83e0c)", fontWeight: 700, letterSpacing: ".05em" }}>
-          {"\u{1F6A7} WORK IN PROGRESS "}
-        </span>
-        The Gear section is still being built out — expect balance changes, new
-        gear, and more slots. Report anything broken in Activity/Settings.
-      </div>
-
       {/* Tab bar */}
       <div className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
         {TABS.map((tab) => (
@@ -140,43 +134,28 @@ export default function LockerPanel() {
         ))}
       </div>
 
-      {/* Skills tab */}
+      {/* Skills / Attributes / Crew */}
       {activeTab === "skills" && <SkillsSubTab />}
       {activeTab === "attributes" && <AttributesSubTab />}
       {activeTab === "crew" && <CrewPanel />}
 
-      {/* Outfit tab */}
-      {activeTab === "outfit" && (
-        <OutfitTab
-          equippedGear={equippedGear}
-          equippedLootGear={equippedLootGear}
+      {/* Gear tab */}
+      {activeTab === "gear" && (
+        <GearTab
           lootGearInventory={lootGearInventory}
-          ownedGearIds={ownedGearIds}
+          equippedLootGear={equippedLootGear}
           scrapBucks={scrapBucks}
-          repPoints={repPoints}
+          reforgeShards={reforgeShards}
           maxEnhance={maxEnhance}
           salvageBonus={salvageBonus}
-          purchaseGear={purchaseGear}
-          equipGear={equipGear}
+          attributes={attributes}
+          activeSets={activeSets}
           equipLootGear={equipLootGear}
           unequipLootGear={unequipLootGear}
           enhanceLootGear={enhanceLootGear}
           salvageLootGear={salvageLootGear}
-        />
-      )}
-
-      {/* Loot Gear tab */}
-      {activeTab === "loot" && (
-        <LootGearTab
-          lootGearInventory={lootGearInventory}
-          equippedLootGear={equippedLootGear}
-          scrapBucks={scrapBucks}
-          maxEnhance={maxEnhance}
-          salvageBonus={salvageBonus}
-          equipLootGear={equipLootGear}
-          unequipLootGear={unequipLootGear}
-          enhanceLootGear={enhanceLootGear}
-          salvageLootGear={salvageLootGear}
+          forgeGearItem={forgeGearItem}
+          reforgeLootGear={reforgeLootGear}
         />
       )}
 
@@ -192,270 +171,172 @@ export default function LockerPanel() {
         />
       )}
 
-      {/* Talents tab */}
-      {activeTab === "talents" && (
-        <TalentsTab
-          unlockedTalentNodes={unlockedTalentNodes}
-          scrapBucks={scrapBucks}
-          unlockTalentNode={unlockTalentNode}
-          respecTalentTree={respecTalentTree}
-        />
-      )}
-
       {/* Active bonuses summary (always shown) */}
-      <BonusSummary bonuses={bonuses} />
+      {activeTab !== "crew" && activeTab !== "skills" && activeTab !== "attributes" && (
+        <BonusSummary bonuses={bonuses} />
+      )}
     </div>
   );
 }
 
-// ── Outfit Tab ───────────────────────────────────────────────────────────────
-function OutfitTab({
-  equippedGear, equippedLootGear, lootGearInventory, ownedGearIds,
-  scrapBucks, repPoints, maxEnhance, salvageBonus,
-  purchaseGear, equipGear, equipLootGear, unequipLootGear, enhanceLootGear, salvageLootGear,
-}: {
-  equippedGear: Record<GearSlot, string>;
-  equippedLootGear: Record<GearSlot, string | null>;
-  lootGearInventory: LootGearItem[];
-  ownedGearIds: string[];
-  scrapBucks: number;
-  repPoints: number;
-  maxEnhance: number;
-  salvageBonus: number;
-  purchaseGear: (id: string) => void;
-  equipGear: (id: string) => void;
-  equipLootGear: (id: string) => void;
-  unequipLootGear: (slot: GearSlot) => void;
-  enhanceLootGear: (id: string) => void;
-  salvageLootGear: (id: string) => void;
-}) {
-  const [expandedSlot, setExpandedSlot] = useState<GearSlot | null>(null);
+// ── Attribute Summary Card ──────────────────────────────────────────────────
+function AttributeSummary({ attrs }: { attrs: GearAttributes }) {
+  const hasAny = GEAR_ATTRIBUTES.some((id) => attrs[id] !== 0);
+  if (!hasAny) {
+    return (
+      <div
+        className="rounded-lg border p-3"
+        style={{
+          borderColor: "var(--panel-border, #27272a)",
+          background: "var(--panel-bg, rgba(24,24,27,0.5))",
+        }}
+      >
+        <h3 className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--text-muted, #71717a)" }}>
+          Total Attributes
+        </h3>
+        <p className="mt-1 text-xs" style={{ color: "var(--text-muted, #71717a)" }}>
+          Equip gear to earn attribute points.
+        </p>
+      </div>
+    );
+  }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">Your Outfit</h3>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        {GEAR_SLOTS.map((slot) => {
-          const lootId = equippedLootGear[slot];
-          const lootItem = lootId ? lootGearInventory.find((g) => g.id === lootId) : null;
-          const staticDef = getGearById(equippedGear[slot]);
-          const slotInfo = GEAR_SLOT_LABELS[slot];
-          const isExpanded = expandedSlot === slot;
-
+  const renderRow = (ids: readonly GearAttributeId[], label: string) => (
+    <div>
+      <div className="mb-1 text-xs font-semibold uppercase tracking-widest"
+        style={{ color: "var(--text-muted, #71717a)" }}>
+        {label}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+        {ids.map((id) => {
+          const v = attrs[id];
+          const inactive = v === 0;
           return (
-            <button
-              key={slot}
-              onClick={() => setExpandedSlot(isExpanded ? null : slot)}
-              className={`rounded-lg border p-2.5 text-left transition-colors ${
-                isExpanded ? "border-orange-600 bg-zinc-800" : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
-              }`}
+            <div
+              key={id}
+              className="rounded border px-2 py-1.5 text-center"
+              style={{
+                borderColor: inactive
+                  ? "var(--panel-border, #27272a)"
+                  : "var(--accent-border, rgba(200,62,12,.4))",
+                background: inactive
+                  ? "var(--panel-bg, rgba(24,24,27,0.3))"
+                  : "var(--accent-bg, rgba(200,62,12,.08))",
+              }}
+              title={ATTRIBUTE_LABELS[id]}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="text-base">{slotInfo.icon}</span>
-                <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">{slotInfo.label}</span>
-                {lootItem && (
-                  <span className={`ml-auto text-xs font-bold ${RARITY_COLORS[lootItem.rarity]}`}>
-                    {RARITY_LABELS[lootItem.rarity][0]}
-                  </span>
-                )}
+              <div
+                className="text-xs font-bold"
+                style={{ color: inactive ? "var(--text-muted, #52525b)" : "var(--accent, #c83e0c)" }}
+              >
+                {ATTRIBUTE_SHORT_LABELS[id]}
               </div>
-              {lootItem ? (
-                <div className="mt-1">
-                  <span className={`text-sm font-semibold ${RARITY_COLORS[lootItem.rarity]}`}>{lootItem.name}</span>
-                  <div className="mt-0.5 text-xs text-zinc-500">
-                    Enh. +{lootItem.enhancementLevel}{lootItem.mods.length > 0 ? ` · ${lootItem.mods.length} mod${lootItem.mods.length > 1 ? "s" : ""}` : ""}
-                  </div>
-                </div>
-              ) : staticDef ? (
-                <div className="mt-1">
-                  <span className={`text-sm font-semibold ${TIER_COLORS[staticDef.tier] ?? "text-white"}`}>{staticDef.name}</span>
-                  {staticDef.effects.length > 0 && (
-                    <div className="mt-0.5">
-                      {staticDef.effects.map((e, i) => (
-                        <span key={i} className={`text-xs ${e.value < 0 ? "text-red-400" : "text-green-400"}`}>
-                          {effectLabel(e.type, e.value)}{i < staticDef.effects.length - 1 ? ", " : ""}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </button>
+              <div
+                className="font-mono text-sm"
+                style={{ color: inactive ? "var(--text-muted, #52525b)" : "var(--text-primary, #e4e4e7)" }}
+              >
+                {v > 0 ? `+${v}` : v}
+              </div>
+            </div>
           );
         })}
       </div>
-
-      {/* Expanded slot panel */}
-      {expandedSlot && (
-        <SlotPanel
-          slot={expandedSlot}
-          scrapBucks={scrapBucks}
-          repPoints={repPoints}
-          equippedGearId={equippedGear[expandedSlot]}
-          equippedLootGearId={equippedLootGear[expandedSlot]}
-          ownedGearIds={ownedGearIds}
-          lootGearForSlot={lootGearInventory.filter((g) => g.slot === expandedSlot)}
-          maxEnhance={maxEnhance}
-          salvageBonus={salvageBonus}
-          purchaseGear={purchaseGear}
-          equipGear={equipGear}
-          equipLootGear={equipLootGear}
-          unequipLootGear={unequipLootGear}
-          enhanceLootGear={enhanceLootGear}
-          salvageLootGear={salvageLootGear}
-        />
-      )}
     </div>
   );
-}
-
-function SlotPanel({
-  slot, scrapBucks, repPoints, equippedGearId, equippedLootGearId,
-  ownedGearIds, lootGearForSlot, maxEnhance, salvageBonus,
-  purchaseGear, equipGear, equipLootGear, unequipLootGear, enhanceLootGear, salvageLootGear,
-}: {
-  slot: GearSlot;
-  scrapBucks: number;
-  repPoints: number;
-  equippedGearId: string;
-  equippedLootGearId: string | null;
-  ownedGearIds: string[];
-  lootGearForSlot: LootGearItem[];
-  maxEnhance: number;
-  salvageBonus: number;
-  purchaseGear: (id: string) => void;
-  equipGear: (id: string) => void;
-  equipLootGear: (id: string) => void;
-  unequipLootGear: (slot: GearSlot) => void;
-  enhanceLootGear: (id: string) => void;
-  salvageLootGear: (id: string) => void;
-}) {
-  const [subTab, setSubTab] = useState<"outfit" | "loot">(lootGearForSlot.length > 0 ? "loot" : "outfit");
-  const slotInfo = GEAR_SLOT_LABELS[slot];
-  const staticItems = getGearForSlot(slot);
 
   return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 sm:p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span>{slotInfo.icon}</span>
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">{slotInfo.label}</h3>
-        <div className="ml-auto flex gap-1">
-          <button
-            onClick={() => setSubTab("outfit")}
-            className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "outfit" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-          >Outfit</button>
-          <button
-            onClick={() => setSubTab("loot")}
-            className={`rounded px-2 py-0.5 text-xs font-semibold transition-colors ${subTab === "loot" ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-          >
-            Loot {lootGearForSlot.length > 0 && <span className="ml-1 rounded-full bg-orange-600/80 px-1 text-white">{lootGearForSlot.length}</span>}
-          </button>
-        </div>
+    <div
+      className="rounded-lg border p-3"
+      style={{
+        borderColor: "var(--panel-border, #3f3f46)",
+        background: "var(--panel-bg, rgba(24,24,27,0.75))",
+      }}
+    >
+      <h3
+        className="mb-3 text-sm font-semibold uppercase tracking-widest"
+        style={{ color: "var(--text-secondary, #a1a1aa)" }}
+      >
+        Total Attributes
+      </h3>
+      <div className="flex flex-col gap-3">
+        {renderRow(RACER_ATTRIBUTES, "Racer")}
+        {renderRow(VEHICLE_ATTRIBUTES, "Vehicle")}
       </div>
-
-      {subTab === "outfit" && (
-        <div className="flex flex-col gap-2">
-          {staticItems.map((gear) => {
-            const owned = ownedGearIds.includes(gear.id);
-            const equipped = equippedGearId === gear.id && !equippedLootGearId;
-            const canAfford = scrapBucks >= gear.cost;
-            const meetsRep = !gear.unlockRequirement?.repPoints || repPoints >= gear.unlockRequirement.repPoints;
-            const locked = !meetsRep;
-            return (
-              <div key={gear.id} className={`rounded-md border p-2.5 ${
-                equipped ? "border-orange-600/50 bg-orange-900/10"
-                : locked  ? "border-zinc-800 bg-zinc-900/50 opacity-50"
-                : owned   ? "border-green-800/50 bg-green-900/10"
-                : TIER_BORDER[gear.tier] + " bg-zinc-800/50"
-              }`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-sm font-semibold ${TIER_COLORS[gear.tier] ?? "text-white"}`}>{gear.name}</span>
-                      <span className="text-xs text-zinc-600">T{gear.tier}</span>
-                      {equipped && <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-xs font-semibold text-orange-400">EQUIPPED</span>}
-                      {owned && !equipped && <span className="rounded bg-green-500/20 px-1.5 py-0.5 text-xs font-semibold text-green-400">OWNED</span>}
-                    </div>
-                    <p className="mt-0.5 text-xs text-zinc-400">{gear.description}</p>
-                    {gear.effects.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-x-2">
-                        {gear.effects.map((e, i) => (
-                          <span key={i} className={`text-xs font-mono ${e.value < 0 ? "text-red-400" : "text-emerald-400"}`}>
-                            {effectLabel(e.type, e.value)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {locked && gear.unlockRequirement?.repPoints && (
-                      <p className="mt-1 text-xs text-zinc-600">Requires {formatNumber(gear.unlockRequirement.repPoints)} Rep</p>
-                    )}
-                  </div>
-                  <div className="shrink-0">
-                    {!owned && !locked && (
-                      <button onClick={() => purchaseGear(gear.id)} disabled={!canAfford}
-                        className="rounded border border-orange-600 px-2.5 py-1 text-xs font-semibold text-orange-400 hover:bg-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40">
-                        {gear.cost === 0 ? "FREE" : `$${formatNumber(gear.cost)}`}
-                      </button>
-                    )}
-                    {owned && !equipped && (
-                      <button onClick={() => equipGear(gear.id)}
-                        className="rounded border border-green-600 px-2.5 py-1 text-xs font-semibold text-green-400 hover:bg-green-600/20">
-                        Equip
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {subTab === "loot" && (
-        <div className="flex flex-col gap-2">
-          {lootGearForSlot.length === 0 && (
-            <p className="text-xs text-zinc-600 italic">No loot gear found for this slot yet. Race and scavenge to find drops!</p>
-          )}
-          {/* Show "none equipped" option if loot is equipped */}
-          {equippedLootGearId && (
-            <button onClick={() => unequipLootGear(slot)}
-              className="rounded border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200">
-              Unequip loot gear (revert to shop item)
-            </button>
-          )}
-          {lootGearForSlot.map((item) => (
-            <LootGearCard
-              key={item.id}
-              item={item}
-              isEquipped={equippedLootGearId === item.id}
-              scrapBucks={scrapBucks}
-              maxEnhance={maxEnhance}
-              salvageBonus={salvageBonus}
-              onEquip={() => equipLootGear(item.id)}
-              onEnhance={() => enhanceLootGear(item.id)}
-              onSalvage={() => salvageLootGear(item.id)}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-// ── Loot Gear Tab ────────────────────────────────────────────────────────────
-function LootGearTab({
-  lootGearInventory, equippedLootGear, scrapBucks, maxEnhance, salvageBonus,
+// ── Set Bonuses Card ────────────────────────────────────────────────────────
+function SetBonusesCard({ activeSets }: { activeSets: ActiveSetInfo[] }) {
+  return (
+    <div
+      className="rounded-lg border p-3"
+      style={{
+        borderColor: "var(--panel-border, #3f3f46)",
+        background: "var(--panel-bg, rgba(24,24,27,0.75))",
+      }}
+    >
+      <h3
+        className="mb-2 text-sm font-semibold uppercase tracking-widest"
+        style={{ color: "var(--text-secondary, #a1a1aa)" }}
+      >
+        Set Bonuses
+      </h3>
+      <div className="flex flex-col gap-2">
+        {activeSets.map(({ set, piecesEquipped, activeTiers }) => (
+          <div key={set.id} className="rounded border border-zinc-700 bg-zinc-900/50 p-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-amber-400">{set.name}</span>
+              <span className="text-xs font-mono text-zinc-500">
+                {piecesEquipped}/{set.slots.length} pieces
+              </span>
+            </div>
+            <div className="mt-1 flex flex-col gap-0.5">
+              {set.tiers.map((tier) => {
+                const active = activeTiers.includes(tier);
+                return (
+                  <div key={tier.piecesRequired} className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-semibold ${active ? "text-amber-300" : "text-zinc-600"}`}
+                    >
+                      ({tier.piecesRequired})
+                    </span>
+                    <span className={`text-xs ${active ? "text-emerald-300" : "text-zinc-600"}`}>
+                      {tier.description}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Gear Tab ────────────────────────────────────────────────────────────────
+function GearTab({
+  lootGearInventory, equippedLootGear, scrapBucks, reforgeShards, maxEnhance, salvageBonus,
+  attributes, activeSets,
   equipLootGear, unequipLootGear, enhanceLootGear, salvageLootGear,
+  forgeGearItem, reforgeLootGear,
 }: {
   lootGearInventory: LootGearItem[];
   equippedLootGear: Record<GearSlot, string | null>;
   scrapBucks: number;
+  reforgeShards: number;
   maxEnhance: number;
   salvageBonus: number;
+  attributes: GearAttributes;
+  activeSets: ActiveSetInfo[];
   equipLootGear: (id: string) => void;
   unequipLootGear: (slot: GearSlot) => void;
   enhanceLootGear: (id: string) => void;
   salvageLootGear: (id: string) => void;
+  forgeGearItem: (slot: GearSlot, rarity: import("@/data/lootGear").GearRarity) => void;
+  reforgeLootGear: (id: string) => void;
 }) {
   const [slotFilter, setSlotFilter] = useState<GearSlot | "all">("all");
 
@@ -463,70 +344,151 @@ function LootGearTab({
     ? lootGearInventory
     : lootGearInventory.filter((g) => g.slot === slotFilter);
 
-  if (lootGearInventory.length === 0) {
-    return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center">
-        <p className="text-sm text-zinc-500">No loot gear yet.</p>
-        <p className="mt-1 text-xs text-zinc-600">Race and scavenge to find gear drops. Better races drop rarer gear.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-3">
-      {/* Slot filter */}
-      <div className="flex flex-wrap gap-1">
-        {(["all", ...GEAR_SLOTS] as (GearSlot | "all")[]).map((s) => (
-          <button key={s} onClick={() => setSlotFilter(s)}
-            className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
-              slotFilter === s ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"
-            }`}>
-            {s === "all" ? "All" : GEAR_SLOT_LABELS[s].label}
-            {s !== "all" && (
-              <span className="ml-1 text-zinc-600">
-                {lootGearInventory.filter((g) => g.slot === s).length}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Equipped slot row */}
+      <EquippedRow
+        equippedLootGear={equippedLootGear}
+        lootGearInventory={lootGearInventory}
+        unequipLootGear={unequipLootGear}
+      />
+
+      {/* Attribute summary */}
+      <AttributeSummary attrs={attributes} />
+
+      {/* Set bonuses */}
+      {activeSets.length > 0 && <SetBonusesCard activeSets={activeSets} />}
+
+      {/* Forge */}
+      <ForgeCard scrapBucks={scrapBucks} onForge={forgeGearItem} />
+
+      {/* Reforge Shards counter */}
+      <div
+        className="flex items-center justify-between rounded-md border px-3 py-1.5 text-xs"
+        style={{
+          borderColor: "var(--panel-border, #3f3f46)",
+          background: "var(--panel-bg, rgba(24,24,27,0.5))",
+        }}
+      >
+        <span style={{ color: "var(--text-muted, #71717a)" }}>
+          Reforge Shards (from salvage)
+        </span>
+        <span className="font-mono font-semibold" style={{ color: "var(--accent, #c83e0c)" }}>
+          {formatNumber(reforgeShards)}
+        </span>
       </div>
 
-      {filtered.length === 0 && (
-        <p className="text-xs text-zinc-600 italic">No items for this slot.</p>
-      )}
+      {lootGearInventory.length === 0 ? (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center">
+          <p className="text-sm text-zinc-500">No gear yet.</p>
+          <p className="mt-1 text-xs text-zinc-600">
+            Race, scavenge, forge, or hunt rivals to find gear.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Slot filter */}
+          <div className="flex flex-wrap gap-1">
+            {(["all", ...GEAR_SLOTS] as (GearSlot | "all")[]).map((s) => (
+              <button key={s} onClick={() => setSlotFilter(s)}
+                className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
+                  slotFilter === s ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"
+                }`}>
+                {s === "all" ? "All" : GEAR_SLOT_LABELS[s].label}
+                {s !== "all" && (
+                  <span className="ml-1 text-zinc-600">
+                    {lootGearInventory.filter((g) => g.slot === s).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-      {filtered.map((item) => (
-        <LootGearCard
-          key={item.id}
-          item={item}
-          isEquipped={equippedLootGear[item.slot] === item.id}
-          scrapBucks={scrapBucks}
-          maxEnhance={maxEnhance}
-          salvageBonus={salvageBonus}
-          onEquip={() => equipLootGear(item.id)}
-          onEnhance={() => enhanceLootGear(item.id)}
-          onSalvage={() => salvageLootGear(item.id)}
-          showUnequip={equippedLootGear[item.slot] === item.id}
-          onUnequip={() => unequipLootGear(item.slot)}
-        />
-      ))}
+          {filtered.length === 0 && (
+            <p className="text-xs text-zinc-600 italic">No items for this slot.</p>
+          )}
+
+          {filtered.map((item) => (
+            <LootGearCard
+              key={item.id}
+              item={item}
+              isEquipped={equippedLootGear[item.slot] === item.id}
+              scrapBucks={scrapBucks}
+              reforgeShards={reforgeShards}
+              maxEnhance={maxEnhance}
+              salvageBonus={salvageBonus}
+              onEquip={() => equipLootGear(item.id)}
+              onEnhance={() => enhanceLootGear(item.id)}
+              onSalvage={() => salvageLootGear(item.id)}
+              onReforge={() => reforgeLootGear(item.id)}
+              showUnequip={equippedLootGear[item.slot] === item.id}
+              onUnequip={() => unequipLootGear(item.slot)}
+            />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+function EquippedRow({
+  equippedLootGear, lootGearInventory, unequipLootGear,
+}: {
+  equippedLootGear: Record<GearSlot, string | null>;
+  lootGearInventory: LootGearItem[];
+  unequipLootGear: (slot: GearSlot) => void;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      {GEAR_SLOTS.map((slot) => {
+        const id = equippedLootGear[slot];
+        const item = id ? lootGearInventory.find((g) => g.id === id) : null;
+        const info = GEAR_SLOT_LABELS[slot];
+        return (
+          <button
+            key={slot}
+            onClick={() => item && unequipLootGear(slot)}
+            disabled={!item}
+            className={`flex flex-col items-center rounded-lg border p-2 text-center transition-colors ${
+              item
+                ? `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]} hover:opacity-80`
+                : "border-zinc-800 bg-zinc-900/50"
+            }`}
+            title={item ? `${item.name} — click to unequip` : `Empty ${info.label} slot`}
+          >
+            <span className="text-lg">{info.icon}</span>
+            <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              {info.label}
+            </span>
+            {item ? (
+              <span className={`mt-0.5 truncate text-xs font-semibold ${RARITY_COLORS[item.rarity]}`}>
+                {item.name}
+              </span>
+            ) : (
+              <span className="mt-0.5 text-xs text-zinc-700">— empty —</span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 // ── Loot Gear Card ───────────────────────────────────────────────────────────
 function LootGearCard({
-  item, isEquipped, scrapBucks, maxEnhance, salvageBonus,
-  onEquip, onEnhance, onSalvage, showUnequip, onUnequip,
+  item, isEquipped, scrapBucks, reforgeShards, maxEnhance, salvageBonus,
+  onEquip, onEnhance, onSalvage, onReforge, showUnequip, onUnequip,
 }: {
   item: LootGearItem;
   isEquipped: boolean;
   scrapBucks: number;
+  reforgeShards?: number;
   maxEnhance: number;
   salvageBonus: number;
   onEquip: () => void;
   onEnhance: () => void;
   onSalvage: () => void;
+  onReforge?: () => void;
   showUnequip?: boolean;
   onUnequip?: () => void;
 }) {
@@ -535,6 +497,9 @@ function LootGearCard({
   const canAfford     = scrapBucks >= enhanceCost;
   const salvageValue  = getSalvageValue(item, salvageBonus);
   const enhancedEffects = getEnhancedEffects(item);
+
+  const attributeEffects = enhancedEffects.filter((e) => parseAttributeEffectType(e.type));
+  const otherEffects = enhancedEffects.filter((e) => !parseAttributeEffectType(e.type));
 
   return (
     <div className={`rounded-md border p-3 ${isEquipped ? "border-orange-600/50 bg-orange-900/10" : `${RARITY_BORDER[item.rarity]} ${RARITY_BG[item.rarity]}`}`}>
@@ -547,20 +512,57 @@ function LootGearCard({
               {RARITY_LABELS[item.rarity]}
             </span>
             <span className="text-xs text-zinc-600 capitalize">{GEAR_SLOT_LABELS[item.slot].icon} {item.slot}</span>
+            {item.setId && (() => {
+              const set = getGearSetById(item.setId);
+              return set ? (
+                <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-semibold text-amber-300">
+                  {set.name}
+                </span>
+              ) : null;
+            })()}
+            {item.unique && (
+              <span className="rounded bg-orange-500/20 px-1 py-0.5 text-xs font-bold tracking-wider text-orange-300">
+                UNIQUE
+              </span>
+            )}
+            {item.legacy && (
+              <span className="rounded bg-zinc-700 px-1 py-0.5 text-xs font-semibold text-zinc-400">
+                LEGACY
+              </span>
+            )}
             {isEquipped && <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-xs font-semibold text-orange-400">EQUIPPED</span>}
           </div>
 
-          {/* Effects */}
-          <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
-            {enhancedEffects.map((e, i) => (
-              <span key={i} className="text-xs font-mono text-emerald-400">{effectLabel(e.type, e.value)}</span>
-            ))}
-            {item.mods.map((mod, i) => (
-              <span key={`mod-${i}`} className="text-xs font-mono text-yellow-400">
-                {effectLabel(mod.effectType, mod.value)} <span className="text-zinc-600">[mod]</span>
-              </span>
-            ))}
-          </div>
+          {/* Attribute grants (lead) */}
+          {attributeEffects.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
+              {attributeEffects.map((e, i) => (
+                <span key={`attr-${i}`} className="font-mono text-sm font-semibold text-emerald-300">
+                  {effectLabel(e.type, e.value)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Other effects (secondary) */}
+          {otherEffects.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+              {otherEffects.map((e, i) => (
+                <span key={`eff-${i}`} className="text-xs font-mono text-emerald-400">
+                  {effectLabel(e.type, e.value)}
+                </span>
+              ))}
+            </div>
+          )}
+          {item.mods.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+              {item.mods.map((mod, i) => (
+                <span key={`mod-${i}`} className="text-xs font-mono text-yellow-400">
+                  {effectLabel(mod.effectType, mod.value)} <span className="text-zinc-600">[mod]</span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Enhancement progress */}
           <div className="mt-2 flex items-center gap-2">
@@ -609,7 +611,97 @@ function LootGearCard({
             className="rounded border border-zinc-700 px-2 py-1 text-xs font-semibold text-zinc-500 hover:border-red-700 hover:text-red-400">
             Salvage ${formatNumber(salvageValue)}
           </button>
+          {onReforge && (() => {
+            const cost = REFORGE_COST_SHARDS[item.rarity];
+            const canReforge = (reforgeShards ?? 0) >= cost;
+            return (
+              <button
+                onClick={onReforge}
+                disabled={!canReforge}
+                title={`Re-roll secondary affixes for ${cost} shards`}
+                className="rounded border border-amber-700 px-2 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-700/20 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Reforge {cost}◆
+              </button>
+            );
+          })()}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Forge Card ──────────────────────────────────────────────────────────────
+function ForgeCard({
+  scrapBucks, onForge,
+}: {
+  scrapBucks: number;
+  onForge: (slot: GearSlot, rarity: import("@/data/lootGear").GearRarity) => void;
+}) {
+  const [slot, setSlot] = useState<GearSlot>("head");
+  const [rarity, setRarity] = useState<import("@/data/lootGear").GearRarity>("common");
+  const cost = FORGE_COST[rarity];
+  const canAfford = scrapBucks >= cost;
+
+  const rarities: import("@/data/lootGear").GearRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+
+  return (
+    <div
+      className="rounded-lg border p-3"
+      style={{
+        borderColor: "var(--panel-border, #3f3f46)",
+        background: "var(--panel-bg, rgba(24,24,27,0.75))",
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold uppercase tracking-widest"
+          style={{ color: "var(--text-secondary, #a1a1aa)" }}>
+          Forge
+        </h3>
+        <span className="text-xs" style={{ color: "var(--text-muted, #71717a)" }}>
+          Craft gear with Scrap Bucks
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        {/* Slot select */}
+        <div className="flex flex-wrap gap-1">
+          {GEAR_SLOTS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setSlot(s)}
+              className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
+                slot === s ? "bg-zinc-600 text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+              title={GEAR_SLOT_LABELS[s].label}
+            >
+              {GEAR_SLOT_LABELS[s].icon}
+            </button>
+          ))}
+        </div>
+
+        {/* Rarity select */}
+        <div className="flex flex-wrap gap-1">
+          {rarities.map((r) => (
+            <button
+              key={r}
+              onClick={() => setRarity(r)}
+              className={`rounded px-2 py-1 text-xs font-semibold uppercase transition-colors ${
+                rarity === r ? `${RARITY_COLORS[r]} bg-zinc-700` : "text-zinc-600 hover:text-zinc-400"
+              }`}
+            >
+              {r[0]}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => onForge(slot, rarity)}
+          disabled={!canAfford}
+          className="ml-auto shrink-0 rounded border border-orange-600 px-3 py-1 text-xs font-semibold text-orange-400 hover:bg-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Forge ${formatNumber(cost)}
+        </button>
       </div>
     </div>
   );
@@ -629,10 +721,7 @@ function ModsTab({
 }) {
   const [selectedMod, setSelectedMod] = useState<string | null>(null);
 
-  // Items that have open mod slots
   const itemsWithSlots = lootGearInventory.filter((g) => g.mods.length < g.modSlots);
-
-  // Items that have installed mods
   const itemsWithMods = lootGearInventory.filter((g) => g.mods.length > 0);
 
   return (
@@ -665,7 +754,6 @@ function ModsTab({
                     {isSelected && <span className="text-xs text-yellow-500">Select gear to install →</span>}
                   </div>
 
-                  {/* Install targets when selected */}
                   {isSelected && itemsWithSlots.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1 border-t border-zinc-700 pt-2">
                       {itemsWithSlots
@@ -689,7 +777,6 @@ function ModsTab({
         )}
       </div>
 
-      {/* Installed mods management */}
       {itemsWithMods.length > 0 && (
         <div>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-400">Installed Mods</h3>
@@ -731,181 +818,6 @@ function ModsTab({
   );
 }
 
-// ── Talents Tab ──────────────────────────────────────────────────────────────
-function TalentsTab({
-  unlockedTalentNodes, scrapBucks, unlockTalentNode, respecTalentTree,
-}: {
-  unlockedTalentNodes: string[];
-  scrapBucks: number;
-  unlockTalentNode: (nodeId: string) => void;
-  respecTalentTree: (treeId: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-6">
-      <p className="text-xs text-zinc-500">
-        Choose a path in each talent tree. Paths branch at tier 2 — pick one direction.
-        Respec a tree at any time for a fee (costs 1.5× what you spent). Talents persist through prestige.
-      </p>
-      {TALENT_TREES.map((tree) => {
-        const nodes = getTalentNodesForTree(tree.id).sort((a, b) => a.tier - b.tier);
-        const tier1 = nodes.filter((n) => n.tier === 1);
-        const tier2 = nodes.filter((n) => n.tier === 2);
-        const tier3 = nodes.filter((n) => n.tier === 3);
-
-        const unlockedInTree = nodes.filter((n) => unlockedTalentNodes.includes(n.id));
-        const respecCost = Math.floor(unlockedInTree.reduce((s, n) => s + n.cost, 0) * 1.5);
-        const canRespec = unlockedInTree.length > 0 && scrapBucks >= respecCost;
-        const hasNodes = unlockedInTree.length > 0;
-
-        return (
-          <div key={tree.id} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
-            {/* Tree header */}
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{tree.icon}</span>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-200">{tree.name}</h3>
-                  <p className="text-xs text-zinc-500">{tree.description}</p>
-                </div>
-              </div>
-              {hasNodes && (
-                <button
-                  onClick={() => respecTalentTree(tree.id)}
-                  disabled={!canRespec}
-                  title={`Reset all ${tree.name} talents. Cost: $${formatNumber(respecCost)}`}
-                  className="shrink-0 rounded border border-red-800 px-2 py-1 text-xs text-red-500 hover:bg-red-900/20 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Respec (${formatNumber(respecCost)})
-                </button>
-              )}
-            </div>
-
-            {/* Tier 1 (root) */}
-            <div className="flex flex-col gap-2">
-              {tier1.map((node) => (
-                <TalentNodeRow
-                  key={node.id}
-                  node={node}
-                  unlockedTalentNodes={unlockedTalentNodes}
-                  scrapBucks={scrapBucks}
-                  unlockTalentNode={unlockTalentNode}
-                  label="Root"
-                />
-              ))}
-            </div>
-
-            {/* Tier 2 branch fork */}
-            {tier2.length > 0 && (
-              <div className="mt-2">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-zinc-800" />
-                  <span className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Choose a Path</span>
-                  <div className="h-px flex-1 bg-zinc-800" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  {tier2.map((node) => {
-                    const exclusiveUnlocked = node.mutuallyExclusiveWith
-                      ? unlockedTalentNodes.includes(node.mutuallyExclusiveWith)
-                      : false;
-                    return (
-                      <TalentNodeRow
-                        key={node.id}
-                        node={node}
-                        unlockedTalentNodes={unlockedTalentNodes}
-                        scrapBucks={scrapBucks}
-                        unlockTalentNode={unlockTalentNode}
-                        label="Branch"
-                        forceBlocked={exclusiveUnlocked}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Tier 3 (capstone — only show nodes whose prereq branch is unlocked) */}
-            {tier3.filter((n) => !n.prerequisiteNodeId || unlockedTalentNodes.includes(n.prerequisiteNodeId)).length > 0 && (
-              <div className="mt-2">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-zinc-800" />
-                  <span className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Capstone</span>
-                  <div className="h-px flex-1 bg-zinc-800" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  {tier3
-                    .filter((n) => !n.prerequisiteNodeId || unlockedTalentNodes.includes(n.prerequisiteNodeId))
-                    .map((node) => (
-                      <TalentNodeRow
-                        key={node.id}
-                        node={node}
-                        unlockedTalentNodes={unlockedTalentNodes}
-                        scrapBucks={scrapBucks}
-                        unlockTalentNode={unlockTalentNode}
-                        label="Capstone"
-                      />
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function TalentNodeRow({
-  node, unlockedTalentNodes, scrapBucks, unlockTalentNode, forceBlocked = false,
-}: {
-  node: import("@/data/talentNodes").TalentNode;
-  unlockedTalentNodes: string[];
-  scrapBucks: number;
-  unlockTalentNode: (nodeId: string) => void;
-  label?: string;
-  forceBlocked?: boolean;
-}) {
-  const unlocked = unlockedTalentNodes.includes(node.id);
-  const meetsPrereq = !node.prerequisiteNodeId || unlockedTalentNodes.includes(node.prerequisiteNodeId);
-  const available = meetsPrereq && !unlocked && !forceBlocked;
-  const canAfford = scrapBucks >= node.cost;
-
-  return (
-    <div className={`flex items-start gap-3 rounded-md border p-2.5 transition-colors ${
-      unlocked      ? "border-green-800/50 bg-green-900/10"
-      : forceBlocked ? "border-zinc-800 bg-zinc-900/20 opacity-30"
-      : available    ? "border-zinc-600 bg-zinc-800/50"
-      : "border-zinc-800 bg-zinc-900/30 opacity-50"
-    }`}>
-      <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${
-        unlocked ? "border-green-500 bg-green-500"
-        : forceBlocked ? "border-zinc-800"
-        : available ? "border-zinc-500"
-        : "border-zinc-700"
-      }`} />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`text-sm font-semibold ${unlocked ? "text-green-400" : forceBlocked ? "text-zinc-600" : "text-zinc-200"}`}>
-            {node.name}
-          </span>
-          <span className="text-xs font-mono text-emerald-400">{effectLabel(node.effect.type, node.effect.value)}</span>
-        </div>
-        <p className="mt-0.5 text-xs text-zinc-500">{node.description}</p>
-      </div>
-      {!unlocked && available && (
-        <button
-          onClick={() => unlockTalentNode(node.id)}
-          disabled={!canAfford}
-          className="shrink-0 rounded border border-orange-600 px-2 py-1 text-xs font-semibold text-orange-400 hover:bg-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          ${formatNumber(node.cost)}
-        </button>
-      )}
-      {unlocked && (
-        <span className="shrink-0 text-xs text-green-500">Unlocked</span>
-      )}
-    </div>
-  );
-}
 
 // ── Bonus Summary ────────────────────────────────────────────────────────────
 function BonusSummary({ bonuses }: { bonuses: ReturnType<typeof getGearBonuses> }) {
@@ -913,14 +825,14 @@ function BonusSummary({ bonuses }: { bonuses: ReturnType<typeof getGearBonuses> 
   if (entries.length === 0) {
     return (
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">Active Gear Bonuses</h3>
-        <p className="mt-1 text-xs text-zinc-600">No gear bonuses active. Equip better gear to get bonuses.</p>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">Derived Bonuses</h3>
+        <p className="mt-1 text-xs text-zinc-600">Bonuses derived from your attributes will show up here.</p>
       </div>
     );
   }
   return (
     <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3">
-      <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-400">Active Gear Bonuses</h3>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-400">Derived Bonuses</h3>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {entries.map(([type, value]) => (
           <span key={type} className={`text-xs font-mono ${value < 0 ? "text-red-400" : "text-emerald-400"}`}>

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "talents" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 /** Primary tabs shown directly in the bottom bar */
 const PRIMARY_TABS: { id: TabId; label: string; icon: string }[] = [
@@ -15,6 +15,7 @@ const PRIMARY_TABS: { id: TabId; label: string; icon: string }[] = [
 
 /** Overflow tabs behind the "More" button */
 const OVERFLOW_TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "talents",  label: "Talents",  icon: "\u{1F31F}" }, // 🌟
   { id: "help",     label: "Help",     icon: "\u2753" },    // ❓
   { id: "log",      label: "Activity", icon: "\u{1F4DC}" }, // 📜
   { id: "settings", label: "Settings", icon: "\u2699\uFE0F" }, // ⚙️

@@ -1,4 +1,5 @@
 import type { LootGearItem, LootGearEffect, GearRarity } from "@/data/lootGear";
+import { parseAttributeEffectType } from "@/data/gearAttributes";
 
 // Base cost per rarity
 const RARITY_BASE_COST: Record<GearRarity, number> = {
@@ -43,10 +44,14 @@ export function getMaxEnhancementLevel(masteryLevel: number): number {
  */
 export function getEnhancedEffects(item: LootGearItem): LootGearEffect[] {
   const mult = 1 + item.enhancementLevel * 0.12;
-  return item.effects.map((e) => ({
-    type: e.type,
-    value: parseFloat((e.value * mult).toFixed(4)),
-  }));
+  return item.effects.map((e) => {
+    const scaled = e.value * mult;
+    // Attribute grants are integer +points; round after scaling for clean display.
+    const value = parseAttributeEffectType(e.type)
+      ? Math.round(scaled)
+      : parseFloat(scaled.toFixed(4));
+    return { type: e.type, value };
+  });
 }
 
 /**
@@ -74,10 +79,12 @@ export function getTotalEffects(item: LootGearItem): LootGearEffect[] {
     byType.set(mod.effectType, (byType.get(mod.effectType) ?? 0) + mod.value);
   }
 
-  return Array.from(byType.entries()).map(([type, value]) => ({
-    type,
-    value: parseFloat(value.toFixed(4)),
-  }));
+  return Array.from(byType.entries()).map(([type, value]) => {
+    const rounded = parseAttributeEffectType(type)
+      ? Math.round(value)
+      : parseFloat(value.toFixed(4));
+    return { type, value: rounded };
+  });
 }
 
 /**

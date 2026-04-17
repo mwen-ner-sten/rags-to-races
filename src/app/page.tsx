@@ -7,6 +7,7 @@ import GaragePanel from "@/components/Garage/GaragePanel";
 import RacePanel from "@/components/RaceTrack/RacePanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
 import LockerPanel from "@/components/Locker/LockerPanel";
+import TalentsPanel from "@/components/Talents/TalentsPanel";
 import UpgradesPanel from "@/components/Upgrades/UpgradesPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
@@ -18,7 +19,7 @@ import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
 
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "talents" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
 
@@ -144,6 +145,7 @@ export default function Home() {
         {activeTab === "garage"   && <GaragePanel />}
         {activeTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
         {activeTab === "gear"     && <LockerPanel />}
+        {activeTab === "talents"  && <TalentsPanel />}
         {activeTab === "upgrades" && <UpgradesPanel />}
         {activeTab === "help"     && <HelpPanel />}
         {activeTab === "log"      && <HelpActivityTab />}

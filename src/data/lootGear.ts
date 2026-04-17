@@ -1,4 +1,4 @@
-import type { GearSlot } from "@/data/gear";
+import type { GearSlot } from "@/data/gearSlots";
 
 export type GearRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
@@ -57,6 +57,14 @@ export interface LootGearItem {
   modSlots: number;          // 0–2 (0 base, +1 at lvl 3, +1 at lvl 7)
   mods: InstalledMod[];
   source: string;            // circuit/location id for flavor
+  /** Optional set membership — enables 2pc/4pc bonuses when multiple pieces equipped */
+  setId?: string;
+  /** Named unique/legendary piece — drives special-effect dispatch */
+  unique?: boolean;
+  /** Id matched by {@link src/engine/uniqueEffects.ts}. Only meaningful when unique is true */
+  specialEffectId?: string;
+  /** True when item's effects were migrated from the legacy %-only schema; shown in UI */
+  legacy?: boolean;
 }
 
 // ── Effect pools per slot ───────────────────────────────────────────────────
@@ -102,7 +110,36 @@ export const LOOT_EFFECT_POOLS: Record<GearSlot, EffectPool> = {
   ],
 };
 
+// ── Attribute roll ranges by rarity ─────────────────────────────────────────
+// Primary attribute roll (1 per item) and secondary rolls (count depends on rarity)
+// Values are integer +N attribute points.
+export const RARITY_PRIMARY_RANGE: Record<GearRarity, [number, number]> = {
+  common:    [2, 3],
+  uncommon:  [3, 5],
+  rare:      [5, 8],
+  epic:      [8, 12],
+  legendary: [12, 18],
+};
+
+export const RARITY_SECONDARY_RANGE: Record<GearRarity, [number, number]> = {
+  common:    [0, 0],
+  uncommon:  [1, 2],
+  rare:      [2, 4],
+  epic:      [3, 6],
+  legendary: [5, 9],
+};
+
+// How many secondary affixes each rarity rolls
+export const RARITY_SECONDARY_COUNT: Record<GearRarity, number> = {
+  common:    0,
+  uncommon:  1,
+  rare:      1,
+  epic:      2,
+  legendary: 2,
+};
+
 // Rarity multiplier ranges [min, max] applied to base effect ranges
+// (legacy % pools — retained during transition, removed in Phase 2)
 export const RARITY_VALUE_MULTS: Record<GearRarity, [number, number]> = {
   common:    [0.5,  0.8],
   uncommon:  [0.8,  1.2],

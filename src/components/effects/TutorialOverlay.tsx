@@ -7,7 +7,7 @@ import { formatNumber, formatRep } from "@/utils/format";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
+type TabId = "junkyard" | "garage" | "race" | "gear" | "talents" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 interface TutorialStepDef {
   icon: string;
