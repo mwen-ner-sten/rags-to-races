@@ -439,7 +439,7 @@ export default function AdminPanel() {
             {" · "}
             build <span className="font-mono">{BUILD_VERSION}</span>
             {" · "}
-            Pixel-style art (crisp blocks, not smooth vector blobs). Hard-refresh if this number does not match your deploy.
+            Generated bitmap assets (transparent PNGs, pixelated display). Hard-refresh if this number does not match your deploy.
           </p>
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-9">
             {VEHICLE_DEFINITIONS.map((v) => (
