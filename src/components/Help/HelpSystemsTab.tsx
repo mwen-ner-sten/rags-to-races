@@ -9,9 +9,6 @@ import {
   MOMENTUM_TIERS,
   LEGACY_UPGRADE_DEFINITIONS,
   LEGACY_CATEGORY_LABELS,
-  TALENT_TREES,
-  TALENT_NODES,
-  HELP_GEAR_STATS,
   HELP_DATA_SNAPSHOT,
   SKILL_DEFINITIONS,
   MAX_SKILL_LEVEL,
@@ -77,12 +74,12 @@ export default function HelpSystemsTab() {
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Win Chance</p>
                 <Formula label="Formula" formula="min(95%, max(5%, performance / (difficulty × 2) + momentum bonus))" />
-                <p>Fatigue reduces effective performance by 0.5% per point. Gear and prestige bonuses multiply performance.</p>
+                <p>Fatigue reduces effective performance by 0.5% per point. Station equipment and prestige bonuses multiply performance.</p>
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>DNF (Did Not Finish)</p>
-                <Formula label="Formula" formula="max(0%, 30% − reliability / 200 − gear DNF reduction)" />
-                <p>At 60+ reliability, DNF chance hits 0%. Gear and the Smooth Lines talent reduce it further.</p>
+                <Formula label="Formula" formula="max(0%, 30% − reliability / 200 − station DNF reduction)" />
+                <p>At 60+ reliability, DNF chance hits 0%. Diagnostics and Aero-focused station equipment can reduce it further.</p>
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Vehicle Wear</p>
@@ -91,7 +88,7 @@ export default function HelpSystemsTab() {
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Drops</p>
-                <p>Wins: 15% chance for a salvage part. ~2% Forge Token chance on tier 3+ circuits. Loot gear drops: 8% on win, 3% on loss, 1% on DNF.</p>
+                <p>Wins: 15% chance for a salvage part. ~2% Forge Token chance on tier 3+ circuits. Station equipment drops: 8% on win, 3% on loss, 1% on DNF.</p>
               </div>
             </div>
           </SystemSection>
@@ -105,7 +102,7 @@ export default function HelpSystemsTab() {
                 <li><strong>Vehicle wear:</strong> +0.8% per point</li>
                 <li><strong>Repair costs:</strong> +0.3% per point</li>
               </ul>
-              <p className="mt-2">Fatigue resets to 0 on prestige. The Iron Will legacy upgrade delays the fatigue curve by 5 races per level. The Fatigue Proof talent reduces gain by 20%.</p>
+              <p className="mt-2">Fatigue resets to 0 on Scrap Reset. The Iron Will legacy upgrade delays the fatigue curve, while Endurance-focused station equipment reduces wear pressure.</p>
               <p>Momentum bonuses <em>reward</em> pushing through fatigue — Deep Run (+50% LP at 60) and Legendary Run (+100% LP at 80).</p>
             </div>
           </SystemSection>
@@ -119,7 +116,7 @@ export default function HelpSystemsTab() {
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>What Persists</p>
-                <p>Legacy Points, legacy upgrades, talent nodes, all gear (static + loot), prestige count.</p>
+                <p>Legacy Points, legacy upgrades, Garage Philosophy, station equipment, prestige count.</p>
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>LP Formula</p>
@@ -157,59 +154,23 @@ export default function HelpSystemsTab() {
             </div>
           </SystemSection>
 
-          {/* Talent Tree */}
-          <SystemSection icon="🌳" title="Talent Tree">
-            <div className="space-y-3">
-              <p>{TALENT_TREES.length} independent trees. Each has 3 tiers with mutually exclusive branches at tiers 2 and 3. Costs: 200 → 600 → 1,800 LP.</p>
-              {TALENT_TREES.map((tree) => {
-                const nodes = TALENT_NODES.filter((n) => n.treeId === tree.id).sort((a, b) => a.tier - b.tier);
-                return (
-                  <div key={tree.id} className="rounded border p-2" style={{ borderColor: "var(--panel-border)" }}>
-                    <div className="text-xs font-semibold" style={{ color: "var(--text-white)" }}>
-                      {tree.icon} {tree.name}
-                    </div>
-                    <div className="mt-1 space-y-0.5">
-                      {nodes.map((node) => (
-                        <div key={node.id} className="flex justify-between">
-                          <span style={{ color: "var(--text-primary)" }}>
-                            T{node.tier}: {node.name}
-                            {node.mutuallyExclusiveWith && (
-                              <span style={{ color: "var(--text-muted)" }}> (exclusive)</span>
-                            )}
-                          </span>
-                          <span style={{ color: "var(--text-muted)" }}>{formatNumber(node.cost)} LP</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </SystemSection>
-
-          {/* Gear & Loot */}
-          <SystemSection icon="🎒" title="Gear & Loot">
+          {/* Garage station equipment */}
+          <SystemSection icon="🧰" title="Garage Stations">
             <div className="space-y-2">
-              <p>{HELP_GEAR_STATS.totalGear} gear items across {HELP_GEAR_STATS.slotCount} slots (head, body, hands, feet, tool, accessory).</p>
+              <p>Six shared stations replace personal outfit gear: Workbench, Lift, Diagnostics, Fabrication, Pit Equipment, and Logistics.</p>
               <div>
-                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Static Gear</p>
-                <p>Bought with Scrap Bucks, 5 tiers (0–4). Higher tiers unlock at Rep thresholds.</p>
+                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Attribute equipment</p>
+                <p>Each station item grants engineering or racing attributes. The engine derives sourcing, repair, preparation, wear, handling, and reward effects from those points.</p>
               </div>
               <div>
-                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Loot Gear</p>
-                <p>Drops from races/scavenging. Rarity: Common → Uncommon → Rare → Epic → Legendary. Higher rarities have stronger base effects.</p>
+                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Sets and rarity</p>
+                <p>Common → Legendary rarity controls affix strength. Grease Monkey, Redline, Scrapper, and Slipstream sets activate at two and four equipped pieces.</p>
               </div>
               <div>
-                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Enhancement</p>
-                <p>Each level adds +12% to effect values. Mod slots unlock at levels 3 and 7. Base max level is 4, +3 per Enhancement Mastery workshop upgrade (hard cap 13).</p>
-                <Formula label="Cost" formula="floor(baseCost × (level + 1)^1.8)" />
-                <p>Base cost by rarity: Common 50, Uncommon 150, Rare 500, Epic 2,000, Legendary 10,000.</p>
+                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Forge, enhance, reforge</p>
+                <p>Forge a chosen station and rarity, enhance its values up to +13, or spend shards from salvaged spares to reroll secondary attributes while preserving the primary.</p>
               </div>
-              <div>
-                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Drop Rates</p>
-                <p>Scavenge: 3% base. Race win: 8%. Race loss: 3%. DNF: 1%. Win streaks add +0.5%/win (cap +10%).</p>
-              </div>
-              <p>All gear persists through prestige — invest early for compounding returns.</p>
+              <p>Station equipment persists through Scrap Reset and resets at the Team layer.</p>
             </div>
           </SystemSection>
 
@@ -234,7 +195,7 @@ export default function HelpSystemsTab() {
           {/* Crafting & Materials */}
           <SystemSection icon="🔨" title="Crafting & Materials">
             <div className="space-y-2">
-              <p>{HELP_MATERIALS.length} material types gained by decomposing parts. Used for gear enhancement and crafting.</p>
+              <p>{HELP_MATERIALS.length} material types gained by decomposing parts. Used for part enhancement and targeted fabrication.</p>
               <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
                 {HELP_MATERIALS.map((m) => (
                   <span key={m.id} className="rounded border px-2 py-1 text-center text-xs" style={{ borderColor: "var(--panel-border)", color: "var(--text-primary)" }}>
@@ -440,8 +401,8 @@ export default function HelpSystemsTab() {
         </div>
       </SectionCard>
 
-      {/* Playstyle Upgrades */}
-      <SectionCard title="Playstyle Upgrades">
+      {/* Garage Philosophy */}
+      <SectionCard title="Garage Philosophy">
         <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
           LP-bought specialization trees. Resets on Team Reset. You can manually respec for a 50% LP refund.
         </p>

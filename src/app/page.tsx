@@ -6,7 +6,7 @@ import ScavengePanel from "@/components/Junkyard/ScavengePanel";
 import GaragePanel from "@/components/Garage/GaragePanel";
 import RacePanel from "@/components/RaceTrack/RacePanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
-import LockerPanel from "@/components/Locker/LockerPanel";
+import SalvageWorkshopPanel from "@/components/Workshop/SalvageWorkshopPanel";
 import UpgradesPanel from "@/components/Upgrades/UpgradesPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
@@ -139,7 +139,7 @@ export default function Home() {
         {displayedTab === "junkyard" && <ScavengePanel />}
         {displayedTab === "garage"   && <GaragePanel />}
         {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
-        {displayedTab === "gear"     && <LockerPanel />}
+        {displayedTab === "gear"     && <SalvageWorkshopPanel />}
         {displayedTab === "upgrades" && <UpgradesPanel />}
         {displayedTab === "help"     && <HelpPanel />}
         {displayedTab === "log"      && <HelpActivityTab />}

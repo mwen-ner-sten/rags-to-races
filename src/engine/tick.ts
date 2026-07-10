@@ -43,7 +43,7 @@ export function computeTickSpeedMs(state: GameState): number {
   const upgradeReductionMs =
     _getUpgradeEffectValue(state, "tick_accelerator") +
     _getUpgradeEffectValue(state, "overclocked_tick");
-  const gearBonuses = getGearBonuses(state.equippedGear);
+  const gearBonuses = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
   const gearReductionMs = (gearBonuses.tick_speed_reduction_ms ?? 0);
   return Math.max(TICK_MS_MIN, TICK_MS_DEFAULT - upgradeReductionMs - gearReductionMs);
 }
@@ -77,6 +77,8 @@ export function computeTick(state: GameState): TickResult {
     state.lootGearInventory,
     state.unlockedTalentNodes,
     TALENT_NODES,
+    state.equippedStationEquipment,
+    state.stationEquipmentInventory,
   );
 
   // ── Shared gear lab workshop values ──────────────────────────────────────
@@ -277,7 +279,7 @@ export function simulateOfflineTicks(
       // Update lifetime races & fatigue
       snap.lifetimeRaces += 1;
       const fatigueOffset = getLegacyEffectValue(snap.legacyUpgradeLevels, "leg_fatigue_offset");
-      const gearBonuses = getGearBonuses(snap.equippedGear, snap.equippedLootGear, snap.lootGearInventory, snap.unlockedTalentNodes, TALENT_NODES);
+      const gearBonuses = getGearBonuses(snap.equippedGear, snap.equippedLootGear, snap.lootGearInventory, snap.unlockedTalentNodes, TALENT_NODES, snap.equippedStationEquipment, snap.stationEquipmentInventory);
       const rawFatigue = calculateFatigue(snap.lifetimeRaces, fatigueOffset);
       snap.fatigue = Math.floor(rawFatigue * (1 - gearBonuses.fatigue_rate_reduction));
     }

@@ -35,7 +35,7 @@ export const PLAYSTYLE_PATHS: {
   },
   {
     id: "speedster",
-    name: "Speedster",
+    name: "Racer",
     description:
       "Born to race. Faster runs, less fatigue, bigger winnings.",
     icon: "racing flag",

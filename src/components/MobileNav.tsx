@@ -9,7 +9,7 @@ const PRIMARY_TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "junkyard", label: "Junk",    icon: "\u{1F5D1}\uFE0F" },  // 🗑️
   { id: "garage",   label: "Garage",  icon: "\u{1F527}" },          // 🔧
   { id: "race",     label: "Race",    icon: "\u{1F3CE}\uFE0F" },   // 🏎️
-  { id: "gear",     label: "Gear",    icon: "\u{1F9F0}" },          // 🧰
+  { id: "gear",     label: "Shop",    icon: "\u{1F9F0}" },          // 🧰
   { id: "upgrades", label: "Upgr",    icon: "\u2B06\uFE0F" },      // ⬆️
 ];
 

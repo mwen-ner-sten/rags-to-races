@@ -3,14 +3,13 @@ import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { VEHICLE_DEFINITIONS, BASE_WEAR_PER_RACE, RELIABILITY_WEAR_THRESHOLD, CONDITION_PENALTY_THRESHOLD } from "@/data/vehicles";
 import { UPGRADE_DEFINITIONS, UPGRADE_CATEGORIES, type UpgradeCategory } from "@/data/upgrades";
-import { GEAR_DEFINITIONS } from "@/data/gear";
 import { MATERIAL_DEFINITIONS, CATEGORY_TO_MATERIALS } from "@/data/materials";
 import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
 import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_INTERVAL, DEALER_BOARD_SIZE } from "@/data/dealer";
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
-import { TALENT_TREES, TALENT_NODES } from "@/data/talentNodes";
+import { GARAGE_STATIONS } from "@/data/garageStations";
 import { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL } from "@/data/racerSkills";
 import { ATTRIBUTE_DEFINITIONS } from "@/data/racerAttributes";
 import { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATIONS } from "@/data/crew";
@@ -28,11 +27,10 @@ export const HELP_OVERVIEW_STEPS: string[] = [
   "Scavenge parts in the Junkyard — each location drops different tiers and rarities.",
   "Head to the Garage to assemble a vehicle. Fill the required slots and pay the build cost.",
   "Race your vehicle on circuits to earn Scrap Bucks and Rep. Higher circuits pay more but are harder.",
-  "Sell junk parts for Scrap Bucks, or decompose them into materials for crafting and gear enhancement.",
-  "Open the Upgrades tab to buy Workshop upgrades — faster auto-race, better luck, cheaper builds.",
-  "Equip and enhance gear in the Gear tab. Loot gear drops from races and scavenging.",
+  "Use the Salvage Workshop to compare, decompose, repair, enhance, craft, source, and install parts.",
+  "Equip and improve six shared garage stations for stronger engineering, preparation, and sourcing.",
   "When fatigue climbs and progress stalls, Prestige via the Upgrades tab to earn Legacy Points.",
-  "Spend Legacy Points on permanent upgrades and talent nodes that compound every future run.",
+  "Spend Legacy Points on permanent upgrades and Garage Philosophy paths that compound future runs.",
 ];
 
 // ── Tutorial Walkthrough ───────────────────────────────────────────────────
@@ -58,24 +56,23 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
 // ── Glossary ────────────────────────────────────────────────────────────────
 
 export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
-  { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, upgrades, and gear." },
+  { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, facilities, and station equipment." },
   { term: "Rep", meaning: "Progression currency from races. Unlocks locations, circuits, vehicles, the Dealer, and late-game systems." },
   { term: "Fatigue", meaning: "Builds each race (0–99). Costs -0.5% performance, +0.8% wear, +0.3% repair cost per point. Resets on prestige." },
   { term: "Condition", meaning: `Part quality from ${CONDITIONS[0]} (worst) to ${CONDITIONS[CONDITIONS.length - 1]} (best). Higher = more power and sale value.` },
-  { term: "Prestige (Scrap Reset)", meaning: "Voluntary reset that wipes currency, parts, and vehicles but awards Legacy Points. Gear and legacy upgrades persist." },
-  { term: "Legacy Points (LP)", meaning: "Earned on prestige based on run stats. Spent on permanent upgrades and talent tree nodes." },
+  { term: "Prestige (Scrap Reset)", meaning: "Voluntary reset that wipes run currency, parts, and vehicles but awards Legacy Points. Station equipment, discoveries, and legacy upgrades persist." },
+  { term: "Legacy Points (LP)", meaning: "Earned on Scrap Reset based on run stats. Spent on permanent upgrades and Garage Philosophy nodes." },
   { term: "Momentum", meaning: `${MOMENTUM_TIERS.length} conditional bonuses that activate during a run (e.g., "${MOMENTUM_TIERS[0].name}" at ${MOMENTUM_TIERS[0].condition.value}+ races). Reset on prestige.` },
   { term: "Forge Tokens", meaning: "Rare drop from high-tier race wins (~2%). Used with materials in the Artifact Forge for top-tier parts." },
   { term: "Dealer Board", meaning: `Rotating part market unlocking at ${(DEALER_UNLOCK_REP / 1000).toFixed(0)}k Rep. ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
   { term: "DNF (Did Not Finish)", meaning: "Vehicle broke down mid-race. Chance = 30% minus reliability/200. Higher reliability = safer." },
-  { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve loot gear drop rarity by +0.5% per win (cap +10%)." },
+  { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve station-equipment drop rarity by +0.5% per win (cap +10%)." },
   { term: "Vehicle Condition", meaning: `Starts at 100, degrades from racing. Below ${CONDITION_PENALTY_THRESHOLD}, stats drop linearly. Repair in the Garage.` },
-  { term: "Materials", meaning: `${MATERIAL_DEFINITIONS.length} types gained by decomposing parts. Used for crafting and gear enhancement.` },
-  { term: "Loot Gear", meaning: "Randomized gear from races/scavenging. Has rarity tiers, enhancement levels (0–13), and mod slots." },
-  { term: "Enhancement", meaning: "Spend materials to level up loot gear (+12% effect per level). Mod slots unlock at levels 3 and 7." },
+  { term: "Materials", meaning: `${MATERIAL_DEFINITIONS.length} types gained by decomposing parts. Used for part enhancement and targeted fabrication.` },
+  { term: "Station Equipment", meaning: "Randomized equipment for six shared garage stations. It has rarity, attribute affixes, enhancement levels, and optional set membership." },
+  { term: "Reforge Shards", meaning: "Earned by salvaging unequipped station items. Spent to reroll secondary attributes while preserving the primary." },
   { term: "Auto-Scavenge", meaning: "Unlocks after 100 manual scavenge clicks. Runs automatically each tick." },
   { term: "Auto-Race", meaning: "Unlocks at 30 Rep. Fires on a timer (improved by Pit Crew workshop upgrade)." },
-  { term: "Talent Nodes", meaning: `${TALENT_TREES.length} skill trees (${TALENT_TREES.map(t => t.name).join(", ")}). Permanent nodes costing 200–1,800 LP with mutually exclusive branches.` },
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} milestone goals rewarding materials, Forge Tokens, and Dealer refreshes.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
   { term: "Team Points (TP)", meaning: "Layer 2 prestige currency earned from Team Reset. Spent on team upgrades that accelerate Scrap Reset runs." },
@@ -87,7 +84,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Offline Progress", meaning: "The game continues scavenging and racing while closed (capped at 8 hours). A summary modal shows your offline earnings when you return." },
   { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
   { term: "Prestige Milestone", meaning: "Free reward earned at prestige count thresholds. Some shape your run strategy. View in Upgrades > Prestige." },
-  { term: "Playstyle Node", meaning: "LP-bought specialization in Scrapper/Speedster/Engineer trees. Resets on Team Reset. View in Upgrades > Playstyle." },
+  { term: "Garage Philosophy", meaning: "LP-funded specialization in Scrapper, Racer, and Engineer paths. Persists through Scrap Reset and resets at the Team layer." },
   { term: "Softwall", meaning: "A large bonus to a specific activity at certain prestige counts that naturally encourages that playstyle." },
 ];
 
@@ -105,7 +102,7 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "What do I keep when I prestige?",
-    answer: "You keep: Legacy Points, legacy upgrades, talent nodes, all gear (static + loot), and your prestige count. You lose: Scrap Bucks, Rep, inventory, vehicles, workshop levels, materials, race history, momentum, and fatigue resets to 0.",
+    answer: "You keep Legacy Points, legacy upgrades, Garage Philosophy, station equipment, discoveries, crew, and achievements. You reset run cash, Rep, inventory, vehicles, circuit progress, fatigue, and run goals.",
   },
   {
     question: "How do I unlock the Dealer?",
@@ -117,7 +114,7 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "Should I sell or decompose parts?",
-    answer: "Sell if you need Scrap Bucks for builds/upgrades. Decompose if you need materials for gear enhancement or crafting. Tip: decompose high-condition parts for better material yield, sell low-condition junk.",
+    answer: "Sell if you need Scrap Bucks for builds or facilities. Decompose if you need materials for part enhancement or fabrication. High-condition parts yield more materials, so compare the opportunity cost first.",
   },
   {
     question: "What are Team, Owner, and Track resets?",
@@ -145,7 +142,7 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "Why did my playstyle nodes reset?",
-    answer: "Playstyle upgrades reset on Team Reset, giving you a natural respec opportunity each era. You can also manually respec for a 50% LP refund.",
+    answer: "Garage Philosophy resets on Team Reset, giving you a natural respec opportunity each era. You can also manually respec for a 50% LP refund.",
   },
 ];
 
@@ -169,13 +166,13 @@ export const HELP_STRATEGY: StrategyCard[] = [
     ],
   },
   {
-    id: "talent_tree",
-    title: "Which talent tree should I pick?",
+    id: "garage_philosophy",
+    title: "Which Garage Philosophy path should I pick?",
     advice: [
-      "Race Driver → best for longer runs. Fatigue Proof (T3) reduces fatigue gain by 20%, letting you push deeper.",
-      "Wrench Jockey → best for crafting. Forge Sense (T3) adds +1% Forge Token drop rate for the Artifact pipeline.",
-      "Scrap Hunter → best for economy. Trade Routes (T3) gives +5% sell value on everything.",
-      "You can eventually unlock all trees — pick the one that matches your current bottleneck first.",
+      "Scrapper improves discovery, salvage yield, and selling.",
+      "Racer improves race cadence, fatigue management, and winnings.",
+      "Engineer improves builds, repair, fabrication, and materials.",
+      "Choose around the current garage bottleneck; the paths explain tradeoffs without prescribing one optimum.",
     ],
   },
   {
@@ -194,18 +191,18 @@ export const HELP_STRATEGY: StrategyCard[] = [
     advice: [
       "DNF chance = 30% minus (reliability ÷ 200). At 60+ reliability, DNF chance hits 0%.",
       "Use higher-condition parts — they add more reliability.",
-      "Equip gear with race_dnf_reduction (Head slot has the best pool for this).",
-      "Smooth Lines talent node gives a flat -3% DNF reduction.",
+      "Equip Diagnostics, Lift, or Slipstream station equipment with Instinct or Aero.",
+      "Use the race forecast to see whether reliability or setup is driving the risk.",
     ],
   },
   {
-    id: "gear_enhance",
-    title: "Gear enhancement priority",
+    id: "station_enhance",
+    title: "Station equipment priority",
     advice: [
-      "Enhance Epic and Legendary loot first — same +12%/level scaling but stronger base effects.",
-      "Target enhancement level 7 to unlock the 2nd mod slot.",
-      "Enhancement Mastery workshop upgrade raises the max level by +3 per level (up to 13 total).",
-      "Salvage (sell) duplicate common/uncommon loot to fund enhancements on rares+.",
+      "Enhance equipment whose attributes address a real garage or preparation bottleneck.",
+      "Set pieces may be worth keeping even when an individual affix is slightly weaker.",
+      "Reforge a strong primary when the secondary attributes do not suit the station.",
+      "Salvage unused spares for shards rather than hoarding every roll.",
     ],
   },
   {
@@ -215,7 +212,7 @@ export const HELP_STRATEGY: StrategyCard[] = [
       "Start: Toolkit (unlock part swapping) → Bargain Builder (cheaper builds).",
       "Early: Budget Repairs → Keen Eye (scavenge luck) → Deep Pockets (extra parts).",
       "Mid: Consolation Sponsor (scrap from losses) → Reinforced Chassis (less wear).",
-      "Late: Gear Scavenger → Trophy Hunter → Enhancement Mastery → Rarity Sense.",
+      "Late: station forging, targeted sourcing, and equipment enhancement facilities.",
     ],
   },
   {
@@ -265,9 +262,9 @@ export const HELP_STRATEGY: StrategyCard[] = [
   },
   {
     id: "playstyle_paths",
-    title: "Playstyle Paths",
+    title: "Garage Philosophy",
     advice: [
-      "Scrapper path accelerates early runs via scavenging. Speedster shines in mid-game racing. Engineer dominates late-game with workshop and build bonuses. You can invest in all three, but T2 branches force a choice.",
+      "Scrapper accelerates discovery and salvage. Racer emphasizes race cadence and winnings. Engineer strengthens building and fabrication. You can invest in all three, but T2 branches force a choice.",
     ],
   },
 ];
@@ -323,9 +320,6 @@ export type { LegacyUpgradeCategory };
 // Momentum tiers
 export { MOMENTUM_TIERS };
 
-// Talent tree
-export { TALENT_TREES, TALENT_NODES };
-
 // Challenges
 function formatReward(r: { type: string; amount?: number; material?: string }): string {
   switch (r.type) {
@@ -377,18 +371,6 @@ export const HELP_RACING = {
   conditionPenaltyThreshold: CONDITION_PENALTY_THRESHOLD,
 };
 
-// Gear stats
-const gearSlotCounts = GEAR_DEFINITIONS.reduce<Record<string, number>>((acc, gear) => {
-  acc[gear.slot] = (acc[gear.slot] ?? 0) + 1;
-  return acc;
-}, {});
-
-export const HELP_GEAR_STATS = {
-  totalGear: GEAR_DEFINITIONS.length,
-  slotCount: Object.keys(gearSlotCounts).length,
-  slots: gearSlotCounts,
-};
-
 // Data snapshot counts
 export const HELP_DATA_SNAPSHOT = {
   locations: LOCATION_DEFINITIONS.length,
@@ -401,14 +383,14 @@ export const HELP_DATA_SNAPSHOT = {
   coreSlots: CORE_SLOTS.length,
   upgrades: UPGRADE_DEFINITIONS.length,
   upgradeCategories: UPGRADE_CATEGORIES.length,
-  gear: GEAR_DEFINITIONS.length,
-  gearSlots: Object.keys(gearSlotCounts).length,
+  gear: GARAGE_STATIONS.length,
+  gearSlots: GARAGE_STATIONS.length,
   materials: MATERIAL_DEFINITIONS.length,
   challenges: CHALLENGE_DEFINITIONS.length,
   craftRecipes: CRAFT_RECIPES.length,
   highestPartTier: Math.max(...PART_DEFINITIONS.map((p) => p.minTier)),
-  talentTrees: TALENT_TREES.length,
-  talentNodes: TALENT_NODES.length,
+  talentTrees: PLAYSTYLE_PATHS.length,
+  talentNodes: PLAYSTYLE_NODE_DEFINITIONS.length,
   legacyUpgrades: LEGACY_UPGRADE_DEFINITIONS.length,
   momentumTiers: MOMENTUM_TIERS.length,
 };

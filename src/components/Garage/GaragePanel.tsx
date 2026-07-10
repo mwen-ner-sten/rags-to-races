@@ -365,8 +365,13 @@ function VehicleCard({
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
 }) {
   const [swapSlot, setSwapSlot] = useState<string | null>(null);
+  const [loadoutName, setLoadoutName] = useState("");
   const installAddon = useGameStore((s) => s.installAddon);
   const removeAddon = useGameStore((s) => s.removeAddon);
+  const vehicleLoadouts = useGameStore((s) => s.vehicleLoadouts.filter((loadout) => loadout.vehicleId === vehicle.id));
+  const saveVehicleLoadout = useGameStore((s) => s.saveVehicleLoadout);
+  const applyVehicleLoadout = useGameStore((s) => s.applyVehicleLoadout);
+  const deleteVehicleLoadout = useGameStore((s) => s.deleteVehicleLoadout);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const isTutorialRepair = tutorialStep === 13;
 
@@ -493,6 +498,38 @@ function VehicleCard({
           )}
         </div>
       )}
+
+      {/* Named engineering loadouts */}
+      <div className="mt-2 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            value={loadoutName}
+            onChange={(event) => setLoadoutName(event.target.value)}
+            placeholder="Loadout name"
+            aria-label={`New loadout name for ${def.name}`}
+            className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+            style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
+          />
+          <button
+            onClick={() => { saveVehicleLoadout(vehicle.id, loadoutName); setLoadoutName(""); }}
+            disabled={!loadoutName.trim()}
+            className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+            style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+          >
+            Save build
+          </button>
+        </div>
+        {vehicleLoadouts.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {vehicleLoadouts.map((loadout) => (
+              <span key={loadout.id} className="inline-flex overflow-hidden rounded border" style={{ borderColor: "var(--btn-border)" }}>
+                <button onClick={() => applyVehicleLoadout(loadout.id)} className="px-2 py-1 text-xs" style={{ color: "var(--text-primary)" }}>{loadout.name}</button>
+                <button onClick={() => deleteVehicleLoadout(loadout.id)} aria-label={`Delete ${loadout.name} loadout`} className="border-l px-1.5 text-xs" style={{ borderColor: "var(--btn-border)", color: "var(--danger)" }}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Part swap UI */}
       {(toolkitUnlocked || addonBenchUnlocked) && (
