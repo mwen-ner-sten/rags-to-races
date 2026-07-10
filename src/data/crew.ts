@@ -2,7 +2,7 @@
  * Crew System — NPC crew members with roles, XP, and specializations.
  *
  * Crew unlock after the first Team Reset. They persist through Scrap Resets
- * but reset on Team Reset (unless Crew Retention upgrade is purchased).
+ * and reset when the player starts a new Team era.
  */
 
 export type CrewRole = "mechanic" | "scout" | "driver" | "trader";
