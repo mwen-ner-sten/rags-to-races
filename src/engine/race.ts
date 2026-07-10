@@ -2,7 +2,7 @@ import type { CircuitDefinition } from "@/data/circuits";
 import { BASE_WEAR_PER_RACE, DNF_WEAR_BONUS, RELIABILITY_WEAR_THRESHOLD } from "@/data/vehicles";
 import { PART_DEFINITIONS, type PartCategory } from "@/data/parts";
 import { makePartId } from "./scavenge";
-import { chance, randInt, weightedPick } from "@/utils/random";
+import { chance, randInt, random, weightedPick } from "@/utils/random";
 import type { ScavengedPart } from "./scavenge";
 import type { BuiltVehicle } from "./build";
 
@@ -44,7 +44,7 @@ const RACE_FLAVOR: Record<RaceResult, string[]> = {
 
 function pickFlavor(result: RaceResult): string {
   const arr = RACE_FLAVOR[result];
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(random() * arr.length)];
 }
 
 /** Calculate pre-race odds for display. */
@@ -58,11 +58,13 @@ export function calculateOdds(
   gearDnfReduction: number = 0,
   skillPerformanceMult: number = 0,
   skillDnfReduction: number = 0,
+  momentumWinBonus: number = 0,
+  forceDNF: boolean = false,
 ): { winChance: number; dnfChance: number; oddsLabel: string } {
   const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
   const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult);
-  const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2)));
-  const dnfChance = Math.max(0, 0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction);
+  const winChance = forceDNF ? 0 : Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2) + momentumWinBonus));
+  const dnfChance = forceDNF ? 1 : Math.max(0, 0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction);
 
   // Convert to odds format (e.g., 2:1, 5:1)
   let oddsLabel: string;
@@ -152,10 +154,21 @@ export function simulateRace(
     };
   }
 
-  // DNF chance based on reliability (gear + skill reduces DNF chance)
-  const reliabilityScore = vehicle.stats.reliability;
-  const dnfChance = Math.max(0, 0.3 - reliabilityScore / 200 - gearDnfReduction - skillDnfReduction);
-  if (Math.random() < dnfChance) {
+  const odds = calculateOdds(
+    performance,
+    vehicle.stats.reliability,
+    circuit.difficulty,
+    prestigeBonus,
+    fatigue,
+    gearPerformanceBonus,
+    gearDnfReduction,
+    skillPerformanceMult,
+    skillDnfReduction,
+    momentumWinBonus,
+    forceDNF,
+  );
+  const dnfChance = odds.dnfChance;
+  if (random() < dnfChance) {
     return {
       result: "dnf",
       position: totalRacers,
@@ -166,14 +179,8 @@ export function simulateRace(
     };
   }
 
-  // Win chance: performance vs difficulty (fatigue reduces effective performance, gear + skill boosts)
-  const fatigueMult = 1 - fatigue * 0.005;
-  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult);
-  const difficultyThreshold = circuit.difficulty * 2;
-  const winChance = Math.min(0.95, Math.max(0.05, effectivePerformance / difficultyThreshold + momentumWinBonus));
-
-  const won = Math.random() < winChance;
-  const position = won ? 1 : Math.floor(Math.random() * (totalRacers - 2)) + 2;
+  const won = random() < odds.winChance;
+  const position = won ? 1 : Math.floor(random() * (totalRacers - 2)) + 2;
 
   const result: RaceResult = won ? "win" : "loss";
 

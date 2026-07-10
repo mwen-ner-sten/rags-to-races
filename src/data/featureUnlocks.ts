@@ -1,5 +1,7 @@
+import { isFeatureAvailable, type FeatureId } from "@/config/features";
+
 export interface FeatureUnlockCondition {
-  id: string;
+  id: FeatureId;
   name: string;
   description: string;
   conditions: {
@@ -129,7 +131,7 @@ export const FEATURE_UNLOCK_DEFINITIONS: FeatureUnlockCondition[] = [
   FLEET_GARAGE,
   VEHICLE_MASTERY,
   TRACK_CUSTOMIZATION,
-];
+].filter((feature) => isFeatureAvailable(feature.id));
 
 export const FEATURE_UNLOCKS_BY_ID = Object.fromEntries(
   FEATURE_UNLOCK_DEFINITIONS.map((f) => [f.id, f]),

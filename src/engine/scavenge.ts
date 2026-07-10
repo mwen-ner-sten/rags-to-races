@@ -1,7 +1,7 @@
 import { PART_DEFINITIONS, getScavengeCap, type PartCondition } from "@/data/parts";
 import { ADDON_DEFINITIONS } from "@/data/addons";
 import type { LocationDefinition } from "@/data/locations";
-import { weightedPick, rollCondition, randInt } from "@/utils/random";
+import { weightedPick, rollCondition, randInt, random } from "@/utils/random";
 import type { PartCategory, CoreSlot } from "@/data/parts";
 
 export interface ScavengedPart {
@@ -45,7 +45,7 @@ export function scavenge(
     if (eligible.length === 0) continue;
 
     // Bias toward lower-tier parts with small chance of higher
-    const def = eligible[randInt(0, Math.min(eligible.length - 1, Math.floor(eligible.length * 0.6 + Math.random() * eligible.length * 0.4)))];
+    const def = eligible[randInt(0, Math.min(eligible.length - 1, Math.floor(eligible.length * 0.6 + random() * eligible.length * 0.4)))];
 
     results.push({
       id: makePartId(),
@@ -57,7 +57,7 @@ export function scavenge(
 
     // Secondary roll: chance to also drop an add-on for this slot category
     const addonChance = 0.03 + location.tier * 0.05; // 3% at T0, 28% at T5
-    if (Math.random() < addonChance) {
+    if (random() < addonChance) {
       const slotCategory = def.category as CoreSlot;
       const eligibleAddons = ADDON_DEFINITIONS.filter(
         (a) => a.targetSlot === slotCategory && a.minTier <= location.tier,
