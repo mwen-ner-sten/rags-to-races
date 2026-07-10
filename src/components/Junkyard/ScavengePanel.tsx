@@ -5,6 +5,7 @@ import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
 import type { PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
+import GameAssetImage from "@/components/GameAssetImage";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateRefurbishCost } from "@/engine/build";
 import { computeTickSpeedMs } from "@/engine/tick";
@@ -217,6 +218,7 @@ export default function ScavengePanel() {
                   : { borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
               }
             >
+              <GameAssetImage kind="location" id={loc.id} width={120} height={68} className="mb-2 rounded object-cover" />
               <div className="font-semibold text-sm" style={{ color: "var(--text-white)" }}>{loc.name}</div>
               <div className="mt-0.5 text-xs hidden lg:block" style={{ color: "var(--text-secondary)" }}>{loc.description}</div>
               <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -368,6 +370,13 @@ export default function ScavengePanel() {
                     onMouseLeave={() => setHoveredGroup(null)}
                   >
                     <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                      <GameAssetImage
+                        kind={group.partType === "addon" ? "addon" : "part"}
+                        id={group.definitionId}
+                        width={32}
+                        height={32}
+                        className="shrink-0"
+                      />
                       <span className="text-sm" style={{ color: condColor }}>{group.name}</span>
                       {group.partType === "addon" ? (
                         <span className="rounded border px-1 py-0.5 text-xs shrink-0" style={{ borderColor: "var(--warning)", color: "var(--warning)" }}>

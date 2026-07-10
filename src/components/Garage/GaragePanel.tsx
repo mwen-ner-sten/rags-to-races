@@ -11,6 +11,7 @@ import type { BuiltVehicle } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
+import GameAssetImage from "@/components/GameAssetImage";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -506,13 +507,14 @@ function VehicleCard({
                 <button
                   key={slot}
                   onClick={() => setSwapSlot(swapSlot === slot ? null : slot)}
-                  className="rounded border px-1.5 py-0.5 text-[.65rem] transition-colors"
+                  className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[.65rem] transition-colors"
                   style={
                     swapSlot === slot
                       ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--accent)" }
                       : { borderColor: "var(--panel-border)", color: "var(--text-muted)" }
                   }
                 >
+                  <GameAssetImage kind="part" id={installed.part.definitionId} width={20} height={20} />
                   {slot}:{" "}
                   <span style={{ color: CONDITION_COLORS[installed.part.condition] ?? undefined }}>
                     {partDef?.name ?? "?"}
@@ -587,10 +589,11 @@ function AddonManager({
             <button
               key={addon.id}
               onClick={() => removeAddon(vehicleId, slot, addon.id)}
-              className="rounded border px-2 py-1"
+              className="inline-flex items-center gap-1 rounded border px-2 py-1"
               style={{ borderColor: "var(--danger)", color: "var(--text-primary)" }}
               title="Remove and return to inventory"
             >
+              <GameAssetImage kind="addon" id={addon.definitionId} width={24} height={24} />
               {getAddonById(addon.definitionId)?.name ?? addon.definitionId} - Remove
             </button>
           ))}
@@ -608,9 +611,10 @@ function AddonManager({
             <button
               key={addon.id}
               onClick={() => installAddon(vehicleId, slot, addon.id)}
-              className="rounded border px-2 py-1"
+              className="inline-flex items-center gap-1 rounded border px-2 py-1"
               style={{ borderColor: "var(--success)", color: "var(--text-primary)" }}
             >
+              <GameAssetImage kind="addon" id={addon.definitionId} width={24} height={24} />
               Install {getAddonById(addon.definitionId)?.name ?? addon.definitionId}
             </button>
           ))}
@@ -676,9 +680,10 @@ function SwapPartPicker({
                 swapPart(vehicleId, slot, group.parts[0]);
                 onDone();
               }}
-              className="rounded border px-1.5 py-0.5 text-xs transition-colors"
+              className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs transition-colors"
               style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
             >
+              <GameAssetImage kind="part" id={group.definitionId} width={24} height={24} />
               <span style={{ color: CONDITION_COLORS[group.condition] ?? undefined }}>
                 {partDef.name}
               </span>

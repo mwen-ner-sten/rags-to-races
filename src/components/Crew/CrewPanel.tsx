@@ -3,11 +3,11 @@
 import { useGameStore } from "@/state/store";
 import {
   CREW_ROLE_LABELS,
-  CREW_ROLE_ICONS,
   CREW_ROLE_DESCRIPTIONS,
   CREW_SPECIALIZATIONS,
   getSpecializationsForRole,
 } from "@/data/crew";
+import GameAssetImage from "@/components/GameAssetImage";
 import { crewLevelFromXp } from "@/engine/crew";
 
 export default function CrewPanel() {
@@ -62,9 +62,7 @@ export default function CrewPanel() {
               {/* Header: role icon, name, level */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">
-                    {CREW_ROLE_ICONS[member.role]}
-                  </span>
+                  <GameAssetImage kind="crew_role" id={member.role} width={48} height={48} className="rounded-full" />
                   <div>
                     <span
                       className="text-sm font-semibold"
@@ -95,6 +93,12 @@ export default function CrewPanel() {
               >
                 {CREW_ROLE_DESCRIPTIONS[member.role]}
               </p>
+              {currentSpec && (
+                <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                  <GameAssetImage kind="crew_specialization" id={currentSpec.id} width={32} height={32} />
+                  <span>{currentSpec.name}</span>
+                </div>
+              )}
 
               {/* XP bar */}
               <div className="mt-2">
