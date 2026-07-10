@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useGameStore } from "@/state/store";
+import { createInitialState, useGameStore } from "@/state/store";
 import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
@@ -12,6 +12,8 @@ import VehicleSprite, {
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
 import Image from "next/image";
+import { createGameplayFixture, GAMEPLAY_FIXTURE_NAMES, type GameplayFixtureName } from "@/testing/gameplayFixtures";
+import { applyDevSimulation, runSeededOffline, runSeededTicks, type DevSimulationSummary } from "@/testing/devAcceleration";
 
 const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
 const VERCEL_ENV = process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development";
@@ -37,6 +39,8 @@ export default function AdminPanel() {
   const unlockedVehicleIds = useGameStore((s) => s.unlockedVehicleIds);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
+  const fatigue = useGameStore((s) => s.fatigue);
+  const activeVehicleId = useGameStore((s) => s.activeVehicleId);
 
   const devQuickStart = useGameStore((s) => s.devQuickStart);
   const devSetScrapBucks = useGameStore((s) => s.devSetScrapBucks);
@@ -61,6 +65,9 @@ export default function AdminPanel() {
   const [partCondition, setPartCondition] = useState<PartCondition>("good");
   const [partCount, setPartCount] = useState("1");
   const [addLog, setAddLog] = useState<string[]>([]);
+  const [scenarioName, setScenarioName] = useState<GameplayFixtureName>("first_race_ready");
+  const [simulationSeed, setSimulationSeed] = useState("campaign-2026");
+  const [simulationSummary, setSimulationSummary] = useState<DevSimulationSummary | null>(null);
 
   function log(msg: string) {
     setAddLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 10));
@@ -88,6 +95,28 @@ export default function AdminPanel() {
     const ids = PART_DEFINITIONS.map((p) => p.id);
     devAddPartsToInventory(ids, partCondition, 1);
     log(`Added 1\u00d7 every part (${partCondition}) \u2014 ${ids.length} total`);
+  }
+
+  function handleLoadScenario() {
+    if (!confirm(`Replace this development save with the "${scenarioName}" scenario?`)) return;
+    const fixture = createGameplayFixture(scenarioName);
+    useGameStore.setState({ ...createInitialState(), ...fixture.payload.state });
+    setSimulationSummary(null);
+    log(`Loaded scenario: ${scenarioName}`);
+  }
+
+  function applySimulation(result: DevSimulationSummary) {
+    applyDevSimulation(useGameStore.getState(), result);
+    setSimulationSummary(result);
+    log(`Seed ${result.seed}: ${result.ticksProcessed} ticks, ${result.racesCompleted} races, ${result.partsFound.length} parts`);
+  }
+
+  function handleTicks(ticks: number) {
+    applySimulation(runSeededTicks(useGameStore.getState(), ticks, simulationSeed));
+  }
+
+  function handleOffline(minutes: number) {
+    applySimulation(runSeededOffline(useGameStore.getState(), minutes * 60_000, simulationSeed));
   }
 
   // Reusable button styles using CSS vars
@@ -137,6 +166,58 @@ export default function AdminPanel() {
           Go!
         </button>
       </div>
+
+      {process.env.NODE_ENV === "development" && (
+        <div data-testid="dev-playtest-harness" style={{ background: "var(--panel-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4 grid gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <span style={{ color: "var(--text-heading)" }} className="text-xs font-semibold uppercase tracking-wider">Campaign Scenarios</span>
+            <span style={{ color: "var(--text-muted)" }} className="text-xs">Replaces this development save with the same deterministic state used by Playwright.</span>
+            <div className="flex gap-2 flex-wrap">
+              <select
+                data-testid="dev-scenario-select"
+                aria-label="Development scenario"
+                value={scenarioName}
+                onChange={(event) => setScenarioName(event.target.value as GameplayFixtureName)}
+                style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
+                className="min-w-56 rounded border px-2 py-1.5 text-sm"
+              >
+                {GAMEPLAY_FIXTURE_NAMES.map((name) => <option key={name} value={name}>{name.replaceAll("_", " ")}</option>)}
+              </select>
+              <button data-testid="dev-load-scenario" onClick={handleLoadScenario} style={btnAccent} className="rounded px-3 py-1.5 text-xs font-semibold">Load Scenario</button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span style={{ color: "var(--text-heading)" }} className="text-xs font-semibold uppercase tracking-wider">Deterministic Time</span>
+            <label style={{ color: "var(--text-muted)" }} className="text-xs flex items-center gap-2">
+              Seed
+              <input data-testid="dev-simulation-seed" value={simulationSeed} onChange={(event) => setSimulationSeed(event.target.value)} style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }} className="rounded border px-2 py-1 text-sm" />
+            </label>
+            <div className="flex gap-1.5 flex-wrap">
+              {[10, 100, 1_000].map((ticks) => <button key={ticks} onClick={() => handleTicks(ticks)} style={btnOutline} className="rounded border px-2.5 py-1.5 text-xs">+{ticks.toLocaleString()} ticks</button>)}
+              <button onClick={() => handleOffline(15)} style={btnOutline} className="rounded border px-2.5 py-1.5 text-xs">15 min offline</button>
+              <button onClick={() => handleOffline(60)} style={btnOutline} className="rounded border px-2.5 py-1.5 text-xs">1 hour offline</button>
+              <button onClick={() => handleOffline(8 * 60)} style={btnOutline} className="rounded border px-2.5 py-1.5 text-xs">8 hours offline</button>
+            </div>
+            {simulationSummary && (
+              <div data-testid="dev-simulation-summary" className="grid grid-cols-2 gap-x-4 gap-y-1 rounded border p-2 text-xs sm:grid-cols-4" style={{ borderColor: "var(--panel-border)", color: "var(--text-secondary)" }}>
+                <span>Ticks: {simulationSummary.ticksProcessed}</span>
+                <span>Races: {simulationSummary.racesCompleted}</span>
+                <span>Scavenges: {simulationSummary.scavengesCompleted}</span>
+                <span>Parts: {simulationSummary.partsFound.length}</span>
+                <span>Scrap: {simulationSummary.scrapsEarned >= 0 ? "+" : ""}${formatNumber(simulationSummary.scrapsEarned)}</span>
+                <span>Rep: +{formatNumber(simulationSummary.repEarned)}</span>
+                <span>Wear: -{simulationSummary.vehicleWearTotal.toFixed(1)}</span>
+                <span>Repairs: +{simulationSummary.vehicleRepairTotal.toFixed(1)}</span>
+                <span>Fatigue: {fatigue}</span>
+                <span>Condition: {garage.find((vehicle) => vehicle.id === activeVehicleId)?.condition.toFixed(1) ?? "n/a"}</span>
+                <span>Gear drops: {simulationSummary.lootGearDrops.length}</span>
+                <span>Mod drops: {simulationSummary.modDrops.length}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 

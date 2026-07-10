@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
@@ -368,7 +368,11 @@ function VehicleCard({
   const [loadoutName, setLoadoutName] = useState("");
   const installAddon = useGameStore((s) => s.installAddon);
   const removeAddon = useGameStore((s) => s.removeAddon);
-  const vehicleLoadouts = useGameStore((s) => s.vehicleLoadouts.filter((loadout) => loadout.vehicleId === vehicle.id));
+  const allVehicleLoadouts = useGameStore((s) => s.vehicleLoadouts);
+  const vehicleLoadouts = useMemo(
+    () => allVehicleLoadouts.filter((loadout) => loadout.vehicleId === vehicle.id),
+    [allVehicleLoadouts, vehicle.id],
+  );
   const saveVehicleLoadout = useGameStore((s) => s.saveVehicleLoadout);
   const applyVehicleLoadout = useGameStore((s) => s.applyVehicleLoadout);
   const deleteVehicleLoadout = useGameStore((s) => s.deleteVehicleLoadout);
