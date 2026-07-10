@@ -1,3 +1,5 @@
+import type { CircuitProfile } from "./raceStrategy";
+
 export interface CircuitDefinition {
   id: string;
   name: string;
@@ -13,6 +15,7 @@ export interface CircuitDefinition {
   raceDuration: number;     // ms for race animation
   /** Feature unlock required to see this circuit (e.g. "advanced_circuits") */
   requiredFeature?: string;
+  profile: CircuitProfile;
 }
 
 export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
@@ -29,6 +32,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     repReward: 1,
     unlockRepCost: 0,
     raceDuration: 6000,
+    profile: { surface: "grass", weather: "variable", length: "short", cornerDensity: "high", demands: { power: 2, grip: 5, aero: 1, reliability: 3, fuel: 1 }, wearPressure: 0.8, breakdownPressure: 0.95, pitAvailable: false, rewardProfile: "local" },
   },
   {
     id: "dirt_track",
@@ -43,6 +47,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     repReward: 3,
     unlockRepCost: 25000,
     raceDuration: 8000,
+    profile: { surface: "gravel", weather: "variable", length: "short", cornerDensity: "high", demands: { power: 4, grip: 7, aero: 2, reliability: 5, fuel: 2 }, wearPressure: 1.1, breakdownPressure: 1.02, pitAvailable: false, rewardProfile: "local" },
   },
   {
     id: "regional_circuit",
@@ -57,6 +62,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     repReward: 10,
     unlockRepCost: 200000,
     raceDuration: 10000,
+    profile: { surface: "asphalt", weather: "dry", length: "medium", cornerDensity: "medium", demands: { power: 6, grip: 6, aero: 5, reliability: 5, fuel: 4 }, wearPressure: 1, breakdownPressure: 1, pitAvailable: true, rewardProfile: "regional" },
   },
   {
     id: "national_circuit",
@@ -71,6 +77,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     repReward: 30,
     unlockRepCost: 800000,
     raceDuration: 12000,
+    profile: { surface: "asphalt", weather: "variable", length: "medium", cornerDensity: "high", demands: { power: 7, grip: 8, aero: 7, reliability: 7, fuel: 5 }, wearPressure: 1.15, breakdownPressure: 1.04, pitAvailable: true, rewardProfile: "national" },
   },
   {
     id: "world_championship",
@@ -85,6 +92,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     repReward: 100,
     unlockRepCost: 2500000,
     raceDuration: 15000,
+    profile: { surface: "asphalt", weather: "variable", length: "long", cornerDensity: "medium", demands: { power: 9, grip: 8, aero: 9, reliability: 8, fuel: 8 }, wearPressure: 1.25, breakdownPressure: 1.06, pitAvailable: true, rewardProfile: "world" },
   },
   {
     id: "continental_grand_prix",
@@ -100,6 +108,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     unlockRepCost: 8000000,
     raceDuration: 18000,
     requiredFeature: "advanced_circuits",
+    profile: { surface: "asphalt", weather: "variable", length: "long", cornerDensity: "high", demands: { power: 9, grip: 10, aero: 10, reliability: 9, fuel: 8 }, wearPressure: 1.35, breakdownPressure: 1.08, pitAvailable: true, rewardProfile: "world" },
   },
   {
     id: "endurance_series",
@@ -115,6 +124,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     unlockRepCost: 25000000,
     raceDuration: 22000,
     requiredFeature: "advanced_circuits",
+    profile: { surface: "asphalt", weather: "wet", length: "long", cornerDensity: "medium", demands: { power: 8, grip: 10, aero: 8, reliability: 10, fuel: 10 }, wearPressure: 1.6, breakdownPressure: 1.12, pitAvailable: true, rewardProfile: "endurance" },
   },
 ];
 

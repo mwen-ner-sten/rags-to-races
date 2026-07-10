@@ -2,6 +2,7 @@
 
 import { useGameStore } from "@/state/store";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
+import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateOdds } from "@/engine/race";
 import { getGearBonuses } from "@/engine/gear";
@@ -15,6 +16,7 @@ import type { RaceEvent } from "@/engine/raceEvents";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import GameAssetImage from "@/components/GameAssetImage";
+import { getRivalById } from "@/data/rivals";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -215,6 +217,9 @@ function OddsDisplay({
   skillDnfReduction,
   momentumWinBonus,
   forceDNF,
+  profile,
+  plan,
+  diagnosticsLevel,
 }: {
   performance: number;
   reliability: number;
@@ -227,11 +232,16 @@ function OddsDisplay({
   skillDnfReduction: number;
   momentumWinBonus: number;
   forceDNF: boolean;
+  profile: CircuitProfile;
+  plan: RacePlan;
+  diagnosticsLevel: number;
 }) {
+  const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF],
+    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation),
+    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation],
   );
+  const forecast = useMemo(() => buildRaceForecast(odds.winChance, odds.dnfChance, 5, evaluation, diagnosticsLevel), [odds, evaluation, diagnosticsLevel]);
 
   const winStyle: React.CSSProperties = odds.winChance >= 0.5
     ? { color: "var(--success)" }
@@ -252,7 +262,7 @@ function OddsDisplay({
     >
       <span style={{ color: "var(--text-muted)" }}>Odds:</span>
       <span className="font-semibold" style={winStyle}>
-        {Math.round(odds.winChance * 100)}% Win
+        {Math.round(forecast.winChance.min * 100)}–{Math.round(forecast.winChance.max * 100)}% Win
       </span>
       <span style={{ color: "var(--text-muted)" }}>·</span>
       <span className="font-medium" style={winStyle}>{odds.oddsLabel}</span>
@@ -260,12 +270,30 @@ function OddsDisplay({
         <>
           <span style={{ color: "var(--text-muted)" }}>·</span>
           <span style={dnfStyle}>
-            {Math.round(odds.dnfChance * 100)}% DNF Risk
+            {Math.round(forecast.dnfRisk.min * 100)}–{Math.round(forecast.dnfRisk.max * 100)}% DNF Risk
           </span>
         </>
       )}
+      <span style={{ color: "var(--text-muted)" }}>· Wear {Math.round(forecast.wear.min)}–{Math.round(forecast.wear.max)}</span>
+      <span style={{ color: forecast.fuelRisk.max > 0.15 ? "var(--warning)" : "var(--text-muted)" }}>· Fuel risk {Math.round(forecast.fuelRisk.min * 100)}–{Math.round(forecast.fuelRisk.max * 100)}%</span>
     </div>
   );
+}
+
+const PLAN_OPTIONS: { key: keyof RacePlan; label: string; values: string[] }[] = [
+  { key: "tire", label: "Tire", values: ["soft", "medium", "hard", "wet"] }, { key: "fuelLoad", label: "Fuel", values: ["light", "balanced", "heavy"] },
+  { key: "gearing", label: "Gearing", values: ["short", "balanced", "long"] }, { key: "aero", label: "Aero", values: ["low", "balanced", "high"] },
+  { key: "suspension", label: "Suspension", values: ["soft", "balanced", "stiff"] }, { key: "aggression", label: "Aggression", values: ["conserve", "balanced", "push"] },
+  { key: "pitStrategy", label: "Pit", values: ["none", "reactive", "scheduled"] },
+];
+
+function RacePreparation({ profile, plan, onChange, onPreset }: { profile: CircuitProfile; plan: RacePlan; onChange: (plan: RacePlan) => void; onPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => void }) {
+  const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
+  return <section className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} aria-label="Race preparation">
+    <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm uppercase tracking-wider" style={{ color: "var(--text-white)" }}>Race Plan</strong><div className="flex flex-wrap gap-1">{Object.keys(RACE_PLAN_PRESETS).map((preset) => <button key={preset} onClick={() => onPreset(preset as keyof typeof RACE_PLAN_PRESETS)} className="rounded border px-2 py-1 text-xs capitalize" style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}>{preset}</button>)}</div></div>
+    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{PLAN_OPTIONS.map((option) => <label key={option.key} className="scroll-mb-20 text-xs" style={{ color: "var(--text-muted)" }}>{option.label}<select value={plan[option.key]} onChange={(event) => onChange({ ...plan, [option.key]: event.target.value })} className="mt-1 w-full scroll-mb-20 rounded border px-2 py-1.5 capitalize" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{option.values.map((value) => <option key={value}>{value}</option>)}</select></label>)}</div>
+    <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">{evaluation.factors.map((item) => <div key={item.label} className="text-xs" style={{ color: item.impact === "positive" ? "var(--success)" : item.impact === "negative" ? "var(--warning)" : "var(--text-muted)" }}>{item.impact === "positive" ? "↑" : item.impact === "negative" ? "↓" : "→"} {item.label}: {item.detail}</div>)}</div>
+  </section>;
 }
 
 // ── Streak Display ──────────────────────────────────────────────────────
@@ -330,6 +358,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const equippedGear = useGameStore((s) => s.equippedGear);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
+  const currentRacePlan = useGameStore((s) => s.currentRacePlan);
+  const setRacePlan = useGameStore((s) => s.setRacePlan);
+  const applyRacePlanPreset = useGameStore((s) => s.applyRacePlanPreset);
 
   // Compute how many ticks are needed between auto-races
   const raceTicksNeeded = Math.max(
@@ -374,6 +405,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
     : null;
   const equippedStationEquipment = useGameStore((s) => s.equippedStationEquipment);
   const stationEquipmentInventory = useGameStore((s) => s.stationEquipmentInventory);
+  const diagnosticsItem = stationEquipmentInventory.find((item) => item.id === equippedStationEquipment.diagnostics);
+  const diagnosticsLevel = diagnosticsItem ? diagnosticsItem.enhancementLevel + ({ common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 }[diagnosticsItem.rarity]) : 0;
   const gb = useMemo(() => getGearBonuses(equippedGear, undefined, undefined, undefined, undefined, equippedStationEquipment, stationEquipmentInventory), [equippedGear, equippedStationEquipment, stationEquipmentInventory]);
   const racerSkills = useGameStore((s) => s.racerSkills);
 
@@ -545,6 +578,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           </div>
         )}
 
+        {selectedCircuit && <RacePreparation profile={selectedCircuit.profile} plan={currentRacePlan} onChange={setRacePlan} onPreset={applyRacePlanPreset} />}
+
         {/* Pre-race odds */}
         {activeVehicle && selectedCircuit && (
           <div data-tutorial="odds-display">
@@ -560,6 +595,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             skillDnfReduction={sb.drivingDnfReduction}
             momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
             forceDNF={lifetimeRacesAllTime === 0 && tutorialStep === 10}
+            profile={selectedCircuit.profile}
+            plan={currentRacePlan}
+            diagnosticsLevel={diagnosticsLevel}
           />
           </div>
         )}
@@ -657,6 +695,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 ? "💥 DNF"
                 : `P${lastRaceOutcome.position}/${lastRaceOutcome.totalRacers}`}
             </div>
+            {lastRaceOutcome.rivalId && (() => { const rival = getRivalById(lastRaceOutcome.rivalId!); return rival ? <div className="mb-3 flex items-center gap-3 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}><GameAssetImage kind="rival" id={rival.id} width={48} /><div><strong className="text-sm" style={{ color: "var(--text-white)" }}>{rival.name}</strong><p className="text-xs" style={{ color: "var(--text-muted)" }}>{rival.flavor}</p>{lastRaceOutcome.result === "win" && <p className="text-xs" style={{ color: "var(--success)" }}>Defeated · {rival.reward.label}</p>}</div></div> : null; })()}
             {lastRaceOutcome.log.map((line, i) => (
               <div
                 key={i}
@@ -666,6 +705,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 {line}
               </div>
             ))}
+            {lastRaceOutcome.planEvaluation && <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">{lastRaceOutcome.planEvaluation.factors.map((factor) => <div key={factor.label} className="text-xs" style={{ color: factor.impact === "positive" ? "var(--success)" : factor.impact === "negative" ? "var(--warning)" : "var(--text-muted)" }}>{factor.label}: {factor.detail}</div>)}</div>}
             {lastRaceOutcome.scrapsEarned > 0 && (
               <div
                 className="mt-2 inline-block animate-number-pop font-mono text-sm font-bold"
