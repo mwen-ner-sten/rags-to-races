@@ -62,6 +62,10 @@ import { getPrestigeMilestoneBonuses, getNewlyUnlockedMilestones } from "@/data/
 import { checkAchievements } from "@/engine/achievements";
 import { ACHIEVEMENTS_BY_ID, type AchievementStats } from "@/data/achievements";
 import { PLAYSTYLE_NODES_BY_ID, canUnlockPlaystyleNode, getPlaystylePathRespecCost, type PlaystylePath } from "@/data/playstyleUpgrades";
+import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStations";
+import { convertLegacyLootDrop, type StationEquipment, type StationEquipmentRarity } from "@/data/stationEquipment";
+import { forgeStationEquipment, STATION_FORGE_COST } from "@/engine/stationForge";
+import { reforgeStationEquipment, REFORGE_COST_SHARDS, SHARDS_PER_SALVAGE } from "@/engine/stationReforge";
 
 // ── Activity log ────────────────────────────────────────────────────────────
 export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
@@ -160,6 +164,9 @@ export interface GameState {
   equippedLootGear: Record<GearSlot, string | null>;
   gearModInventory: InstalledMod[];
   unlockedTalentNodes: string[];
+  stationEquipmentInventory: StationEquipment[];
+  equippedStationEquipment: Record<GarageStationSlot, string | null>;
+  reforgeShards: number;
 
   // Workshop upgrades
   workshopLevels: Record<string, number>;
@@ -313,6 +320,11 @@ export interface GameState {
   removeMod: (lootGearId: string, modIndex: number) => void;
   unlockTalentNode: (nodeId: string) => void;
   respecTalentTree: (treeId: string) => void;
+  forgeStationItem: (slot: GarageStationSlot, rarity: StationEquipmentRarity) => void;
+  equipStationItem: (itemId: string) => void;
+  reforgeStationItem: (itemId: string) => void;
+  enhanceStationItem: (itemId: string) => void;
+  salvageStationItem: (itemId: string) => void;
   unlockLocation: (locationId: string) => void;
   unlockCircuit: (circuitId: string) => void;
   prestige: () => void;
@@ -410,6 +422,9 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     equippedLootGear: { head: null, body: null, hands: null, feet: null, tool: null, accessory: null },
     gearModInventory: [],
     unlockedTalentNodes: [],
+    stationEquipmentInventory: [],
+    equippedStationEquipment: Object.fromEntries(GARAGE_STATION_IDS.map((slot) => [slot, null])) as Record<GarageStationSlot, string | null>,
+    reforgeShards: 0,
     workshopLevels: {},
     pendingBuildParts: {},
     pendingBuildVehicleId: "push_mower",
@@ -557,7 +572,7 @@ function createActions(set: SetState, get: GetState) {
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
       const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck + scavSkill.scavengingLuckBonus, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus);
       for (let i = 0; i < extraParts; i++) {
@@ -612,8 +627,8 @@ function createActions(set: SetState, get: GetState) {
         const justUnlocked = !s.autoScavengeUnlocked && newClicks >= 500;
         return {
           inventory: [...s.inventory, ...parts],
-          lootGearInventory: gearDrops.length > 0 ? [...s.lootGearInventory, ...gearDrops] : s.lootGearInventory,
-          gearModInventory: modDrop ? [...s.gearModInventory, modDrop] : s.gearModInventory,
+          stationEquipmentInventory: gearDrops.length > 0 ? [...s.stationEquipmentInventory, ...gearDrops.map(convertLegacyLootDrop)] : s.stationEquipmentInventory,
+          reforgeShards: s.reforgeShards + (modDrop ? 1 : 0),
           manualScavengeClicks: newClicks,
           autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
           racerSkills: _grantXp(s.racerSkills, "scavenging", 5),
@@ -632,7 +647,7 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const def = part.type === "addon" ? getAddonById(part.definitionId) : getPartById(part.definitionId);
       if (!def) return;
       const mult = CONDITION_MULTIPLIERS[part.condition];
@@ -648,7 +663,7 @@ function createActions(set: SetState, get: GetState) {
     sellAllJunk: () => {
       import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
         const state = get() as GameState;
-        const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+        const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
         let total = 0;
         for (const part of state.inventory) {
           const def = part.type === "addon" ? getAddonById(part.definitionId) : getPartById(part.definitionId);
@@ -669,7 +684,7 @@ function createActions(set: SetState, get: GetState) {
     sellAllScrap: () => {
       import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
         const state = get() as GameState;
-        const gb = getGearBonuses(state.equippedGear);
+        const gb = getGearBonuses(state.equippedGear, undefined, undefined, undefined, undefined, state.equippedStationEquipment, state.stationEquipmentInventory);
         let total = 0;
         const toSell: string[] = [];
         for (const part of state.inventory) {
@@ -694,7 +709,7 @@ function createActions(set: SetState, get: GetState) {
       import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
         import("@/data/addons").then(({ getAddonById }) => {
           const state = get() as GameState;
-          const gb = getGearBonuses(state.equippedGear);
+          const gb = getGearBonuses(state.equippedGear, undefined, undefined, undefined, undefined, state.equippedStationEquipment, state.stationEquipmentInventory);
           const thresholdIdx = CONDITIONS.indexOf(threshold);
           let total = 0;
           const toSell: string[] = [];
@@ -748,7 +763,7 @@ function createActions(set: SetState, get: GetState) {
         if (slotCfg.required && !pendingBuildParts[slotCfg.slot]) return;
       }
 
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const buildReduction = _getUpgradeEffectValue(state, "bargain_builder") + gb.build_cost_reduction_pct;
       const actualBuildCost = Math.max(0, Math.floor(vehicleDef.buildCost * (1 - buildReduction)));
       if (state.scrapBucks < actualBuildCost) return;
@@ -871,7 +886,7 @@ function createActions(set: SetState, get: GetState) {
         parts[slot] = { part, addons: addons as ScavengedPart[] };
       }
 
-      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
       const definition = getVehicleById(vehicle.definitionId);
       if (!definition) return;
@@ -911,7 +926,7 @@ function createActions(set: SetState, get: GetState) {
       if ((vehicle.condition ?? 100) <= 0) return;
 
       // Pre-compute the outcome immediately so the UI can animate it
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       // Scavenger's Eye upgrade increases salvage drop chance and max condition
       const scavengerEyeLevel = _getUpgradeLevel(state, "scavengers_eye");
       const salvageDropChance = scavengerEyeLevel >= 1 ? 0.30 : 0.15;
@@ -1060,14 +1075,12 @@ function createActions(set: SetState, get: GetState) {
             doubleDropChance: _getUpgradeEffectValue(s, "double_drop"),
             modDropRateBonus: _getUpgradeEffectValue(s, "mod_hunter"),
           });
-          const newLootGearInventory = raceGearDrops.length > 0
-            ? [...s.lootGearInventory, ...raceGearDrops]
-            : s.lootGearInventory;
-          const newGearModInventory = raceModDrop
-            ? [...s.gearModInventory, raceModDrop]
-            : s.gearModInventory;
-          if (raceGearDrops.length > 0) newUnlockEvents.push(`Gear Drop: ${raceGearDrops.map((g) => g.name).join(", ")}!`);
-          if (raceModDrop) newUnlockEvents.push(`Mod Found: ${raceModDrop.name}!`);
+          const newStationEquipmentInventory = raceGearDrops.length > 0
+            ? [...s.stationEquipmentInventory, ...raceGearDrops.map(convertLegacyLootDrop)]
+            : s.stationEquipmentInventory;
+          const newReforgeShards = s.reforgeShards + (raceModDrop ? 1 : 0);
+          if (raceGearDrops.length > 0) newUnlockEvents.push(`Station Equipment: ${raceGearDrops.map((g) => g.name).join(", ")}!`);
+          if (raceModDrop) newUnlockEvents.push("Reforge Shard found!");
 
           // Salvage drop and forge token from race
           const newInventory = outcome.salvageDrop
@@ -1125,8 +1138,8 @@ function createActions(set: SetState, get: GetState) {
             lifetimeRaces: newLifetimeRaces,
             fatigue: newFatigue,
             racerSkills: updatedSkills,
-            lootGearInventory: newLootGearInventory,
-            gearModInventory: newGearModInventory,
+            stationEquipmentInventory: newStationEquipmentInventory,
+            reforgeShards: newReforgeShards,
             inventory: newInventory,
             forgeTokens: newForgeTokens + challengeTokenRewards.reduce((t, r) => t + r.amount, 0),
             lifetimeTotalRaceSalvage: newRaceSalvage,
@@ -1191,7 +1204,7 @@ function createActions(set: SetState, get: GetState) {
       if (!vehicle || (vehicle.condition ?? 100) >= 100) return;
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const reduction = _getUpgradeEffectValue(state, "budget_repairs") + gb.repair_cost_reduction_pct;
       const cost = calculateRepairCost(vehicleDef, vehicle.condition ?? 100, 100, reduction, state.fatigue);
       // Free repair during tutorial repair step
@@ -1235,7 +1248,7 @@ function createActions(set: SetState, get: GetState) {
       const retainedAddons = installed.addons.slice(0, capacity);
       const returnedAddons = installed.addons.slice(capacity);
       const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: retainedAddons } };
-      const gbSwap = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gbSwap = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gbSwap.race_handling_pct;
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 
@@ -1270,7 +1283,7 @@ function createActions(set: SetState, get: GetState) {
         ...vehicle.parts,
         [slot]: { ...installed, addons: [...installed.addons, addon] },
       };
-      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
       set((current: GameState) => ({
         inventory: current.inventory.filter((part) => part.id !== addonId),
@@ -1293,7 +1306,7 @@ function createActions(set: SetState, get: GetState) {
         ...vehicle.parts,
         [slot]: { ...installed, addons: installed.addons.filter((candidate) => candidate.id !== addonId) },
       };
-      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
       set((current: GameState) => ({
         inventory: [...current.inventory, addon],
@@ -1308,7 +1321,7 @@ function createActions(set: SetState, get: GetState) {
       if (_getUpgradeLevel(state, "refurbishment_bench") < 1) return;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const reduction = _getUpgradeEffectValue(state, "cheap_refurb") + gb.refurb_cost_reduction_pct;
       const result = calculateRefurbishCost(part, reduction);
       if (!result) return;
@@ -1495,6 +1508,54 @@ function createActions(set: SetState, get: GetState) {
         scrapBucks: s.scrapBucks - respecCost,
         unlockedTalentNodes: s.unlockedTalentNodes.filter((id) => !unlockedInTreeIds.has(id)),
       }));
+    },
+
+    forgeStationItem: (slot: GarageStationSlot, rarity: StationEquipmentRarity) => {
+      const state = get() as GameState;
+      const cost = STATION_FORGE_COST[rarity];
+      if (state.scrapBucks < cost) return;
+      const item = forgeStationEquipment(slot, rarity);
+      set((current: GameState) => ({ scrapBucks: current.scrapBucks - cost, stationEquipmentInventory: [...current.stationEquipmentInventory, item] }));
+      _appendLog(set, get, "gear", `Forged ${item.name} for $${cost}`, { scrapDelta: -cost });
+    },
+
+    equipStationItem: (itemId: string) => {
+      const state = get() as GameState;
+      const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
+      if (!item) return;
+      set((current: GameState) => ({ equippedStationEquipment: { ...current.equippedStationEquipment, [item.slot]: item.id } }));
+    },
+
+    reforgeStationItem: (itemId: string) => {
+      const state = get() as GameState;
+      if ((state.workshopLevels.careful_modding ?? 0) < 1) return;
+      const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
+      if (!item) return;
+      const cost = REFORGE_COST_SHARDS[item.rarity];
+      if (state.reforgeShards < cost) return;
+      const reforged = reforgeStationEquipment(item);
+      set((current: GameState) => ({ reforgeShards: current.reforgeShards - cost, stationEquipmentInventory: current.stationEquipmentInventory.map((candidate) => candidate.id === itemId ? reforged : candidate) }));
+    },
+
+    enhanceStationItem: (itemId: string) => {
+      const state = get() as GameState;
+      const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
+      const maxLevel = Math.min(13, 4 + (state.workshopLevels.enhancement_mastery ?? 0) * 3);
+      if (!item || item.enhancementLevel >= maxLevel) return;
+      const rarityMultiplier = { common: 1, uncommon: 2, rare: 4, epic: 8, legendary: 16 }[item.rarity];
+      const cost = 100 * rarityMultiplier * (item.enhancementLevel + 1);
+      if (state.scrapBucks < cost) return;
+      set((current: GameState) => ({ scrapBucks: current.scrapBucks - cost, stationEquipmentInventory: current.stationEquipmentInventory.map((candidate) => candidate.id === itemId ? { ...candidate, enhancementLevel: candidate.enhancementLevel + 1 } : candidate) }));
+      _appendLog(set, get, "gear", `Enhanced ${item.name} to +${item.enhancementLevel + 1}`, { scrapDelta: -cost });
+    },
+
+    salvageStationItem: (itemId: string) => {
+      const state = get() as GameState;
+      const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
+      if (!item || state.equippedStationEquipment[item.slot] === item.id) return;
+      const baseShards = SHARDS_PER_SALVAGE[item.rarity] + (state.workshopLevels.mod_hunter ?? 0);
+      const shards = Math.max(1, Math.floor(baseShards * (1 + (state.workshopLevels.gear_recycler ?? 0) * 0.25)));
+      set((current: GameState) => ({ stationEquipmentInventory: current.stationEquipmentInventory.filter((candidate) => candidate.id !== itemId), reforgeShards: current.reforgeShards + shards }));
     },
 
     unlockLocation: (locationId: string) => {
@@ -1707,7 +1768,7 @@ function createActions(set: SetState, get: GetState) {
       set((s: GameState) => {
         let updatedGarage = s.garage;
         if ((vehicleWear || vehicleRepair) && s.activeVehicleId) {
-          const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES);
+          const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
           const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
           updatedGarage = s.garage.map((v) => {
             if (v.id !== s.activeVehicleId) return v;
@@ -1726,7 +1787,7 @@ function createActions(set: SetState, get: GetState) {
         const raced = !!vehicleWear;
         const newLifetimeRaces = raced ? s.lifetimeRaces + (racesCompleted ?? 1) : s.lifetimeRaces;
         const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
-        const gbFatigue = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES);
+        const gbFatigue = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
         const rawFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
         const newFatigue = raced ? Math.floor(rawFatigue * (1 - gbFatigue.fatigue_rate_reduction)) : s.fatigue;
         // Grant skill XP from auto-tick actions
@@ -1747,12 +1808,10 @@ function createActions(set: SetState, get: GetState) {
           lifetimeRaces: newLifetimeRaces,
           fatigue: newFatigue,
           racerSkills: tickSkills,
-          lootGearInventory: lootGearDrops && lootGearDrops.length > 0
-            ? [...s.lootGearInventory, ...lootGearDrops]
-            : s.lootGearInventory,
-          gearModInventory: modDrops && modDrops.length > 0
-            ? [...s.gearModInventory, ...modDrops]
-            : s.gearModInventory,
+          stationEquipmentInventory: lootGearDrops && lootGearDrops.length > 0
+            ? [...s.stationEquipmentInventory, ...lootGearDrops.map(convertLegacyLootDrop)]
+            : s.stationEquipmentInventory,
+          reforgeShards: s.reforgeShards + (modDrops?.length ?? 0),
           raceTickProgress: newRaceTickProgress ?? s.raceTickProgress,
           lastActiveTimestamp: Date.now(),
           // Lifetime stats for achievements
@@ -1791,7 +1850,7 @@ function createActions(set: SetState, get: GetState) {
 
       // Apply legacy decompose yield multiplier + gear material bonus
       const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const newMaterials = { ...state.materials };
       for (const [mat, qty] of Object.entries(result.materials) as [MaterialType, number][]) {
         const bonusQty = Math.floor(qty * decompYieldMult * (1 + gb.material_bonus_pct));
@@ -1829,7 +1888,7 @@ function createActions(set: SetState, get: GetState) {
       const { materials: matYield, count } = decomposeMany(junk, state.fatigue);
       // Apply legacy decompose yield multiplier + gear material bonus
       const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
-      const gbDecompose = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const gbDecompose = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const newMaterials = { ...state.materials };
       for (const [mat, qty] of Object.entries(matYield) as [MaterialType, number][]) {
         const bonusQty = Math.floor(qty * decompYieldMult * (1 + gbDecompose.material_bonus_pct));

@@ -96,6 +96,20 @@ describe("save envelope", () => {
     expect(decoded.envelope.state.vehicleLoadouts).toEqual([]);
   });
 
+  it("maps legacy outfit slots to stations and salvages unmappable effects", () => {
+    const decoded = decodeSavePayload(JSON.stringify({ state: {
+      materials: { metalScrap: 2 },
+      lootGearInventory: [{ id: "old-head", slot: "head", rarity: "rare", name: "Old Visor", enhancementLevel: 4, source: "old", effects: [{ type: "race_dnf_reduction", value: 0.03 }, { type: "obsolete_magic", value: 1 }] }],
+      equippedLootGear: { head: "old-head" },
+      ownedGearIds: [],
+      legacyPoints: 0,
+    }, version: 2 }));
+
+    expect(decoded.envelope.state.stationEquipmentInventory?.[0]).toMatchObject({ id: "old-head", slot: "diagnostics", rarity: "rare", enhancementLevel: 4 });
+    expect(decoded.envelope.state.equippedStationEquipment?.diagnostics).toBe("old-head");
+    expect(decoded.envelope.state.materials?.metalScrap).toBe(6);
+  });
+
   it("rejects corrupt state before it can be loaded", () => {
     expect(() =>
       decodeSavePayload(

@@ -1,6 +1,9 @@
 import { GEAR_SLOTS, getGearById, type GearSlot } from "@/data/gear";
 import type { LootGearItem } from "@/data/lootGear";
 import type { TalentNode } from "@/data/talentNodes";
+import type { GarageStationSlot } from "@/data/garageStations";
+import type { StationEquipment } from "@/data/stationEquipment";
+import { getStationEquipmentBonuses } from "./stationEquipment";
 import { getTotalEffects } from "@/engine/gearEnhance";
 
 export interface GearBonuses {
@@ -57,6 +60,8 @@ export function getGearBonuses(
   lootGearInventory?: LootGearItem[],
   unlockedTalentNodes?: string[],
   talentNodeDefs?: TalentNode[],
+  equippedStationEquipment?: Record<GarageStationSlot, string | null>,
+  stationEquipmentInventory?: StationEquipment[],
 ): GearBonuses {
   const bonuses = { ...EMPTY_BONUSES };
 
@@ -99,5 +104,7 @@ export function getGearBonuses(
     }
   }
 
+  const stationBonuses = getStationEquipmentBonuses(equippedStationEquipment, stationEquipmentInventory);
+  for (const [key, value] of Object.entries(stationBonuses)) bonuses[key as keyof GearBonuses] += value;
   return bonuses;
 }
