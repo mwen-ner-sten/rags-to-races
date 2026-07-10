@@ -1,4 +1,5 @@
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
+import { getFixedAsset } from "@/assets/manifest";
 
 export interface VehicleSpriteAsset {
   id: string;
@@ -18,18 +19,19 @@ export const VEHICLE_TRACK_SPRITE_SIZE = 24;
 
 export const VEHICLE_SPRITE_MANIFEST: Record<string, VehicleSpriteAsset> =
   Object.fromEntries(
-    VEHICLE_DEFINITIONS.map((vehicle) => [
-      vehicle.id,
-      {
+    VEHICLE_DEFINITIONS.map((vehicle) => {
+      const asset = getFixedAsset("vehicle", vehicle.id);
+      if (!asset) throw new Error(`Missing vehicle asset manifest entry: ${vehicle.id}`);
+      return [vehicle.id, {
         id: vehicle.id,
         name: vehicle.name,
         tier: vehicle.tier,
-        src: `/sprites/vehicles/${vehicle.id}.png`,
-        width: VEHICLE_SPRITE_SIZE,
-        height: VEHICLE_SPRITE_SIZE,
-        anchor: { x: VEHICLE_SPRITE_SIZE / 2, y: VEHICLE_SPRITE_SIZE / 2 },
-      },
-    ]),
+        src: asset.src,
+        width: asset.source.width,
+        height: asset.source.height,
+        anchor: asset.anchor,
+      }];
+    }),
   );
 
 export function getVehicleSpriteAsset(
