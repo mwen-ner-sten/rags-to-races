@@ -1,0 +1,43 @@
+name: Promotion Policy
+
+on:
+  pull_request:
+    branches: [uat, main]
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-promotion-source:
+    name: validate-promotion-source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate source and target branches
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$BASE_BRANCH" == "uat" ]]; then
+            if [[ "$HEAD_BRANCH" == "dev" || "$HEAD_BRANCH" == uat-fix/* ]]; then
+              echo "Allowed UAT change: $HEAD_BRANCH -> $BASE_BRANCH"
+              exit 0
+            fi
+
+            echo "UAT accepts release promotions from dev or fixes from uat-fix/* branches."
+            exit 1
+          fi
+
+          if [[ "$BASE_BRANCH" == "main" ]]; then
+            if [[ "$HEAD_BRANCH" == "uat" || "$HEAD_BRANCH" == hotfix/* ]]; then
+              echo "Allowed production change: $HEAD_BRANCH -> $BASE_BRANCH"
+              exit 0
+            fi
+
+            echo "Main accepts production promotions from uat or emergency fixes from hotfix/* branches."
+            exit 1
+          fi
+
+          echo "No promotion rule applies to $HEAD_BRANCH -> $BASE_BRANCH"
