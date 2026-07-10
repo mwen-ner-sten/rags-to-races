@@ -48,16 +48,11 @@ export default function Home() {
     });
   }, []);
 
-  // After a Full Save Reset (or any path that puts the tutorial back at step 0),
-  // jump the user to the Junkyard tab — the starting surface — regardless of
-  // which tab they were on when they triggered the reset.
-  useEffect(() => {
-    if (tutorialStep === 0 && activeTab !== "junkyard") {
-      setActiveTab("junkyard");
-    }
-  }, [tutorialStep, activeTab]);
+  // A reset immediately renders the starting surface without an effect-driven
+  // state update. The next user navigation keeps the stored tab in sync.
+  const displayedTab: TabId = tutorialStep === 0 ? "junkyard" : activeTab;
 
-  const lastTickTimeRef = useRef<number>(Date.now());
+  const lastTickTimeRef = useRef<number>(0);
 
   // Offline catch-up: runs once on mount after the store has hydrated
   useEffect(() => {
@@ -85,7 +80,7 @@ export default function Home() {
             r.racesCompleted,
           );
           const timeAway = Math.round(elapsed / 60_000);
-          setOfflineResult({ result: r, timeAway });
+          queueMicrotask(() => setOfflineResult({ result: r, timeAway }));
         }
       }
     }
@@ -139,17 +134,17 @@ export default function Home() {
           onDismiss={() => setOfflineResult(null)}
         />
       )}
-      <ThemeShell activeTab={activeTab} setActiveTab={guardedSetActiveTab}>
-        <TutorialOverlay activeTab={activeTab} />
-        {activeTab === "junkyard" && <ScavengePanel />}
-        {activeTab === "garage"   && <GaragePanel />}
-        {activeTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
-        {activeTab === "gear"     && <LockerPanel />}
-        {activeTab === "upgrades" && <UpgradesPanel />}
-        {activeTab === "help"     && <HelpPanel />}
-        {activeTab === "log"      && <HelpActivityTab />}
-        {activeTab === "settings" && <SettingsPanel />}
-        {SHOW_DEV_TAB && activeTab === "dev" && <AdminPanel />}
+      <ThemeShell activeTab={displayedTab} setActiveTab={guardedSetActiveTab}>
+        <TutorialOverlay activeTab={displayedTab} />
+        {displayedTab === "junkyard" && <ScavengePanel />}
+        {displayedTab === "garage"   && <GaragePanel />}
+        {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
+        {displayedTab === "gear"     && <LockerPanel />}
+        {displayedTab === "upgrades" && <UpgradesPanel />}
+        {displayedTab === "help"     && <HelpPanel />}
+        {displayedTab === "log"      && <HelpActivityTab />}
+        {displayedTab === "settings" && <SettingsPanel />}
+        {SHOW_DEV_TAB && displayedTab === "dev" && <AdminPanel />}
       </ThemeShell>
     </>
   );
