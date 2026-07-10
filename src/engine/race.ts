@@ -5,6 +5,8 @@ import { makePartId } from "./scavenge";
 import { chance, randInt, random, weightedPick } from "@/utils/random";
 import type { ScavengedPart } from "./scavenge";
 import type { BuiltVehicle } from "./build";
+import { DEFAULT_RACE_PLAN, evaluateRacePlan, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
+import { RIVAL_DEFINITIONS } from "@/data/rivals";
 
 export type RaceResult = "win" | "loss" | "dnf";
 
@@ -19,6 +21,8 @@ export interface RaceOutcome {
   salvageDrop?: ScavengedPart;
   /** Forge Token dropped (rare, high-tier circuits only) */
   forgeTokenDrop?: boolean;
+  planEvaluation?: RacePlanEvaluation;
+  rivalId?: string;
 }
 
 const RACE_FLAVOR: Record<RaceResult, string[]> = {
@@ -60,11 +64,12 @@ export function calculateOdds(
   skillDnfReduction: number = 0,
   momentumWinBonus: number = 0,
   forceDNF: boolean = false,
+  planEvaluation?: RacePlanEvaluation,
 ): { winChance: number; dnfChance: number; oddsLabel: string } {
   const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
-  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult);
+  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult) * (planEvaluation?.performanceMultiplier ?? 1);
   const winChance = forceDNF ? 0 : Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2) + momentumWinBonus));
-  const dnfChance = forceDNF ? 1 : Math.max(0, 0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction);
+  const dnfChance = forceDNF ? 1 : Math.max(0, Math.min(0.95, 0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction + (planEvaluation?.dnfDelta ?? 0)));
 
   // Convert to odds format (e.g., 2:1, 5:1)
   let oddsLabel: string;
@@ -133,9 +138,13 @@ export function simulateRace(
   skillPerformanceMult: number = 0,
   skillDnfReduction: number = 0,
   forceDNF: boolean = false,
+  racePlan: RacePlan = DEFAULT_RACE_PLAN,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
+  const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
+  const eligibleRivals = RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier);
+  const rival = eligibleRivals.length > 0 && chance(0.35) ? eligibleRivals[randInt(0, eligibleRivals.length - 1)] : undefined;
 
   // Consolation Rep on DNF — matches what a last-place loss would earn
   // (repReward * 0.1 worst-position * 0.5 loss-mult = repReward * 0.05).
@@ -151,6 +160,8 @@ export function simulateRace(
       scrapsEarned: 0,
       repEarned: dnfRep,
       log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+      planEvaluation,
+      rivalId: rival?.id,
     };
   }
 
@@ -166,6 +177,7 @@ export function simulateRace(
     skillDnfReduction,
     momentumWinBonus,
     forceDNF,
+    planEvaluation,
   );
   const dnfChance = odds.dnfChance;
   if (random() < dnfChance) {
@@ -176,6 +188,8 @@ export function simulateRace(
       scrapsEarned: 0,
       repEarned: dnfRep,
       log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+      planEvaluation,
+      rivalId: rival?.id,
     };
   }
 
@@ -213,6 +227,8 @@ export function simulateRace(
     result, position, totalRacers, scrapsEarned, repEarned, log,
     salvageDrop: salvageDrop ?? undefined,
     forgeTokenDrop: forgeTokenDrop || undefined,
+    planEvaluation,
+    rivalId: rival?.id,
   };
 }
 
@@ -224,6 +240,7 @@ export function calculateWear(
   fatigue: number = 0,
   gearWearReduction: number = 0,
   skillWearReduction: number = 0,
+  planWearMultiplier: number = 1,
 ): number {
   let wear = BASE_WEAR_PER_RACE;
   if (result === "dnf") wear += DNF_WEAR_BONUS;
@@ -239,6 +256,7 @@ export function calculateWear(
 
   // Fatigue increases wear (tired mechanic = sloppier work)
   wear *= (1 + fatigue * 0.008);
+  wear *= planWearMultiplier;
 
   return Math.round(Math.max(1, wear));
 }

@@ -147,7 +147,7 @@ export function computeTick(state: GameState): TickResult {
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
           const skillBonuses = getSkillBonuses(state.racerSkills, circuit.tier);
-          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction, 0.15, 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus, skillBonuses.drivingPerformanceMult, skillBonuses.drivingDnfReduction);
+          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction, 0.15, 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus, skillBonuses.drivingPerformanceMult, skillBonuses.drivingDnfReduction, false, state.currentRacePlan);
 
           // Apply consolation sponsor bonus
           const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");
@@ -168,7 +168,7 @@ export function computeTick(state: GameState): TickResult {
           // Calculate wear (workshop + gear + legacy reduction)
           const wearReduction = _getUpgradeEffectValue(state, "reinforced_chassis");
           const legacyWearReduction = getLegacyEffectValue(state.legacyUpgradeLevels, "leg_wear_reduction");
-          result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction + legacyWearReduction, fatigue, gearBonuses.race_wear_reduction_pct, skillBonuses.enduranceWearReduction);
+          result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction + legacyWearReduction, fatigue, gearBonuses.race_wear_reduction_pct, skillBonuses.enduranceWearReduction, result.raceOutcome.planEvaluation?.wearMultiplier ?? 1);
 
           // Gear drop roll from auto-race
           const vehiclePerf = vehicle.stats

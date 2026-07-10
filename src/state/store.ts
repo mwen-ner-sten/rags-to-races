@@ -66,6 +66,8 @@ import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStation
 import { convertLegacyLootDrop, type StationEquipment, type StationEquipmentRarity } from "@/data/stationEquipment";
 import { forgeStationEquipment, STATION_FORGE_COST } from "@/engine/stationForge";
 import { reforgeStationEquipment, REFORGE_COST_SHARDS, SHARDS_PER_SALVAGE } from "@/engine/stationReforge";
+import { DEFAULT_RACE_PLAN, RACE_PLAN_PRESETS, type RacePlan } from "@/data/raceStrategy";
+import { getRivalById } from "@/data/rivals";
 
 // ── Activity log ────────────────────────────────────────────────────────────
 export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
@@ -139,6 +141,9 @@ export interface GameState {
   raceEvents: RaceEvent[];
   raceStartTime: number | null;
   precomputedOutcome: RaceOutcome | null;
+  currentRacePlan: RacePlan;
+  defeatedRivalIds: string[];
+  discoveredBlueprintIds: string[];
 
   // Streaks
   winStreak: number;
@@ -299,6 +304,8 @@ export interface GameState {
   setSelectedCircuit: (circuitId: string) => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
   enterRace: () => void;
+  setRacePlan: (plan: RacePlan) => void;
+  applyRacePlanPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => void;
   clearUnlockEvents: () => void;
   advanceTutorial: () => void;
   skipTutorial: () => void;
@@ -409,6 +416,9 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     raceEvents: [],
     raceStartTime: null,
     precomputedOutcome: null,
+    currentRacePlan: { ...DEFAULT_RACE_PLAN },
+    defeatedRivalIds: [],
+    discoveredBlueprintIds: [],
     winStreak: 0,
     bestWinStreak: 0,
     fatigue: 0,
@@ -950,6 +960,7 @@ function createActions(set: SetState, get: GetState) {
         sb.drivingPerformanceMult,
         sb.drivingDnfReduction,
         isFirstEverRace,
+        state.currentRacePlan,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -1025,7 +1036,7 @@ function createActions(set: SetState, get: GetState) {
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
           const racingV = s.garage.find((v) => v.id === racingVehicleId);
-          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction, s.fatigue, gb.race_wear_reduction_pct, sb.enduranceWearReduction) : 0;
+          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction, s.fatigue, gb.race_wear_reduction_pct, sb.enduranceWearReduction, outcome.planEvaluation?.wearMultiplier ?? 1) : 0;
           const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gb.race_handling_pct;
           const updatedGarage = s.garage.map((v) => {
             if (v.id !== racingVehicleId) return v;
@@ -1075,7 +1086,7 @@ function createActions(set: SetState, get: GetState) {
             doubleDropChance: _getUpgradeEffectValue(s, "double_drop"),
             modDropRateBonus: _getUpgradeEffectValue(s, "mod_hunter"),
           });
-          const newStationEquipmentInventory = raceGearDrops.length > 0
+          let newStationEquipmentInventory = raceGearDrops.length > 0
             ? [...s.stationEquipmentInventory, ...raceGearDrops.map(convertLegacyLootDrop)]
             : s.stationEquipmentInventory;
           const newReforgeShards = s.reforgeShards + (raceModDrop ? 1 : 0);
@@ -1083,9 +1094,23 @@ function createActions(set: SetState, get: GetState) {
           if (raceModDrop) newUnlockEvents.push("Reforge Shard found!");
 
           // Salvage drop and forge token from race
-          const newInventory = outcome.salvageDrop
+          let newInventory = outcome.salvageDrop
             ? [...s.inventory, outcome.salvageDrop]
             : s.inventory;
+          let newDefeatedRivalIds = s.defeatedRivalIds;
+          let newDiscoveredBlueprintIds = s.discoveredBlueprintIds;
+          const rival = outcome.rivalId ? getRivalById(outcome.rivalId) : undefined;
+          if (outcome.result === "win" && rival && !s.defeatedRivalIds.includes(rival.id)) {
+            newDefeatedRivalIds = [...s.defeatedRivalIds, rival.id];
+            newUnlockEvents.push(`Rival defeated: ${rival.name}! Reward: ${rival.reward.label}`);
+            if (rival.reward.type === "blueprint") newDiscoveredBlueprintIds = [...s.discoveredBlueprintIds, rival.reward.id];
+            if (rival.reward.type === "addon") newInventory = [...newInventory, { id: makePartId(), definitionId: rival.reward.id, condition: "pristine", foundAt: `rival_${rival.id}`, type: "addon" }];
+            if (rival.reward.type === "station_set") {
+              const setSlots = rival.reward.id === "redline" ? ["diagnostics", "lift", "logistics", "pit_equipment"] as const : ["diagnostics", "lift", "logistics", "pit_equipment"] as const;
+              const stationItem = forgeStationEquipment(setSlots[s.defeatedRivalIds.length % setSlots.length], "rare");
+              newStationEquipmentInventory = [...newStationEquipmentInventory, { ...stationItem, setId: rival.reward.id as "redline" | "slipstream", source: rival.name }];
+            }
+          }
           const newForgeTokens = s.forgeTokens + (outcome.forgeTokenDrop ? 1 : 0);
           const newRaceSalvage = s.lifetimeTotalRaceSalvage + (outcome.salvageDrop ? 1 : 0);
 
@@ -1141,6 +1166,8 @@ function createActions(set: SetState, get: GetState) {
             stationEquipmentInventory: newStationEquipmentInventory,
             reforgeShards: newReforgeShards,
             inventory: newInventory,
+            defeatedRivalIds: newDefeatedRivalIds,
+            discoveredBlueprintIds: newDiscoveredBlueprintIds,
             forgeTokens: newForgeTokens + challengeTokenRewards.reduce((t, r) => t + r.amount, 0),
             lifetimeTotalRaceSalvage: newRaceSalvage,
             challengeProgress: newChallengeProgress,
@@ -1165,6 +1192,9 @@ function createActions(set: SetState, get: GetState) {
         _appendLog(set, get, "race", `Race: ${resultLabel} at ${circuit.name}!${rewardMsg}`, { scrapDelta: outcome.scrapsEarned, repDelta: Math.round(outcome.repEarned) });
       }, circuit.raceDuration);
     },
+
+    setRacePlan: (plan: RacePlan) => set({ currentRacePlan: { ...plan } }),
+    applyRacePlanPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => set({ currentRacePlan: { ...RACE_PLAN_PRESETS[preset] } }),
 
     clearUnlockEvents: () => {
       set({ unlockEvents: [] });
@@ -1704,6 +1734,8 @@ function createActions(set: SetState, get: GetState) {
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
         racerAttributes: state.racerAttributes,
         unlockedFeatures: state.unlockedFeatures,
+        defeatedRivalIds: state.defeatedRivalIds,
+        discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime + lpEarned,
         lifetimeScrapResets: state.lifetimeScrapResets + 1,
         crewRoster: state.crewRoster,
@@ -2266,6 +2298,8 @@ function createActions(set: SetState, get: GetState) {
         racerAttributes: createDefaultAttributes(),
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
+        defeatedRivalIds: state.defeatedRivalIds,
+        discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
         // Standard gear persists
@@ -2345,6 +2379,8 @@ function createActions(set: SetState, get: GetState) {
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra + opEarned,
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
+        defeatedRivalIds: state.defeatedRivalIds,
+        discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
         // Standard gear persists
@@ -2412,6 +2448,8 @@ function createActions(set: SetState, get: GetState) {
         lifetimeOPThisTrackEra: 0,
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
+        defeatedRivalIds: state.defeatedRivalIds,
+        discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
         // Standard gear persists
