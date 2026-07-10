@@ -4,6 +4,7 @@ import {
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
+import { random } from "@/utils/random";
 
 // ── Backward-compatible bonus interface (populated from legacy upgrades) ─────
 
@@ -188,7 +189,7 @@ function pickRandomWorkshopToKeep(
   if (owned.length === 0) return {};
 
   // Shuffle and pick up to keepCount
-  const shuffled = [...owned].sort(() => Math.random() - 0.5);
+  const shuffled = [...owned].sort(() => random() - 0.5);
   const kept: Record<string, number> = {};
   for (let i = 0; i < Math.min(keepCount, shuffled.length); i++) {
     kept[shuffled[i][0]] = 1;

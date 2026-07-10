@@ -1,4 +1,5 @@
 import type { GearSlot } from "@/data/gear";
+import { random } from "@/utils/random";
 
 export type GearRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
@@ -141,8 +142,8 @@ const SLOT_BASE_NAMES: Record<GearSlot, string[]> = {
 export function generateLootName(slot: GearSlot, rarity: GearRarity): string {
   const prefixes = RARITY_PREFIXES[rarity];
   const bases = SLOT_BASE_NAMES[slot];
-  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-  const base = bases[Math.floor(Math.random() * bases.length)];
+  const prefix = prefixes[Math.floor(random() * prefixes.length)];
+  const base = bases[Math.floor(random() * bases.length)];
   return `${prefix} ${base}`;
 }
 

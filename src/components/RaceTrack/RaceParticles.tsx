@@ -9,6 +9,7 @@ interface Particle {
   cy: number;
   type: "exhaust" | "dust" | "smoke" | "spark";
   born: number;
+  lifeProgress: number;
 }
 
 interface RaceParticlesProps {
@@ -56,6 +57,7 @@ export default function RaceParticles({
         cy: playerY + (Math.random() - 0.5) * 6,
         type: "exhaust",
         born: now,
+        lifeProgress: 0,
       });
     }
 
@@ -67,6 +69,7 @@ export default function RaceParticles({
         cy: playerY + (Math.random() - 0.5) * 8,
         type: "dust",
         born: now,
+        lifeProgress: 0,
       });
     }
 
@@ -79,6 +82,7 @@ export default function RaceParticles({
           cy: playerY + (Math.random() - 0.5) * 10,
           type: "smoke",
           born: now,
+          lifeProgress: 0,
         });
       }
     }
@@ -92,35 +96,31 @@ export default function RaceParticles({
           cy: playerY + (Math.random() - 0.5) * 6,
           type: "spark",
           born: now,
+          lifeProgress: 0,
         });
       }
     }
 
     setParticles((prev) => {
       // Remove expired particles
-      const alive = prev.filter(
-        (p) => now - p.born < PARTICLE_LIFETIME[p.type],
-      );
+      const alive = prev
+        .filter((p) => now - p.born < PARTICLE_LIFETIME[p.type])
+        .map((p) => ({
+          ...p,
+          lifeProgress: Math.min(1, (now - p.born) / PARTICLE_LIFETIME[p.type]),
+        }));
       const combined = [...alive, ...newParticles];
       // Enforce cap
       return combined.slice(-MAX_PARTICLES);
     });
   }, [progress, eventType, playerX, playerY, ambientParticles]);
 
-  // Clean up when race ends
-  useEffect(() => {
-    if (progress >= 1 || progress <= 0) {
-      setParticles([]);
-    }
-  }, [progress]);
+  const visibleParticles = progress > 0 && progress < 1 ? particles : [];
 
   return (
     <g className="race-particles">
-      {particles.map((p) => {
-        const age = Date.now() - p.born;
-        const lifetime = PARTICLE_LIFETIME[p.type];
-        const t = Math.min(1, age / lifetime);
-
+      {visibleParticles.map((p) => {
+        const t = p.lifeProgress;
         return (
           <circle
             key={p.id}

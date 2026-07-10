@@ -9,6 +9,7 @@ import CurrencyBar from "@/components/currency/CurrencyBar";
 import FooterThemeSwitcher from "@/components/FooterThemeSwitcher";
 import MobileNav from "@/components/MobileNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
+import { isFeatureAvailable } from "@/config/features";
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 interface Props {
@@ -29,7 +30,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev";
-const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
 
 // ─── Theme CSS custom properties ─────────────────────────────────────────────
 // These cascade into all content panels so they can use var(--panel-bg) etc.

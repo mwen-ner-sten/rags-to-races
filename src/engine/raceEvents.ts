@@ -1,5 +1,6 @@
 import type { RaceOutcome } from "./race";
 import type { CircuitDefinition } from "@/data/circuits";
+import { random } from "@/utils/random";
 
 export interface RaceEvent {
   timeOffset: number;    // ms from race start
@@ -80,7 +81,7 @@ const DNF_COMMENTARY = {
 };
 
 function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(random() * arr.length)];
 }
 
 function fillTemplate(text: string, vars: Record<string, number>): string {
@@ -101,7 +102,7 @@ export function generateRaceEvents(
 
   if (outcome.result === "win") {
     // Start mid-pack, overtake progressively to P1
-    const startPos = Math.min(totalRacers - 1, Math.floor(Math.random() * 3) + 4); // P4-P6
+    const startPos = Math.min(totalRacers - 1, Math.floor(random() * 3) + 4); // P4-P6
     const steps = startPos - 1; // positions to gain
     const segmentTime = durationMs / (steps + 3); // +3 for start, final lap, finish
 
@@ -126,7 +127,7 @@ export function generateRaceEvents(
   } else if (outcome.result === "loss") {
     const finalPos = outcome.position;
     // Start a bit behind final, fluctuate
-    const startPos = Math.min(totalRacers, Math.max(finalPos + 1, finalPos + Math.floor(Math.random() * 2) + 1));
+    const startPos = Math.min(totalRacers, Math.max(finalPos + 1, finalPos + Math.floor(random() * 2) + 1));
     const segments = 4;
     const segmentTime = durationMs / (segments + 1);
 
@@ -150,8 +151,8 @@ export function generateRaceEvents(
 
   } else {
     // DNF: normal start, warning, then breakdown
-    const startPos = Math.floor(Math.random() * 3) + 4;
-    const breakdownTime = durationMs * (0.4 + Math.random() * 0.3); // 40-70% through
+    const startPos = Math.floor(random() * 3) + 4;
+    const breakdownTime = durationMs * (0.4 + random() * 0.3); // 40-70% through
 
     events.push({ timeOffset: 0, position: startPos, commentary: pick(DNF_COMMENTARY.start), type: "start" });
     events.push({ timeOffset: breakdownTime * 0.6, position: startPos - 1, commentary: pick(DNF_COMMENTARY.warning), type: "mechanical" });

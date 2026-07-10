@@ -12,6 +12,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
 import RaceTrackSVG from "@/components/RaceTrack/RaceTrackSVG";
 import type { RaceEvent } from "@/engine/raceEvents";
+import { isFeatureAvailable, type FeatureId } from "@/config/features";
+import { getMomentumEffectValue } from "@/data/momentumBonuses";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -210,6 +212,8 @@ function OddsDisplay({
   gearDnfReduction,
   skillPerformanceMult,
   skillDnfReduction,
+  momentumWinBonus,
+  forceDNF,
 }: {
   performance: number;
   reliability: number;
@@ -220,10 +224,12 @@ function OddsDisplay({
   gearDnfReduction: number;
   skillPerformanceMult: number;
   skillDnfReduction: number;
+  momentumWinBonus: number;
+  forceDNF: boolean;
 }) {
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction],
+    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF),
+    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF],
   );
 
   const winStyle: React.CSSProperties = odds.winChance >= 0.5
@@ -316,6 +322,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const winStreak = useGameStore((s) => s.winStreak);
   const bestWinStreak = useGameStore((s) => s.bestWinStreak);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
+  const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
+  const lifetimeRacesAllTime = useGameStore((s) => s.lifetimeRacesAllTime);
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
   const fatigue = useGameStore((s) => s.fatigue);
   const equippedGear = useGameStore((s) => s.equippedGear);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
@@ -365,18 +374,18 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const gb = useMemo(() => getGearBonuses(equippedGear), [equippedGear]);
   const racerSkills = useGameStore((s) => s.racerSkills);
 
-  const unlockedCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
+  const availableCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
+    !c.requiredFeature || isFeatureAvailable(c.requiredFeature as FeatureId),
+  );
+  const unlockedCircuits = availableCircuits.filter((c) =>
     unlockedCircuitIds.includes(c.id),
   );
-  const lockedCircuits = CIRCUIT_DEFINITIONS.filter(
+  const lockedCircuits = availableCircuits.filter(
     (c) => !unlockedCircuitIds.includes(c.id),
   );
 
-  const selectedCircuit = CIRCUIT_DEFINITIONS.find((c) => c.id === selectedCircuitId);
-  const sb = useMemo(
-    () => getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0),
-    [racerSkills, selectedCircuit?.tier],
-  );
+  const selectedCircuit = availableCircuits.find((c) => c.id === selectedCircuitId);
+  const sb = getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0);
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const canEnter =
     !isRacing &&
@@ -545,6 +554,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             gearDnfReduction={gb.race_dnf_reduction}
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
+            momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
+            forceDNF={lifetimeRacesAllTime === 0 && tutorialStep === 10}
           />
           </div>
         )}

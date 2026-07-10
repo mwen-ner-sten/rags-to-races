@@ -25,6 +25,7 @@ import { getModTemplateById } from "@/data/gearMods";
 import { TALENT_NODES, TALENT_TREES, getTalentNodesForTree } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getEnhancedEffects, getSalvageValue } from "@/engine/gearEnhance";
 import { formatNumber } from "@/utils/format";
+import { isFeatureAvailable } from "@/config/features";
 
 // ── Effect label helper ──────────────────────────────────────────────────────
 function effectLabel(type: string, value: number): string {
@@ -91,12 +92,12 @@ export default function LockerPanel() {
 
   const allTabs: { id: LockerTab; label: string; badge?: number; show: boolean }[] = [
     { id: "skills",     label: "Skills",     show: true },
-    { id: "attributes", label: "Attributes", show: unlockedFeatures.includes("racer_attributes") },
+    { id: "attributes", label: "Attributes", show: isFeatureAvailable("racer_attributes") && unlockedFeatures.includes("racer_attributes") },
     { id: "outfit",     label: "Outfit",     show: true },
     { id: "loot",       label: "Loot Gear",  badge: lootGearInventory.length, show: true },
     { id: "mods",       label: "Mods",       badge: gearModInventory.length, show: true },
     { id: "talents",    label: "Talents",    show: true },
-    { id: "crew",       label: "Crew",       show: unlockedFeatures.includes("crew_system") },
+    { id: "crew",       label: "Crew",       show: isFeatureAvailable("crew_system") && unlockedFeatures.includes("crew_system") },
   ];
   const TABS = allTabs.filter((t) => t.show);
 
@@ -740,6 +741,7 @@ function TalentsTab({
   unlockTalentNode: (nodeId: string) => void;
   respecTalentTree: (treeId: string) => void;
 }) {
+  const unlockedFeatures = useGameStore((state) => state.unlockedFeatures);
   return (
     <div className="flex flex-col gap-6">
       <p className="text-xs text-zinc-500">
@@ -747,7 +749,13 @@ function TalentsTab({
         Respec a tree at any time for a fee (costs 1.5× what you spent). Talents persist through prestige.
       </p>
       {TALENT_TREES.map((tree) => {
-        const nodes = getTalentNodesForTree(tree.id).sort((a, b) => a.tier - b.tier);
+        const nodes = getTalentNodesForTree(tree.id)
+          .filter((node) => !node.requiredFeature || (
+            node.requiredFeature === "expanded_talents" &&
+            isFeatureAvailable("expanded_talents") &&
+            unlockedFeatures.includes("expanded_talents")
+          ))
+          .sort((a, b) => a.tier - b.tier);
         const tier1 = nodes.filter((n) => n.tier === 1);
         const tier2 = nodes.filter((n) => n.tier === 2);
         const tier3 = nodes.filter((n) => n.tier === 3);

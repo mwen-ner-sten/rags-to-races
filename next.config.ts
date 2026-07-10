@@ -22,9 +22,22 @@ function generateVersion(): string {
   return `${y}.${m}.${d}-${sha}`;
 }
 
+function releaseChannel(): "experimental" | "dev" | "uat" | "released" {
+  const explicit = process.env.RELEASE_CHANNEL;
+  if (explicit === "experimental" || explicit === "dev" || explicit === "uat" || explicit === "released") {
+    return explicit;
+  }
+  const branch = process.env.VERCEL_GIT_COMMIT_REF;
+  if (!branch) return "dev";
+  if (branch === "main") return "released";
+  if (branch === "uat") return "uat";
+  return "dev";
+}
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_VERSION: generateVersion(),
+    NEXT_PUBLIC_RELEASE_CHANNEL: releaseChannel(),
   },
 };
 
