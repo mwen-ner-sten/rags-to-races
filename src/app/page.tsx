@@ -17,10 +17,11 @@ import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import { useGameStore } from "@/state/store";
 import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
+import { isFeatureAvailable } from "@/config/features";
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
-const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");

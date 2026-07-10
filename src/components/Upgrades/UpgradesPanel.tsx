@@ -10,6 +10,7 @@ import OwnerSubTab from "./OwnerSubTab";
 import TrackSubTab from "./TrackSubTab";
 import AchievementsSubTab from "./AchievementsSubTab";
 import PlaystyleSubTab from "./PlaystyleSubTab";
+import { isFeatureAvailable } from "@/config/features";
 
 type UpgradeSubTab = "workshop" | "legacy" | "prestige" | "trophies" | "playstyle" | "team" | "owner" | "track";
 
@@ -27,9 +28,9 @@ export default function UpgradesPanel() {
     { id: "prestige",  label: "Prestige", show: true },
     { id: "trophies",  label: "Trophies", show: true },
     { id: "playstyle", label: "Playstyle", show: prestigeCount >= 3 },
-    { id: "team",      label: "Team", show: teamEraCount > 0 || unlockedFeatures.includes("crew_system") },
-    { id: "owner",     label: "Owner", show: ownerEraCount > 0 },
-    { id: "track",     label: "Track", show: trackEraCount > 0 },
+    { id: "team",      label: "Team", show: isFeatureAvailable("crew_system") && (teamEraCount > 0 || unlockedFeatures.includes("crew_system")) },
+    { id: "owner",     label: "Owner", show: isFeatureAvailable("advanced_circuits") && ownerEraCount > 0 },
+    { id: "track",     label: "Track", show: isFeatureAvailable("track_customization") && trackEraCount > 0 },
   ];
 
   const visibleTabs = TABS.filter((t) => t.show);

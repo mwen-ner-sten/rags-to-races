@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
-import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS } from "@/data/parts";
+import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
+import { getAddonById } from "@/data/addons";
 import { calculateRepairCost } from "@/engine/build";
 import type { BuiltVehicle } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
+import { isFeatureAvailable, type FeatureId } from "@/config/features";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -70,6 +72,7 @@ export default function GaragePanel() {
   const swapPart = useGameStore((s) => s.swapPart);
 
   const toolkitUnlocked = (workshopLevels["toolkit"] ?? 0) >= 1;
+  const addonBenchUnlocked = (workshopLevels["addon_bench"] ?? 0) >= 1;
   const autoFitterUnlocked = (workshopLevels["auto_fitter"] ?? 0) >= 1;
 
   const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
@@ -78,7 +81,9 @@ export default function GaragePanel() {
   // player hasn't unlocked yet are rendered dimmed with their unlock hint
   // so players know what to work toward.
   const visibleBlueprints = VEHICLE_DEFINITIONS.filter(
-    (v) => !v.requiredFeature || unlockedFeatures.includes(v.requiredFeature),
+    (v) => !v.requiredFeature || (
+      isFeatureAvailable(v.requiredFeature as FeatureId) && unlockedFeatures.includes(v.requiredFeature)
+    ),
   );
 
   const pendingDef = VEHICLE_DEFINITIONS.find((v) => v.id === pendingBuildVehicleId);
@@ -315,6 +320,7 @@ export default function GaragePanel() {
                 workshopLevels={workshopLevels}
                 fatigue={fatigue}
                 toolkitUnlocked={toolkitUnlocked}
+                addonBenchUnlocked={addonBenchUnlocked}
                 setActiveVehicle={setActiveVehicle}
                 sellVehicle={sellVehicle}
                 repairVehicle={repairVehicle}
@@ -338,6 +344,7 @@ function VehicleCard({
   workshopLevels,
   fatigue,
   toolkitUnlocked,
+  addonBenchUnlocked,
   setActiveVehicle,
   sellVehicle,
   repairVehicle,
@@ -350,12 +357,15 @@ function VehicleCard({
   workshopLevels: Record<string, number>;
   fatigue: number;
   toolkitUnlocked: boolean;
+  addonBenchUnlocked: boolean;
   setActiveVehicle: (id: string) => void;
   sellVehicle: (id: string) => void;
   repairVehicle: (id: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
 }) {
   const [swapSlot, setSwapSlot] = useState<string | null>(null);
+  const installAddon = useGameStore((s) => s.installAddon);
+  const removeAddon = useGameStore((s) => s.removeAddon);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const isTutorialRepair = tutorialStep === 13;
 
@@ -484,7 +494,7 @@ function VehicleCard({
       )}
 
       {/* Part swap UI */}
-      {toolkitUnlocked && (
+      {(toolkitUnlocked || addonBenchUnlocked) && (
         <div className="mt-2">
           <div className="flex flex-wrap gap-1">
             {def.slots.map((slotCfg) => {
@@ -512,16 +522,98 @@ function VehicleCard({
             })}
           </div>
           {swapSlot && vehicle.parts[swapSlot] && (
-            <SwapPartPicker
-              vehicleId={vehicle.id}
-              vehicleDef={def}
-              slot={swapSlot}
-              currentPart={vehicle.parts[swapSlot].part}
-              inventory={inventory}
-              swapPart={swapPart}
-              onDone={() => setSwapSlot(null)}
-            />
+            <div className="flex flex-col gap-2">
+              {toolkitUnlocked && (
+                <SwapPartPicker
+                  vehicleId={vehicle.id}
+                  vehicleDef={def}
+                  slot={swapSlot}
+                  currentPart={vehicle.parts[swapSlot].part}
+                  inventory={inventory}
+                  swapPart={swapPart}
+                  onDone={() => setSwapSlot(null)}
+                />
+              )}
+              {addonBenchUnlocked && (
+                <AddonManager
+                  vehicleId={vehicle.id}
+                  slot={swapSlot}
+                  installed={vehicle.parts[swapSlot]}
+                  inventory={inventory}
+                  installAddon={installAddon}
+                  removeAddon={removeAddon}
+                />
+              )}
+            </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddonManager({
+  vehicleId,
+  slot,
+  installed,
+  inventory,
+  installAddon,
+  removeAddon,
+}: {
+  vehicleId: string;
+  slot: string;
+  installed: BuiltVehicle["parts"][string];
+  inventory: ScavengedPart[];
+  installAddon: (vehicleId: string, slot: string, addonId: string) => void;
+  removeAddon: (vehicleId: string, slot: string, addonId: string) => void;
+}) {
+  const capacity = CONDITION_ADDON_SLOTS[installed.part.condition] ?? 0;
+  const eligible = inventory.filter((part) => {
+    if (part.type !== "addon") return false;
+    return getAddonById(part.definitionId)?.targetSlot === slot;
+  });
+
+  return (
+    <div
+      className="rounded border p-2 text-xs"
+      style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
+    >
+      <div className="mb-1 font-semibold" style={{ color: "var(--text-heading)" }}>
+        Add-ons ({installed.addons.length}/{capacity})
+      </div>
+      {installed.addons.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {installed.addons.map((addon) => (
+            <button
+              key={addon.id}
+              onClick={() => removeAddon(vehicleId, slot, addon.id)}
+              className="rounded border px-2 py-1"
+              style={{ borderColor: "var(--danger)", color: "var(--text-primary)" }}
+              title="Remove and return to inventory"
+            >
+              {getAddonById(addon.definitionId)?.name ?? addon.definitionId} - Remove
+            </button>
+          ))}
+        </div>
+      )}
+      {capacity === 0 ? (
+        <p style={{ color: "var(--text-muted)" }}>Improve this part to decent condition to unlock an add-on slot.</p>
+      ) : installed.addons.length >= capacity ? (
+        <p style={{ color: "var(--text-muted)" }}>All add-on slots are occupied.</p>
+      ) : eligible.length === 0 ? (
+        <p style={{ color: "var(--text-muted)" }}>No compatible add-ons in inventory.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {eligible.map((addon) => (
+            <button
+              key={addon.id}
+              onClick={() => installAddon(vehicleId, slot, addon.id)}
+              className="rounded border px-2 py-1"
+              style={{ borderColor: "var(--success)", color: "var(--text-primary)" }}
+            >
+              Install {getAddonById(addon.definitionId)?.name ?? addon.definitionId}
+            </button>
+          ))}
         </div>
       )}
     </div>
