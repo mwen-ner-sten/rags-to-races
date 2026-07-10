@@ -28,6 +28,7 @@ export default function Home() {
   const [offlineResult, setOfflineResult] = useState<{ result: OfflineResult; timeAway: number } | null>(null);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
+  const advanceFleetAssignments = useGameStore((s) => s.advanceFleetAssignments);
   const storeRef = useRef(useGameStore.getState());
 
   const garage = useGameStore((s) => s.garage);
@@ -65,6 +66,7 @@ export default function Home() {
       const offlineTicks = Math.min(Math.floor(elapsed / tickMs), maxOfflineTicks);
 
       if (offlineTicks > 0) {
+        advanceFleetAssignments(offlineTicks);
         const r = simulateOfflineTicks(state, offlineTicks);
 
         if (r.partsFound.length > 0 || r.scrapsEarned !== 0 || r.repEarned !== 0 || r.vehicleWearTotal !== 0 || r.lootGearDrops.length > 0 || r.modDrops.length > 0) {
@@ -97,6 +99,7 @@ export default function Home() {
       if (elapsed >= tickMs) {
         lastTickTimeRef.current = Date.now();
         const result = computeTick(state);
+        advanceFleetAssignments(1);
         if (
           result.partsFound.length > 0 ||
           result.scrapsEarned !== 0 ||
@@ -122,7 +125,7 @@ export default function Home() {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [applyTickResult]);
+  }, [applyTickResult, advanceFleetAssignments]);
 
   return (
     <>

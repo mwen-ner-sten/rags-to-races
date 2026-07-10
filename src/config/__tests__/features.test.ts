@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { FEATURE_AVAILABILITY, isFeatureAvailable } from "../features";
 
 describe("feature availability", () => {
-  it("keeps incomplete systems out of UAT and released builds", () => {
-    expect(isFeatureAvailable("crew_system", "dev")).toBe(true);
-    expect(isFeatureAvailable("crew_system", "uat")).toBe(false);
-    expect(isFeatureAvailable("track_customization", "released")).toBe(false);
+  it("ships completed responsibility layers while keeping legacy experiments hidden", () => {
+    expect(isFeatureAvailable("crew_system", "released")).toBe(true);
+    expect(isFeatureAvailable("track_customization", "released")).toBe(true);
+    expect(isFeatureAvailable("racer_attributes", "uat")).toBe(false);
   });
 
   it("makes released features available in every channel", () => {

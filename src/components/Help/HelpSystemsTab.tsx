@@ -311,7 +311,7 @@ export default function HelpSystemsTab() {
                   </div>
                 );
               })}
-              <p>Crew persist through Scrap Resets. They reset on Team Reset unless you have Crew Retention.</p>
+              <p>Crew persist through Scrap Resets and reset on Team Reset. Team Points and discovered blueprints remain for the next team era.</p>
             </div>
           </SystemSection>
 

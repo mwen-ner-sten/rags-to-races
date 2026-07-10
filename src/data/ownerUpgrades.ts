@@ -8,7 +8,7 @@ export interface OwnerUpgradeDefinition {
   maxLevel: number;
   baseCost: number;     // OP cost for level 1
   costScaling: number;
-  effect: { type: string; valuePerLevel: number };
+  effect: GameEffect;
 }
 
 /** Calculate OP cost for a given upgrade at a given level (1-indexed) */
@@ -192,7 +192,7 @@ const OWNERS_INSIGHT: OwnerUpgradeDefinition = {
 const UNLOCK_COST_SLASH: OwnerUpgradeDefinition = {
   id: "owner_cost_slash",
   name: "Unlock Cost Slash",
-  description: "Circuit/location costs -75%.",
+  description: "Dealer refresh and advanced sourcing costs -75%.",
   category: "network",
   maxLevel: 1,
   baseCost: 15,
@@ -203,23 +203,19 @@ const UNLOCK_COST_SLASH: OwnerUpgradeDefinition = {
 // ── Export ──────────────────────────────────────────────────────────────────
 
 export const OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [
-  SCRAP_EMPIRE,
-  REP_DYNASTY,
-  LP_PRINTING_PRESS,
   AUTO_EVERYTHING,
   ADVANCED_CIRCUITS,
   VEHICLE_MASTERY,
   RD_LAB,
-  INFINITE_GARAGE,
-  TEAM_LEGACY,
-  TALENT_PIPELINE,
   BORN_RICH,
   FATIGUE_IMMUNITY,
   MATERIAL_SYNTHESIS,
   CREW_LEGENDS,
-  OWNERS_INSIGHT,
   UNLOCK_COST_SLASH,
 ];
+
+/** Multiplier-only and obsolete definitions retained for design history, hidden from released purchase surfaces. */
+export const DEFERRED_OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [SCRAP_EMPIRE, REP_DYNASTY, LP_PRINTING_PRESS, INFINITE_GARAGE, TEAM_LEGACY, TALENT_PIPELINE, OWNERS_INSIGHT];
 
 export const OWNER_UPGRADES_BY_ID = Object.fromEntries(
   OWNER_UPGRADE_DEFINITIONS.map((u) => [u.id, u]),
@@ -238,3 +234,4 @@ export const OWNER_CATEGORY_LABELS: Record<OwnerUpgradeCategory, string> = {
   management: "Management",
   network: "Network",
 };
+import type { GameEffect } from "./gameEffects";

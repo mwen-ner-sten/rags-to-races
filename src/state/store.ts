@@ -53,11 +53,12 @@ import { getSkillBonuses } from "@/engine/skills";
 import type { RacerAttributes, AttributeName } from "@/data/racerAttributes";
 import { createDefaultAttributes } from "@/data/racerAttributes";
 import { TEAM_UPGRADES_BY_ID, teamUpgradeCost } from "@/data/teamUpgrades";
-import { OWNER_UPGRADES_BY_ID, ownerUpgradeCost } from "@/data/ownerUpgrades";
+import { OWNER_UPGRADE_DEFINITIONS, OWNER_UPGRADES_BY_ID, ownerUpgradeCost } from "@/data/ownerUpgrades";
 import { TRACK_PERKS_BY_ID, trackPerkCost } from "@/data/trackPerks";
 import { calculateTeamPoints, calculateOwnerPoints, calculateTrackTokens } from "@/engine/prestige";
 import { FEATURE_UNLOCK_DEFINITIONS, checkFeatureUnlock } from "@/data/featureUnlocks";
-import type { CrewMember } from "@/data/crew";
+import type { CrewMember, CrewRole } from "@/data/crew";
+import { grantCrewXp } from "@/engine/crew";
 import { getPrestigeMilestoneBonuses, getNewlyUnlockedMilestones } from "@/data/prestigeMilestones";
 import { checkAchievements } from "@/engine/achievements";
 import { ACHIEVEMENTS_BY_ID, type AchievementStats } from "@/data/achievements";
@@ -68,6 +69,10 @@ import { forgeStationEquipment, STATION_FORGE_COST } from "@/engine/stationForge
 import { reforgeStationEquipment, REFORGE_COST_SHARDS, SHARDS_PER_SALVAGE } from "@/engine/stationReforge";
 import { DEFAULT_RACE_PLAN, RACE_PLAN_PRESETS, type RacePlan } from "@/data/raceStrategy";
 import { getRivalById } from "@/data/rivals";
+import type { FleetAssignment } from "@/data/fleet";
+import { getGameEffectValue } from "@/data/gameEffects";
+import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
+import { DEFAULT_TRACK_CONFIG, type HostedEvent, type OwnedTrackConfig } from "@/data/trackVenue";
 
 // ── Activity log ────────────────────────────────────────────────────────────
 export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
@@ -144,6 +149,9 @@ export interface GameState {
   currentRacePlan: RacePlan;
   defeatedRivalIds: string[];
   discoveredBlueprintIds: string[];
+  fleetAssignments: FleetAssignment[];
+  ownedTrackConfig: OwnedTrackConfig;
+  hostedEvents: HostedEvent[];
 
   // Streaks
   winStreak: number;
@@ -306,6 +314,12 @@ export interface GameState {
   enterRace: () => void;
   setRacePlan: (plan: RacePlan) => void;
   applyRacePlanPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => void;
+  startFleetAssignment: (vehicleId: string, circuitId: string, crewId?: string) => void;
+  collectFleetAssignment: (assignmentId: string) => void;
+  advanceFleetAssignments: (ticks?: number) => void;
+  updateOwnedTrackConfig: (config: OwnedTrackConfig) => void;
+  hostTrackEvent: () => void;
+  collectHostedEvent: (eventId: string) => void;
   clearUnlockEvents: () => void;
   advanceTutorial: () => void;
   skipTutorial: () => void;
@@ -362,6 +376,7 @@ export interface GameState {
   purchaseTrackPerk: (perkId: string) => void;
   allocateAttribute: (attr: AttributeName, delta: number) => void;
   specializeCrewMember: (crewId: string, spec: string) => void;
+  recruitCrewMember: (role: CrewRole) => void;
   checkFeatureUnlocks: () => void;
   checkAchievements: () => void;
   purchasePlaystyleNode: (nodeId: string) => void;
@@ -419,6 +434,9 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     currentRacePlan: { ...DEFAULT_RACE_PLAN },
     defeatedRivalIds: [],
     discoveredBlueprintIds: [],
+    fleetAssignments: [],
+    ownedTrackConfig: { ...DEFAULT_TRACK_CONFIG },
+    hostedEvents: [],
     winStreak: 0,
     bestWinStreak: 0,
     fatigue: 0,
@@ -626,7 +644,7 @@ function createActions(set: SetState, get: GetState) {
         sourceTier: location.tier,
         sourceId: location.id,
         winStreak: state.winStreak,
-        gearDropRateScavengeBonus: _getUpgradeEffectValue(state, "gear_scavenger"),
+        gearDropRateScavengeBonus: _getUpgradeEffectValue(state, "gear_scavenger") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "gear_drop_rate"),
         gearDropRateRaceBonus: _getUpgradeEffectValue(state, "trophy_hunter"),
         rarityBonus: Math.floor(_getUpgradeEffectValue(state, "rarity_sense")),
         doubleDropChance: _getUpgradeEffectValue(state, "double_drop"),
@@ -951,12 +969,12 @@ function createActions(set: SetState, get: GetState) {
         vehicle, circuit,
         state.prestigeBonus.scrapMultiplier,
         state.fatigue,
-        gb.race_performance_pct,
+        gb.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance"),
         gb.race_dnf_reduction,
         salvageDropChance,
         salvageMaxCondition,
         momentumWinBonus,
-        gb.forge_token_chance_bonus,
+        gb.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"),
         sb.drivingPerformanceMult,
         sb.drivingDnfReduction,
         isFirstEverRace,
@@ -1066,7 +1084,9 @@ function createActions(set: SetState, get: GetState) {
           const newLifetimeRaces = s.lifetimeRaces + 1;
           const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + sb.enduranceFatigueOffset;
           const rawFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
-          const newFatigue = Math.floor(rawFatigue * (1 - gb.fatigue_rate_reduction));
+          const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
+          const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "fatigue_cap_reduction"));
+          const newFatigue = Math.min(fatigueCap, Math.floor(rawFatigue * (1 - gb.fatigue_rate_reduction - ownerFatigueReduction)));
 
           // Gear drop roll from manual race
           const raceVehicle = s.garage.find((v) => v.id === racingVehicleId);
@@ -1080,8 +1100,8 @@ function createActions(set: SetState, get: GetState) {
             raceResult: outcome.result,
             winStreak: newStreak,
             vehiclePerformance: vehiclePerf,
-            gearDropRateScavengeBonus: _getUpgradeEffectValue(s, "gear_scavenger"),
-            gearDropRateRaceBonus: _getUpgradeEffectValue(s, "trophy_hunter"),
+            gearDropRateScavengeBonus: _getUpgradeEffectValue(s, "gear_scavenger") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "gear_drop_rate"),
+            gearDropRateRaceBonus: _getUpgradeEffectValue(s, "trophy_hunter") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "gear_drop_rate"),
             rarityBonus: Math.floor(_getUpgradeEffectValue(s, "rarity_sense")),
             doubleDropChance: _getUpgradeEffectValue(s, "double_drop"),
             modDropRateBonus: _getUpgradeEffectValue(s, "mod_hunter"),
@@ -1195,6 +1215,69 @@ function createActions(set: SetState, get: GetState) {
 
     setRacePlan: (plan: RacePlan) => set({ currentRacePlan: { ...plan } }),
     applyRacePlanPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => set({ currentRacePlan: { ...RACE_PLAN_PRESETS[preset] } }),
+
+    startFleetAssignment: (vehicleId: string, circuitId: string, crewId?: string) => {
+      const state = get() as GameState;
+      const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
+      const circuit = getCircuitById(circuitId);
+      const completedCircuit = state.raceHistory.some((outcome) => outcome.circuitId === circuitId && outcome.result === "win");
+      const baseSlots = 1 + Math.floor(getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "active_vehicle_slot"));
+      if (!vehicle || !circuit || vehicleId === state.activeVehicleId || !completedCircuit || state.fleetAssignments.filter((assignment) => assignment.status === "running").length >= baseSlots) return;
+      if (state.fleetAssignments.some((assignment) => assignment.status === "running" && assignment.vehicleId === vehicleId)) return;
+      const assignment: FleetAssignment = { id: `fleet_${Date.now()}_${state.fleetAssignments.length}`, vehicleId, crewId: crewId ?? null, circuitId, plan: { ...state.currentRacePlan }, status: "running", remainingTicks: Math.max(3, circuit.tier + 3), accumulatedWear: 0, rewards: { scrap: 0, materials: 0 } };
+      set((current: GameState) => ({ fleetAssignments: [...current.fleetAssignments, assignment] }));
+    },
+
+    advanceFleetAssignments: (ticks = 1) => {
+      const state = get() as GameState;
+      if (!state.fleetAssignments.some((assignment) => assignment.status === "running") && !state.hostedEvents.some((event) => event.status === "running")) return;
+      set((current: GameState) => ({ fleetAssignments: current.fleetAssignments.map((assignment) => {
+        if (assignment.status !== "running") return assignment;
+        const remainingTicks = Math.max(0, assignment.remainingTicks - Math.max(1, ticks));
+        if (remainingTicks > 0) return { ...assignment, remainingTicks };
+        const circuit = getCircuitById(assignment.circuitId);
+        return { ...assignment, remainingTicks: 0, status: "complete", accumulatedWear: assignment.accumulatedWear + 5, rewards: { scrap: Math.floor((circuit?.rewardBase ?? 0) * 0.6), materials: Math.max(1, Math.floor((circuit?.tier ?? 0) * 0.6)) } };
+      }), hostedEvents: current.hostedEvents.map((event) => event.status !== "running" ? event : event.remainingTicks > ticks ? { ...event, remainingTicks: event.remainingTicks - ticks } : { ...event, remainingTicks: 0, status: "complete" }) }));
+    },
+
+    collectFleetAssignment: (assignmentId: string) => {
+      const state = get() as GameState;
+      const assignment = state.fleetAssignments.find((candidate) => candidate.id === assignmentId && candidate.status === "complete");
+      if (!assignment) return;
+      const materialKeys = Object.keys(state.materials) as MaterialType[];
+      const material = materialKeys[(getCircuitById(assignment.circuitId)?.tier ?? 0) % materialKeys.length];
+      set((current: GameState) => ({
+        scrapBucks: current.scrapBucks + assignment.rewards.scrap,
+        lifetimeScrapBucks: current.lifetimeScrapBucks + assignment.rewards.scrap,
+        materials: { ...current.materials, [material]: current.materials[material] + assignment.rewards.materials },
+        garage: current.garage.map((vehicle) => vehicle.id === assignment.vehicleId ? { ...vehicle, condition: Math.max(0, vehicle.condition - assignment.accumulatedWear), totalRaces: vehicle.totalRaces + 1 } : vehicle),
+        crewRoster: current.crewRoster.map((crew) => crew.id === assignment.crewId ? grantCrewXp(crew, 5, 1 + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, current.teamUpgradeLevels, "crew_xp_multiplier")) : crew),
+        fleetAssignments: current.fleetAssignments.filter((candidate) => candidate.id !== assignmentId),
+      }));
+    },
+
+    updateOwnedTrackConfig: (config: OwnedTrackConfig) => set({ ownedTrackConfig: { ...config } }),
+
+    hostTrackEvent: () => {
+      const state = get() as GameState;
+      const maxEvents = 1 + (state.trackPerkLevels.track_multi ?? 0);
+      if (state.trackEraCount < 1 || state.hostedEvents.filter((event) => event.status === "running").length >= maxEvents) return;
+      const config = state.ownedTrackConfig;
+      const lengthMult = config.length === "long" ? 2 : config.length === "medium" ? 1.4 : 1;
+      const sponsorMult = 1 + (state.trackPerkLevels.track_sponsors ?? 0) * 0.2;
+      const reward = Math.floor(10000 * config.riskReward * lengthMult * (config.endurance ? 2 : 1) * (config.timeRule === "night" ? 1.25 : 1) * sponsorMult);
+      const sponsors = ["Rustbelt Tools", "Midnight Fuel", "Backlot Salvage", "Apex Fabrication"];
+      const event: HostedEvent = { id: `event_${Date.now()}_${state.hostedEvents.length}`, name: `${config.timeRule === "night" ? "Midnight " : ""}${config.endurance ? "Endurance " : ""}Invitational`, config: { ...config }, sponsor: sponsors[state.hostedEvents.length % sponsors.length], remainingTicks: config.endurance ? 10 : 5, status: "running", reward };
+      set((current: GameState) => ({ hostedEvents: [...current.hostedEvents, event] }));
+    },
+
+    collectHostedEvent: (eventId: string) => {
+      const state = get() as GameState;
+      const event = state.hostedEvents.find((candidate) => candidate.id === eventId && candidate.status === "complete");
+      if (!event) return;
+      const cascade = state.trackPerkLevels.track_cascade ?? 0;
+      set((current: GameState) => ({ scrapBucks: current.scrapBucks + event.reward, lifetimeScrapBucks: current.lifetimeScrapBucks + event.reward, legacyPoints: current.legacyPoints + cascade, teamPoints: current.teamPoints + cascade, ownerPoints: current.ownerPoints + cascade, hostedEvents: current.hostedEvents.filter((candidate) => candidate.id !== eventId) }));
+    },
 
     clearUnlockEvents: () => {
       set({ unlockEvents: [] });
@@ -1630,7 +1713,8 @@ function createActions(set: SetState, get: GetState) {
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
       const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
       const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
-      const newMaterials = { ...state.materials };
+      const teamStartingMaterials = getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "starting_materials");
+      const newMaterials = Object.fromEntries(Object.keys(INITIAL_MATERIALS).map((key) => [key, teamStartingMaterials])) as Record<MaterialType, number>;
       for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
 
       // Muscle Memory: starting auto-scavenge clicks
@@ -1642,7 +1726,7 @@ function createActions(set: SetState, get: GetState) {
       const startingCircuits = Array.from(new Set(["backyard_derby", ...result.startingCircuitIds]));
 
       // LP earned
-      const lpEarned = result.legacyPointsEarned;
+      const lpEarned = Math.floor(result.legacyPointsEarned * (1 + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "lp_multiplier")));
       const newLp = state.legacyPoints + lpEarned;
       const newLifetimeLp = state.lifetimeLegacyPoints + lpEarned;
 
@@ -1675,16 +1759,20 @@ function createActions(set: SetState, get: GetState) {
         fatigue: 0,
         lifetimeRaces: 0,
         // Seed Money: starting scrap
-        scrapBucks: result.startingScrap,
-        lifetimeScrapBucks: result.startingScrap,
+        scrapBucks: result.startingScrap + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "quick_start_bonus") + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "starting_scrap"),
+        lifetimeScrapBucks: result.startingScrap + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "quick_start_bonus") + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "starting_scrap"),
         // Auto-race via prestige milestone system
         autoRaceUnlocked: milestoneBonuses.autoRace,
         // Auto-scavenge stays unlocked once earned, via Muscle Memory, or via milestone
-        autoScavengeUnlocked: state.autoScavengeUnlocked || autoScavUnlocked || milestoneBonuses.startWithAutoScavenge,
+        autoScavengeUnlocked: state.autoScavengeUnlocked || autoScavUnlocked || milestoneBonuses.startWithAutoScavenge || getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "quick_start_bonus") > 0,
         manualScavengeClicks: Math.min(startingClicks, 500),
         raceTickProgress: 0,
         unlockEvents,
-        // Gear persists through prestige
+        // Shared station equipment persists through Scrap Reset
+        stationEquipmentInventory: state.stationEquipmentInventory,
+        equippedStationEquipment: state.equippedStationEquipment,
+        reforgeShards: state.reforgeShards,
+        // Legacy compatibility fields persist until migration removes them
         equippedGear: state.equippedGear,
         ownedGearIds: state.ownedGearIds,
         // Loot gear persists through prestige
@@ -1732,6 +1820,8 @@ function createActions(set: SetState, get: GetState) {
         trackPerkLevels: state.trackPerkLevels,
         trackEraCount: state.trackEraCount,
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
+        hostedEvents: state.hostedEvents,
+        ownedTrackConfig: state.ownedTrackConfig,
         racerAttributes: state.racerAttributes,
         unlockedFeatures: state.unlockedFeatures,
         defeatedRivalIds: state.defeatedRivalIds,
@@ -1821,7 +1911,9 @@ function createActions(set: SetState, get: GetState) {
         const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
         const gbFatigue = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
         const rawFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
-        const newFatigue = raced ? Math.floor(rawFatigue * (1 - gbFatigue.fatigue_rate_reduction)) : s.fatigue;
+        const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
+        const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "fatigue_cap_reduction"));
+        const newFatigue = raced ? Math.min(fatigueCap, Math.floor(rawFatigue * (1 - gbFatigue.fatigue_rate_reduction - ownerFatigueReduction))) : s.fatigue;
         // Grant skill XP from auto-tick actions
         let tickSkills = s.racerSkills;
         if (partsFound.length > 0) tickSkills = _grantXp(tickSkills, "scavenging", 1);
@@ -2134,7 +2226,7 @@ function createActions(set: SetState, get: GetState) {
 
     refreshDealer: () => {
       const state = get() as GameState;
-      const cost = 300;
+      const cost = Math.max(0, Math.floor(300 * (1 - getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "unlock_cost_reduction"))));
       if (state.scrapBucks < cost) return;
       if (state.repPoints < DEALER_UNLOCK_REP) return;
       const newBoard = generateDealerBoard(state.repPoints, state.gameTick);
@@ -2146,11 +2238,11 @@ function createActions(set: SetState, get: GetState) {
 
     convertScrapToMaterial: (material: MaterialType) => {
       const state = get() as GameState;
-      const cost = 200;
-      const yield_ = 5;
-      // Only basic materials can be purchased with scrap
+      const conversionLevel = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "material_conversion");
+      const cost = conversionLevel > 0 ? 100 : 200;
+      const yield_ = conversionLevel > 0 ? 10 : 5;
       const basicMaterials: MaterialType[] = ["metalScrap", "rubberCompound", "greaseSludge"];
-      if (!basicMaterials.includes(material)) return;
+      if (!basicMaterials.includes(material) && conversionLevel < 1) return;
       if (state.scrapBucks < cost) return;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
@@ -2294,6 +2386,9 @@ function createActions(set: SetState, get: GetState) {
         trackPerkLevels: state.trackPerkLevels,
         trackEraCount: state.trackEraCount,
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
+        hostedEvents: state.hostedEvents,
+        ownedTrackConfig: state.ownedTrackConfig,
+        workshopLevels: (state.trackPerkLevels.track_eternal ?? 0) > 0 ? state.workshopLevels : {},
         // Attributes persist through Team Reset
         racerAttributes: createDefaultAttributes(),
         // Feature unlocks never reset
@@ -2309,7 +2404,7 @@ function createActions(set: SetState, get: GetState) {
         completedChallenges: state.completedChallenges,
         // Crew resets on Team Reset
         crewRoster: [],
-        crewSlots: (state.teamUpgradeLevels["team_crew_slots"] ?? 0),
+        crewSlots: 1 + (state.teamUpgradeLevels["team_crew_slots"] ?? 0),
         // Log persists
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
@@ -2377,6 +2472,9 @@ function createActions(set: SetState, get: GetState) {
         trackPerkLevels: state.trackPerkLevels,
         trackEraCount: state.trackEraCount,
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra + opEarned,
+        hostedEvents: state.hostedEvents,
+        ownedTrackConfig: state.ownedTrackConfig,
+        workshopLevels: (state.trackPerkLevels.track_eternal ?? 0) > 0 ? state.workshopLevels : {},
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
         defeatedRivalIds: state.defeatedRivalIds,
@@ -2421,9 +2519,15 @@ function createActions(set: SetState, get: GetState) {
       if (currentLevel >= def.maxLevel) return;
       const cost = ownerUpgradeCost(def, currentLevel + 1);
       if (state.ownerPoints < cost) return;
+      const unlockedFeatures = [...state.unlockedFeatures];
+      const feature = def.effect.type === "unlock_adv_circuits" ? "advanced_circuits" : def.effect.type === "unlock_t9_vehicles" ? "vehicle_mastery" : def.effect.type === "unlock_research" ? "new_workshop_cats" : null;
+      if (feature && !unlockedFeatures.includes(feature)) unlockedFeatures.push(feature);
       set({
         ownerPoints: state.ownerPoints - cost,
         ownerUpgradeLevels: { ...state.ownerUpgradeLevels, [upgradeId]: currentLevel + 1 },
+        unlockedFeatures,
+        autoScavengeUnlocked: state.autoScavengeUnlocked || def.effect.type === "auto_all",
+        autoRaceUnlocked: state.autoRaceUnlocked || def.effect.type === "auto_all",
       });
     },
 
@@ -2446,6 +2550,8 @@ function createActions(set: SetState, get: GetState) {
         trackPerkLevels: state.trackPerkLevels,
         trackEraCount: state.trackEraCount + 1,
         lifetimeOPThisTrackEra: 0,
+        ownedTrackConfig: state.ownedTrackConfig,
+        workshopLevels: (state.trackPerkLevels.track_eternal ?? 0) > 0 ? state.workshopLevels : {},
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
         defeatedRivalIds: state.defeatedRivalIds,
@@ -2490,9 +2596,19 @@ function createActions(set: SetState, get: GetState) {
       if (currentLevel >= def.maxLevel) return;
       const cost = trackPerkCost(def, currentLevel + 1);
       if (state.trackPrestigeTokens < cost) return;
+      const unlockedFeatures = def.effect.type === "custom_circuits" && !state.unlockedFeatures.includes("track_customization") ? [...state.unlockedFeatures, "track_customization"] : state.unlockedFeatures;
+      let crewRoster = state.crewRoster;
+      let crewSlots = state.crewSlots;
+      if (def.effect.type === "crew_auto_recruit" && currentLevel === 0) {
+        crewSlots = Math.max(crewSlots, 4);
+        crewRoster = (["mechanic", "scout", "driver", "trader"] as CrewRole[]).map((role, index) => ({ id: `academy_${role}`, name: ["Mara", "Rook", "Ace", "Ledger"][index], role, level: 1, xp: 0, specialization: null }));
+      }
       set({
         trackPrestigeTokens: state.trackPrestigeTokens - cost,
         trackPerkLevels: { ...state.trackPerkLevels, [perkId]: currentLevel + 1 },
+        unlockedFeatures,
+        crewRoster,
+        crewSlots,
       });
     },
 
@@ -2508,6 +2624,15 @@ function createActions(set: SetState, get: GetState) {
       set({
         racerAttributes: { ...state.racerAttributes, [attr]: newVal },
       });
+    },
+
+    recruitCrewMember: (role: CrewRole) => {
+      const state = get() as GameState;
+      if (state.teamEraCount < 1 || state.crewRoster.length >= state.crewSlots || state.teamPoints < 1) return;
+      const names: Record<CrewRole, string[]> = { mechanic: ["Mara", "Wrench", "June"], scout: ["Scout", "Rook", "Piper"], driver: ["Ace", "Nova", "Mick"], trader: ["Ledger", "Cass", "Hank"] };
+      const startingLevel = 1 + Math.floor(getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "crew_starting_level"));
+      const member: CrewMember = { id: `crew_${Date.now()}_${state.crewRoster.length}`, name: names[role][state.crewRoster.filter((crew) => crew.role === role).length % names[role].length], role, level: startingLevel, xp: startingLevel <= 1 ? 0 : 50 * (Math.pow(2, startingLevel - 1) - 1), specialization: null };
+      set((current: GameState) => ({ teamPoints: current.teamPoints - 1, crewRoster: [...current.crewRoster, member] }));
     },
 
     specializeCrewMember: (crewId: string, spec: string) => {

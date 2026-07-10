@@ -21,7 +21,7 @@ export default function OwnerSubTab() {
           style={{ color: "var(--text-heading)" }}
           className="text-sm font-semibold uppercase tracking-widest"
         >
-          Owner Upgrades
+          Facilities & Supply Chains
         </h2>
         <span
           style={{ color: "var(--accent)" }}

@@ -75,10 +75,10 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Auto-Race", meaning: "Unlocks at 30 Rep. Fires on a timer (improved by Pit Crew workshop upgrade)." },
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} milestone goals rewarding materials, Forge Tokens, and Dealer refreshes.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
-  { term: "Team Points (TP)", meaning: "Layer 2 prestige currency earned from Team Reset. Spent on team upgrades that accelerate Scrap Reset runs." },
-  { term: "Owner Points (OP)", meaning: "Layer 3 prestige currency earned from Owner Reset. Spent on powerful franchise-wide upgrades." },
-  { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 prestige currency earned from Track Owner Reset. Spent on meta-game perks like custom circuits and passive income." },
-  { term: "Crew", meaning: "NPC helpers unlocked after first Team Reset. 4 roles (Mechanic, Scout, Driver, Trader) with specializations. Persist through Scrap Resets but reset on Team Reset (unless you have the Crew Retention upgrade)." },
+  { term: "Team Points (TP)", meaning: "Layer 2 currency earned from Team Reset. Spent on crew, fleet capacity, and team infrastructure." },
+  { term: "Owner Points (OP)", meaning: "Layer 3 currency earned from Owner Reset. Spent on facilities, sourcing, and advanced engineering capability." },
+  { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 currency earned from Track Reset. Spent on venue, event, and endgame fleet perks." },
+  { term: "Crew", meaning: "NPC helpers unlocked after the first Team Reset. Four roles (Mechanic, Scout, Driver, Trader) have distinct specializations. Crew persist through Scrap Resets and reset on Team Reset." },
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
   { term: "Racer Attributes", meaning: `${ATTRIBUTE_DEFINITIONS.length} allocatable stat points (${ATTRIBUTE_DEFINITIONS.map(a => a.name).join(", ")}). Boost skill ratings or provide flat bonuses.` },
   { term: "Offline Progress", meaning: "The game continues scavenging and racing while closed (capped at 8 hours). A summary modal shows your offline earnings when you return." },
@@ -118,11 +118,11 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "What are Team, Owner, and Track resets?",
-    answer: "These are higher prestige layers beyond Scrap Reset. Team Reset (Layer 2) costs accumulated LP and grants Team Points for crew and infrastructure upgrades. Owner Reset (Layer 3) costs Team Points and grants Owner Points for franchise-wide power. Track Owner (Layer 4) costs Owner Points and grants Track Prestige Tokens for meta-game perks. Each layer resets the layers below it.",
+    answer: "These are responsibility layers beyond Scrap Reset. Team Reset exchanges lower-layer progress for Team Points and opens crew and fleet programs. Owner Reset exchanges Team progress for Owner Points and opens facilities and supply chains. Track Reset exchanges Owner progress for Prestige Tokens and opens venue configuration and hosted events. Each layer has an explicit retention contract and clears the layers below it.",
   },
   {
     question: "How does the crew system work?",
-    answer: "Crew unlocks after your first Team Reset. You recruit NPC members in 4 roles: Mechanic (-build/repair costs), Scout (+scavenge luck/yield), Driver (+race performance/-DNF), and Trader (+sell value/-dealer prices). Each role has 2 specializations to choose from. Crew gain XP from their associated activities and level up for stronger bonuses. They persist through Scrap Resets but reset on Team Reset (unless you have the Crew Retention upgrade).",
+    answer: "Crew unlocks after your first Team Reset. You recruit NPC members in 4 roles: Mechanic (-build/repair costs), Scout (+scavenge luck/yield), Driver (+race performance/-DNF), and Trader (+sell value/-dealer prices). Each role has 2 specializations. Crew gain XP from their activities and from fleet programs. They persist through Scrap Resets and reset on Team Reset.",
   },
   {
     question: "How do racer skills and attributes work?",
