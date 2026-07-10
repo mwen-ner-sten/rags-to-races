@@ -31,7 +31,7 @@ export default function PlaystyleSubTab() {
           style={{ color: "var(--text-heading)" }}
           className="text-sm font-semibold uppercase tracking-widest"
         >
-          Playstyle Trees
+          Garage Philosophy
         </h2>
         <span
           style={{ color: "var(--accent)" }}

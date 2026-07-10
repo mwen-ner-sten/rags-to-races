@@ -85,6 +85,17 @@ describe("save envelope", () => {
     expect(decoded.envelope.state.currentEra).toBe(1);
   });
 
+  it("refunds legacy talents into Garage Philosophy LP during version-three migration", () => {
+    const decoded = decodeSavePayload(JSON.stringify({
+      state: { legacyPoints: 2, unlockedTalentNodes: ["racer_t1_rev", "racer_t2_smooth"] },
+      version: 2,
+    }));
+
+    expect(decoded.envelope.state.legacyPoints).toBe(25);
+    expect(decoded.envelope.state.unlockedTalentNodes).toEqual([]);
+    expect(decoded.envelope.state.vehicleLoadouts).toEqual([]);
+  });
+
   it("rejects corrupt state before it can be loaded", () => {
     expect(() =>
       decodeSavePayload(

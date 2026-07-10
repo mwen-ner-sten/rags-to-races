@@ -76,6 +76,15 @@ export interface ActivityLogEntry {
   lpDelta?: number;
 }
 
+export interface VehicleLoadout {
+  id: string;
+  name: string;
+  vehicleId: string;
+  vehicleDefinitionId: string;
+  createdAt: number;
+  parts: Record<string, { partId: string; addonIds: string[] }>;
+}
+
 const MAX_LOG_ENTRIES = 200;
 
 export interface GameState {
@@ -105,6 +114,7 @@ export interface GameState {
   // Garage (built vehicles)
   garage: BuiltVehicle[];
   activeVehicleId: string | null;
+  vehicleLoadouts: VehicleLoadout[];
 
   // Scavenging
   selectedLocationId: string;
@@ -275,6 +285,9 @@ export interface GameState {
   buildSelectedVehicle: () => void;
   setActiveVehicle: (vehicleId: string) => void;
   sellVehicle: (vehicleId: string) => void;
+  saveVehicleLoadout: (vehicleId: string, name: string) => void;
+  applyVehicleLoadout: (loadoutId: string) => void;
+  deleteVehicleLoadout: (loadoutId: string) => void;
   setSelectedLocation: (locationId: string) => void;
   setSelectedCircuit: (circuitId: string) => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
@@ -369,6 +382,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     inventory: [],
     garage: [],
     activeVehicleId: null,
+    vehicleLoadouts: [],
     selectedLocationId: "curbside",
     selectedSellBelowQuality: "decent",
     isScavenging: false,
@@ -810,8 +824,67 @@ function createActions(set: SetState, get: GetState) {
         scrapBucks: s.scrapBucks + value,
         lifetimeScrapBucks: s.lifetimeScrapBucks + value,
         activeVehicleId: s.activeVehicleId === vehicleId ? null : s.activeVehicleId,
+        vehicleLoadouts: s.vehicleLoadouts.filter((loadout) => loadout.vehicleId !== vehicleId),
       }));
       _appendLog(set, get, "sell", `Sold ${vehicleDef?.name ?? "vehicle"} for $${value}`, { scrapDelta: value });
+    },
+
+    saveVehicleLoadout: (vehicleId: string, name: string) => {
+      const state = get() as GameState;
+      const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
+      const cleanName = name.trim().slice(0, 40);
+      if (!vehicle || !cleanName) return;
+      const loadout: VehicleLoadout = {
+        id: `loadout_${Date.now()}_${state.vehicleLoadouts.length}`,
+        name: cleanName,
+        vehicleId,
+        vehicleDefinitionId: vehicle.definitionId,
+        createdAt: Date.now(),
+        parts: Object.fromEntries(Object.entries(vehicle.parts).map(([slot, installed]) => [slot, {
+          partId: installed.part.id,
+          addonIds: installed.addons.map((addon) => addon.id),
+        }])),
+      };
+      set((current: GameState) => ({ vehicleLoadouts: [...current.vehicleLoadouts, loadout] }));
+      _appendLog(set, get, "build", `Saved vehicle loadout ${cleanName}`);
+    },
+
+    applyVehicleLoadout: (loadoutId: string) => {
+      const state = get() as GameState;
+      const loadout = state.vehicleLoadouts.find((candidate) => candidate.id === loadoutId);
+      const vehicle = loadout ? state.garage.find((candidate) => candidate.id === loadout.vehicleId) : undefined;
+      if (!loadout || !vehicle || vehicle.definitionId !== loadout.vehicleDefinitionId) return;
+
+      const available = [
+        ...state.inventory,
+        ...Object.values(vehicle.parts).flatMap((installed) => [installed.part, ...installed.addons]),
+      ];
+      const byId = new Map(available.map((part) => [part.id, part]));
+      const usedIds = new Set<string>();
+      const parts: Record<string, InstalledPart> = {};
+      for (const [slot, saved] of Object.entries(loadout.parts)) {
+        const part = byId.get(saved.partId);
+        const addons = saved.addonIds.map((id) => byId.get(id));
+        if (!part || addons.some((addon) => !addon)) return;
+        usedIds.add(part.id);
+        addons.forEach((addon) => usedIds.add(addon!.id));
+        parts[slot] = { part, addons: addons as ScavengedPart[] };
+      }
+
+      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
+      const definition = getVehicleById(vehicle.definitionId);
+      if (!definition) return;
+      const updated = { ...vehicle, parts, stats: calculateStats(definition, parts, vehicle.condition, handlingBonus) };
+      set((current: GameState) => ({
+        inventory: available.filter((part) => !usedIds.has(part.id)),
+        garage: current.garage.map((candidate) => candidate.id === vehicle.id ? updated : candidate),
+      }));
+      _appendLog(set, get, "build", `Applied vehicle loadout ${loadout.name}`);
+    },
+
+    deleteVehicleLoadout: (loadoutId: string) => {
+      set((state: GameState) => ({ vehicleLoadouts: state.vehicleLoadouts.filter((loadout) => loadout.id !== loadoutId) }));
     },
 
     setSelectedLocation: (locationId: string) => {
@@ -1587,6 +1660,7 @@ function createActions(set: SetState, get: GetState) {
         uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
         // Playstyle nodes persist through Scrap Reset
         unlockedPlaystyleNodes: state.unlockedPlaystyleNodes,
+        vehicleLoadouts: [],
       });
       _appendLog(set, get, "prestige", `Prestige #${newPrestigeCount}! Earned ${lpEarned} Legacy Points`, { lpDelta: lpEarned });
       // Check feature unlocks and achievements after prestige

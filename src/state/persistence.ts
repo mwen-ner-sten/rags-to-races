@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { GameState } from "./store";
+import { TALENT_NODES } from "@/data/talentNodes";
 
-export const PERSISTENCE_VERSION = 2;
+export const PERSISTENCE_VERSION = 3;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
 export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 
@@ -53,6 +54,7 @@ export function getPersistedGameState(state: GameState) {
     inventory: state.inventory,
     garage: state.garage,
     activeVehicleId: state.activeVehicleId,
+    vehicleLoadouts: state.vehicleLoadouts,
     selectedLocationId: state.selectedLocationId,
     selectedSellBelowQuality: state.selectedSellBelowQuality,
     selectedCircuitId: state.selectedCircuitId,
@@ -144,18 +146,32 @@ export function migratePersistedState(
     throw new Error(`Invalid persisted game state: ${z.prettifyError(parsed.error)}`);
   }
 
-  const state = { ...parsed.data } as Partial<PersistedGameState>;
+  let state = { ...parsed.data } as Partial<PersistedGameState>;
 
   if (version === 0) {
     const oldPrestigeCount = typeof state.prestigeCount === "number" ? state.prestigeCount : 0;
     const retroactiveLp = Math.floor(oldPrestigeCount * 3);
-    return {
+    state = {
       ...state,
       legacyPoints: retroactiveLp,
       lifetimeLegacyPoints: retroactiveLp,
       legacyUpgradeLevels: {},
       activeMomentumTiers: [],
       currentEra: 1,
+    };
+  }
+
+  if (version < 3) {
+    const oldNodes = Array.isArray(state.unlockedTalentNodes) ? state.unlockedTalentNodes : [];
+    const tierRefund = { 1: 8, 2: 15, 3: 30, 4: 60, 5: 60 } as Record<number, number>;
+    const lpRefund = TALENT_NODES
+      .filter((node) => oldNodes.includes(node.id))
+      .reduce((total, node) => total + (tierRefund[node.tier] ?? 0), 0);
+    state = {
+      ...state,
+      legacyPoints: (state.legacyPoints ?? 0) + lpRefund,
+      unlockedTalentNodes: [],
+      vehicleLoadouts: [],
     };
   }
 

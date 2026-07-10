@@ -2,32 +2,27 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/state/store";
-import WorkshopPanel from "@/components/Workshop/WorkshopPanel";
 import LegacyShop from "@/components/Shop/LegacyShop";
 import PrestigeSubTab from "./PrestigeSubTab";
 import TeamSubTab from "./TeamSubTab";
 import OwnerSubTab from "./OwnerSubTab";
 import TrackSubTab from "./TrackSubTab";
 import AchievementsSubTab from "./AchievementsSubTab";
-import PlaystyleSubTab from "./PlaystyleSubTab";
 import { isFeatureAvailable } from "@/config/features";
 
-type UpgradeSubTab = "workshop" | "legacy" | "prestige" | "trophies" | "playstyle" | "team" | "owner" | "track";
+type UpgradeSubTab = "legacy" | "prestige" | "trophies" | "team" | "owner" | "track";
 
 export default function UpgradesPanel() {
-  const [activeTab, setActiveTab] = useState<UpgradeSubTab>("workshop");
+  const [activeTab, setActiveTab] = useState<UpgradeSubTab>("legacy");
   const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
-  const prestigeCount = useGameStore((s) => s.prestigeCount);
   const teamEraCount = useGameStore((s) => s.teamEraCount);
   const ownerEraCount = useGameStore((s) => s.ownerEraCount);
   const trackEraCount = useGameStore((s) => s.trackEraCount);
 
   const TABS: { id: UpgradeSubTab; label: string; show: boolean }[] = [
-    { id: "workshop",  label: "Workshop", show: true },
     { id: "legacy",    label: "Legacy", show: true },
-    { id: "prestige",  label: "Prestige", show: true },
+    { id: "prestige",  label: "Scrap Reset", show: true },
     { id: "trophies",  label: "Trophies", show: true },
-    { id: "playstyle", label: "Playstyle", show: prestigeCount >= 3 },
     { id: "team",      label: "Team", show: isFeatureAvailable("crew_system") && (teamEraCount > 0 || unlockedFeatures.includes("crew_system")) },
     { id: "owner",     label: "Owner", show: isFeatureAvailable("advanced_circuits") && ownerEraCount > 0 },
     { id: "track",     label: "Track", show: isFeatureAvailable("track_customization") && trackEraCount > 0 },
@@ -54,11 +49,9 @@ export default function UpgradesPanel() {
         ))}
       </div>
 
-      {activeTab === "workshop" && <WorkshopPanel />}
       {activeTab === "legacy"   && <LegacyShop />}
       {activeTab === "prestige"  && <PrestigeSubTab />}
       {activeTab === "trophies"  && <AchievementsSubTab />}
-      {activeTab === "playstyle" && <PlaystyleSubTab />}
       {activeTab === "team"      && <TeamSubTab />}
       {activeTab === "owner"    && <OwnerSubTab />}
       {activeTab === "track"    && <TrackSubTab />}
