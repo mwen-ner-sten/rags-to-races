@@ -60,6 +60,12 @@ src/
 └── utils/          # Formatting, RNG, save/load helpers
 ```
 
+## Project Guides
+
+- [Development and release workflow](docs/development-workflow.md)
+- [Gameplay charter](docs/gameplay-charter.md)
+- [Gameplay playtest plan](docs/playtest-plan.md)
+
 ## License
 
 [MIT](LICENSE)
