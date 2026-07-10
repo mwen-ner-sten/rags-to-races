@@ -281,7 +281,7 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
         lifetimeLPAllTime: 106,
         lifetimeLPThisTeamEra: 106,
         lifetimeScrapResets: 1,
-        autoScavengeUnlocked: true,
+        autoScavengeUnlocked: false,
         autoRaceUnlocked: true,
         manualScavengeClicks: 0,
         materials: resetReady.materials,

@@ -61,7 +61,7 @@ const SEED_MONEY: LegacyUpgradeDefinition = {
 const MUSCLE_MEMORY: LegacyUpgradeDefinition = {
   id: "leg_auto_scav_clicks",
   name: "Muscle Memory",
-  description: "Start with 20 auto-scavenge clicks per level (100 unlocks auto).",
+  description: "Start with 20 manual-click credit per level toward the 500-click Auto-Scavenge unlock.",
   category: "velocity",
   maxLevel: 5,
   baseCost: 8,

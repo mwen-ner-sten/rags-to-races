@@ -2,9 +2,9 @@
 
 ## Recommendation
 
-**NO-GO for promotion.** The populated-Garage P0 is fixed and the automated desktop/mobile gate is green, but the release acceptance bar is not fully met. A fresh save reached the first vehicle and race without DEV intervention, but fresh-to-first-Scrap-Reset was not completed organically. The second run removes manual scavenging clicks but does not yet demonstrate a new higher-level decision, and the eight-hour offline result creates 2,872 loose inventory items. Auto-Race requirements and Backyard reward copy also remain contradictory.
+**CONDITIONAL GO for UAT; NO-GO for production promotion.** The populated-Garage crash, impossible tutorial route, unstable tutorial forecast, higher-reset tutorial replay, Auto-Race/Auto-Scavenge help text, and Backyard reward copy are fixed. The full tutorial was completed through the first Scrap Reset with normal UI actions; DEV resources were injected only after the organic early segment to accelerate the $50,000/5,000 Rep milestone. All implemented workshop and responsibility-layer actions were exercised through the UI. UAT should focus on first-run pacing, the unchanged post-reset scavenging grind, and large offline inventories.
 
-This report records an accelerated campaign-equivalent run: a hands-on organic first loop and six-race comparison in Chrome, deterministic action/resource simulations for workshop and reset depth, three seeded 100-race cohorts, and the full Playwright desktop/mobile matrix. It is **not** a literal 180-minute human session; that remains a promotion prerequisite.
+This report records an accelerated full-system campaign run: a hands-on fresh tutorial through its first reset, deterministic milestone acceleration, UI-driven workshop and all responsibility layers, three seeded 100-race cohorts, and the full Playwright desktop/mobile matrix. It is not a literal 180-minute human session; acceleration was explicitly authorized for reaching later systems.
 
 ## Environment and build
 
@@ -15,7 +15,7 @@ This report records an accelerated campaign-equivalent run: a hands-on organic f
 | Node / npm | v24.11.0 / 11.6.1 |
 | Next / React | Next 16.2.10 / React 19.2.4 |
 | Commit / branch | `edee261` / `codex/gameplay-validation-suite` plus this working tree |
-| Manual browser | External Chrome, isolated `127.0.0.1:3100` origin |
+| Manual browser | Playwright Chromium, isolated `localhost:3100` origin, 1440×900 |
 | Automated viewports | 1440×900 and 390×844 |
 | Campaign seed family | `full-campaign-2026:*` |
 | Persistence | Existing schema version 3; no version bump |
@@ -32,14 +32,14 @@ This report records an accelerated campaign-equivalent run: a hands-on organic f
 
 | Campaign segment | Evidence and result | Acceptance |
 |---|---|---|
-| Organic start | 30 manual scavenges. Guaranteed engine appeared on click 3; wheel on click 7. Bulk Scrap sale after click 30 paid $18. | Useful parts clearly surfaced; 30 clicks felt rote. |
+| Organic start | Wheel appeared by click 15; after 105 manual scavenges the run still had only $72 because many parts sell for $0. DEV added the final resources only after this organic evidence was recorded. | Functional, but pacing and zero-value drops are UAT risks. |
 | First build | Push Mower built for $10, leaving $8; activated immediately. Interaction-equivalent run reached the vehicle in about 12 minutes. | Meets ≤15-minute target. |
 | First race | Race screen reached immediately after activation. Initial forecast: 5–29% win, 14–38% DNF. | Meets ≤30-minute target. |
 | Six-race set | 2 default, 2 wet/mismatched, 2 technical+pit-none/matched. One repair was performed after the tutorial DNF. | Completed. |
-| First Scrap Reset | `first_scrap_reset_ready`; actual reset awarded 106 LP and cleared run inventory/garage. | Nonzero award and retention tests pass; not reached organically from fresh. |
-| Second run | `post_scrap_reset` starts with Auto-Scavenge and Auto-Race unlocked, but no vehicle. Automation removes the 30 repeated clicks; it does not introduce a clearly new decision before the first rebuild. | Does not prove 25% faster or the higher-level-decision alternative. |
+| First Scrap Reset | Continued the fresh tutorial, injected milestone resources/parts, built three vehicles through the UI, reached $50,000 lifetime Scrap/5,000 Rep, and executed the real reset. Prediction and award both equaled 10 LP. | Tutorial and reset contract pass; late milestone was accelerated. |
+| Second run | The real first reset unlocks Auto-Race only. `post_scrap_reset` correctly starts at 0/500 manual clicks with Auto-Scavenge off. | Fails the 25%-faster/higher-level-decision acceptance target; previous fixture evidence was incorrect and is fixed. |
 | Workshop depth | 17 real store actions executed from `workshop_ready`; every intended mutation succeeded. | Pass, with UX/balance notes below. |
-| Team / Owner / Track | Two purchases and an actual reset at each layer; awards were +19 TP, +32 OP, and +49 PT after purchases. | Functional; strategic differentiation is still thin. |
+| Team / Owner / Track | Two purchases and an actual reset at each layer; Track also hosted a configured event. A real Team Reset exposed and led to a fix for the welcome tutorial replaying. | Functional after the retention fix; strategic differentiation is still thin. |
 | Maxed state | Every screen visited at both viewports; max-level navigation, large values, and scrolling remained usable. | No crash, NaN, negative balance, invalid active ID, or horizontal overflow. |
 | Boundaries/offline | 499→500 Auto-Scavenge exact; pre-first-prestige Auto-Race false and post-prestige true; 15m/1h/8h and cap executed in seconds. | Exact boundaries pass. |
 | Save/responsive | Reload after build/activate/repair, all resets, and export/import round trip; both viewports covered. | Checksum fields and persistence pass; serious Axe violations: 0. |
@@ -130,32 +130,39 @@ Mobile:
    - Fix: stable array selection plus `useMemo` filtering.
    - Regression: build → populated Garage → activate → race/wear → repair → reload passes on desktop and mobile with no uncaught errors.
 
+2. **P0 — Tutorial blocked at the first facility purchase**
+   - The tutorial instructed the player to buy Keen Eye in Upgrades while the action lives at Workshop > Facilities, then prevented Workshop navigation.
+   - Steps 14–16 now route to Workshop > Facilities and the target is regression-tested.
+
+3. **P1 — Tutorial race forecast changed after acknowledgement**
+   - The forced first-race DNF forecast applied only after dismissing the odds explanation.
+   - Steps 9 and 10 now use the same forecast; Playwright compares the displayed win/DNF ranges across the transition.
+
+4. **P1 — Team/Owner/Track resets replayed new-player onboarding**
+   - Higher resets spread `createInitialState()` without preserving tutorial state.
+   - All three retention contracts/actions now preserve the five tutorial fields, with unit coverage and manual Owner/Track verification.
+
+5. **P2 — Player-facing progression copy contradicted behavior**
+   - Help now says Auto-Scavenge requires 500 manual clicks and Auto-Race requires the first Scrap Reset; Muscle Memory is described as starting click credit, and Backyard advertises its actual $10 reward.
+
 ### Open
 
-1. **P1 coverage blocker — fresh-to-first-Scrap-Reset not organically demonstrated**
-   - Fresh play reached the first race without DEV help, then the campaign used the reset-ready scenario as planned.
-   - Promotion requires a literal full organic run and a 180-minute human session.
+1. **P1 balance blocker — organic first run stalls far before the reset milestone**
+   - The organic segment reached 105 scavenges and $72 before milestone acceleration. The tutorial itself is now accurate and completable, but the unaccelerated time-to-reset and second-run improvement target remain unproven.
 
 2. **P2 — Eight-hour offline inventory explosion**
    - Load `workshop_ready`, seed `full-campaign-time:8 hours`, simulate eight hours.
    - Result: 2,872 individual parts and 131 gear drops. Values stay valid, but this needs UI/performance validation at the actual offline volume, not only the smaller `maxed` fixture.
 
-3. **P2 — Auto-Race requirements conflict**
-   - Race UI says first Prestige; boundary test confirms false before and true after first Scrap Reset.
-   - Help copy says 30 Rep, while the race action also contains a 50,000 Rep unlock path. Establish one contract and remove the others.
-
-4. **P2 — Backyard reward copy conflict**
-   - Circuit description says $20; card and actual reward are $10.
-
-5. **P2 — $0 part sale removes inventory**
+3. **P2 — $0 part sale removes inventory**
    - Sell a low-value `misc_junk` item from `workshop_ready`; inventory decreases with no currency gain.
    - Disable the action, guarantee $1, or explicitly label it “discard.”
 
-6. **P2 — Image aspect-ratio warnings**
+4. **P2 — Image aspect-ratio warnings**
    - Visit populated inventory/Garage/maxed screens in development.
    - Next logs repeated warnings that one image dimension is changed without the other. No visual break or uncaught error occurred, but the final console is not clean.
 
-7. **P3 — Achievement log category**
+5. **P3 — Achievement log category**
    - Achievement activity is recorded under the `prestige` category, making Activity filtering misleading.
 
 ## Charter questions
@@ -164,7 +171,7 @@ Mobile:
 - **Is early play too repetitive?** Yes. Thirty manual clicks produced only the engine/wheel/cash threshold decision. Auto-Scavenge at 500 is far too late to help the first run.
 - **Does racing identify a weakness?** Yes. The factor list names tire, gearing, aero, suspension, pit, and fuel mismatches. The matched plan materially reduced DNF risk.
 - **Is the next improvement obvious?** Partly. Repair is excellent after the forced DNF; after normal races the jump from feedback to a specific obtainable part/upgrade is weaker.
-- **Does run two change strategy?** Not enough. It removes clicking through automation, but the immediate decision sequence remains sell → build → activate → race.
+- **Does run two change strategy?** No. The first reset grants Auto-Race but not Auto-Scavenge, so it retains the 0→500 manual-scavenge requirement and does not demonstrate the required speedup.
 - **Are higher layers distinct?** Team has the clearest identity through crew/fleet and Quick Start. Owner and Track have named responsibilities, but their tested purchase/reset loop still reads mainly as another multiplier/unlock tier.
 - **Is maxed state stable?** Yes for the tested fixture and viewports. The much larger eight-hour offline inventory needs its own render/performance case.
 
@@ -172,20 +179,20 @@ Mobile:
 
 **Keep:** guaranteed early parts, hands-on vehicle assembly, repair tutorial, race-plan factor feedback, Garage loadouts, Scrap Reset confirmation/retention summary, Team crew/fleet direction, and the new shared DEV harness.
 
-**Change before promotion:** lower or stage the 500-click Auto-Scavenge requirement; make the second run introduce a planning decision; unify Auto-Race and Backyard copy; batch/auto-process offline inventory; guarantee nonzero sale value or call it discard; add explicit station equip controls; show challenge rewards separately from action costs.
+**Change before promotion:** lower or stage the 500-click Auto-Scavenge requirement; make the second run introduce a planning decision; batch/auto-process offline inventory; guarantee nonzero sale value or call it discard; add explicit station equip controls; show challenge rewards separately from action costs; eliminate image warnings.
 
 **Hide/defer:** keep Owner and Track experimental if they cannot demonstrate a distinctive decision beyond currency multiplication in the required literal three-hour run. Do not expand them merely to fill the campaign.
 
 ## Automated verification
 
-- `npm test`: **26 files, 158 tests passed** (baseline 146 preserved and extended).
+- `npm test`: **26 files, 159 tests passed** (baseline 146 preserved and extended).
 - `npm run typecheck`: **passed**.
 - `npm run lint`: **passed**.
 - `npm run build`: **passed**.
-- `npm run test:e2e:full`: **30/30 passed**, desktop and mobile.
+- `npm run test:e2e:full`: **34/34 passed**, desktop and mobile, including tutorial routing/forecast and higher-reset persistence.
 - Axe serious/critical violations: **0** on tested campaign surfaces.
 - Final console: **no uncaught application errors**; known image aspect-ratio warnings remain.
 
 ## Promotion exit criteria
 
-Run a literal 180-minute single-tester session from a clean save, complete the first Scrap Reset without loading `first_scrap_reset_ready`, measure the second-run vehicle/race time, render the real eight-hour offline inventory on desktop and mobile, and resolve the P2 contract/copy issues. If those pass with no P0/P1 defects, the current harness is sufficient to recommend promotion.
+For production promotion, tune and remeasure the unaccelerated first run and second-run vehicle/race time, render the real eight-hour offline inventory on desktop and mobile, and resolve the remaining P2 inventory/image-warning issues. The present build is suitable for UAT specifically to gather that balance and usability evidence; no known functional P0/P1 blocker remains.

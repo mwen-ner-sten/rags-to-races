@@ -24,13 +24,12 @@ export default function HelpProgressionTab() {
       <SectionCard title="Key Thresholds">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {[
-            { label: "Auto-Scavenge", value: "100 clicks" },
-            { label: "Auto-Race", value: "30 Rep" },
+            { label: "Auto-Scavenge", value: "500 clicks" },
             { label: "Dealer", value: `${formatNumber(HELP_DEALER.unlockRep)} Rep` },
             { label: "Crafting", value: "~15k Rep" },
             { label: "Dealer T2", value: `${formatNumber(HELP_DEALER.tier2Rep)} Rep` },
             { label: "Dealer T3", value: `${formatNumber(HELP_DEALER.tier3Rep)} Rep` },
-            { label: "Auto-Race", value: "Prestige 1" },
+            { label: "Auto-Race", value: "Scrap Reset 1" },
             { label: "Junk Filter", value: "Prestige 2" },
             { label: "Garage Philosophy", value: "Prestige 3" },
             { label: "Quick Builder", value: "Prestige 5" },

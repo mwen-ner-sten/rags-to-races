@@ -55,6 +55,7 @@ export default function SalvageWorkshopPanel() {
       <div className="flex gap-1 overflow-x-auto rounded-lg border p-1" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} role="tablist" aria-label="Salvage Workshop sections">
         {TABS.map((item) => (
           <button key={item.id} role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}
+            data-tutorial={item.id === "facilities" ? "workshop-facilities-tab" : undefined}
             className="shrink-0 rounded px-3 py-2 text-xs font-semibold uppercase tracking-wider"
             style={tab === item.id ? { background: "var(--accent)", color: "var(--btn-primary-text)" } : { color: "var(--text-secondary)" }}>
             {item.label}

@@ -30,6 +30,16 @@ describe("accelerated campaign fixtures", () => {
     useGameStore.getState().prestige();
     expect(useGameStore.getState()).toMatchObject({ prestigeCount: 1, autoRaceUnlocked: true });
   });
+
+  it("models the first post-reset run with Auto-Race but without Auto-Scavenge", () => {
+    load("post_scrap_reset");
+    expect(useGameStore.getState()).toMatchObject({
+      prestigeCount: 1,
+      manualScavengeClicks: 0,
+      autoScavengeUnlocked: false,
+      autoRaceUnlocked: true,
+    });
+  });
 });
 
 describe("actual four-layer reset retention", () => {
@@ -51,6 +61,8 @@ describe("actual four-layer reset retention", () => {
       expect(awardAfter).toBeGreaterThan(awardBefore);
       expect(after.earnedAchievements).toEqual(expect.arrayContaining(before.earnedAchievements));
       expect(after.discoveredBlueprintIds).toEqual(before.discoveredBlueprintIds);
+      expect(after.tutorialStep).toBe(before.tutorialStep);
+      expect(after.tutorialDismissed).toBe(before.tutorialDismissed);
       expect(after.garage).toEqual([]);
       expect(after.inventory).toEqual([]);
       expect(RESET_PRESERVE_FIELDS[testCase.layer].has("earnedAchievements")).toBe(true);

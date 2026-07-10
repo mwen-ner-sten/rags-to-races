@@ -1049,7 +1049,7 @@ function createActions(set: SetState, get: GetState) {
             newUnlockEvents.push("Supercar Blueprint Unlocked! The rags-to-races dream is real.");
           }
 
-          // (Auto-scavenge unlocks at 100 manual clicks; auto-race unlocks after first prestige)
+          // (Auto-scavenge unlocks at 500 manual clicks; auto-race unlocks after first Scrap Reset)
 
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
@@ -2368,6 +2368,11 @@ function createActions(set: SetState, get: GetState) {
 
       set({
         ...createInitialState(),
+        tutorialStep: state.tutorialStep,
+        tutorialDismissed: state.tutorialDismissed,
+        tutorialMinimized: state.tutorialMinimized,
+        tutorialSkippedSteps: state.tutorialSkippedSteps,
+        tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         // Team layer persists
         teamPoints: newTP,
         lifetimeTeamPoints: newLifetimeTP,
@@ -2460,6 +2465,11 @@ function createActions(set: SetState, get: GetState) {
 
       set({
         ...createInitialState(),
+        tutorialStep: state.tutorialStep,
+        tutorialDismissed: state.tutorialDismissed,
+        tutorialMinimized: state.tutorialMinimized,
+        tutorialSkippedSteps: state.tutorialSkippedSteps,
+        tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         // Owner layer persists
         ownerPoints: newOP,
         lifetimeOwnerPoints: newLifetimeOP,
@@ -2544,6 +2554,11 @@ function createActions(set: SetState, get: GetState) {
 
       set({
         ...createInitialState(),
+        tutorialStep: state.tutorialStep,
+        tutorialDismissed: state.tutorialDismissed,
+        tutorialMinimized: state.tutorialMinimized,
+        tutorialSkippedSteps: state.tutorialSkippedSteps,
+        tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
         // Track layer persists
         trackPrestigeTokens: newPT,
         lifetimeTrackTokens: newLifetimePT,

@@ -59,6 +59,39 @@ test("fresh save exposes the first engineering loop", async ({ page }) => {
   await expectNoSeriousStructuralAccessibilityViolations(page);
 });
 
+test("tutorial race forecast remains accurate through the forced-DNF explanation", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 9,
+    tutorialDismissed: false,
+    lifetimeRacesAllTime: 0,
+  });
+  await openTab(page, "race");
+  const odds = page.locator('[data-tutorial="odds-display"]');
+  const before = await odds.innerText();
+  const beforeRanges = before.match(/\d+[–-]\d+%/g);
+  await page.getByRole("button", { name: "Got it" }).click();
+  const afterRanges = (await odds.innerText()).match(/\d+[–-]\d+%/g);
+  expect(afterRanges).toEqual(beforeRanges);
+  await expect(odds).toContainText(/DNF|0%/i);
+});
+
+test("tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 14,
+    tutorialDismissed: false,
+    scrapBucks: 100,
+    lifetimeScrapBucks: 100,
+    workshopLevels: {},
+  });
+  await page.getByRole("button", { name: "Got it" }).click();
+  await openTab(page, "gear");
+  await expect(page.getByText(/Workshop > Facilities/i)).toBeVisible();
+  await page.getByRole("button", { name: "Got it" }).click();
+  await page.locator('[data-tutorial="workshop-facilities-tab"]').click();
+  await page.getByRole("button", { name: /\$75/ }).first().click();
+  await expect(page.getByText(/\$500 and 100 Rep/i)).toBeVisible();
+});
+
 test("build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
   const errors = captureErrors(page);
   await loadFixture(page, "first_build_ready", { scrapBucks: 1_000, lifetimeScrapBucks: 1_000 });

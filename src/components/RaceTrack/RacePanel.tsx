@@ -594,7 +594,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
             momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
-            forceDNF={lifetimeRacesAllTime === 0 && tutorialStep === 10}
+            forceDNF={lifetimeRacesAllTime === 0 && (tutorialStep === 9 || tutorialStep === 10)}
             profile={selectedCircuit.profile}
             plan={currentRacePlan}
             diagnosticsLevel={diagnosticsLevel}

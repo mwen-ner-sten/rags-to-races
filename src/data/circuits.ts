@@ -23,7 +23,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     id: "backyard_derby",
     name: "Backyard Derby",
     tier: 0,
-    description: "Held in Clyde's back forty. Prize: bragging rights and $20.",
+    description: "Held in Clyde's back forty. Prize: bragging rights and $10.",
     minVehicleTier: 0,
     maxVehicleTier: 1,
     difficulty: 25,

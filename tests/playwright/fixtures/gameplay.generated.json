@@ -3587,7 +3587,7 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": true,
+        "autoScavengeUnlocked": false,
         "manualScavengeClicks": 0,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
