@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { sprites } from "@/components/RaceTrack/VehicleSprite";
+import {
+  getVehicleSpriteAsset,
+  VEHICLE_TRACK_SPRITE_SIZE,
+} from "@/components/RaceTrack/vehicleSpriteManifest";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { RaceEvent } from "@/engine/raceEvents";
 import TrackSurface from "./TrackSurface";
@@ -30,7 +33,7 @@ const TRACK_PATH =
 const FINISH_LINE = { x: 120, y1: 22, y2: 58 };
 
 // Sprite size on track (viewBox units)
-const SPRITE_SIZE = 16;
+const SPRITE_SIZE = VEHICLE_TRACK_SPRITE_SIZE;
 const SPRITE_HALF = SPRITE_SIZE / 2;
 
 /** Get the vehicle ID for a given tier. */
@@ -188,7 +191,7 @@ export default function RaceTrackSVG({
             const vId = isPlayer
               ? playerVehicleId
               : opponentVehicleId(rank, circuitMinTier, circuitMaxTier);
-            const renderer = vId ? sprites[vId] : undefined;
+            const sprite = getVehicleSpriteAsset(vId);
 
             return (
               <g
@@ -212,16 +215,16 @@ export default function RaceTrackSVG({
                       : undefined
                   }
                 >
-                  {renderer ? (
-                    <svg
+                  {sprite ? (
+                    <image
+                      href={sprite.src}
                       x={-SPRITE_HALF}
                       y={-SPRITE_HALF}
                       width={SPRITE_SIZE}
                       height={SPRITE_SIZE}
-                      viewBox="0 0 32 32"
-                    >
-                      {renderer(color)}
-                    </svg>
+                      preserveAspectRatio="xMidYMid meet"
+                      style={{ imageRendering: "pixelated" }}
+                    />
                   ) : (
                     <polygon
                       points={isPlayer ? "-7,-5 8,0 -7,5" : "-5,-3.5 6,0 -5,3.5"}

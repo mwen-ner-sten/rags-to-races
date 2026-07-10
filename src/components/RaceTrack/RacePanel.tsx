@@ -14,6 +14,7 @@ import RaceTrackSVG from "@/components/RaceTrack/RaceTrackSVG";
 import type { RaceEvent } from "@/engine/raceEvents";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
+import GameAssetImage from "@/components/GameAssetImage";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -420,6 +421,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                   : { borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
               }
             >
+              <GameAssetImage kind="circuit" id={circuit.id} width={120} height={68} className="mb-2 rounded object-cover" />
               <div className="font-semibold text-sm" style={{ color: "var(--text-white)" }}>{circuit.name}</div>
               <div className="mt-0.5 text-xs hidden lg:block" style={{ color: "var(--text-heading)" }}>{circuit.description}</div>
               <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
