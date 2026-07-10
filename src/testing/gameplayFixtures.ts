@@ -41,7 +41,10 @@ const levelMap = (definitions: ReadonlyArray<{ id: string; maxLevel: number }>) 
 
 function basePersistedState(): PersistedGameState {
   const initial = createInitialState();
-  return getPersistedGameState(initial as GameState);
+  return {
+    ...getPersistedGameState(initial as GameState),
+    tutorialLastAdvanceTime: 0,
+  };
 }
 
 function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> {
