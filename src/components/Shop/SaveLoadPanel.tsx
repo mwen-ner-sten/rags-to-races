@@ -8,6 +8,10 @@ import {
   getSlotMeta,
   exportSaveFile,
   importSaveFile,
+  getRecoveryBackupMeta,
+  restoreRecoveryBackup,
+  exportRecoveryBackup,
+  discardRecoveryBackup,
   type SaveSlotMeta,
 } from "@/utils/saveLoad";
 import { formatNumber } from "@/utils/format";
@@ -30,6 +34,7 @@ export default function SaveLoadPanel() {
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [recovery, setRecovery] = useState(() => getRecoveryBackupMeta());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function refreshSlots() { setSlots(getSlotMeta()); }
@@ -48,6 +53,7 @@ export default function SaveLoadPanel() {
   function handleLoad(slot: number) {
     const ok = loadFromSlot(slot);
     if (ok) {
+      setRecovery(getRecoveryBackupMeta());
       showToast(`Loaded Slot ${slot + 1}`);
     } else {
       showToast("Slot is empty", "err");
@@ -76,6 +82,7 @@ export default function SaveLoadPanel() {
       setImportError(err);
       showToast(err, "err");
     } else {
+      setRecovery(getRecoveryBackupMeta());
       refreshSlots();
       showToast("Save imported successfully!");
     }
@@ -95,6 +102,58 @@ export default function SaveLoadPanel() {
           className="fixed bottom-6 right-6 z-50 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-lg transition-all"
         >
           {toast.msg}
+        </div>
+      )}
+
+      {recovery && (
+        <div
+          style={{ background: "var(--panel-bg)", borderColor: "var(--warning, #d9a441)" }}
+          className="rounded-lg border p-4"
+          role="status"
+        >
+          <h3 style={{ color: "var(--text-heading)" }} className="text-sm font-semibold">
+            Recovery backup available
+          </h3>
+          <p style={{ color: "var(--text-muted)" }} className="mt-1 text-xs">
+            Your previous game was preserved {formatTimestamp(recovery.createdAt)} before {recovery.source.replaceAll("-", " ")}.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => {
+                const error = exportRecoveryBackup();
+                showToast(error ?? "Recovery backup downloaded", error ? "err" : "ok");
+              }}
+              style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+              className="rounded border px-3 py-1.5 text-xs font-semibold"
+            >
+              Export backup
+            </button>
+            <button
+              onClick={() => {
+                const error = restoreRecoveryBackup();
+                if (error) {
+                  showToast(error, "err");
+                  return;
+                }
+                setRecovery(null);
+                showToast("Recovery backup restored");
+              }}
+              style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+              className="rounded px-3 py-1.5 text-xs font-semibold"
+            >
+              Restore previous game
+            </button>
+            <button
+              onClick={() => {
+                discardRecoveryBackup();
+                setRecovery(null);
+              }}
+              style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+              className="rounded border px-3 py-1.5 text-xs font-semibold"
+            >
+              Discard backup
+            </button>
+          </div>
         </div>
       )}
 

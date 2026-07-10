@@ -10,7 +10,7 @@ import {
   generateLootName,
 } from "@/data/lootGear";
 import { GEAR_MOD_TEMPLATES } from "@/data/gearMods";
-import { weightedPick, randInt } from "@/utils/random";
+import { weightedPick, randInt, random } from "@/utils/random";
 
 let _instanceCounter = 0;
 function makeGearId(): string {
@@ -65,12 +65,12 @@ function rollEffects(
   const [multMin, multMax] = RARITY_VALUE_MULTS[rarity];
 
   // Shuffle pool and take first `count` entries
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const shuffled = [...pool].sort(() => random() - 0.5);
   const picked = shuffled.slice(0, count);
 
   return picked.map(([type, baseMin, baseMax]) => {
-    const mult = lerp(multMin, multMax, Math.random());
-    const value = parseFloat((lerp(baseMin, baseMax, Math.random()) * mult).toFixed(4));
+    const mult = lerp(multMin, multMax, random());
+    const value = parseFloat((lerp(baseMin, baseMax, random()) * mult).toFixed(4));
     return { type, value };
   });
 }
@@ -136,13 +136,13 @@ export function rollGearDrops(params: GearDropParams): {
 
   const gearDrops: LootGearItem[] = [];
 
-  if (Math.random() < gearDropChance) {
+  if (random() < gearDropChance) {
     const slot = GEAR_SLOTS[randInt(0, GEAR_SLOTS.length - 1)];
     const rarity = rollRarity(effectiveTier, params.rarityBonus);
     gearDrops.push(buildLootGear(slot, rarity, params.sourceId));
 
     // Double drop chance
-    if (params.doubleDropChance > 0 && Math.random() < params.doubleDropChance) {
+    if (params.doubleDropChance > 0 && random() < params.doubleDropChance) {
       const slot2 = GEAR_SLOTS[randInt(0, GEAR_SLOTS.length - 1)];
       const rarity2 = rollRarity(effectiveTier, params.rarityBonus);
       gearDrops.push(buildLootGear(slot2, rarity2, params.sourceId));
@@ -155,10 +155,10 @@ export function rollGearDrops(params: GearDropParams): {
     : (params.raceResult === "win" ? BASE_MOD_WIN + params.modDropRateBonus : 0);
 
   let modDrop: InstalledMod | null = null;
-  if (modDropChance > 0 && Math.random() < modDropChance) {
+  if (modDropChance > 0 && random() < modDropChance) {
     const template = GEAR_MOD_TEMPLATES[randInt(0, GEAR_MOD_TEMPLATES.length - 1)];
     const value = parseFloat(
-      lerp(template.minValue, template.maxValue, Math.random()).toFixed(4)
+      lerp(template.minValue, template.maxValue, random()).toFixed(4)
     );
     modDrop = {
       id: makeModInstanceId(),

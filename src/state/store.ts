@@ -1,7 +1,14 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  backupPersistedStoreBeforeMigration,
+  getPersistedGameState,
+  migratePersistedState,
+  PERSISTENCE_STORAGE_KEY,
+  PERSISTENCE_VERSION,
+} from "./persistence";
 import type { ScavengedPart } from "@/engine/scavenge";
 import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
@@ -10,11 +17,13 @@ import type { PrestigeBonus, RunStats } from "@/engine/prestige";
 import { LEGACY_UPGRADES_BY_ID, legacyUpgradeCost } from "@/data/legacyUpgrades";
 import { getActiveMomentumTiers, getMomentumEffectValue } from "@/data/momentumBonuses";
 import type { PartCondition } from "@/data/parts";
-import { CONDITIONS } from "@/data/parts";
+import { CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_MULTIPLIERS, getPartById } from "@/data/parts";
+import { getAddonById } from "@/data/addons";
 import type { InstalledPart } from "@/engine/build";
 import type { GearSlot } from "@/data/gear";
 import { getGearById, DEFAULT_EQUIPPED_GEAR, DEFAULT_OWNED_GEAR } from "@/data/gear";
 import { getGearBonuses } from "@/engine/gear";
+import { random } from "@/utils/random";
 import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 import { TALENT_NODES, getTalentNodeById } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
@@ -277,6 +286,8 @@ export interface GameState {
   toggleTutorialMinimized: () => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
+  installAddon: (vehicleId: string, slot: string, addonId: string) => void;
+  removeAddon: (vehicleId: string, slot: string, addonId: string) => void;
   refurbishPart: (partId: string) => void;
   purchaseUpgrade: (upgradeId: string) => void;
   purchaseGear: (gearId: string) => void;
@@ -343,7 +354,7 @@ export interface GameState {
   devQuickStart: () => void;
 }
 
-function initialState(): Omit<GameState, keyof ReturnType<typeof createActions>> {
+export function createInitialState(): Omit<GameState, keyof ReturnType<typeof createActions>> {
   return {
     scrapBucks: 0,
     repPoints: 0,
@@ -566,7 +577,7 @@ function createActions(set: SetState, get: GetState) {
 
       // Thorough Search: chance to double the parts found (applies to click & hold)
       const doubleChance = _getUpgradeEffectValue(state, "thorough_search");
-      if (doubleChance > 0 && Math.random() < doubleChance) {
+      if (doubleChance > 0 && random() < doubleChance) {
         const dupes = parts.map((p) => ({ ...p, id: makePartId() }));
         parts.push(...dupes);
       }
@@ -608,19 +619,16 @@ function createActions(set: SetState, get: GetState) {
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
-      // Import inline to avoid circular — scrap value from definition
-      import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
-        const def = getPartById(part.definitionId);
-        if (!def) return;
-        const mult = CONDITION_MULTIPLIERS[part.condition];
-        const value = Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
-        set((s: GameState) => ({
-          inventory: s.inventory.filter((p) => p.id !== partId),
-          scrapBucks: s.scrapBucks + value,
-          lifetimeScrapBucks: s.lifetimeScrapBucks + value,
-        }));
-        _appendLog(set, get, "sell", `Sold ${def.name} (${part.condition}) for $${value}`, { scrapDelta: value });
-      });
+      const def = part.type === "addon" ? getAddonById(part.definitionId) : getPartById(part.definitionId);
+      if (!def) return;
+      const mult = CONDITION_MULTIPLIERS[part.condition];
+      const value = Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
+      set((s: GameState) => ({
+        inventory: s.inventory.filter((p) => p.id !== partId),
+        scrapBucks: s.scrapBucks + value,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+      }));
+      _appendLog(set, get, "sell", `Sold ${def.name} (${part.condition}) for $${value}`, { scrapDelta: value });
     },
 
     sellAllJunk: () => {
@@ -629,7 +637,7 @@ function createActions(set: SetState, get: GetState) {
         const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
         let total = 0;
         for (const part of state.inventory) {
-          const def = getPartById(part.definitionId);
+          const def = part.type === "addon" ? getAddonById(part.definitionId) : getPartById(part.definitionId);
           if (!def) continue;
           const mult = CONDITION_MULTIPLIERS[part.condition];
           total += Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
@@ -1150,7 +1158,10 @@ function createActions(set: SetState, get: GetState) {
       const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
       if (!slotCfg || !slotCfg.acceptableParts.includes(newPart.definitionId)) return;
 
-      const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: installed.addons } };
+      const capacity = CONDITION_ADDON_SLOTS[newPart.condition] ?? 0;
+      const retainedAddons = installed.addons.slice(0, capacity);
+      const returnedAddons = installed.addons.slice(capacity);
+      const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: retainedAddons } };
       const gbSwap = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gbSwap.race_handling_pct;
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
@@ -1164,7 +1175,58 @@ function createActions(set: SetState, get: GetState) {
         inventory: [
           ...s.inventory.filter((p) => p.id !== newPart.id),
           returnedPart,
+          ...returnedAddons,
         ],
+      }));
+    },
+
+    installAddon: (vehicleId: string, slot: string, addonId: string) => {
+      const state = get() as GameState;
+      if (_getUpgradeLevel(state, "addon_bench") < 1) return;
+      const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
+      const installed = vehicle?.parts[slot];
+      const addon = state.inventory.find((part) => part.id === addonId && part.type === "addon");
+      const addonDef = addon ? getAddonById(addon.definitionId) : undefined;
+      if (!vehicle || !installed || !addon || !addonDef || addonDef.targetSlot !== slot) return;
+      const capacity = CONDITION_ADDON_SLOTS[installed.part.condition] ?? 0;
+      if (installed.addons.length >= capacity) return;
+      const vehicleDef = getVehicleById(vehicle.definitionId);
+      if (!vehicleDef) return;
+
+      const parts = {
+        ...vehicle.parts,
+        [slot]: { ...installed, addons: [...installed.addons, addon] },
+      };
+      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
+      set((current: GameState) => ({
+        inventory: current.inventory.filter((part) => part.id !== addonId),
+        garage: current.garage.map((candidate) => candidate.id === vehicleId
+          ? { ...candidate, parts, stats: calculateStats(vehicleDef, parts, candidate.condition, handlingBonus) }
+          : candidate),
+      }));
+      _appendLog(set, get, "build", `Installed ${addonDef.name} on ${vehicleDef.name}`);
+    },
+
+    removeAddon: (vehicleId: string, slot: string, addonId: string) => {
+      const state = get() as GameState;
+      const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
+      const installed = vehicle?.parts[slot];
+      const addon = installed?.addons.find((candidate) => candidate.id === addonId);
+      if (!vehicle || !installed || !addon) return;
+      const vehicleDef = getVehicleById(vehicle.definitionId);
+      if (!vehicleDef) return;
+      const parts = {
+        ...vehicle.parts,
+        [slot]: { ...installed, addons: installed.addons.filter((candidate) => candidate.id !== addonId) },
+      };
+      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES);
+      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
+      set((current: GameState) => ({
+        inventory: [...current.inventory, addon],
+        garage: current.garage.map((candidate) => candidate.id === vehicleId
+          ? { ...candidate, parts, stats: calculateStats(vehicleDef, parts, candidate.condition, handlingBonus) }
+          : candidate),
       }));
     },
 
@@ -1432,7 +1494,7 @@ function createActions(set: SetState, get: GetState) {
       const milestoneBonuses = getPrestigeMilestoneBonuses(newPrestigeCount);
 
       set({
-        ...initialState(),
+        ...createInitialState(),
         prestigeCount: newPrestigeCount,
         prestigeBonus: result.bonuses,
         // Legacy system persists
@@ -2048,7 +2110,7 @@ function createActions(set: SetState, get: GetState) {
       const newLifetimeTP = state.lifetimeTeamPoints + tpEarned;
 
       set({
-        ...initialState(),
+        ...createInitialState(),
         // Team layer persists
         teamPoints: newTP,
         lifetimeTeamPoints: newLifetimeTP,
@@ -2135,7 +2197,7 @@ function createActions(set: SetState, get: GetState) {
       const newLifetimeOP = state.lifetimeOwnerPoints + opEarned;
 
       set({
-        ...initialState(),
+        ...createInitialState(),
         // Owner layer persists
         ownerPoints: newOP,
         lifetimeOwnerPoints: newLifetimeOP,
@@ -2208,7 +2270,7 @@ function createActions(set: SetState, get: GetState) {
       const newLifetimePT = state.lifetimeTrackTokens + ptEarned;
 
       set({
-        ...initialState(),
+        ...createInitialState(),
         // Track layer persists
         trackPrestigeTokens: newPT,
         lifetimeTrackTokens: newLifetimePT,
@@ -2378,11 +2440,11 @@ function createActions(set: SetState, get: GetState) {
     },
 
     resetSave: () => {
-      set({ ...initialState() });
+      set({ ...createInitialState() });
     },
 
     devResetSave: () => {
-      set({ ...initialState() });
+      set({ ...createInitialState() });
     },
 
     devQuickStart: () => {
@@ -2432,124 +2494,32 @@ function createActions(set: SetState, get: GetState) {
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
-      ...initialState(),
+      ...createInitialState(),
       ...createActions(set, get),
     }),
     {
-      name: "rags-to-races-save",
-      version: 1,
-      migrate: (persistedState: unknown, version: number) => {
-        const state = persistedState as Record<string, unknown>;
-        if (version === 0) {
-          // Existing save: grant retroactive LP based on old prestige count
-          const oldPrestigeCount = (state.prestigeCount as number) ?? 0;
-          const retroactiveLp = Math.floor(oldPrestigeCount * 3);
-          return {
-            ...state,
-            legacyPoints: retroactiveLp,
-            lifetimeLegacyPoints: retroactiveLp,
-            legacyUpgradeLevels: {},
-            activeMomentumTiers: [],
-            currentEra: 1,
-          };
-        }
-        return state;
-      },
-      partialize: (state) => ({
-        scrapBucks: state.scrapBucks,
-        repPoints: state.repPoints,
-        lifetimeScrapBucks: state.lifetimeScrapBucks,
-        prestigeCount: state.prestigeCount,
-        prestigeBonus: state.prestigeBonus,
-        legacyPoints: state.legacyPoints,
-        lifetimeLegacyPoints: state.lifetimeLegacyPoints,
-        legacyUpgradeLevels: state.legacyUpgradeLevels,
-        activeMomentumTiers: state.activeMomentumTiers,
-        currentEra: state.currentEra,
-        inventory: state.inventory,
-        garage: state.garage,
-        activeVehicleId: state.activeVehicleId,
-        selectedLocationId: state.selectedLocationId,
-        selectedSellBelowQuality: state.selectedSellBelowQuality,
-        selectedCircuitId: state.selectedCircuitId,
-        autoScavengeUnlocked: state.autoScavengeUnlocked,
-        manualScavengeClicks: state.manualScavengeClicks,
-        autoRaceUnlocked: state.autoRaceUnlocked,
-        raceTickProgress: state.raceTickProgress,
-        unlockedLocationIds: state.unlockedLocationIds,
-        unlockedCircuitIds: state.unlockedCircuitIds,
-        unlockedVehicleIds: state.unlockedVehicleIds,
-        _vehicleIdCounter: state._vehicleIdCounter,
-        raceHistory: state.raceHistory,
-        winStreak: state.winStreak,
-        bestWinStreak: state.bestWinStreak,
-        fatigue: state.fatigue,
-        lifetimeRaces: state.lifetimeRaces,
-        workshopLevels: state.workshopLevels,
-        equippedGear: state.equippedGear,
-        ownedGearIds: state.ownedGearIds,
-        lootGearInventory: state.lootGearInventory,
-        equippedLootGear: state.equippedLootGear,
-        gearModInventory: state.gearModInventory,
-        unlockedTalentNodes: state.unlockedTalentNodes,
-        pendingBuildVehicleId: state.pendingBuildVehicleId,
-        // New systems (all persist)
-        materials: state.materials,
-        forgeTokens: state.forgeTokens,
-        dealerBoard: state.dealerBoard,
-        gameTick: state.gameTick,
-        lastActiveTimestamp: state.lastActiveTimestamp,
-        completedChallenges: state.completedChallenges,
-        challengeProgress: state.challengeProgress,
-        lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
-        lifetimeTotalEnhanced: state.lifetimeTotalEnhanced,
-        lifetimeTotalTradeUps: state.lifetimeTotalTradeUps,
-        lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
-        highestConditionReached: state.highestConditionReached,
-        tutorialStep: state.tutorialStep,
-        tutorialDismissed: state.tutorialDismissed,
-        tutorialMinimized: state.tutorialMinimized,
-        tutorialSkippedSteps: state.tutorialSkippedSteps,
-        tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
-        activityLog: state.activityLog,
-        _logIdCounter: state._logIdCounter,
-        // Multi-layer prestige (was missing from partialize)
-        racerSkills: state.racerSkills,
-        teamPoints: state.teamPoints,
-        lifetimeTeamPoints: state.lifetimeTeamPoints,
-        teamUpgradeLevels: state.teamUpgradeLevels,
-        teamEraCount: state.teamEraCount,
-        lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
-        ownerPoints: state.ownerPoints,
-        lifetimeOwnerPoints: state.lifetimeOwnerPoints,
-        ownerUpgradeLevels: state.ownerUpgradeLevels,
-        ownerEraCount: state.ownerEraCount,
-        lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
-        trackPrestigeTokens: state.trackPrestigeTokens,
-        lifetimeTrackTokens: state.lifetimeTrackTokens,
-        trackPerkLevels: state.trackPerkLevels,
-        trackEraCount: state.trackEraCount,
-        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
-        racerAttributes: state.racerAttributes,
-        unlockedFeatures: state.unlockedFeatures,
-        lifetimeLPAllTime: state.lifetimeLPAllTime,
-        lifetimeScrapResets: state.lifetimeScrapResets,
-        crewRoster: state.crewRoster,
-        crewSlots: state.crewSlots,
-        // Achievements & lifetime stats
-        earnedAchievements: state.earnedAchievements,
-        lifetimeRacesAllTime: state.lifetimeRacesAllTime,
-        lifetimeWinsAllTime: state.lifetimeWinsAllTime,
-        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
-        lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
-        lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
-        bestWinStreakAllTime: state.bestWinStreakAllTime,
-        highestVehicleTierBuilt: state.highestVehicleTierBuilt,
-        totalForgeTokensEarned: state.totalForgeTokensEarned,
-        uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
-        // Playstyle
-        unlockedPlaystyleNodes: state.unlockedPlaystyleNodes,
-      }),
+      name: PERSISTENCE_STORAGE_KEY,
+      version: PERSISTENCE_VERSION,
+    storage: createJSONStorage(() => {
+      if (typeof localStorage === "undefined") {
+        return {
+          getItem: () => null,
+          setItem: () => undefined,
+          removeItem: () => undefined,
+        };
+      }
+      return {
+        getItem: (name) => {
+          const raw = localStorage.getItem(name);
+          backupPersistedStoreBeforeMigration(raw);
+          return raw;
+        },
+        setItem: (name, value) => localStorage.setItem(name, value),
+        removeItem: (name) => localStorage.removeItem(name),
+      };
+    }),
+      migrate: migratePersistedState,
+      partialize: getPersistedGameState,
     },
   ),
 );

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { notFound } from "next/navigation";
+import { isFeatureAvailable } from "@/config/features";
 
 // ─── Shared mock data ─────────────────────────────────────────────────────────
 
@@ -458,6 +460,7 @@ const THEMES = [
 
 export default function DesignPage() {
   const [active, setActive] = useState(0);
+  if (!isFeatureAvailable("design_mock")) notFound();
   const Theme = THEMES[active].component;
 
   return (
