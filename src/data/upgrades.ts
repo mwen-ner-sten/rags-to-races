@@ -166,11 +166,11 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     unlockRequirement: { workshopUpgradeId: "toolkit" },
   },
 
-  // ── Gear Lab ──
+  // ── Station Lab ──
   {
     id: "gear_scavenger",
-    name: "Gear Scavenger",
-    description: "Increases gear drop chance while scavenging (+2% per level).",
+    name: "Equipment Salvager",
+    description: "Increases station-equipment drop chance while scavenging (+2% per level).",
     category: "gear_lab",
     maxLevel: 5,
     baseCost: 300,
@@ -181,7 +181,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "trophy_hunter",
     name: "Trophy Hunter",
-    description: "Increases gear drop chance from race wins (+3% per level).",
+    description: "Increases station-equipment drop chance from race wins (+3% per level).",
     category: "gear_lab",
     maxLevel: 5,
     baseCost: 450,
@@ -192,7 +192,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "rarity_sense",
     name: "Rarity Sense",
-    description: "Improves the rarity of dropped gear. Each level shifts odds toward better rarities.",
+    description: "Improves the rarity of dropped station equipment.",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 900,
@@ -203,7 +203,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "enhancement_mastery",
     name: "Enhancement Mastery",
-    description: "Raises the max enhancement level for loot gear (+3 levels per upgrade).",
+    description: "Raises station-equipment enhancement cap by +3 per level (base +4, hard cap +13).",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 1500,
@@ -213,8 +213,8 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   },
   {
     id: "mod_hunter",
-    name: "Mod Hunter",
-    description: "Increases the chance of finding gear mods (+0.5% per level).",
+    name: "Shard Sifter",
+    description: "Adds one Reforge Shard per level whenever station equipment is salvaged.",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 750,
@@ -224,8 +224,8 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   },
   {
     id: "careful_modding",
-    name: "Careful Modding",
-    description: "Mods are preserved when removed from gear instead of being destroyed.",
+    name: "Precision Reforge",
+    description: "Unlocks reforge: reroll secondary attributes while preserving the primary.",
     category: "gear_lab",
     maxLevel: 1,
     baseCost: 3000,
@@ -235,8 +235,8 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   },
   {
     id: "gear_recycler",
-    name: "Gear Recycler",
-    description: "Increases the scrap value you get from salvaging loot gear (+25% per level).",
+    name: "Equipment Recycler",
+    description: "Increases Reforge Shards from salvaged station equipment (+25% per level).",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 600,
@@ -247,7 +247,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "double_drop",
     name: "Double Drop",
-    description: "Small chance to find two gear items at once (+5% per level).",
+    description: "Small chance to find two station-equipment items at once (+5% per level).",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 1200,
@@ -421,5 +421,5 @@ export const UPGRADE_CATEGORIES: { id: UpgradeCategory; label: string; icon: str
   { id: "building", label: "Building", icon: "🔧" },
   { id: "racing", label: "Racing", icon: "🏁" },
   { id: "maintenance", label: "Maintenance", icon: "🛠" },
-  { id: "gear_lab", label: "Gear Lab", icon: "✨" },
+  { id: "gear_lab", label: "Station Lab", icon: "✨" },
 ];

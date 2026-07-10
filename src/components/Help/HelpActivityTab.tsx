@@ -11,7 +11,7 @@ const CATEGORIES: { id: LogCategory | "all"; label: string }[] = [
   { id: "build", label: "Build" },
   { id: "upgrade", label: "Upg" },
   { id: "prestige", label: "Pres" },
-  { id: "gear", label: "Gear" },
+  { id: "gear", label: "Station" },
   { id: "craft", label: "Craft" },
   { id: "trade", label: "Trade" },
   { id: "tick", label: "Auto" },

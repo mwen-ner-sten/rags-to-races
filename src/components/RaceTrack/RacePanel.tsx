@@ -372,7 +372,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const activeVehicleDef = activeVehicle
     ? VEHICLE_DEFINITIONS.find((v) => v.id === activeVehicle.definitionId)
     : null;
-  const gb = useMemo(() => getGearBonuses(equippedGear), [equippedGear]);
+  const equippedStationEquipment = useGameStore((s) => s.equippedStationEquipment);
+  const stationEquipmentInventory = useGameStore((s) => s.stationEquipmentInventory);
+  const gb = useMemo(() => getGearBonuses(equippedGear, undefined, undefined, undefined, undefined, equippedStationEquipment, stationEquipmentInventory), [equippedGear, equippedStationEquipment, stationEquipmentInventory]);
   const racerSkills = useGameStore((s) => s.racerSkills);
 
   const availableCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
