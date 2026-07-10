@@ -512,7 +512,6 @@ function _appendLog(set: SetState, get: GetState, category: LogCategory, message
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 /** Grant XP to a skill and recalculate level. Returns the updated skills object. */
 function _grantXp(skills: RacerSkills, skill: SkillName, amount: number): RacerSkills {
   const current = skills[skill];
