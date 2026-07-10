@@ -153,8 +153,8 @@ export default function PrestigeSubTab() {
             &#128101; Team Reset (Era {teamEraCount + 1})
           </div>
           <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
-            Disband your team and rebuild. Resets LP, legacy upgrades, talent nodes, loot gear, materials.
-            Keeps Team Points, Team upgrades, standard gear, and challenges.
+            Disband your team and rebuild. Clears Scrap/Legacy progress, vehicles, fleet assignments,
+            crew levels, and station item levels. Keeps Team Points, Team upgrades, blueprints, and achievements.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
             Requires 200 lifetime LP (you have {lifetimeLPAllTime})
@@ -180,8 +180,8 @@ export default function PrestigeSubTab() {
             &#127942; Owner Reset (Era {ownerEraCount + 1})
           </div>
           <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
-            Step into the owner&apos;s box. Resets everything from Team Reset + TP and Team upgrades.
-            Keeps Owner Points, Owner upgrades, and permanent unlocks.
+            Step into the owner&apos;s box. Clears Team and lower-layer progress.
+            Keeps Owner Points, Owner facilities, permanent discoveries, achievements, and lifetime history.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
             Requires 500 lifetime TP + 3 team eras (you have {lifetimeTeamPoints} TP, {teamEraCount} eras)
@@ -207,8 +207,8 @@ export default function PrestigeSubTab() {
             &#127939; Track Reset (Era {trackEraCount + 1})
           </div>
           <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
-            Buy the track. Resets everything from Owner Reset + OP and Owner upgrades.
-            Keeps Prestige Tokens, Track Perks, and all permanent unlocks.
+            Buy the track. Clears Owner and lower-layer progress.
+            Keeps Prestige Tokens, Track perks, circuit templates, discoveries, achievements, and lifetime history.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
             Requires 1000 lifetime OP + 5 owner eras (you have {lifetimeOwnerPoints} OP, {ownerEraCount} eras)

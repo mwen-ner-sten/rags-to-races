@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useGameStore } from "@/state/store";
+import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
+import { getVehicleById } from "@/data/vehicles";
 import {
   TEAM_UPGRADE_DEFINITIONS,
   TEAM_CATEGORIES,
@@ -21,7 +24,7 @@ export default function TeamSubTab() {
           style={{ color: "var(--text-heading)" }}
           className="text-sm font-semibold uppercase tracking-widest"
         >
-          Team Upgrades
+          Team, Crew & Fleet
         </h2>
         <span
           style={{ color: "var(--accent)" }}
@@ -30,6 +33,8 @@ export default function TeamSubTab() {
           {teamPoints} TP
         </span>
       </div>
+
+      <FleetPrograms />
 
       {TEAM_CATEGORIES.map((cat) => (
         <CategorySection
@@ -42,6 +47,22 @@ export default function TeamSubTab() {
       ))}
     </div>
   );
+}
+
+function FleetPrograms() {
+  const garage = useGameStore((s) => s.garage); const activeVehicleId = useGameStore((s) => s.activeVehicleId); const raceHistory = useGameStore((s) => s.raceHistory);
+  const crew = useGameStore((s) => s.crewRoster); const assignments = useGameStore((s) => s.fleetAssignments);
+  const start = useGameStore((s) => s.startFleetAssignment); const collect = useGameStore((s) => s.collectFleetAssignment);
+  const completedCircuitIds = [...new Set(raceHistory.filter((outcome) => outcome.result === "win").map((outcome) => outcome.circuitId))];
+  const [circuitByVehicle, setCircuitByVehicle] = useState<Record<string, string>>({});
+  return <section className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}>
+    <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-heading)" }}>Fleet Programs</h3>
+    <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>Assign non-focus vehicles to completed circuits. Programs earn 60% currency/materials, take full wear, grant half crew XP, and never unlock progression.</p>
+    {completedCircuitIds.length === 0 ? <p className="text-xs" style={{ color: "var(--text-muted)" }}>Win a circuit with the focus vehicle before automating it.</p> : <div className="space-y-2">{garage.filter((vehicle) => vehicle.id !== activeVehicleId).map((vehicle) => {
+      const running = assignments.find((assignment) => assignment.vehicleId === vehicle.id); const selected = circuitByVehicle[vehicle.id] ?? completedCircuitIds[0]; const definition = getVehicleById(vehicle.definitionId);
+      return <div key={vehicle.id} className="flex flex-wrap items-center gap-2 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}><strong className="mr-auto text-xs" style={{ color: "var(--text-white)" }}>{definition?.name}</strong>{running ? <><span className="text-xs" style={{ color: running.status === "complete" ? "var(--success)" : "var(--accent)" }}>{running.status === "complete" ? `Ready: $${running.rewards.scrap}` : `${running.remainingTicks} ticks`}</span>{running.status === "complete" && <button onClick={() => collect(running.id)} className="rounded border px-2 py-1 text-xs" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Collect</button>}</> : <><select value={selected} onChange={(event) => setCircuitByVehicle((current) => ({ ...current, [vehicle.id]: event.target.value }))} className="rounded border px-2 py-1 text-xs" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{completedCircuitIds.map((id) => <option key={id} value={id}>{CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === id)?.name}</option>)}</select><button onClick={() => start(vehicle.id, selected, crew[0]?.id)} className="rounded border px-2 py-1 text-xs" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Assign{crew[0] ? ` ${crew[0].name}` : ""}</button></>}</div>;
+    })}</div>}
+  </section>;
 }
 
 function CategorySection({

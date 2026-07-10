@@ -8,7 +8,7 @@ export interface TeamUpgradeDefinition {
   maxLevel: number;
   baseCost: number;     // TP cost for level 1
   costScaling: number;
-  effect: { type: string; valuePerLevel: number };
+  effect: GameEffect;
 }
 
 /** Calculate TP cost for a given upgrade at a given level (1-indexed) */
@@ -251,25 +251,18 @@ const FORGE_AFFINITY: TeamUpgradeDefinition = {
 export const TEAM_UPGRADE_DEFINITIONS: TeamUpgradeDefinition[] = [
   LP_AMPLIFIER,
   QUICK_START,
-  LEGACY_VAULT,
-  MOMENTUM_MASTERY,
-  EXTENDED_WORKSHOP,
   FLEET_GARAGE,
-  EXOTIC_PARTS_PIPELINE,
-  ADVANCED_TOOLS,
   CREW_QUARTERS,
   CREW_TRAINING,
-  CREW_SPECIALIZATION,
-  CREW_RETENTION,
-  ATTRIBUTE_POINTS,
   SECOND_WIND,
   VETERAN_INSTINCT,
-  GENERATIONAL_WISDOM,
   LOOT_MAGNETISM,
   MATERIAL_RESONANCE,
-  TALENT_EXPANSION,
   FORGE_AFFINITY,
 ];
+
+/** Retained design experiments; deliberately excluded from released purchase surfaces. */
+export const DEFERRED_TEAM_UPGRADE_DEFINITIONS: TeamUpgradeDefinition[] = [LEGACY_VAULT, MOMENTUM_MASTERY, EXTENDED_WORKSHOP, EXOTIC_PARTS_PIPELINE, ADVANCED_TOOLS, CREW_SPECIALIZATION, CREW_RETENTION, ATTRIBUTE_POINTS, GENERATIONAL_WISDOM, TALENT_EXPANSION];
 
 export const TEAM_UPGRADES_BY_ID = Object.fromEntries(
   TEAM_UPGRADE_DEFINITIONS.map((u) => [u.id, u]),
@@ -290,3 +283,4 @@ export const TEAM_CATEGORY_LABELS: Record<TeamUpgradeCategory, string> = {
   racer_dev: "Racer Development",
   fortune: "Fortune",
 };
+import type { GameEffect } from "./gameEffects";

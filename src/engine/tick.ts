@@ -12,6 +12,10 @@ import { TALENT_NODES } from "@/data/talentNodes";
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import { getLegacyEffectValue } from "./prestige";
 import { getSkillBonuses } from "./skills";
+import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
+import { getGameEffectValue } from "@/data/gameEffects";
+import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
+import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
 
 /** Base tick duration — 30 seconds. */
 export const TICK_MS_DEFAULT = 30_000;
@@ -43,9 +47,10 @@ export function computeTickSpeedMs(state: GameState): number {
   const upgradeReductionMs =
     _getUpgradeEffectValue(state, "tick_accelerator") +
     _getUpgradeEffectValue(state, "overclocked_tick");
+  const trackReductionMs = getGameEffectValue(TRACK_PERK_DEFINITIONS, state.trackPerkLevels, "tick_speed_reduction") * 1000;
   const gearBonuses = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
   const gearReductionMs = (gearBonuses.tick_speed_reduction_ms ?? 0);
-  return Math.max(TICK_MS_MIN, TICK_MS_DEFAULT - upgradeReductionMs - gearReductionMs);
+  return Math.max(TICK_MS_MIN, TICK_MS_DEFAULT - upgradeReductionMs - gearReductionMs - trackReductionMs);
 }
 
 /**
@@ -82,8 +87,8 @@ export function computeTick(state: GameState): TickResult {
   );
 
   // ── Shared gear lab workshop values ──────────────────────────────────────
-  const gearDropRateScavengeBonus = _getUpgradeEffectValue(state, "gear_scavenger");
-  const gearDropRateRaceBonus     = _getUpgradeEffectValue(state, "trophy_hunter");
+  const gearDropRateScavengeBonus = _getUpgradeEffectValue(state, "gear_scavenger") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "gear_drop_rate");
+  const gearDropRateRaceBonus     = _getUpgradeEffectValue(state, "trophy_hunter") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "gear_drop_rate");
   const rarityBonus               = Math.floor(_getUpgradeEffectValue(state, "rarity_sense"));
   const doubleDropChance          = _getUpgradeEffectValue(state, "double_drop");
   const modDropRateBonus          = _getUpgradeEffectValue(state, "mod_hunter");
@@ -147,7 +152,7 @@ export function computeTick(state: GameState): TickResult {
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
           const skillBonuses = getSkillBonuses(state.racerSkills, circuit.tier);
-          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct, gearBonuses.race_dnf_reduction, 0.15, 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus, skillBonuses.drivingPerformanceMult, skillBonuses.drivingDnfReduction, false, state.currentRacePlan);
+          result.raceOutcome = simulateRace(vehicle, circuit, state.prestigeBonus.scrapMultiplier, fatigue, gearBonuses.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance"), gearBonuses.race_dnf_reduction, 0.15, 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"), skillBonuses.drivingPerformanceMult, skillBonuses.drivingDnfReduction, false, state.currentRacePlan);
 
           // Apply consolation sponsor bonus
           const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");
@@ -281,7 +286,9 @@ export function simulateOfflineTicks(
       const fatigueOffset = getLegacyEffectValue(snap.legacyUpgradeLevels, "leg_fatigue_offset");
       const gearBonuses = getGearBonuses(snap.equippedGear, snap.equippedLootGear, snap.lootGearInventory, snap.unlockedTalentNodes, TALENT_NODES, snap.equippedStationEquipment, snap.stationEquipmentInventory);
       const rawFatigue = calculateFatigue(snap.lifetimeRaces, fatigueOffset);
-      snap.fatigue = Math.floor(rawFatigue * (1 - gearBonuses.fatigue_rate_reduction));
+      const ownerReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, snap.ownerUpgradeLevels, "fatigue_rate_reduction");
+      const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, snap.teamUpgradeLevels, "fatigue_cap_reduction"));
+      snap.fatigue = Math.min(fatigueCap, Math.floor(rawFatigue * (1 - gearBonuses.fatigue_rate_reduction - ownerReduction)));
     }
 
     // Update vehicle condition (wear + repair)

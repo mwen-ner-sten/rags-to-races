@@ -23,6 +23,7 @@ export interface RaceOutcome {
   forgeTokenDrop?: boolean;
   planEvaluation?: RacePlanEvaluation;
   rivalId?: string;
+  circuitId: string;
 }
 
 const RACE_FLAVOR: Record<RaceResult, string[]> = {
@@ -162,6 +163,7 @@ export function simulateRace(
       log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
       planEvaluation,
       rivalId: rival?.id,
+      circuitId: circuit.id,
     };
   }
 
@@ -190,6 +192,7 @@ export function simulateRace(
       log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
       planEvaluation,
       rivalId: rival?.id,
+      circuitId: circuit.id,
     };
   }
 
@@ -229,6 +232,7 @@ export function simulateRace(
     forgeTokenDrop: forgeTokenDrop || undefined,
     planEvaluation,
     rivalId: rival?.id,
+    circuitId: circuit.id,
   };
 }
 

@@ -5,6 +5,7 @@ import {
   CREW_ROLE_LABELS,
   CREW_ROLE_DESCRIPTIONS,
   CREW_SPECIALIZATIONS,
+  CREW_ROLES,
   getSpecializationsForRole,
 } from "@/data/crew";
 import GameAssetImage from "@/components/GameAssetImage";
@@ -13,21 +14,9 @@ import { crewLevelFromXp } from "@/engine/crew";
 export default function CrewPanel() {
   const crewRoster = useGameStore((s) => s.crewRoster);
   const specializeCrewMember = useGameStore((s) => s.specializeCrewMember);
-
-  if (crewRoster.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-8">
-        <span className="text-4xl">&#x1F465;</span>
-        <p
-          style={{ color: "var(--text-dim)" }}
-          className="text-center text-sm"
-        >
-          No crew members yet. Crew are recruited at milestones after your first
-          Team Reset.
-        </p>
-      </div>
-    );
-  }
+  const recruitCrewMember = useGameStore((s) => s.recruitCrewMember);
+  const crewSlots = useGameStore((s) => s.crewSlots);
+  const teamPoints = useGameStore((s) => s.teamPoints);
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,6 +26,13 @@ export default function CrewPanel() {
       >
         Crew Roster
       </h2>
+
+      <div className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}>
+        <div className="flex items-center justify-between"><span className="text-xs" style={{ color: "var(--text-muted)" }}>Recruitment · {crewRoster.length}/{crewSlots} slots</span><span className="text-xs" style={{ color: "var(--accent)" }}>1 TP each</span></div>
+        <div className="mt-2 flex flex-wrap gap-2">{CREW_ROLES.map((role) => <button key={role} onClick={() => recruitCrewMember(role)} disabled={teamPoints < 1 || crewRoster.length >= crewSlots} className="inline-flex items-center gap-2 rounded border px-2 py-1.5 text-xs disabled:opacity-40" style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}><GameAssetImage kind="crew_role" id={role} width={28} height={28} className="rounded-full" />{CREW_ROLE_LABELS[role]}</button>)}</div>
+      </div>
+
+      {crewRoster.length === 0 && <p className="py-4 text-center text-sm" style={{ color: "var(--text-dim)" }}>Recruit a role to begin developing the team.</p>}
 
       <div className="grid gap-3">
         {crewRoster.map((member) => {

@@ -1,9 +1,6 @@
 export type LegacyUpgradeCategory = "velocity" | "fortune" | "endurance" | "mastery";
 
-export interface LegacyUpgradeEffect {
-  type: string;
-  valuePerLevel: number;
-}
+export type LegacyUpgradeEffect = GameEffect;
 
 export interface LegacyUpgradeDefinition {
   id: string;
@@ -176,3 +173,4 @@ export const LEGACY_CATEGORY_LABELS: Record<LegacyUpgradeCategory, string> = {
   endurance: "Endurance",
   mastery: "Mastery",
 };
+import type { GameEffect } from "./gameEffects";

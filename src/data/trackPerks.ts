@@ -8,7 +8,7 @@ export interface TrackPerkDefinition {
   maxLevel: number;
   baseCost: number;     // PT cost for level 1
   costScaling: number;
-  effect: { type: string; valuePerLevel: number };
+  effect: GameEffect;
 }
 
 /** Calculate PT cost for a given perk at a given level (1-indexed) */
@@ -150,3 +150,4 @@ export const TRACK_PERK_CATEGORY_LABELS: Record<TrackPerkCategory, string> = {
   empire: "Empire",
   meta_power: "Meta Power",
 };
+import type { GameEffect } from "./gameEffects";
