@@ -9,25 +9,38 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fixtures:generate": "tsx scripts/generate-gameplay-fixtures.ts",
+    "test:e2e": "npm run fixtures:generate && playwright test",
+    "test:e2e:full": "cross-env PLAYWRIGHT_FULL_MATRIX=1 npm run test:e2e",
+    "test:visual": "cross-env PLAYWRIGHT_VISUAL=1 PLAYWRIGHT_FULL_MATRIX=1 npm run test:e2e"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
-    "next": "16.2.1",
+    "next": "^16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.4.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.1",
+    "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.0",
     "typescript": "^5",
     "vitest": "^4.1.2"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.10"
+    }
   }
 }

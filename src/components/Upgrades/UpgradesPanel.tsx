@@ -40,7 +40,7 @@ export default function UpgradesPanel() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
               activeTab === tab.id
-                ? "bg-orange-600 text-white"
+                ? "bg-cyan-400 text-black"
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >

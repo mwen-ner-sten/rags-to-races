@@ -110,6 +110,7 @@ html {
 
 /* ── Shell nav hidden — replaced by sidebar (desktop) and hamburger (mobile) */
 .shell-content nav { display: none !important; }
+.shell-content { --text-dim: var(--text-muted); }
 
 /* ── Desktop sidebar ───────────────────────────────────────────────────── */
 .desktop-sidebar { display: none; }

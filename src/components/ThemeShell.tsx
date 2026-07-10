@@ -67,8 +67,8 @@ export const THEME_VARS: Record<Theme, Record<string, string>> = {
     "--panel-border": "rgba(0,229,255,.2)",
     "--panel-border-active": "#00e5ff",
     "--text-primary": "#c0d8e0",
-    "--text-secondary": "rgba(0,229,255,.6)",
-    "--text-muted": "rgba(0,229,255,.4)",
+    "--text-secondary": "rgba(0,229,255,.82)",
+    "--text-muted": "rgba(0,229,255,.72)",
     "--text-heading": "#00e5ff",
     "--text-white": "#e0f0f4",
     "--accent": "#00e5ff",
@@ -583,13 +583,13 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
         .mc-scanlines { pointer-events: none; position: fixed; inset: 0; z-index: 0; background: repeating-linear-gradient(0deg, rgba(0,229,255,.018) 0, rgba(0,229,255,.018) 1px, transparent 1px, transparent 3px); }
         .mc-glow-c { text-shadow: 0 0 12px rgba(0,229,255,.7), 0 0 30px rgba(0,229,255,.3); }
         .mc-glow-m { text-shadow: 0 0 12px rgba(255,0,144,.7), 0 0 30px rgba(255,0,144,.3); }
-        .mc-tab { font-family: 'Orbitron', sans-serif; font-size: .62rem; font-weight: 700; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(0,229,255,.45); transition: all .14s; text-transform: uppercase; }
+        .mc-tab { font-family: 'Orbitron', sans-serif; font-size: .62rem; font-weight: 700; letter-spacing: .12em; cursor: pointer; padding: .8rem 1.2rem; border-bottom: 1px solid transparent; border-top: none; border-left: none; border-right: none; background: none; color: rgba(0,229,255,.75); transition: all .14s; text-transform: uppercase; }
         .mc-tab:hover { color: rgba(0,229,255,.7); }
         .mc-tab-on { color: #00e5ff !important; border-bottom-color: #00e5ff !important; text-shadow: 0 0 10px rgba(0,229,255,.6); }
-        .mc-tab-dev { margin-left: auto; color: rgba(255,0,144,.4) !important; }
+        .mc-tab-dev { margin-left: auto; color: rgba(255,0,144,.75) !important; }
         .mc-tab-dev:hover { color: rgba(255,0,144,.6) !important; }
         .mc-tab-dev-on { color: #ff0090 !important; border-bottom-color: #ff0090 !important; text-shadow: 0 0 10px rgba(255,0,144,.6); }
-        .mc-stat-label { font-family: 'Orbitron', sans-serif; font-size: .48rem; font-weight: 700; letter-spacing: .18em; color: rgba(0,229,255,.5); }
+        .mc-stat-label { font-family: 'Orbitron', sans-serif; font-size: .48rem; font-weight: 700; letter-spacing: .18em; color: rgba(0,229,255,.75); }
       `}</style>
 
       <div className="mc-scanlines" />
@@ -604,7 +604,7 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
             )}
           </div>
           <div style={{ width: 1, height: 32, background: "rgba(0,229,255,.15)" }} />
-          <div style={{ fontSize: ".55rem", color: "rgba(0,229,255,.45)", letterSpacing: ".2em", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>MIDNIGHT CIRCUIT</div>
+          <div style={{ fontSize: ".55rem", color: "rgba(0,229,255,.75)", letterSpacing: ".2em", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>MIDNIGHT CIRCUIT</div>
         </div>
         <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <CurrencyBar activeTab={activeTab} />
@@ -645,12 +645,12 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
       {/* Footer */}
       <footer style={{ position: "relative", zIndex: 10, borderTop: "1px solid rgba(0,229,255,.08)", padding: ".6rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.45)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
-          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.35)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
+          <span className="mc" style={{ fontSize: ".5rem", color: "rgba(0,229,255,.75)", letterSpacing: ".2em" }}>RAGS TO RACES · MIT · BUILT FROM GARBAGE</span>
+          <span className="mc" style={{ fontSize: ".42rem", color: "rgba(0,229,255,.72)", letterSpacing: ".15em" }}>v{BUILD_VERSION}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <FooterThemeSwitcher />
-          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.5, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
+          <button onClick={() => setActiveTab("settings")} style={{ fontSize: ".6rem", opacity: 0.8, background: "none", border: "none", cursor: "pointer", color: "inherit", letterSpacing: ".1em" }}>&#9881; SETTINGS</button>
         </div>
 
       </footer>
