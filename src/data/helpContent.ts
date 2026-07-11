@@ -8,10 +8,11 @@ import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
 import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_INTERVAL, DEALER_BOARD_SIZE } from "@/data/dealer";
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
+import { AUTO_SCAVENGE_MANUAL_TARGET, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 import { GARAGE_STATIONS } from "@/data/garageStations";
 import { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL } from "@/data/racerSkills";
-import { ATTRIBUTE_DEFINITIONS } from "@/data/racerAttributes";
 import { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATIONS } from "@/data/crew";
 import { TEAM_UPGRADE_DEFINITIONS, TEAM_CATEGORIES, TEAM_CATEGORY_LABELS } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS, OWNER_CATEGORIES, OWNER_CATEGORY_LABELS } from "@/data/ownerUpgrades";
@@ -45,11 +46,14 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Activate", description: "Set your new vehicle as the active racer so you can enter races." },
   { step: "Head to Race", description: "Switch to the Race tab to enter your first race." },
   { step: "Check odds", description: "Review your win chance and DNF risk. DNF means your ride breaks down mid-race." },
-  { step: "Enter Race", description: "Hit Enter Race to compete on the circuit." },
-  { step: "Race result", description: "Every result earns Rep; finishing the race also earns Scrap Bucks. Keep racing to improve." },
-  { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up." },
+  { step: "Enter Race", description: "Hit Enter Race to compete. On a brand-new save, the guided first race is a forced DNF so the repair flow can be taught; later races use the displayed odds." },
+  { step: "Race result", description: "Every result earns Rep. Wins and stronger finishes earn Scrap Bucks; a low finish can pay no prize money." },
+  { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up; the first guided repair is free." },
   { step: "Upgrade your run", description: "Open Workshop > Facilities and buy a run upgrade such as Keen Eye or Budget Repairs." },
-  { step: "Build Rep & earn scrap", description: "Build 3 vehicles and earn $50,000 lifetime scrap plus 5,000 Rep. Watch fatigue — it builds every race and cuts performance." },
+  { step: "Explore the Workshop", description: "Review Inventory, Fabrication, Add-ons, Dealer, Stations, Philosophy, Skills, and Facilities." },
+  { step: "Build an early runway", description: "Reach $500 lifetime Scrap Bucks and 100 Rep by racing, scavenging, and selling spare parts." },
+  { step: "Expand the garage", description: `Keep ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} built vehicles in your Garage at the same time.` },
+  { step: "Reach the reset gate", description: `Earn $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep. Watch fatigue — it builds as you race and cuts performance.` },
   { step: "Visit Upgrades", description: "Open the Upgrades tab when fatigue is high or progress stalls." },
   { step: "Prestige", description: "Hit Scrap Reset to prestige. You restart stronger with permanent bonuses." },
 ];
@@ -59,30 +63,29 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
 export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, facilities, and station equipment." },
   { term: "Rep", meaning: "Progression currency from races. Unlocks locations, circuits, vehicles, the Dealer, and late-game systems." },
-  { term: "Fatigue", meaning: "Builds each race (0–99). Costs -0.5% performance, +0.8% wear, +0.3% repair cost per point. Resets on prestige." },
+  { term: "Fatigue", meaning: "Follows a diminishing race-count curve (0–99). Costs -0.5% performance, +0.8% wear, and +1% repair cost per point. Resets on Scrap Reset." },
   { term: "Condition", meaning: `Part quality from ${CONDITIONS[0]} (worst) to ${CONDITIONS[CONDITIONS.length - 1]} (best). Higher = more power and sale value.` },
   { term: "Prestige (Scrap Reset)", meaning: "Voluntary reset that wipes run currency, parts, and vehicles but awards Legacy Points. Station equipment, discoveries, and legacy upgrades persist." },
   { term: "Legacy Points (LP)", meaning: "Earned on Scrap Reset based on run stats. Spent on permanent upgrades and Garage Philosophy nodes." },
   { term: "Momentum", meaning: `${MOMENTUM_TIERS.length} conditional bonuses that activate during a run (e.g., "${MOMENTUM_TIERS[0].name}" at ${MOMENTUM_TIERS[0].condition.value}+ races). Reset on prestige.` },
   { term: "Forge Tokens", meaning: "Rare drop from high-tier race wins (~2%). Used with materials in the Artifact Forge for top-tier parts." },
-  { term: "Dealer Board", meaning: `Rotating part market unlocking at ${(DEALER_UNLOCK_REP / 1000).toFixed(0)}k Rep. ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
-  { term: "DNF (Did Not Finish)", meaning: "Vehicle broke down mid-race. Chance = 30% minus reliability/200. Higher reliability = safer." },
+  { term: "Dealer Board", meaning: `Rotating part market unlocking at ${DEALER_UNLOCK_REP.toLocaleString()} Rep. ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
+  { term: "DNF (Did Not Finish)", meaning: "Vehicle broke down mid-race. Baseline chance is 30% minus reliability/200, then equipment, crew, skills, philosophy, and the race plan modify it." },
   { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve station-equipment drop rarity by +0.5% per win (cap +10%)." },
   { term: "Vehicle Condition", meaning: `Starts at 100, degrades from racing. Below ${CONDITION_PENALTY_THRESHOLD}, stats drop linearly. Repair in the Garage.` },
   { term: "Materials", meaning: `${MATERIAL_DEFINITIONS.length} types gained by decomposing parts. Used for part enhancement and targeted fabrication.` },
   { term: "Station Equipment", meaning: "Randomized equipment for six shared garage stations. It has rarity, attribute affixes, enhancement levels, and optional set membership." },
   { term: "Reforge Shards", meaning: "Earned by salvaging unequipped station items. Spent to reroll secondary attributes while preserving the primary." },
-  { term: "Auto-Scavenge", meaning: "Unlocks after 500 manual scavenge clicks. Runs automatically each tick." },
+  { term: "Auto-Scavenge", meaning: `Unlocks after ${AUTO_SCAVENGE_MANUAL_TARGET} manual scavenges or the first Scrap Reset, then stays unlocked. Runs automatically each tick.` },
   { term: "Auto-Race", meaning: "Unlocks after the first Scrap Reset. Fires on a timer (improved by the Pit Crew facility upgrade)." },
-  { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} milestone goals rewarding materials, Forge Tokens, and Dealer refreshes.` },
+  { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} one-time gameplay goals rewarding Scrap Bucks, materials, and Forge Tokens.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
   { term: "Team Points (TP)", meaning: "Layer 2 currency earned from Team Reset. Spent on crew, fleet capacity, and team infrastructure." },
   { term: "Owner Points (OP)", meaning: "Layer 3 currency earned from Owner Reset. Spent on facilities, sourcing, and advanced engineering capability." },
   { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 currency earned from Track Reset. Spent on venue, event, and endgame fleet perks." },
   { term: "Crew", meaning: "NPC helpers unlocked after the first Team Reset. Four roles (Mechanic, Scout, Driver, Trader) have distinct specializations. Crew persist through Scrap Resets and reset on Team Reset." },
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
-  { term: "Racer Attributes", meaning: `${ATTRIBUTE_DEFINITIONS.length} allocatable stat points (${ATTRIBUTE_DEFINITIONS.map(a => a.name).join(", ")}). Boost skill ratings or provide flat bonuses.` },
-  { term: "Offline Progress", meaning: "The game continues scavenging and racing while closed (capped at 8 hours). A summary modal shows your offline earnings when you return." },
+  { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 8 hours). Catch-up uses at most one tick per ${OFFLINE_TICK_MS_MIN / 1_000} second of elapsed time. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts and ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
   { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
   { term: "Prestige Milestone", meaning: "Free reward earned at prestige count thresholds. Some shape your run strategy. View in Upgrades > Prestige." },
   { term: "Garage Philosophy", meaning: "LP-funded specialization in Scrapper, Racer, and Engineer paths. Persists through Scrap Reset and resets at the Team layer." },
@@ -107,11 +110,11 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "How do I unlock the Dealer?",
-    answer: `Earn ${(DEALER_UNLOCK_REP / 1000).toFixed(0)}k Rep. The Dealer shows ${DEALER_BOARD_SIZE} rotating part listings. Stock improves at ${(DEALER_TIER2_REP / 1000).toFixed(0)}k Rep (better conditions) and ${(DEALER_TIER3_REP / 1000).toFixed(0)}k Rep (highest-tier parts).`,
+    answer: `Earn ${DEALER_UNLOCK_REP.toLocaleString()} Rep. The Dealer shows ${DEALER_BOARD_SIZE} rotating part listings. Stock improves at ${DEALER_TIER2_REP.toLocaleString()} Rep (better conditions and parts through T2) and ${DEALER_TIER3_REP.toLocaleString()} Rep (parts through T4).`,
   },
   {
     question: "How does fatigue work?",
-    answer: "Fatigue increases by 1 per race (0–99). Each point: -0.5% race performance, +0.8% vehicle wear, +0.3% repair cost. It resets to 0 on prestige. Momentum bonuses reward pushing through fatigue — Deep Run (+50% LP at 60 fatigue) and Legendary Run (+100% LP at 80).",
+    answer: "Fatigue follows floor(25 × log2(1 + effective races / 100)), capped at 99; it does not rise by one every race. Each point: -0.5% race performance, +0.8% vehicle wear, +1% repair cost. It resets to 0 on Scrap Reset, and Iron Will subtracts races before the curve is evaluated. Momentum bonuses reward pushing through fatigue — Deep Run (+50% LP at 60 fatigue) and Legendary Run (+100% LP at 80).",
   },
   {
     question: "Should I sell or decompose parts?",
@@ -126,12 +129,12 @@ export const HELP_FAQ: FAQItem[] = [
     answer: "Crew unlocks after your first Team Reset. You recruit NPC members in 4 roles: Mechanic (-build/repair costs), Scout (+scavenge luck/yield), Driver (+race performance/-DNF), and Trader (+sell value/-dealer prices). Each role has 2 specializations. Crew gain XP from their activities and from fleet programs. They persist through Scrap Resets and reset on Team Reset.",
   },
   {
-    question: "How do racer skills and attributes work?",
-    answer: "Skills (Driving, Mechanics, Scavenging, Endurance) earn XP from gameplay actions and level up automatically (max level 20). Each level adds rating points that convert to effectiveness with diminishing returns at higher content tiers. Attributes (Reflexes, Endurance, Charisma, Instinct, Engineering, Fortune) are point-allocated — you get points each level to distribute. Some boost skill ratings, others give flat bonuses like +rep or +luck.",
+    question: "How do racer skills work?",
+    answer: "Skills (Driving, Mechanics, Scavenging, Endurance) earn XP from matching gameplay actions and level up automatically (max level 20). Each level adds rating points that convert to effectiveness with diminishing returns at higher content tiers. Review current levels and bonuses in Workshop > Skills.",
   },
   {
     question: "What's the difference between challenges and achievements?",
-    answer: "Challenges are per-run tasks with material rewards that reset progress each run. Achievements are lifetime milestones with permanent bonuses that persist through all resets.",
+    answer: "Challenges are one-time gameplay goals that award immediate resources such as materials and Forge Tokens. Achievements are lifetime milestones whose titles or permanent bonuses persist through all resets.",
   },
   {
     question: "Do achievements reset on prestige?",
@@ -161,7 +164,7 @@ export const HELP_STRATEGY: StrategyCard[] = [
     title: "When should I prestige?",
     advice: [
       "Push to at least 60 fatigue to unlock Deep Run (+50% Legacy Points).",
-      "Pushing to 80 fatigue triggers Legendary Run (+100% LP, +20% all bonuses) — worth it if you can still win races.",
+      "Pushing to 80 fatigue triggers Legendary Run (+100% LP) — worth it if you can still win races.",
       "Prestige when your win chance drops below ~30% on your target circuit.",
       "First few prestiges: prioritize Scrap Magnate and Street Cred for the fastest snowball.",
     ],
@@ -180,17 +183,17 @@ export const HELP_STRATEGY: StrategyCard[] = [
     id: "legacy_priority",
     title: "Legacy upgrade priority",
     advice: [
-      "Tier 1: Scrap Magnate (+20% scrap/level) and Street Cred (+15% rep/level) — best early ROI.",
+      "Tier 1: Scrap Magnate (+20% race prize Scrap/level) and Street Cred (+15% race Rep/level) — best early ROI.",
       "Tier 2: Iron Will (delays fatigue curve by 5 races/level) — lets you push deeper runs.",
       "Tier 3: Seed Money (start with extra scrap) and Born Lucky (+2% luck/level).",
-      "Late: Muscle Memory (start with auto-scavenge clicks) and Blueprint Memory (keep workshop upgrades).",
+      "Late: Blueprint Memory keeps workshop upgrades, while Old Haunts skips early locations and circuits.",
     ],
   },
   {
     id: "dnf_reduction",
     title: "How to reduce DNF",
     advice: [
-      "DNF chance = 30% minus (reliability ÷ 200). At 60+ reliability, DNF chance hits 0%.",
+      "Baseline DNF chance is 30% minus (reliability ÷ 200). With a neutral plan, 60 reliability reaches 0%; aggressive plans can add risk.",
       "Use higher-condition parts — they add more reliability.",
       "Equip Diagnostics, Lift, or Slipstream station equipment with Instinct or Aero.",
       "Use the race forecast to see whether reliability or setup is driving the risk.",
@@ -234,17 +237,6 @@ export const HELP_STRATEGY: StrategyCard[] = [
       "Second slot: Driver (Speed Demon) — direct race performance is always valuable.",
       "Third slot: Mechanic (Salvage Expert) — repair costs add up fast at high fatigue.",
       "Fourth slot: Trader (Fence) — sell value boost matters most once you have a steady part flow.",
-    ],
-  },
-  {
-    id: "attribute_allocation",
-    title: "Attribute allocation strategy",
-    advice: [
-      "Early game: Reflexes (Driving rating) for better race performance on low-tier circuits.",
-      "Mid game: Split between Reflexes and Instinct (Scavenging rating) for better finds.",
-      "Late game: Engineering (Mechanics rating) to reduce build/repair costs at scale.",
-      "Fortune is a luxury pick — the luck and forge token bonuses are small but compound over long runs.",
-      "Charisma's +rep per race and -unlock cost are most impactful in the first few prestiges.",
     ],
   },
   {
@@ -327,7 +319,6 @@ function formatReward(r: { type: string; amount?: number; material?: string }): 
     case "forgeToken": return `${r.amount} Forge Token${(r.amount ?? 0) > 1 ? "s" : ""}`;
     case "material": return `${r.amount} ${r.material}`;
     case "scrap": return `${r.amount} Scrap`;
-    case "dealerRefresh": return "Dealer Refresh";
     default: return r.type;
   }
 }
@@ -397,7 +388,7 @@ export const HELP_DATA_SNAPSHOT = {
 };
 
 // Racer Skills & Attributes
-export { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL, ATTRIBUTE_DEFINITIONS };
+export { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL };
 
 // Crew
 export { CREW_ROLES, CREW_ROLE_LABELS, CREW_ROLE_DESCRIPTIONS, CREW_SPECIALIZATIONS };
@@ -472,6 +463,5 @@ export const HELP_DATA_SNAPSHOT_EXTENDED = {
   ownerUpgrades: OWNER_UPGRADE_DEFINITIONS.length,
   trackPerks: TRACK_PERK_DEFINITIONS.length,
   skills: SKILL_DEFINITIONS.length,
-  attributes: ATTRIBUTE_DEFINITIONS.length,
   crewRoles: CREW_ROLES.length,
 };

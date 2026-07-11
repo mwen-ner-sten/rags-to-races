@@ -6,10 +6,11 @@ import { createInitialState, useGameStore } from "../store";
 
 const original: ScavengedPart = { id: "engine-original", definitionId: "engine_lawn", condition: "good", foundAt: "test", type: "part" };
 const replacement: ScavengedPart = { id: "engine-replacement", definitionId: "engine_small", condition: "good", foundAt: "test", type: "part" };
+const wheel: ScavengedPart = { id: "wheel-original", definitionId: "wheel_basic", condition: "good", foundAt: "test", type: "part" };
 
 function vehicle(): BuiltVehicle {
   const definition = getVehicleById("push_mower")!;
-  const parts = { engine: { part: original, addons: [] } };
+  const parts = { engine: { part: original, addons: [] }, wheel: { part: wheel, addons: [] } };
   return { id: "vehicle-1", definitionId: definition.id, parts, stats: calculateStats(definition, parts), builtAt: 1, condition: 100, totalRaces: 0 };
 }
 

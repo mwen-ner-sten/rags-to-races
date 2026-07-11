@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
-import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
+import { getVehicleBuildCost, getVehicleRepairCost, getVehicleSaleValue, resolveVehicleLoadout, useGameStore } from "@/state/store";
+import { formatVehicleUnlockRequirement, VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
-import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
+import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
-import { calculateRepairCost } from "@/engine/build";
 import type { BuiltVehicle } from "@/engine/build";
+import { validateBuildSelection } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
@@ -63,7 +63,6 @@ export default function GaragePanel() {
   const pendingBuildVehicleId = useGameStore((s) => s.pendingBuildVehicleId);
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
-  const fatigue = useGameStore((s) => s.fatigue);
   const setPendingVehicle = useGameStore((s) => s.setPendingVehicle);
   const setPendingPart = useGameStore((s) => s.setPendingPart);
   const buildSelectedVehicle = useGameStore((s) => s.buildSelectedVehicle);
@@ -89,9 +88,9 @@ export default function GaragePanel() {
 
   const pendingDef = VEHICLE_DEFINITIONS.find((v) => v.id === pendingBuildVehicleId);
 
-  // Apply bargain builder discount
-  const buildReduction = _getUpgradeEffectValue(useGameStore.getState(), "bargain_builder");
-  const actualBuildCost = pendingDef ? Math.max(0, Math.floor(pendingDef.buildCost * (1 - buildReduction))) : 0;
+  const actualBuildCost = useGameStore((state) =>
+    pendingDef ? getVehicleBuildCost(state, pendingDef) : 0,
+  );
 
   // Auto-Fitter: when blueprint changes and the upgrade is owned, pre-select
   // the best-condition compatible part for each required slot. Skips slots
@@ -109,15 +108,16 @@ export default function GaragePanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to blueprint change
   }, [pendingBuildVehicleId, autoFitterUnlocked]);
 
-  const requiredSlotsFilled = pendingDef
-    ? pendingDef.slots.every((s) => !s.required || pendingBuildParts[s.slot])
-    : false;
+  const buildSelection = useMemo(
+    () => pendingDef ? validateBuildSelection(pendingDef, pendingBuildParts, inventory) : null,
+    [inventory, pendingBuildParts, pendingDef],
+  );
   const hasFunds = pendingDef ? scrapBucks >= actualBuildCost : false;
-  const canBuild = !!pendingDef && requiredSlotsFilled && hasFunds;
+  const canBuild = !!pendingDef && buildSelection?.valid === true && hasFunds;
   const buildBlockReason = !pendingDef
     ? null
-    : !requiredSlotsFilled
-      ? "Select a part for each slot"
+    : !buildSelection?.valid
+      ? buildSelection?.reason ?? "Select a part for each required slot"
       : !hasFunds
         ? `Need $${formatNumber(actualBuildCost - scrapBucks)} more`
         : null;
@@ -157,7 +157,7 @@ export default function GaragePanel() {
                 key={v.id}
                 onClick={isUnlocked ? () => setPendingVehicle(v.id) : undefined}
                 disabled={!isUnlocked}
-                title={isUnlocked ? undefined : `Locked \u2014 ${v.unlockCondition}`}
+                title={isUnlocked ? undefined : `Locked \u2014 ${formatVehicleUnlockRequirement(v.unlockRequirement)}`}
                 className="rounded-lg border px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm transition-colors"
                 style={
                   !isUnlocked
@@ -191,7 +191,7 @@ export default function GaragePanel() {
               <span style={{ color: scrapBucks >= actualBuildCost ? "var(--success)" : "var(--danger)" }}>
                 ${formatNumber(actualBuildCost)}
               </span>
-              {buildReduction > 0 && (
+              {actualBuildCost < pendingDef.buildCost && (
                 <span className="ml-1 line-through" style={{ color: "var(--text-muted)" }}>${formatNumber(pendingDef.buildCost)}</span>
               )}
             </div>
@@ -318,8 +318,6 @@ export default function GaragePanel() {
                 isActive={vehicle.id === activeVehicleId}
                 scrapBucks={scrapBucks}
                 inventory={inventory}
-                workshopLevels={workshopLevels}
-                fatigue={fatigue}
                 toolkitUnlocked={toolkitUnlocked}
                 addonBenchUnlocked={addonBenchUnlocked}
                 setActiveVehicle={setActiveVehicle}
@@ -342,8 +340,6 @@ function VehicleCard({
   isActive,
   scrapBucks,
   inventory,
-  workshopLevels,
-  fatigue,
   toolkitUnlocked,
   addonBenchUnlocked,
   setActiveVehicle,
@@ -355,8 +351,6 @@ function VehicleCard({
   isActive: boolean;
   scrapBucks: number;
   inventory: ScavengedPart[];
-  workshopLevels: Record<string, number>;
-  fatigue: number;
   toolkitUnlocked: boolean;
   addonBenchUnlocked: boolean;
   setActiveVehicle: (id: string) => void;
@@ -378,19 +372,30 @@ function VehicleCard({
   const deleteVehicleLoadout = useGameStore((s) => s.deleteVehicleLoadout);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const isTutorialRepair = tutorialStep === 13;
+  const repairCost = useGameStore((state) => getVehicleRepairCost(state, vehicle));
+  const saleValue = useGameStore((state) => getVehicleSaleValue(state, vehicle));
+  const isRacing = useGameStore((state) => state.isRacing);
+  const fleetAssignmentStatus = useGameStore((state) =>
+    state.fleetAssignments.find((assignment) => assignment.vehicleId === vehicle.id)?.status ?? null,
+  );
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
   if (!def) return null;
 
   const condition = vehicle.condition ?? 100;
+  const mutationLocked = fleetAssignmentStatus !== null || (isRacing && isActive);
+  const activationLocked = isRacing || fleetAssignmentStatus !== null;
+  const lockMessage = fleetAssignmentStatus === "running"
+    ? "Vehicle is running a Fleet Program."
+    : fleetAssignmentStatus === "complete"
+      ? "Collect this vehicle's Fleet rewards first."
+      : isRacing && isActive
+        ? "Vehicle is currently racing."
+        : undefined;
   const engineInstalled = vehicle.parts["engine"];
   const enginePart = engineInstalled?.part;
-  const mult = enginePart ? CONDITION_MULTIPLIERS[enginePart.condition] : 1;
   const engineDef = enginePart ? getPartById(enginePart.definitionId) : null;
 
-  // Repair cost
-  const repairReduction = _getUpgradeEffectValue({ workshopLevels } as import("@/state/store").GameState, "budget_repairs");
-  const repairCost = condition < 100 ? calculateRepairCost(def, condition, 100, repairReduction, fatigue) : 0;
 
   return (
     <div
@@ -423,6 +428,14 @@ function VehicleCard({
                 Broken
               </span>
             )}
+            {fleetAssignmentStatus && (
+              <span
+                className="rounded px-1.5 py-0.5 text-[.6rem] font-semibold"
+                style={{ background: "var(--accent-bg)", color: "var(--accent)" }}
+              >
+                {fleetAssignmentStatus === "running" ? "Fleet Program" : "Fleet Rewards Ready"}
+              </span>
+            )}
           </div>
           {enginePart && (
             <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -443,7 +456,9 @@ function VehicleCard({
             <button
               data-tutorial="activate-btn"
               onClick={() => setActiveVehicle(vehicle.id)}
-              className="rounded border px-2 py-1 text-xs transition-colors"
+              disabled={activationLocked}
+              title={activationLocked ? lockMessage ?? "Finish the current race before switching vehicles." : undefined}
+              className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
             >
               Activate
@@ -451,10 +466,12 @@ function VehicleCard({
           )}
           <button
             onClick={() => sellVehicle(vehicle.id)}
-            className="text-xs transition-colors"
+            disabled={mutationLocked}
+            title={mutationLocked ? lockMessage : undefined}
+            className="text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             style={{ color: "var(--text-muted)" }}
           >
-            Sell ${formatNumber(def.sellValue * mult)}
+            Sell ${formatNumber(saleValue)}
           </button>
         </div>
       </div>
@@ -488,7 +505,8 @@ function VehicleCard({
             <button
               data-tutorial="repair-btn"
               onClick={() => repairVehicle(vehicle.id)}
-              disabled={!isTutorialRepair && scrapBucks < repairCost}
+              disabled={mutationLocked || (!isTutorialRepair && scrapBucks < repairCost)}
+              title={mutationLocked ? lockMessage : undefined}
               className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{ borderColor: "#16a34a", color: "var(--success)" }}
             >
@@ -525,18 +543,25 @@ function VehicleCard({
         </div>
         {vehicleLoadouts.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {vehicleLoadouts.map((loadout) => (
-              <span key={loadout.id} className="inline-flex overflow-hidden rounded border" style={{ borderColor: "var(--btn-border)" }}>
-                <button onClick={() => applyVehicleLoadout(loadout.id)} className="px-2 py-1 text-xs" style={{ color: "var(--text-primary)" }}>{loadout.name}</button>
-                <button onClick={() => deleteVehicleLoadout(loadout.id)} aria-label={`Delete ${loadout.name} loadout`} className="border-l px-1.5 text-xs" style={{ borderColor: "var(--btn-border)", color: "var(--danger)" }}>×</button>
-              </span>
-            ))}
+            {vehicleLoadouts.map((loadout) => {
+              const resolution = resolveVehicleLoadout(vehicle, inventory, loadout);
+              const disabledReason = mutationLocked ? lockMessage : resolution.reason ?? undefined;
+              return (
+                <span key={loadout.id} className="inline-flex max-w-56 flex-col">
+                  <span className="inline-flex overflow-hidden rounded border" style={{ borderColor: "var(--btn-border)" }}>
+                    <button disabled={Boolean(disabledReason)} title={disabledReason} onClick={() => applyVehicleLoadout(loadout.id)} className="min-w-0 truncate px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40" style={{ color: "var(--text-primary)" }}>{loadout.name}</button>
+                    <button onClick={() => deleteVehicleLoadout(loadout.id)} aria-label={`Delete ${loadout.name} loadout`} className="shrink-0 border-l px-1.5 text-xs" style={{ borderColor: "var(--btn-border)", color: "var(--danger)" }}>×</button>
+                  </span>
+                  {resolution.reason && !mutationLocked && <span className="mt-0.5 text-[10px] leading-tight" style={{ color: "var(--warning)" }}>{resolution.reason}</span>}
+                </span>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Part swap UI */}
-      {(toolkitUnlocked || addonBenchUnlocked) && (
+      {(toolkitUnlocked || addonBenchUnlocked) && !mutationLocked && (
         <div className="mt-2">
           <div className="flex flex-wrap gap-1">
             {def.slots.map((slotCfg) => {
@@ -590,6 +615,9 @@ function VehicleCard({
             </div>
           )}
         </div>
+      )}
+      {mutationLocked && (
+        <p className="mt-2 text-xs" style={{ color: "var(--warning)" }}>{lockMessage}</p>
       )}
     </div>
   );

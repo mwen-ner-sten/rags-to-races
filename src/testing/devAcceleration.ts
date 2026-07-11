@@ -1,8 +1,9 @@
-import { computeTickSpeedMs, simulateOfflineTicks, type OfflineResult } from "@/engine/tick";
-import { useGameStore, type GameState } from "@/state/store";
+import { computeOfflineTickSpeedMs, computeTickSpeedMs, simulateOfflineTicks, type OfflineResult } from "@/engine/tick";
+import type { GameState } from "@/state/store";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
+import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
 
-export const MAX_OFFLINE_MS = 8 * 60 * 60 * 1_000;
+export const MAX_OFFLINE_MS = MAX_OFFLINE_DURATION_MS;
 
 export interface DevSimulationSummary extends OfflineResult {
   seed: string;
@@ -19,7 +20,7 @@ export function offlineTicksForDuration(
 ): { ticks: number; requestedDurationMs: number; cappedDurationMs: number; tickSpeedMs: number } {
   const safeDuration = Number.isFinite(requestedDurationMs) ? Math.max(0, requestedDurationMs) : 0;
   const cappedDurationMs = Math.min(safeDuration, MAX_OFFLINE_MS);
-  const tickSpeedMs = computeTickSpeedMs(state);
+  const tickSpeedMs = computeOfflineTickSpeedMs(state);
   return {
     ticks: Math.floor(cappedDurationMs / tickSpeedMs),
     requestedDurationMs: safeDuration,
@@ -36,9 +37,21 @@ export function runSeededTicks(state: GameState, ticks: number, seed: string | n
     () => simulateOfflineTicks(state, safeTicks),
   );
   const idPrefix = `dev_${hashForId(normalizedSeed)}_${state.gameTick}_${safeTicks}`;
+  const normalizedPartIds = new Map<string, string>();
+  const partsFound = rawResult.partsFound.map((part, index) => {
+    const id = `${idPrefix}_part_${index}`;
+    normalizedPartIds.set(part.id, id);
+    return { ...part, id };
+  });
   const result = {
     ...rawResult,
-    partsFound: rawResult.partsFound.map((part, index) => ({ ...part, id: `${idPrefix}_part_${index}` })),
+    partsFound,
+    recentRaceOutcomes: rawResult.recentRaceOutcomes.map((outcome, index) => ({
+      ...outcome,
+      salvageDrop: outcome.salvageDrop
+        ? { ...outcome.salvageDrop, id: normalizedPartIds.get(outcome.salvageDrop.id) ?? `${idPrefix}_race_salvage_${index}` }
+        : undefined,
+    })),
     lootGearDrops: rawResult.lootGearDrops.map((drop, index) => ({ ...drop, id: `${idPrefix}_gear_${index}` })),
     modDrops: rawResult.modDrops.map((drop, index) => ({ ...drop, id: `${idPrefix}_mod_${index}` })),
   };
@@ -49,7 +62,7 @@ export function runSeededTicks(state: GameState, ticks: number, seed: string | n
     requestedDurationMs: null,
     cappedDurationMs: null,
     tickSpeedMs: computeTickSpeedMs(state),
-    scavengesCompleted: state.autoScavengeUnlocked ? result.ticksProcessed : 0,
+    scavengesCompleted: result.scavengesCompleted,
   };
 }
 
@@ -84,7 +97,34 @@ export function applyDevSimulation(state: GameState, result: DevSimulationSummar
     result.raceTickProgress,
     result.lootGearDrops,
     result.modDrops,
-    result.racesCompleted,
+    {
+      partsScavenged: result.partsScavenged,
+      partsAutoSold: result.partsAutoSold,
+      scavengesCompleted: result.scavengesCompleted,
+      racesCompleted: result.racesCompleted,
+      winsCompleted: result.winsCompleted,
+      finalWinStreak: result.finalWinStreak,
+      bestWinStreak: result.bestWinStreak,
+      recentRaceOutcomes: result.recentRaceOutcomes,
+      winningCircuitIds: result.winningCircuitIds,
+      defeatedRivalIds: result.defeatedRivalIds,
+      circuitWinStreaks: result.circuitWinStreaks,
+      raceSalvageFound: result.raceSalvageFound,
+      forgeTokensFound: result.forgeTokensFound,
+      entryFeesPaid: result.entryFeesPaid,
+      challengesEvaluated: result.challengesEvaluated,
+      completedChallengeIds: result.completedChallengeIds,
+      challengeForgeTokens: result.challengeForgeTokens,
+      challengeMaterials: result.challengeMaterials,
+      ticksProcessed: result.ticksProcessed,
+      finalFatigue: result.finalFatigue,
+      finalVehicleCondition: result.finalVehicleCondition,
+      finalRacerSkills: result.finalRacerSkills,
+      finalCrewRoster: result.finalCrewRoster,
+      finalActiveMomentumTiers: result.finalActiveMomentumTiers,
+      newAchievementIds: result.newAchievementIds,
+      stationEquipmentAutoSalvaged: result.stationEquipmentAutoSalvaged,
+      reforgeShardsFound: result.reforgeShardsFound,
+    },
   );
-  useGameStore.setState((current) => ({ gameTick: current.gameTick + result.ticksProcessed }));
 }

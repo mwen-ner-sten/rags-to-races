@@ -1,5 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import {
+  AUTO_SCAVENGE_MANUAL_TARGET,
+  MAX_OFFLINE_DURATION_MS,
+  STATION_EQUIPMENT_INVENTORY_LIMIT,
+} from "../../src/config/gameplayLimits";
+import { SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
+import { HIDDEN_THEMES, THEMES } from "../../src/data/themes";
+import { FATIGUE_DRINK_COST, FATIGUE_DRINK_RECOVERY } from "../../src/data/workshopActions";
+import { formatNumber } from "../../src/utils/format";
 import fixtures from "./fixtures/gameplay.generated.json";
 
 type FixtureName = keyof typeof fixtures;
@@ -16,6 +25,18 @@ async function loadFixture(page: Page, name: FixtureName, statePatch: Record<str
     sessionStorage.setItem("playwright-fixture-loaded", "true");
   }, { key: fixture.storageKey, value: payload });
   await page.goto("/");
+  await expect(page).toHaveTitle("Rags to Races");
+}
+
+async function replaceFixtureState(page: Page, name: FixtureName, statePatch: Record<string, unknown> = {}) {
+  const fixture = fixtures[name];
+  const payload = structuredClone(fixture.payload);
+  Object.assign(payload.state, { lastActiveTimestamp: 0, ...statePatch });
+  await page.evaluate(({ key, value }) => {
+    localStorage.setItem(key, JSON.stringify(value));
+    sessionStorage.setItem("playwright-fixture-loaded", "true");
+  }, { key: fixture.storageKey, value: payload });
+  await page.reload();
   await expect(page).toHaveTitle("Rags to Races");
 }
 
@@ -36,11 +57,74 @@ async function persistedState(page: Page) {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key)!).state as Record<string, unknown>, fixtures.fresh.storageKey);
 }
 
+async function persistedNumber(page: Page, field: string) {
+  return (await persistedState(page))[field] as number;
+}
+
+async function workshopTab(page: Page, name: string) {
+  await page.getByRole("tab", { name, exact: true }).click();
+}
+
+function parseDisplayedInteger(value: string): number {
+  const normalized = value.replaceAll(",", "").replaceAll("−", "-");
+  const match = normalized.match(/-?\d+/);
+  if (!match) throw new Error(`No integer found in \"${value}\"`);
+  return Number(match[0]);
+}
+
+async function modalRowText(page: Page, label: string) {
+  const modal = page.getByRole("heading", { name: "Welcome Back!" }).locator("..");
+  return modal.locator("div.flex").filter({ hasText: label }).first().innerText();
+}
+
+async function optionalModalRowText(page: Page, label: string) {
+  const modal = page.getByRole("heading", { name: "Welcome Back!" }).locator("..");
+  const row = modal.locator("div.flex").filter({ hasText: label }).first();
+  return await row.count() ? row.innerText() : "0";
+}
+
+async function installDeterministicMathRandom(page: Page, seed = 0x5eed1234) {
+  await page.addInitScript((initialSeed) => {
+    let state = initialSeed >>> 0;
+    Math.random = () => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let value = state;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    };
+  }, seed);
+}
+
+const runtimeIssues = new WeakMap<Page, { errors: string[]; warnings: string[] }>();
+
+test.beforeEach(async ({ page }) => {
+  const issues = { errors: [] as string[], warnings: [] as string[] };
+  runtimeIssues.set(page, issues);
+  page.on("pageerror", (error) => issues.errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") issues.errors.push(message.text());
+    if (message.type() === "warning") issues.warnings.push(message.text());
+  });
+});
+
+test.afterEach(async ({ page }) => {
+  const issues = runtimeIssues.get(page);
+  expect.soft(issues?.errors ?? [], `uncaught browser errors:\n${issues?.errors.join("\n") ?? ""}`).toEqual([]);
+  expect.soft(issues?.warnings ?? [], `browser warnings:\n${issues?.warnings.join("\n") ?? ""}`).toEqual([]);
+});
+
 function captureErrors(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
   return errors;
+}
+
+function captureWarnings(page: Page) {
+  const warnings: string[] = [];
+  page.on("console", (message) => { if (message.type() === "warning") warnings.push(message.text()); });
+  return warnings;
 }
 
 async function expectNoSeriousStructuralAccessibilityViolations(page: Page) {
@@ -59,6 +143,125 @@ test("fresh save exposes the first engineering loop", async ({ page }) => {
   await expectNoSeriousStructuralAccessibilityViolations(page);
 });
 
+test("core Scavenge action works from the keyboard without duplicate input", async ({ page }) => {
+  await loadFixture(page, "fresh", { tutorialStep: -1, tutorialDismissed: true });
+  const scavenge = page.getByRole("button", { name: "Scavenge!" });
+  await scavenge.focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(1);
+  await page.keyboard.press("Space");
+  await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(2);
+});
+
+test("current-version saves strip injected action names and keep Scavenge callable", async ({ page }) => {
+  await loadFixture(page, "fresh", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    manualScavenge: "injected action",
+    enterRace: null,
+    prestige: { poisoned: true },
+  });
+  const before = await persistedState(page);
+  await page.getByRole("button", { name: "Scavenge!" }).click();
+  const after = await persistedState(page);
+  expect(after.manualScavengeClicks).toBe((before.manualScavengeClicks as number) + 1);
+  expect((after.inventory as unknown[]).length).toBe((before.inventory as unknown[]).length + 1);
+  expect(after.manualScavenge).toBeUndefined();
+  expect(after.enterRace).toBeUndefined();
+  expect(after.prestige).toBeUndefined();
+});
+
+test("Auto-Scavenge unlocks on the exact final manual action", async ({ page }) => {
+  await loadFixture(page, "auto_scavenge_boundary");
+  await expect(page.getByText(`${AUTO_SCAVENGE_MANUAL_TARGET - 1}/${AUTO_SCAVENGE_MANUAL_TARGET} for Auto`, { exact: true })).toBeVisible();
+
+  const before = await persistedState(page);
+  expect(before.manualScavengeClicks).toBe(AUTO_SCAVENGE_MANUAL_TARGET - 1);
+  expect(before.autoScavengeUnlocked).toBe(false);
+
+  await page.getByRole("button", { name: "Scavenge!" }).click();
+  await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(AUTO_SCAVENGE_MANUAL_TARGET);
+  const after = await persistedState(page);
+  expect(after.autoScavengeUnlocked).toBe(true);
+  expect((after.inventory as unknown[]).length).toBe((before.inventory as unknown[]).length + 1);
+  await expect(page.getByText(/for Auto$/)).toHaveCount(0);
+});
+
+test("first Scrap Reset uses the shared exact gate and awards the previewed LP with both automations", async ({ page }) => {
+  const exactGate = {
+    repPoints: SCRAP_RESET_REQUIREMENTS.reputation,
+    lifetimeScrapBucks: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks,
+  };
+  await loadFixture(page, "first_scrap_reset_ready", {
+    ...exactGate,
+    lifetimeScrapBucks: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks - 1,
+  });
+  await openResetTab(page);
+  const resetButton = page.locator('[data-tutorial="prestige-btn"]');
+  await expect(resetButton).toBeDisabled();
+  await expect(page.getByText(`Requirements: ${scrapResetRequirementText()}`, { exact: true })).toBeVisible();
+
+  await replaceFixtureState(page, "first_scrap_reset_ready", exactGate);
+  await openResetTab(page);
+  await expect(resetButton).toBeEnabled();
+  const before = await persistedState(page);
+  await resetButton.click();
+  const confirm = page.getByRole("button", { name: /Prestige \(\+[\d,]+ LP\)/ });
+  const award = parseDisplayedInteger(await confirm.innerText());
+  expect(award).toBeGreaterThan(0);
+  await confirm.click();
+
+  const after = await persistedState(page);
+  expect(after.legacyPoints).toBe((before.legacyPoints as number) + award);
+  expect(after.lifetimeLPAllTime).toBe((before.lifetimeLPAllTime as number) + award);
+  expect(after.prestigeCount).toBe(1);
+  expect(after.autoScavengeUnlocked).toBe(true);
+  expect(after.autoRaceUnlocked).toBe(true);
+  expect(after.garage).toEqual([]);
+});
+
+test("offline catch-up honors the eight-hour cap and settles every part exactly once", async ({ page }) => {
+  test.setTimeout(90_000);
+  await installDeterministicMathRandom(page);
+  const fixtureState = fixtures.auto_scavenge_boundary.payload.state;
+  const initialInventory = fixtureState.inventory.length;
+  const initialScrap = fixtureState.scrapBucks;
+  await loadFixture(page, "auto_scavenge_boundary", {
+    autoScavengeUnlocked: true,
+    autoRaceUnlocked: false,
+    manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET,
+    lastActiveTimestamp: Date.now() - MAX_OFFLINE_DURATION_MS * 4,
+  });
+
+  await expect(page.getByRole("heading", { name: "Welcome Back!" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("You were away for 8h", { exact: true })).toBeVisible();
+  const scavenged = parseDisplayedInteger(await modalRowText(page, "Parts scavenged"));
+  const kept = parseDisplayedInteger(await modalRowText(page, "Kept in inventory"));
+  const junkFilteredText = await optionalModalRowText(page, "Junk Filter auto-sold");
+  const overflowText = await optionalModalRowText(page, "Inventory overflow sold");
+  const junkFiltered = parseDisplayedInteger(junkFilteredText);
+  const overflow = parseDisplayedInteger(overflowText);
+  const netScrapText = await modalRowText(page, "Net Scrap Bucks");
+  const netScrap = parseDisplayedInteger(netScrapText.replace("$", ""));
+  expect(scavenged).toBeGreaterThan(0);
+  expect(scavenged).toBe(kept + junkFiltered + overflow);
+
+  const after = await persistedState(page);
+  expect((after.inventory as unknown[]).length).toBe(initialInventory + kept);
+  expect(after.scrapBucks).toBe(initialScrap + netScrap);
+  expect(after.manualScavengeClicks).toBe(AUTO_SCAVENGE_MANUAL_TARGET);
+
+  await page.getByRole("button", { name: "Continue" }).click();
+  const settled = await persistedState(page);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Welcome Back!" })).toHaveCount(0);
+  const reloaded = await persistedState(page);
+  for (const field of ["scrapBucks", "repPoints", "forgeTokens", "lifetimePartsScavengedAllTime", "gameTick"] as const) {
+    expect(reloaded[field], `${field} duplicated on reload`).toEqual(settled[field]);
+  }
+  expect((reloaded.inventory as unknown[]).length).toBe((settled.inventory as unknown[]).length);
+});
+
 test("tutorial race forecast remains accurate through the forced-DNF explanation", async ({ page }) => {
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 9,
@@ -75,6 +278,61 @@ test("tutorial race forecast remains accurate through the forced-DNF explanation
   await expect(odds).toContainText(/DNF|0%/i);
 });
 
+test("tutorial first race cannot contradict its forced-DNF forecast before Got it", async ({ page }) => {
+  test.setTimeout(30_000);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 9,
+    tutorialDismissed: false,
+    repPoints: 0,
+    lifetimeRacesAllTime: 0,
+    raceHistory: [],
+  });
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  if (await enterRace.isEnabled()) {
+    await enterRace.click();
+    await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+    const outcome = ((await persistedState(page)).raceHistory as Array<{ result: string }>)[0];
+    expect(outcome?.result).toBe("dnf");
+    await expect(page.getByText("Rep Points: 0.1", { exact: false })).toBeVisible();
+  } else {
+    await expect(page.getByRole("button", { name: "Got it" })).toBeVisible();
+  }
+});
+
+test("tutorial interrupted first race recovers to a retry instead of an empty step", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 11,
+    tutorialDismissed: false,
+    isRacing: false,
+    raceHistory: [],
+    lastRaceOutcome: null,
+  });
+  await openTab(page, "race");
+  await expect(page.getByText(/interrupted|retry|enter the race again/i).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enter Race" })).toBeEnabled();
+});
+
+test("tutorial result explanation survives reload without transient lastRaceOutcome", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 12,
+    tutorialDismissed: false,
+    lastRaceOutcome: null,
+    raceHistory: [{
+      circuitId: "backyard_derby",
+      result: "dnf",
+      position: 8,
+      totalRacers: 8,
+      scrapsEarned: 0,
+      repEarned: 1,
+      log: ["Fixture interrupted result"],
+    }],
+  });
+  await openTab(page, "race");
+  await expect(page.getByText(/exploded|broke down|repair it/i).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Got it" })).toBeVisible();
+});
+
 test("tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 14,
@@ -89,6 +347,8 @@ test("tutorial routes the first upgrade through Workshop Facilities", async ({ p
   await page.getByRole("button", { name: "Got it" }).click();
   await page.locator('[data-tutorial="workshop-facilities-tab"]').click();
   await page.getByRole("button", { name: /\$75/ }).first().click();
+  await expect(page.getByText(/Workshop tabs cover inventory, fabrication/i)).toBeVisible();
+  await page.getByRole("button", { name: "Got it" }).click();
   await expect(page.getByText(/\$500 and 100 Rep/i)).toBeVisible();
 });
 
@@ -113,6 +373,35 @@ test("build to populated Garage, activate, repair, and reload stays stable", asy
   await expect(page.getByText("Your Garage (1)")).toBeVisible();
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
   expect(errors.filter((error) => /Maximum update depth|getSnapshot|uncaught/i.test(error))).toEqual([]);
+});
+
+test("reloading a paid race refunds its escrow exactly once without inventing history", async ({ page }) => {
+  await loadFixture(page, "workshop_ready", {
+    autoScavengeUnlocked: false,
+    autoRaceUnlocked: false,
+  });
+  await openTab(page, "race");
+  const before = await persistedState(page);
+  await page.getByRole("button", { name: "Enter Race" }).click();
+  await expect(page.getByRole("button", { name: "Racing..." })).toBeDisabled();
+  const during = await persistedState(page);
+  expect(during.scrapBucks as number).toBeLessThan(before.scrapBucks as number);
+  expect((during.raceHistory as unknown[]).length).toBe((before.raceHistory as unknown[]).length);
+
+  await page.reload();
+  // Hydration reconciles the interrupted escrow in memory. A normal action
+  // persists that reconciled snapshot so the exact refund can be inspected.
+  await page.getByRole("button", { name: "Scavenge!" }).click();
+  const recovered = await persistedState(page);
+  expect(recovered.scrapBucks).toBe(before.scrapBucks);
+  expect((recovered.raceHistory as unknown[]).length).toBe((before.raceHistory as unknown[]).length);
+  await openTab(page, "race");
+  await expect(page.getByRole("button", { name: "Enter Race" })).toBeEnabled();
+
+  await page.reload();
+  const secondReload = await persistedState(page);
+  expect(secondReload.scrapBucks).toBe(recovered.scrapBucks);
+  expect(secondReload.raceHistory).toEqual(recovered.raceHistory);
 });
 
 test("DEV scenario loader replaces the save using the shared campaign fixture", async ({ page }) => {
@@ -142,6 +431,226 @@ test("seeded DEV acceleration reports and persists production-engine deltas", as
   expect((after.inventory as unknown[]).length).toBeGreaterThan((before.inventory as unknown[]).length);
 });
 
+test("Workshop inventory actions sell, decompose, enhance, trade up, and recover fatigue", async ({ page }) => {
+  const inventory = structuredClone(fixtures.workshop_ready.payload.state.inventory);
+  const template = inventory.find((part) => part.type === "part")!;
+  inventory.push(
+    { ...template, id: "e2e_trade_1", condition: "worn" },
+    { ...template, id: "e2e_trade_2", condition: "worn" },
+    { ...template, id: "e2e_trade_3", condition: "worn" },
+    { ...template, id: "e2e_decompose", condition: "rusted" },
+  );
+  await loadFixture(page, "workshop_ready", { inventory, fatigue: 32 });
+  await openTab(page, "gear");
+
+  const beforeSell = await persistedState(page);
+  await page.getByRole("button", { name: /^Sell \$/ }).first().click();
+  const afterSell = await persistedState(page);
+  expect((afterSell.inventory as unknown[]).length).toBe((beforeSell.inventory as unknown[]).length - 1);
+  expect(afterSell.scrapBucks as number).toBeGreaterThan(beforeSell.scrapBucks as number);
+
+  const beforeEnhance = await persistedState(page);
+  await page.getByRole("button", { name: /^Enhance/ }).and(page.locator(":enabled")).first().click();
+  const afterEnhance = await persistedState(page);
+  expect((afterEnhance.challengeProgress as Record<string, number>).totalEnhanced).toBe(
+    ((beforeEnhance.challengeProgress as Record<string, number>).totalEnhanced ?? 0) + 1,
+  );
+
+  const beforeTrade = await persistedState(page);
+  await page.getByRole("button", { name: "Trade best eligible trio" }).click();
+  const afterTrade = await persistedState(page);
+  expect((afterTrade.challengeProgress as Record<string, number>).totalTradeUps).toBe(
+    ((beforeTrade.challengeProgress as Record<string, number>).totalTradeUps ?? 0) + 1,
+  );
+  expect((afterTrade.inventory as unknown[]).length).toBe((beforeTrade.inventory as unknown[]).length - 2);
+
+  const materialsBefore = Object.values(afterTrade.materials as Record<string, number>).reduce((sum, value) => sum + value, 0);
+  await page.getByRole("button", { name: "Decompose", exact: true }).first().click();
+  const afterDecompose = await persistedState(page);
+  const materialsAfter = Object.values(afterDecompose.materials as Record<string, number>).reduce((sum, value) => sum + value, 0);
+  expect(materialsAfter).toBeGreaterThan(materialsBefore);
+  expect((afterDecompose.challengeProgress as Record<string, number>).totalDecomposed).toBe(
+    ((afterTrade.challengeProgress as Record<string, number>).totalDecomposed ?? 0) + 1,
+  );
+
+  const beforeDrink = await persistedState(page);
+  await page.getByRole("button", { name: /Fatigue Drink/ }).click();
+  const afterDrink = await persistedState(page);
+  expect(afterDrink.fatigue).toBe((beforeDrink.fatigue as number) - FATIGUE_DRINK_RECOVERY);
+  expect(afterDrink.scrapBucks).toBe((beforeDrink.scrapBucks as number) - FATIGUE_DRINK_COST);
+  expect((afterDrink.challengeProgress as Record<string, number>).fatigueDrinksPurchased).toBe(1);
+});
+
+test("Workshop fabrication, add-ons, and Dealer actions produce exact persisted deltas", async ({ page }) => {
+  await installDeterministicMathRandom(page, 0x51a7e);
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "gear");
+
+  await workshopTab(page, "Fabrication");
+  const beforeCraft = await persistedState(page);
+  await page.getByRole("button", { name: "Craft", exact: true }).first().click();
+  const afterCraft = await persistedState(page);
+  expect((afterCraft.inventory as unknown[]).length).toBe((beforeCraft.inventory as unknown[]).length + 1);
+  expect(Object.values(afterCraft.materials as Record<string, number>)).not.toEqual(Object.values(beforeCraft.materials as Record<string, number>));
+
+  await workshopTab(page, "Add-ons");
+  const beforeInstall = await persistedState(page);
+  const installButton = page.getByRole("button", { name: /^Install / }).and(page.locator(":enabled")).first();
+  const addOnName = (await installButton.innerText()).replace(/^Install /, "");
+  await installButton.click();
+  const afterInstall = await persistedState(page);
+  expect((afterInstall.inventory as unknown[]).length).toBe((beforeInstall.inventory as unknown[]).length - 1);
+  await expect(page.getByRole("button", { name: `Remove ${addOnName}` })).toBeVisible();
+  await page.getByRole("button", { name: `Remove ${addOnName}` }).click();
+  expect(((await persistedState(page)).inventory as unknown[]).length).toBe((beforeInstall.inventory as unknown[]).length);
+
+  await workshopTab(page, "Dealer");
+  const beforeBuy = await persistedState(page);
+  await page.getByRole("button", { name: /^Buy \$/ }).first().click();
+  const afterBuy = await persistedState(page);
+  expect((afterBuy.inventory as unknown[]).length).toBe((beforeBuy.inventory as unknown[]).length + 1);
+  expect(afterBuy.scrapBucks as number).toBeLessThan(beforeBuy.scrapBucks as number);
+  const boardBeforeRefresh = afterBuy.dealerBoard as Array<{ id: string }>;
+  const cashBeforeRefresh = afterBuy.scrapBucks as number;
+  const refreshButton = page.getByRole("button", { name: /^Refresh \$/ });
+  const refreshCost = parseDisplayedInteger(await refreshButton.innerText());
+  await refreshButton.click();
+  const afterRefresh = await persistedState(page);
+  expect(afterRefresh.scrapBucks).toBe(cashBeforeRefresh - refreshCost);
+  expect((afterRefresh.dealerBoard as Array<{ id: string }>).map((entry) => entry.id)).not.toEqual(boardBeforeRefresh.map((entry) => entry.id));
+});
+
+test("Station equipment can be forged, installed, enhanced, reforged, removed, and salvaged", async ({ page }) => {
+  await installDeterministicMathRandom(page, 0x57a710);
+  const stationItem = {
+    ...fixtures.workshop_ready.payload.state.stationEquipmentInventory[0],
+    effects: [
+      { type: "attribute", attribute: "engineering", value: 7 },
+      { type: "bonus", bonus: "repair_cost_reduction_pct", value: 0.04 },
+    ],
+  };
+  await loadFixture(page, "workshop_ready", { stationEquipmentInventory: [stationItem] });
+  await openTab(page, "gear");
+  await workshopTab(page, "Stations");
+  await expect(page.getByText("No equipment owned for Pit Equipment.", { exact: true })).toBeVisible();
+
+  const inventoryBeforeForge = (await persistedState(page)).stationEquipmentInventory as unknown[];
+  const diagnostics = page.locator("section").filter({ has: page.getByRole("heading", { name: "Diagnostics" }) });
+  await diagnostics.getByRole("button", { name: /^Forge Common/ }).click();
+  expect(((await persistedState(page)).stationEquipmentInventory as unknown[]).length).toBe(inventoryBeforeForge.length + 1);
+
+  const workbench = page.locator("section").filter({ has: page.getByRole("heading", { name: "Workbench" }) });
+  await workbench.getByRole("button", { name: "Install", exact: true }).first().click();
+  expect(((await persistedState(page)).equippedStationEquipment as Record<string, string | null>).workbench).toBe(stationItem.id);
+
+  const cashBeforeEnhance = await persistedNumber(page, "scrapBucks");
+  await workbench.getByRole("button", { name: /^Enhance to \+1/ }).click();
+  const afterEnhance = await persistedState(page);
+  expect((afterEnhance.stationEquipmentInventory as Array<{ id: string; enhancementLevel: number }>).find((item) => item.id === stationItem.id)?.enhancementLevel).toBe(1);
+  expect(afterEnhance.scrapBucks as number).toBeLessThan(cashBeforeEnhance);
+
+  const shardsBefore = afterEnhance.reforgeShards as number;
+  await workbench.getByRole("button", { name: /^Reforge/ }).click();
+  expect(await persistedNumber(page, "reforgeShards")).toBeLessThan(shardsBefore);
+
+  await workbench.getByRole("button", { name: "Remove", exact: true }).click();
+  const beforeSalvage = await persistedState(page);
+  const salvageButton = workbench.getByRole("button", { name: /^Salvage/ }).first();
+  await expect(salvageButton).toBeEnabled();
+  await salvageButton.click();
+  const afterSalvage = await persistedState(page);
+  expect((afterSalvage.stationEquipmentInventory as Array<{ id: string }>).some((item) => item.id === stationItem.id)).toBe(false);
+  expect(afterSalvage.reforgeShards as number).toBeGreaterThan(beforeSalvage.reforgeShards as number);
+});
+
+test("named loadouts cannot restore more add-ons than a degraded part can hold", async ({ page }) => {
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "gear");
+  await workshopTab(page, "Add-ons");
+  await page.getByRole("button", { name: "Install Clean Air Filter", exact: true }).click();
+  await page.getByRole("button", { name: "Install Turbo Snail", exact: true }).click();
+
+  await openTab(page, "garage");
+  const loadoutName = page.getByLabel("New loadout name for Street Racer");
+  const streetRacer = loadoutName.locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
+  await loadoutName.fill("Two Boosters");
+  await streetRacer.getByRole("button", { name: "Save build" }).click();
+  await streetRacer.getByRole("button", { name: /engine:/i }).click();
+  const goodReplacement = streetRacer.getByRole("button", { name: /V8 Engine.*x2/ }).first();
+  await goodReplacement.click();
+
+  const stateAfterSwap = await persistedState(page);
+  const active = (stateAfterSwap.garage as Array<{ id: string; parts: Record<string, { addons: unknown[] }> }>).find(
+    (vehicle) => vehicle.id === stateAfterSwap.activeVehicleId,
+  )!;
+  expect(active.parts.engine.addons).toHaveLength(1);
+  const savedLoadout = streetRacer.getByRole("button", { name: "Two Boosters", exact: true });
+  await expect(savedLoadout).toBeDisabled();
+  await expect(streetRacer.getByText(/uses 2 add-ons, but good condition allows 1/i)).toBeVisible();
+});
+
+test("an empty Dealer board stays empty until the player pays to refresh", async ({ page }) => {
+  await loadFixture(page, "workshop_ready", {
+    autoScavengeUnlocked: false,
+    autoRaceUnlocked: false,
+  });
+  await openTab(page, "gear");
+  await workshopTab(page, "Dealer");
+  for (let listing = 0; listing < 3; listing += 1) {
+    await page.getByRole("button", { name: /^Buy \$/ }).first().click();
+  }
+  await expect(page.getByText("No listings remain. Refresh the board to source new stock.", { exact: true })).toBeVisible();
+  const beforeTick = await persistedState(page);
+  expect(beforeTick.dealerBoard).toEqual([]);
+
+  await openTab(page, "dev");
+  await page.getByRole("button", { name: "+10 ticks" }).click();
+  const afterTick = await persistedState(page);
+  expect(afterTick.dealerBoard).toEqual([]);
+  expect(afterTick.scrapBucks).toBe(beforeTick.scrapBucks);
+});
+
+test("Workshop add-on controls explain and enforce the active-race mutation lock", async ({ page }) => {
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "race");
+  await page.getByRole("button", { name: "Enter Race" }).click();
+  await expect(page.getByRole("button", { name: "Racing..." })).toBeDisabled();
+
+  await openTab(page, "gear");
+  await workshopTab(page, "Add-ons");
+  const installButtons = page.getByRole("button", { name: /^Install / });
+  expect(await installButtons.count()).toBeGreaterThan(0);
+  for (let index = 0; index < await installButtons.count(); index += 1) {
+    await expect(installButtons.nth(index)).toBeDisabled();
+  }
+  await expect(page.getByText(/currently racing|finish the current race/i).first()).toBeVisible();
+});
+
+test("Junkyard refurbishment quote matches the executable discounted store cost", async ({ page }) => {
+  const part = {
+    ...fixtures.workshop_ready.payload.state.inventory.find((candidate) => candidate.definitionId === "engine_turbo_v6")!,
+    id: "e2e_discounted_refurb",
+    condition: "worn",
+  };
+  await loadFixture(page, "maxed", {
+    scrapBucks: 1,
+    inventory: [part],
+    selectedLocationId: "curbside",
+    autoScavengeUnlocked: false,
+    autoRaceUnlocked: false,
+  });
+  const fix = page.getByRole("button", { name: /^Fix \$\d+$/ }).filter({ hasText: "Fix $1" }).last();
+  await expect(fix).toBeEnabled();
+  const cost = parseDisplayedInteger(await fix.innerText());
+  expect(cost).toBeLessThanOrEqual(1);
+  await fix.click();
+  const after = await persistedState(page);
+  expect(after.activityLog).toEqual(expect.arrayContaining([
+    expect.objectContaining({ message: expect.stringMatching(/^Refurbished part/), scrapDelta: -cost }),
+  ]));
+  expect((after.inventory as Array<{ id: string; condition: string }>).find((candidate) => candidate.id === part.id)?.condition).toBe("decent");
+});
+
 for (const [fixtureName, buttonName, awardField, clearedField] of [
   ["first_scrap_reset_ready", "Scrap Reset", "legacyPoints", "garage"],
   ["team_reset_ready", "Team Reset", "teamPoints", "garage"],
@@ -157,6 +666,15 @@ for (const [fixtureName, buttonName, awardField, clearedField] of [
       await page.getByRole("button", { name: /Prestige \(\+\d+ LP\)/ }).click();
     } else {
       await page.getByRole("button", { name: buttonName, exact: true }).click();
+      await expect(page.getByRole("alertdialog", { name: `Confirm ${buttonName}` })).toBeVisible();
+      expect((await persistedState(page))[awardField]).toBe(before[awardField]);
+      if (buttonName === "Team Reset") {
+        await page.getByRole("button", { name: "Cancel", exact: true }).click();
+        await expect(page.getByRole("alertdialog", { name: `Confirm ${buttonName}` })).toHaveCount(0);
+        expect((await persistedState(page))[awardField]).toBe(before[awardField]);
+        await page.getByRole("button", { name: buttonName, exact: true }).click();
+      }
+      await page.getByRole("button", { name: new RegExp(`^Confirm ${buttonName} \\(\\+\\d+ (?:TP|OP|PT)\\)$`) }).click();
     }
     const after = await persistedState(page);
     expect(after[awardField] as number).toBeGreaterThan(before[awardField] as number);
@@ -166,6 +684,29 @@ for (const [fixtureName, buttonName, awardField, clearedField] of [
     expect((await persistedState(page))[awardField]).toBe(after[awardField]);
   });
 }
+
+test("Team, Owner, and Track resets cannot repeat at zero progress", async ({ page }) => {
+  for (const [index, fixtureName, buttonName, currencyField, eraField] of [
+    [0, "team_reset_ready", "Team Reset", "teamPoints", "teamEraCount"],
+    [1, "owner_reset_ready", "Owner Reset", "ownerPoints", "ownerEraCount"],
+    [2, "track_reset_ready", "Track Reset", "trackPrestigeTokens", "trackEraCount"],
+  ] as const) {
+    if (index === 0) await loadFixture(page, fixtureName);
+    else await replaceFixtureState(page, fixtureName);
+    await openResetTab(page);
+    await page.getByRole("button", { name: buttonName, exact: true }).click();
+    await page.getByRole("button", { name: new RegExp(`^Confirm ${buttonName} \\(\\+\\d+ (?:TP|OP|PT)\\)$`) }).click();
+    const afterReset = await persistedState(page);
+    expect(afterReset[currencyField] as number).toBeGreaterThan(0);
+
+    await page.reload();
+    await openResetTab(page);
+    await expect(page.getByRole("button", { name: buttonName, exact: true })).toHaveCount(0);
+    const afterReload = await persistedState(page);
+    expect(afterReload[currencyField], `${buttonName} currency changed without progress`).toBe(afterReset[currencyField]);
+    expect(afterReload[eraField], `${buttonName} era repeated without progress`).toBe(afterReset[eraField]);
+  }
+});
 
 for (const [fixtureName, layerName, heading] of [
   ["team_reset_ready", "Team", /Team, Crew & Fleet/i],
@@ -181,6 +722,142 @@ for (const [fixtureName, layerName, heading] of [
     await page.screenshot({ path: testInfo.outputPath(`${fixtureName}-${testInfo.project.name}.png`), fullPage: true });
   });
 }
+
+test("Team crew lifecycle and Fleet program use selected crew and settle rewards", async ({ page }) => {
+  const crew = {
+    id: "fixture_crew",
+    name: "Rook",
+    role: "mechanic",
+    level: 5,
+    xp: 750,
+    specialization: null,
+  };
+  await loadFixture(page, "team_reset_ready", {
+    crewRoster: [crew],
+    crewSlots: 2,
+    autoScavengeUnlocked: false,
+    autoRaceUnlocked: false,
+  });
+  await openTab(page, "upgrades");
+  await page.getByRole("button", { name: "Team", exact: true }).click();
+
+  const tpBeforeRecruit = await persistedNumber(page, "teamPoints");
+  const crewSection = page.getByRole("heading", { name: "Crew Roster" }).locator("..");
+  await crewSection.getByRole("button", { name: /Scout$/ }).click();
+  const afterRecruit = await persistedState(page);
+  expect((afterRecruit.crewRoster as unknown[]).length).toBe(2);
+  expect(afterRecruit.teamPoints).toBe(tpBeforeRecruit - 1);
+
+  const rookCard = page.locator("div.rounded-lg.border.p-3").filter({ hasText: "Rook" }).last();
+  await rookCard.getByRole("button", { name: /Tuner/ }).click();
+  expect((await persistedState(page)).crewRoster).toEqual(expect.arrayContaining([expect.objectContaining({ id: crew.id, specialization: "tuner" })]));
+
+  const vehicleBefore = ((await persistedState(page)).garage as Array<{ id: string; definitionId: string; condition: number; stats: unknown }>).find((vehicle) => vehicle.definitionId === "push_mower")!;
+  await page.getByLabel("Crew for Push Mower").selectOption(crew.id);
+  const pushMowerProgram = page.locator("article").filter({ hasText: "Push Mower" });
+  await pushMowerProgram.getByRole("button", { name: "Start program" }).click();
+  const assignment = ((await persistedState(page)).fleetAssignments as Array<{ id: string; crewId: string; status: string }>)[0];
+  expect(assignment.crewId).toBe(crew.id);
+  expect(assignment.status).toBe("running");
+
+  await openTab(page, "dev");
+  await page.getByRole("button", { name: "+10 ticks" }).click();
+  await expect(page.getByTestId("dev-simulation-summary")).toContainText("Ticks: 10");
+  await openTab(page, "upgrades");
+  await page.getByRole("button", { name: "Team", exact: true }).click();
+  await expect(pushMowerProgram.getByRole("button", { name: "Collect rewards" })).toBeVisible();
+  const beforeCollect = await persistedState(page);
+  await pushMowerProgram.getByRole("button", { name: "Collect rewards" }).click();
+  const afterCollect = await persistedState(page);
+  expect(afterCollect.scrapBucks as number).toBeGreaterThan(beforeCollect.scrapBucks as number);
+  expect((afterCollect.crewRoster as Array<{ id: string; xp: number }>).find((member) => member.id === crew.id)!.xp).toBeGreaterThan(
+    (beforeCollect.crewRoster as Array<{ id: string; xp: number }>).find((member) => member.id === crew.id)!.xp,
+  );
+  const vehicleAfter = (afterCollect.garage as Array<{ id: string; condition: number; stats: unknown }>).find((vehicle) => vehicle.id === vehicleBefore.id)!;
+  expect(vehicleAfter.condition).toBe(vehicleBefore.condition - 5);
+  expect(vehicleAfter.stats).not.toEqual(vehicleBefore.stats);
+  expect(afterCollect.fleetAssignments).toEqual([]);
+});
+
+test("Owner purchases unlock concrete circuits and vehicles and Material Synthesis has exact terms", async ({ page }) => {
+  const base = fixtures.owner_reset_ready.payload.state;
+  await loadFixture(page, "owner_reset_ready", {
+    ownerUpgradeLevels: {},
+    unlockedFeatures: base.unlockedFeatures.filter((id) => id !== "advanced_circuits" && id !== "vehicle_mastery"),
+    unlockedCircuitIds: base.unlockedCircuitIds.filter((id) => id !== "continental_grand_prix" && id !== "endurance_series"),
+    unlockedVehicleIds: base.unlockedVehicleIds.filter((id) => id !== "hypercar" && id !== "prototype_x"),
+    selectedCircuitId: "world_championship",
+  });
+  await openTab(page, "upgrades");
+  await page.getByRole("button", { name: "Owner", exact: true }).click();
+
+  const advanced = page.locator("div.rounded-lg.border.p-3").filter({ hasText: "Advanced Circuits" });
+  await advanced.getByRole("button", { name: /15 OP/ }).click();
+  const mastery = page.locator("div.rounded-lg.border.p-3").filter({ hasText: "Vehicle Mastery" });
+  await mastery.getByRole("button", { name: /15 OP/ }).click();
+  const synthesis = page.locator("div.rounded-lg.border.p-3").filter({ hasText: "Material Synthesis" });
+  await synthesis.getByRole("button", { name: /10 OP/ }).click();
+
+  const afterPurchases = await persistedState(page);
+  expect(afterPurchases.unlockedFeatures).toEqual(expect.arrayContaining(["advanced_circuits", "vehicle_mastery"]));
+  expect(afterPurchases.unlockedCircuitIds).toEqual(expect.arrayContaining(["continental_grand_prix", "endurance_series"]));
+  expect(afterPurchases.unlockedVehicleIds).toEqual(expect.arrayContaining(["hypercar", "prototype_x"]));
+
+  await openTab(page, "gear");
+  await workshopTab(page, "Fabrication");
+  await expect(page.getByRole("button", { name: "$100 → 10 Carbon Dust", exact: true })).toBeVisible();
+  const beforeSynthesis = await persistedState(page);
+  await page.getByRole("button", { name: "$100 → 10 Carbon Dust", exact: true }).click();
+  const afterSynthesis = await persistedState(page);
+  expect(afterSynthesis.scrapBucks).toBe((beforeSynthesis.scrapBucks as number) - 100);
+  expect((afterSynthesis.materials as Record<string, number>).carbonDust).toBe((beforeSynthesis.materials as Record<string, number>).carbonDust + 10);
+});
+
+test("Track configuration, perks, hosting, acceleration, and collection use the displayed terms", async ({ page }) => {
+  await installDeterministicMathRandom(page, 0x7acced);
+  await loadFixture(page, "track_reset_ready", {
+    trackPerkLevels: {},
+    hostedEvents: [],
+    autoScavengeUnlocked: false,
+    autoRaceUnlocked: false,
+  });
+  await openTab(page, "upgrades");
+  await page.getByRole("button", { name: "Track", exact: true }).click();
+
+  for (const [name, cost] of [["Custom Circuits", "10 PT"], ["Night Racing", "8 PT"], ["Endurance Mode", "12 PT"], ["Sponsor Network", "5 PT"]] as const) {
+    const card = page.locator("div.rounded-lg.border.p-3").filter({ hasText: name });
+    await card.getByRole("button", { name: cost, exact: true }).click();
+  }
+  await page.getByLabel("Surface").selectOption("asphalt");
+  await page.getByLabel("Length").selectOption("long");
+  await page.getByLabel("Corners").selectOption("high");
+  await page.getByLabel("Conditions").selectOption("night");
+  await page.getByLabel("Vehicle class").selectOption("prototype");
+  await page.getByLabel("Payout tier").selectOption("5");
+  await page.getByRole("checkbox", { name: /Endurance modifier/ }).check();
+  const forecast = await page.getByText(/^Forecast:/).innerText();
+  const durationMatch = forecast.match(/after ([\d,]+) ticks/);
+  expect(durationMatch).not.toBeNull();
+  const displayedDuration = Number(durationMatch![1].replaceAll(",", ""));
+
+  await page.getByRole("button", { name: "Host event" }).click();
+  const hosted = ((await persistedState(page)).hostedEvents as Array<{ reward: number; remainingTicks: number; config: Record<string, unknown> }>)[0];
+  expect(forecast).toContain(`$${formatNumber(hosted.reward)}`);
+  expect(hosted.remainingTicks).toBe(displayedDuration);
+  expect(hosted.config).toEqual(expect.objectContaining({ surface: "asphalt", length: "long", cornerDensity: "high", timeRule: "night", vehicleClass: "prototype", riskReward: 5, endurance: true }));
+
+  await openTab(page, "dev");
+  await page.getByRole("button", { name: "+100 ticks" }).click();
+  await openTab(page, "upgrades");
+  await page.getByRole("button", { name: "Track", exact: true }).click();
+  await expect(page.getByText(`$${formatNumber(hosted.reward)}`, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Collect", exact: true })).toBeVisible();
+  const beforeCollect = await persistedNumber(page, "scrapBucks");
+  await page.getByRole("button", { name: "Collect", exact: true }).click();
+  const afterCollect = await persistedState(page);
+  expect(afterCollect.scrapBucks).toBe(beforeCollect + hosted.reward);
+  expect(afterCollect.hostedEvents).toEqual([]);
+});
 
 test("save export/import round-trip preserves the campaign checksum fields", async ({ page }) => {
   await loadFixture(page, "workshop_ready");
@@ -200,15 +877,145 @@ test("save export/import round-trip preserves the campaign checksum fields", asy
   expect((after.garage as unknown[]).length).toBe((before.garage as unknown[]).length);
 });
 
+test("malformed current-version save import is rejected without mutating the campaign", async ({ page }) => {
+  await loadFixture(page, "workshop_ready");
+  const before = await persistedState(page);
+  await openTab(page, "settings");
+  const malformed = structuredClone(fixtures.workshop_ready.payload) as unknown as {
+    state: Record<string, unknown>;
+  };
+  Object.assign(malformed.state, {
+    garage: [null],
+    materials: { ...(malformed.state.materials as Record<string, number>), metalScrap: -1 },
+    fatigue: "exhausted",
+    vehicleLoadouts: null,
+  });
+  const input = page.locator('input[type="file"]');
+  await input.setInputFiles({
+    name: "malformed-current-save.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(malformed)),
+  });
+  const importArea = input.locator("..");
+  await expect(importArea.locator("p").last()).toBeVisible();
+  await expect(page.getByText("Save imported successfully!", { exact: true })).toHaveCount(0);
+
+  const after = await persistedState(page);
+  for (const field of ["scrapBucks", "repPoints", "activeVehicleId", "fatigue", "materials", "garage"] as const) {
+    expect(after[field], `${field} changed after a rejected import`).toEqual(before[field]);
+  }
+});
+
 test("maxed state visits every primary screen without crashes or viewport overflow", async ({ page }) => {
   const errors = captureErrors(page);
+  const warnings = captureWarnings(page);
   await loadFixture(page, "maxed");
   for (const tab of ["junkyard", "garage", "race", "gear", "upgrades", "help", "log", "settings", "dev"]) {
     if (tab !== "junkyard") await openTab(page, tab);
+    if (tab === "race") await expect(page.getByText("ENDURANCE", { exact: true })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${tab} horizontal overflow`).toBeLessThanOrEqual(1);
+    await expect(page.locator("body")).not.toContainText(/NaN|Infinity/);
   }
   expect(errors.filter((error) => /Maximum update depth|getSnapshot|NaN|uncaught/i.test(error))).toEqual([]);
+  expect(warnings, warnings.join("\n")).toEqual([]);
+});
+
+test("maxed acceleration stays bounded and Workshop pagination remains responsive", async ({ page }) => {
+  test.setTimeout(60_000);
+  await loadFixture(page, "maxed");
+  const before = await persistedState(page);
+
+  await openTab(page, "dev");
+  await page.getByRole("button", { name: "+1,000 ticks", exact: true }).click();
+  await expect(page.getByTestId("dev-simulation-summary")).toContainText("Ticks: 1000");
+
+  const after = await persistedState(page);
+  expect((after.inventory as unknown[]).length, "loose inventory grew during maxed acceleration")
+    .toBeLessThanOrEqual((before.inventory as unknown[]).length);
+  expect((after.stationEquipmentInventory as unknown[]).length, "station equipment exceeded its configured ceiling")
+    .toBeLessThanOrEqual(STATION_EQUIPMENT_INVENTORY_LIMIT);
+
+  await openTab(page, "gear");
+  await workshopTab(page, "Inventory");
+  const cards = page.getByTestId("workshop-inventory-item");
+  const cardCount = await cards.count();
+  expect(cardCount).toBeGreaterThan(0);
+  expect(cardCount, "Workshop rendered more than one inventory page").toBeLessThanOrEqual(40);
+
+  const pageStatus = page.getByTestId("workshop-inventory-page-status").first();
+  const firstPageStatus = await pageStatus.innerText();
+  const nextButtons = page.getByTestId("workshop-inventory-next");
+  const nextButtonState = await nextButtons.evaluateAll((buttons) => buttons.map((button) => {
+    const rect = button.getBoundingClientRect();
+    return {
+      disabled: (button as HTMLButtonElement).disabled,
+      width: rect.width,
+      height: rect.height,
+      x: rect.x,
+      y: rect.y,
+    };
+  }));
+  expect(nextButtonState, `next inventory controls: ${JSON.stringify(nextButtonState)}`).toHaveLength(2);
+  for (const state of nextButtonState) {
+    expect(state.disabled, `next inventory controls: ${JSON.stringify(nextButtonState)}`).toBe(false);
+    expect(state.width, `next inventory controls: ${JSON.stringify(nextButtonState)}`).toBeGreaterThan(0);
+    expect(state.height, `next inventory controls: ${JSON.stringify(nextButtonState)}`).toBeGreaterThan(0);
+  }
+  await nextButtons.first().click();
+  await expect(pageStatus).not.toHaveText(firstPageStatus);
+  await expect(pageStatus).toContainText("Page 2 of");
+
+  await workshopTab(page, "Facilities");
+  await expect(page.getByText("MAX", { exact: true }).first()).toBeVisible();
+  await workshopTab(page, "Stations");
+  await expect(page.getByRole("heading", { name: "Station Sets", exact: true })).toBeVisible();
+  await openTab(page, "race");
+  await expect(page.getByText("ENDURANCE", { exact: true })).toBeVisible();
+});
+
+test("maxed upgrade and facility surfaces expose no enabled over-max purchase", async ({ page }) => {
+  await loadFixture(page, "maxed");
+  await openTab(page, "gear");
+  await workshopTab(page, "Facilities");
+  await expect(page.getByText("MAX", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^\$[\d,]+$/ }).and(page.locator(":enabled"))).toHaveCount(0);
+
+  await openTab(page, "upgrades");
+  for (const [layer, currency] of [["Team", "TP"], ["Owner", "OP"], ["Track", "PT"]] as const) {
+    await page.getByRole("button", { name: layer, exact: true }).click();
+    await expect(page.getByText("MAXED", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(`^[\\d,]+ ${currency}$`) }).and(page.locator(":enabled"))).toHaveCount(0);
+  }
+});
+
+test("all supported themes survive reload without hydration errors or horizontal overflow", async ({ page }) => {
+  test.setTimeout(90_000);
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "settings");
+
+  for (const theme of THEMES) {
+    await page.getByRole("button", { name: theme.label, exact: true }).click();
+    expect(await page.evaluate(() => localStorage.getItem("rags-to-races-theme"))).toBe(theme.id);
+  }
+
+  for (const theme of [...THEMES, ...HIDDEN_THEMES]) {
+    await page.evaluate((themeId) => localStorage.setItem("rags-to-races-theme", themeId), theme.id);
+    await page.reload();
+    await openTab(page, "settings");
+    await expect(page.getByRole("heading", { name: "Theme", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("rags-to-races-theme"))).toBe(theme.id);
+    const shellTheme = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>(".shell-content > div");
+      return shell ? getComputedStyle(shell).getPropertyValue("--accent").trim() : "";
+    });
+    expect(shellTheme, `${theme.id} did not apply theme variables`).not.toBe("");
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${theme.id} horizontal overflow`).toBeLessThanOrEqual(1);
+    if (theme.id === "outlaw") {
+      expect(overflow, "outlaw exact horizontal overflow").toBe(0);
+    }
+  }
 });
 
 test("desktop and mobile primary navigation keeps every critical action reachable", async ({ page }) => {
@@ -216,6 +1023,8 @@ test("desktop and mobile primary navigation keeps every critical action reachabl
   for (const [tab, text] of [["junkyard", "Scavenge!"], ["garage", "Your Garage"], ["race", "Enter Race"], ["gear", "Salvage Workshop"], ["upgrades", "Legacy"]] as const) {
     if (tab !== "junkyard") await openTab(page, tab);
     await expect(page.getByText(text, { exact: false }).first()).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${tab} horizontal overflow`).toBeLessThanOrEqual(1);
   }
   await expectNoSeriousStructuralAccessibilityViolations(page);
 });

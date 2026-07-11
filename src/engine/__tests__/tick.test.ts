@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  computeTick,
   computeTickSpeedMs,
   simulateOfflineTicks,
   TICK_MS_DEFAULT,
@@ -7,6 +8,8 @@ import {
   RACE_TICKS_DEFAULT,
 } from "../tick";
 import type { GameState } from "@/state/store";
+import { OFFLINE_LOOSE_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { SeededRandomSource, withRandomSource } from "@/utils/random";
 
 /**
  * Builds a minimal GameState for testing. Override any fields as needed.
@@ -141,6 +144,9 @@ describe("simulateOfflineTicks", () => {
     const result = simulateOfflineTicks(state, 0);
     expect(result.ticksProcessed).toBe(0);
     expect(result.partsFound).toEqual([]);
+    expect(result.partsScavenged).toBe(0);
+    expect(result.partsAutoSold).toBe(0);
+    expect(result.scrapsFromAutoSoldParts).toBe(0);
     expect(result.scrapsEarned).toBe(0);
     expect(result.repEarned).toBe(0);
     expect(result.racesCompleted).toBe(0);
@@ -316,5 +322,67 @@ describe("simulateOfflineTicks", () => {
     const state = makeState({ autoScavengeUnlocked: true });
     const result = simulateOfflineTicks(state, 5);
     expect(result.ticksProcessed).toBe(5);
+  });
+
+  it("caps total loose inventory and auto-sells every offline overflow part", () => {
+    const existingInventory = Array.from({ length: OFFLINE_LOOSE_INVENTORY_LIMIT - 1 }, (_, index) => ({
+      id: `existing-${index}`,
+      definitionId: "misc_junk",
+      condition: "worn" as const,
+      foundAt: "curbside",
+      type: "part" as const,
+    }));
+    const state = makeState({ autoScavengeUnlocked: true, inventory: existingInventory });
+    const result = withRandomSource(
+      new SeededRandomSource("offline-overflow"),
+      () => simulateOfflineTicks(state, 10),
+    );
+
+    expect(result.partsFound).toHaveLength(1);
+    expect(existingInventory.length + result.partsFound.length).toBe(OFFLINE_LOOSE_INVENTORY_LIMIT);
+    expect(result.partsAutoSold).toBe(result.partsScavenged - result.partsFound.length);
+    expect(result.scrapsFromAutoSoldParts).toBeGreaterThan(0);
+    expect(result.scrapsEarned).toBeGreaterThanOrEqual(result.scrapsFromAutoSoldParts);
+  });
+
+  it("does not grow an already-full inventory during offline catch-up", () => {
+    const existingInventory = Array.from({ length: OFFLINE_LOOSE_INVENTORY_LIMIT }, (_, index) => ({
+      id: `existing-${index}`,
+      definitionId: "misc_junk",
+      condition: "worn" as const,
+      foundAt: "curbside",
+      type: "part" as const,
+    }));
+    const state = makeState({ autoScavengeUnlocked: true, inventory: existingInventory });
+    const result = withRandomSource(
+      new SeededRandomSource("offline-full"),
+      () => simulateOfflineTicks(state, 5),
+    );
+
+    expect(result.partsFound).toEqual([]);
+    expect(result.partsAutoSold).toBe(result.partsScavenged);
+    expect(result.partsScavenged).toBeGreaterThanOrEqual(5);
+  });
+
+  it("applies Scavenger's Eye to automated salvage drop rate and condition cap", () => {
+    const baseState = makeState({
+      autoRaceUnlocked: true,
+      garage: [makeVehicle()],
+      activeVehicleId: "v1",
+      raceTickProgress: RACE_TICKS_DEFAULT - 1,
+      scrapBucks: 100_000,
+    });
+    const sample = (enabled: boolean) => Array.from({ length: 400 }, (_, index) =>
+      withRandomSource(new SeededRandomSource(`salvage-${index}`), () => computeTick({
+        ...baseState,
+        workshopLevels: enabled ? { scavengers_eye: 1 } : {},
+      })),
+    ).flatMap((result) => result.raceOutcome?.salvageDrop ? [result.raceOutcome.salvageDrop] : []);
+
+    const baseDrops = sample(false);
+    const enhancedDrops = sample(true);
+    expect(enhancedDrops.length).toBeGreaterThan(baseDrops.length);
+    expect(baseDrops.some((part) => part.condition === "decent")).toBe(false);
+    expect(enhancedDrops.some((part) => part.condition === "decent")).toBe(true);
   });
 });

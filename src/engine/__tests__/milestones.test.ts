@@ -50,7 +50,6 @@ describe("getPrestigeMilestoneBonuses", () => {
     expect(bonuses.scavengeLuckBonus).toBe(0);
     expect(bonuses.raceScrapMult).toBe(0);
     expect(bonuses.raceRepMult).toBe(0);
-    expect(bonuses.allMultiplier).toBe(0);
     expect(bonuses.lpMultiplier).toBe(0);
   });
 
@@ -60,9 +59,10 @@ describe("getPrestigeMilestoneBonuses", () => {
     expect(bonuses.autoActivateVehicle).toBe(true);
   });
 
-  it("has lpMultiplier > 0 and allMultiplier > 0 at prestige 50", () => {
+  it("adds concrete race and LP bonuses at prestige 50", () => {
     const bonuses = getPrestigeMilestoneBonuses(50);
     expect(bonuses.lpMultiplier).toBeGreaterThan(0);
-    expect(bonuses.allMultiplier).toBeGreaterThan(0);
+    expect(bonuses.raceScrapMult).toBe(0.75);
+    expect(bonuses.raceRepMult).toBe(0.55);
   });
 });

@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useGameStore } from "@/state/store";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { getVehicleById } from "@/data/vehicles";
+import { CREW_ROLE_LABELS } from "@/data/crew";
+import { getGameEffectValue } from "@/data/gameEffects";
+import { getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
+import CrewPanel from "@/components/Crew/CrewPanel";
 import {
   TEAM_UPGRADE_DEFINITIONS,
   TEAM_CATEGORIES,
@@ -35,6 +39,7 @@ export default function TeamSubTab() {
       </div>
 
       <FleetPrograms />
+      <CrewPanel />
 
       {TEAM_CATEGORIES.map((cat) => (
         <CategorySection
@@ -52,15 +57,44 @@ export default function TeamSubTab() {
 function FleetPrograms() {
   const garage = useGameStore((s) => s.garage); const activeVehicleId = useGameStore((s) => s.activeVehicleId); const raceHistory = useGameStore((s) => s.raceHistory);
   const crew = useGameStore((s) => s.crewRoster); const assignments = useGameStore((s) => s.fleetAssignments);
+  const teamUpgradeLevels = useGameStore((s) => s.teamUpgradeLevels);
   const start = useGameStore((s) => s.startFleetAssignment); const collect = useGameStore((s) => s.collectFleetAssignment);
   const completedCircuitIds = [...new Set(raceHistory.filter((outcome) => outcome.result === "win").map((outcome) => outcome.circuitId))];
   const [circuitByVehicle, setCircuitByVehicle] = useState<Record<string, string>>({});
+  const [crewByVehicle, setCrewByVehicle] = useState<Record<string, string>>({});
+  const fleetVehicles = garage.filter((vehicle) => vehicle.id !== activeVehicleId);
+  const runningAssignments = assignments.filter((assignment) => assignment.status === "running");
+  const busyCrewIds = new Set(assignments.flatMap((assignment) => assignment.crewId ? [assignment.crewId] : []));
+  const fleetSlots = 1 + Math.floor(getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, teamUpgradeLevels, "active_vehicle_slot"));
+  const fleetAtCapacity = runningAssignments.length >= fleetSlots;
   return <section className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}>
-    <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-heading)" }}>Fleet Programs</h3>
-    <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>Assign non-focus vehicles to completed circuits. Programs earn 60% currency/materials, take full wear, grant half crew XP, and never unlock progression.</p>
-    {completedCircuitIds.length === 0 ? <p className="text-xs" style={{ color: "var(--text-muted)" }}>Win a circuit with the focus vehicle before automating it.</p> : <div className="space-y-2">{garage.filter((vehicle) => vehicle.id !== activeVehicleId).map((vehicle) => {
-      const running = assignments.find((assignment) => assignment.vehicleId === vehicle.id); const selected = circuitByVehicle[vehicle.id] ?? completedCircuitIds[0]; const definition = getVehicleById(vehicle.definitionId);
-      return <div key={vehicle.id} className="flex flex-wrap items-center gap-2 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}><strong className="mr-auto text-xs" style={{ color: "var(--text-white)" }}>{definition?.name}</strong>{running ? <><span className="text-xs" style={{ color: running.status === "complete" ? "var(--success)" : "var(--accent)" }}>{running.status === "complete" ? `Ready: $${running.rewards.scrap}` : `${running.remainingTicks} ticks`}</span>{running.status === "complete" && <button onClick={() => collect(running.id)} className="rounded border px-2 py-1 text-xs" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Collect</button>}</> : <><select value={selected} onChange={(event) => setCircuitByVehicle((current) => ({ ...current, [vehicle.id]: event.target.value }))} className="rounded border px-2 py-1 text-xs" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{completedCircuitIds.map((id) => <option key={id} value={id}>{CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === id)?.name}</option>)}</select><button onClick={() => start(vehicle.id, selected, crew[0]?.id)} className="rounded border px-2 py-1 text-xs" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Assign{crew[0] ? ` ${crew[0].name}` : ""}</button></>}</div>;
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-heading)" }}>Fleet Programs</h3><span className="font-mono text-xs" style={{ color: fleetAtCapacity ? "var(--warning)" : "var(--accent)" }}>{runningAssignments.length}/{fleetSlots} running</span></div>
+    <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>Assign healthy, tier-compatible non-focus vehicles to completed circuits. Programs settle at 60% of base rewards before permanent income bonuses, apply 5 condition wear, grant 5 base assigned-crew XP before Crew Training, and do not unlock circuits or vehicles.</p>
+    {completedCircuitIds.length === 0 ? <p className="text-xs" style={{ color: "var(--text-muted)" }}>Win a circuit with the focus vehicle before automating it.</p> : fleetVehicles.length === 0 ? <p className="text-xs" style={{ color: "var(--text-muted)" }}>Build a second vehicle to start a Fleet Program.</p> : <div className="space-y-2">{fleetVehicles.map((vehicle) => {
+      const assignment = assignments.find((candidate) => candidate.vehicleId === vehicle.id);
+      const eligibleCircuitIds = completedCircuitIds.filter((id) =>
+        getVehicleCircuitIneligibilityReason(
+          vehicle,
+          CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === id),
+        ) === null,
+      );
+      const requestedCircuit = circuitByVehicle[vehicle.id];
+      const selectedCircuit = requestedCircuit && eligibleCircuitIds.includes(requestedCircuit)
+        ? requestedCircuit
+        : eligibleCircuitIds[0] ?? "";
+      const requestedCrewId = crewByVehicle[vehicle.id] ?? "";
+      const eligibleCrew = crew.filter((member) => !busyCrewIds.has(member.id));
+      const selectedCrewId = eligibleCrew.some((member) => member.id === requestedCrewId) ? requestedCrewId : "";
+      const assignedCrew = assignment?.crewId ? crew.find((member) => member.id === assignment.crewId) : null;
+      const definition = getVehicleById(vehicle.definitionId);
+      return <article key={vehicle.id} className="rounded border p-2" style={{ borderColor: "var(--panel-border)" }}>
+        <div className="flex flex-wrap items-center gap-2"><strong className="mr-auto text-xs" style={{ color: "var(--text-white)" }}>{definition?.name ?? vehicle.definitionId}</strong>{assignment ? <><span className="text-xs" style={{ color: assignment.status === "complete" ? "var(--success)" : "var(--accent)" }}>{assignment.status === "complete" ? `Ready: $${assignment.rewards.scrap} + ${assignment.rewards.materials} material${assignment.rewards.materials === 1 ? "" : "s"}` : `${assignment.remainingTicks} ticks remaining`}</span>{assignment.status === "complete" && <button onClick={() => collect(assignment.id)} className="rounded border px-2 py-1 text-xs font-semibold" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Collect rewards</button>}</> : null}</div>
+        {assignment ? <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>Assigned crew: {assignedCrew ? `${assignedCrew.name} · ${CREW_ROLE_LABELS[assignedCrew.role]} Lv.${assignedCrew.level}` : assignment.crewId ? "Unavailable crew" : "Uncrewed"}</p> : <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <label className="text-xs" style={{ color: "var(--text-muted)" }}>Circuit<select aria-label={`Circuit for ${definition?.name ?? vehicle.definitionId}`} value={selectedCircuit} disabled={eligibleCircuitIds.length === 0} onChange={(event) => setCircuitByVehicle((current) => ({ ...current, [vehicle.id]: event.target.value }))} className="mt-1 block w-full rounded border px-2 py-1.5 text-xs disabled:opacity-40" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{eligibleCircuitIds.length === 0 && <option value="">No eligible completed circuit</option>}{eligibleCircuitIds.map((id) => <option key={id} value={id}>{CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === id)?.name ?? id}</option>)}</select>{eligibleCircuitIds.length === 0 && <span className="mt-1 block text-[11px]" style={{ color: "var(--warning)" }}>{(vehicle.condition ?? 100) <= 0 ? "Repair this vehicle before assigning it." : "No completed circuit accepts this vehicle tier."}</span>}</label>
+          <label className="text-xs" style={{ color: "var(--text-muted)" }}>Crew<select aria-label={`Crew for ${definition?.name ?? vehicle.definitionId}`} value={selectedCrewId} onChange={(event) => setCrewByVehicle((current) => ({ ...current, [vehicle.id]: event.target.value }))} className="mt-1 block w-full rounded border px-2 py-1.5 text-xs" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}><option value="">No crew (no XP)</option>{eligibleCrew.map((member) => <option key={member.id} value={member.id}>{member.name} · {CREW_ROLE_LABELS[member.role]} Lv.{member.level}</option>)}</select></label>
+          <div className="self-end"><button disabled={fleetAtCapacity || !selectedCircuit} onClick={() => start(vehicle.id, selectedCircuit, selectedCrewId || undefined)} className="w-full rounded border px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Start program</button>{fleetAtCapacity && <p className="mt-1 text-[11px]" style={{ color: "var(--warning)" }}>All {fleetSlots} Fleet slots are running.</p>}</div>
+        </div>}
+      </article>;
     })}</div>}
   </section>;
 }

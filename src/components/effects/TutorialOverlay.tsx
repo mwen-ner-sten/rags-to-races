@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useGameStore } from "@/state/store";
+import { isFeatureAvailable } from "@/config/features";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { formatNumber, formatRep } from "@/utils/format";
+import { REP_PROGRESSION, SCRAP_RESET_REQUIREMENTS, canScrapReset } from "@/config/progression";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -30,7 +32,7 @@ interface TutorialStepDef {
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 
-const SHOW_DEV = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+const SHOW_DEV = isFeatureAvailable("admin_tools");
 
 const PUSH_MOWER_ENGINES = new Set(["engine_small", "engine_lawn"]);
 const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
@@ -45,18 +47,18 @@ export const STEPS: TutorialStepDef[] = [
   /* 6  */ { icon: "\u{1F528}", tip: "Hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
   /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to race.", allowedTabs: ["garage"], target: "activate-btn" },
   /* 8  */ { icon: "\u{1F4CD}", tip: "Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
-  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your **Win** chance and **DNF Risk**. **DNF** = your vehicle broke down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF (Did Not Finish) means your vehicle broke down mid-race \u2014 higher reliability reduces this risk. Even losses earn some Scrap Bucks and Rep." },
+  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your **Win** chance and **DNF Risk**. **DNF** = your vehicle broke down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF (Did Not Finish) means your vehicle broke down mid-race \u2014 higher reliability reduces this risk. Every result earns Rep; wins and stronger finishes also pay Scrap Bucks." },
   /* 10 */ { icon: "\u{1F3C1}", tip: "Hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
-  /* 11 */ { icon: "\u{1F3C1}", tip: "", allowedTabs: ["race"], hideDuringRace: true },
+  /* 11 */ { icon: "\u{1F3C1}", tip: "The race was interrupted. Hit **Enter Race** to try again.", allowedTabs: ["race"], target: "race-btn", hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Your ride took damage. First **Repair** is free \u2014 head to the **Garage**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
   // ── Post-first-race: teach systems during the early grind ──────────────
   /* 14 */ { icon: "\u{1F527}", tip: "Head to the **Workshop** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "**Facilities** upgrades boost your current run. Try **Keen Eye** ($75) for better scavenge luck or **Budget Repairs** for cheaper fixes.", helpDetail: "Open Workshop > Facilities for Scavenging, Building, Racing, and Maintenance upgrades. They reset on Scrap Reset, but their bonuses help you earn more each run." },
   /* 15 */ { icon: "\u2B06\uFE0F", tip: "Open **Facilities**, then **buy** a run upgrade.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], target: "workshop-facilities-tab", hasGoal: true, goalIntro: "Open **Workshop > Facilities**. **Keen Eye** costs **$75**. If you can\u2019t afford it yet, **race** or **scavenge then sell parts** to earn more **Scrap Bucks**." },
-  /* 16 */ { icon: "\u{1F9F0}", tip: "Explore the **Workshop** tabs for inventory, fabrication, equipment, skills, and facilities.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "The **Workshop** groups the systems that improve your parts, equipment, racer, and garage." },
+  /* 16 */ { icon: "\u{1F9F0}", tip: "The **Workshop** tabs cover inventory, fabrication, equipment, skills, philosophy, and facilities.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], dismissable: true },
   /* 17 */ { icon: "\u{1F3CE}\uFE0F", tip: "Race and scavenge to earn **$500** and **100 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, helpDetail: "Keep racing and selling spare parts. Rep unlocks new scavenging locations and circuits. Once you hit these targets, you\u2019ll be ready for the next step." },
   /* 18 */ { icon: "\u{1F528}", tip: "Build **three vehicles total** to prove your garage is ready for a reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "garage", goalIntro: "Scrap Reset requires **three vehicles**. Scavenge for compatible parts and try better blueprints as they unlock." },
-  /* 19 */ { icon: "\u{1F680}", tip: "Earn **$50,000 lifetime Scrap Bucks** and **5,000 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019re getting the hang of it. Keep racing, building, and upgrading.", "**Fatigue** builds each race and cuts performance. When progress stalls, it\u2019s time to **Scrap Reset**."], helpDetail: "Lifetime Scrap Bucks is the total currency you\u2019ve ever earned (not your current balance). Scrap Reset requires three vehicles, $50,000 lifetime Scrap Bucks, and 5,000 Rep." },
+  /* 19 */ { icon: "\u{1F680}", tip: `Earn **$${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks** and **${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep**.`, allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019re getting the hang of it. Keep racing, building, and upgrading.", "**Fatigue** builds each race and cuts performance. When progress stalls, it\u2019s time to **Scrap Reset**."], helpDetail: `Lifetime Scrap Bucks is the total currency you\u2019ve ever earned (not your current balance). Scrap Reset requires ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} vehicles, $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks, and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep.` },
   /* 20 */ { icon: "\u{1F4CD}", tip: "Head to **Upgrades** \u2014 it\u2019s time to reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
   /* 21 */ { icon: "\u{1F510}", tip: "Open **Scrap Reset**, review what resets, then confirm to earn **Legacy Points**.", allowedTabs: ["upgrades"], target: "prestige-subtab-btn" },
 ];
@@ -131,7 +133,7 @@ function isStepConditionMet(
     case 8: return state.activeTab === "race";
     case 9: return state.isRacing;
     case 10: return state.isRacing;
-    case 11: return state.raceHistory.length > 0;
+    case 11: return !state.isRacing && state.raceHistory.length > 0;
     case 13: {
       const active = state.garage.find((v) => v.id === state.activeVehicleId);
       return active ? (active.condition ?? 100) >= 100 : state.garage.length > 1;
@@ -139,10 +141,13 @@ function isStepConditionMet(
     // Post-first-race: teach systems during the early grind
     case 14: return state.activeTab === "gear";
     case 15: return Object.values(state.workshopLevels).some((v) => v > 0);
-    case 16: return state.activeTab === "gear";
-    case 17: return state.repPoints >= 100 && state.lifetimeScrapBucks >= 500;
+    // Step 16 is an acknowledgement card. It must remain visible after the
+    // facility purchase instead of being batch-skipped because the player is
+    // necessarily already on the Workshop tab.
+    case 16: return false;
+    case 17: return state.repPoints >= REP_PROGRESSION.tutorial.systemsTour && state.lifetimeScrapBucks >= 500;
     case 18: return state.garage.length >= 3;
-    case 19: return state.repPoints >= 5000 && state.lifetimeScrapBucks >= 50000;
+    case 19: return canScrapReset({ vehiclesBuilt: state.garage.length, reputation: state.repPoints, lifetimeScrapBucks: state.lifetimeScrapBucks });
     case 20: return state.activeTab === "upgrades";
     case 21: return state.prestigeCount > 0;
     default: return false; // step 0, 12 (dismissable) — never auto-skip
@@ -388,12 +393,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
     : undefined;
 
   // Dynamic tab highlight overrides. On step 15, once the player can afford
-  // Keen Eye but they're off the Upgrades tab, pulse the Upgrades tab to
-  // pull them back in. (On Upgrades, the workshop-upgrade-btn target halo
-  // takes over.)
+  // Keen Eye but they're off Workshop, pulse Workshop to pull them back in.
+  // Within Facilities, the first purchase button becomes the target halo.
   const effectiveHighlightTab = (() => {
-    if (tutorialStep === 15 && scrapBucks >= 75 && activeTab !== "upgrades") {
-      return "upgrades";
+    if (tutorialStep === 15 && scrapBucks >= 75 && activeTab !== "gear") {
+      return "gear";
     }
     return stepDef?.highlightTab;
   })();
@@ -403,7 +407,13 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
     // Always track target for halo (even during goal badge mode)
     if (effectiveTarget) {
-      const el = document.querySelector(`[data-tutorial="${effectiveTarget}"]`);
+      // Once Facilities is open, move the step-15 halo from the subtab to the
+      // first real purchase rather than continuing to point at an action the
+      // player has already completed.
+      const targetName = tutorialStep === 15 && document.querySelector('[data-tutorial="workshop-upgrade-btn"]')
+        ? "workshop-upgrade-btn"
+        : effectiveTarget;
+      const el = document.querySelector(`[data-tutorial="${targetName}"]`);
       const r = el ? el.getBoundingClientRect() : null;
       // Skip zero-size rects (element hidden or off-screen)
       setTargetRect(r && r.width > 0 && r.height > 0 ? r : null);
@@ -529,13 +539,22 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   /* Dynamic tip for step 12: react to race result */
   let effectiveTip = stepDef.tip;
-  if (tutorialStep === 12 && lastRaceOutcome) {
-    if (lastRaceOutcome.result === "win") {
+  if (tutorialStep === 12) {
+    // Race animation state is intentionally transient, while tutorialStep and
+    // raceHistory persist. Recover the explanation from the latest history
+    // entry after a reload; the generic fallback also keeps damaged/legacy
+    // saves from becoming trapped on an empty, non-actionable step.
+    const tutorialRaceOutcome = lastRaceOutcome ?? raceHistory[0];
+    if (tutorialRaceOutcome?.result === "win") {
       effectiveTip = "You won! From the curb to the podium \u2014 that\u2019s how legends start. You earned **Scrap Bucks** and **Rep** \u2014 Rep unlocks new locations and gear.";
-    } else if (lastRaceOutcome.result === "dnf") {
+    } else if (tutorialRaceOutcome?.result === "dnf") {
       effectiveTip = "Your mower exploded. Classic. **Repair** it and try again \u2014 that\u2019s racing! Even losses earn a little **Rep** \u2014 it unlocks new locations and gear.";
+    } else if (tutorialRaceOutcome?.result === "loss") {
+      effectiveTip = tutorialRaceOutcome.scrapsEarned > 0
+        ? "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 it unlocks new locations and gear."
+        : "Not first, but you finished and earned **Rep**. Higher finishes pay Scrap Bucks, so keep improving the mower and try again.";
     } else {
-      effectiveTip = "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 it unlocks new locations and gear.";
+      effectiveTip = "The race ended before its result could be restored. Continue to the **Garage**; repair any damage, then keep racing for Scrap Bucks and Rep.";
     }
   }
   /* Step 15 uses hasGoal + goalIntro — the affordability context is in the
@@ -668,6 +687,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const viewW = typeof window !== "undefined" ? window.innerWidth : 800;
     const viewH = typeof window !== "undefined" ? window.innerHeight : 600;
     const cardW = Math.min(340, viewW - 32);
+    const safeBottom = viewW < 640 ? 72 : 16;
     // Mobile cards can grow substantially when the step dots and actions wrap.
     // Reserve their real worst-case height so an anchored card never places its
     // primary action below the viewport.
@@ -690,13 +710,17 @@ export default function TutorialOverlay({ activeTab }: Props) {
       top = above ? anchorRect.top - cardH - 16 : anchorRect.bottom + 16;
       arrowClass = above ? "tutorial-arrow-down" : "tutorial-arrow-up";
     }
+    // Targets can sit below the current scrollport. Clamp the complete card
+    // into the usable viewport and leave room for the fixed mobile nav so the
+    // primary tutorial action can never be covered or become unclickable.
+    top = Math.max(16, Math.min(top, viewH - safeBottom - cardH));
     arrowLeftPx = inSidebar ? 0 : Math.max(20, Math.min(anchorRect.left + anchorRect.width / 2 - left, cardW - 20));
     cardStyle = {
       position: "fixed",
       left,
       top,
       width: cardW,
-      maxHeight: "calc(100vh - 32px)",
+      maxHeight: viewW < 640 ? "calc(100vh - 88px)" : "calc(100vh - 32px)",
       overflowY: "auto",
       zIndex: 10000,
     };
@@ -751,8 +775,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
             ${formatNumber(lifetimeScrapBucks)} / $500
           </span>
           <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
-          <span style={{ color: repPoints >= 100 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            {formatRep(repPoints)} / 100 Rep
+          <span style={{ color: repPoints >= REP_PROGRESSION.tutorial.systemsTour ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            {formatRep(repPoints)} / {formatRep(REP_PROGRESSION.tutorial.systemsTour)} Rep
           </span>
         </>
       );
@@ -760,12 +784,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
     if (tutorialStep === 19) {
       goalContent = (
         <>
-          <span style={{ color: lifetimeScrapBucks >= 50000 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            ${formatNumber(lifetimeScrapBucks)} / $50k
+          <span style={{ color: lifetimeScrapBucks >= SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            ${formatNumber(lifetimeScrapBucks)} / ${formatNumber(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks)}
           </span>
           <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
-          <span style={{ color: repPoints >= 5000 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            {formatRep(repPoints)} / 5k Rep
+          <span style={{ color: repPoints >= SCRAP_RESET_REQUIREMENTS.reputation ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
+            {formatRep(repPoints)} / {formatRep(SCRAP_RESET_REQUIREMENTS.reputation)} Rep
           </span>
         </>
       );

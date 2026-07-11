@@ -129,6 +129,8 @@ function CircuitDecorations({ circuitId }: { circuitId: string }) {
     case "national_circuit":
       return <NationalDecorations />;
     case "world_championship":
+    case "continental_grand_prix":
+    case "endurance_series":
       return <WorldChampDecorations />;
     default:
       return null;

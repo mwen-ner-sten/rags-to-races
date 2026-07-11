@@ -92,27 +92,6 @@ const NEW_WORKSHOP_CATS: FeatureUnlockCondition = {
   conditions: { teamEraCount: 1 },
 };
 
-const ADVANCED_CIRCUITS: FeatureUnlockCondition = {
-  id: "advanced_circuits",
-  name: "Advanced Circuits",
-  description: "Unlocks high-tier circuit variants.",
-  conditions: { ownerEraCount: 1 },
-};
-
-const FLEET_GARAGE: FeatureUnlockCondition = {
-  id: "fleet_garage",
-  name: "Fleet Garage",
-  description: "Unlocks the ability to own and manage multiple vehicles.",
-  conditions: { teamEraCount: 3 },
-};
-
-const VEHICLE_MASTERY: FeatureUnlockCondition = {
-  id: "vehicle_mastery",
-  name: "Vehicle Mastery",
-  description: "Unlocks the highest-tier vehicles.",
-  conditions: { ownerEraCount: 1 },
-};
-
 const TRACK_CUSTOMIZATION: FeatureUnlockCondition = {
   id: "track_customization",
   name: "Track Customization",
@@ -127,9 +106,6 @@ export const FEATURE_UNLOCK_DEFINITIONS: FeatureUnlockCondition[] = [
   EXPANDED_TALENTS,
   CREW_SYSTEM,
   NEW_WORKSHOP_CATS,
-  ADVANCED_CIRCUITS,
-  FLEET_GARAGE,
-  VEHICLE_MASTERY,
   TRACK_CUSTOMIZATION,
 ].filter((feature) => isFeatureAvailable(feature.id));
 

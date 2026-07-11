@@ -60,8 +60,9 @@ export default function VehicleSprite({
       style={{
         display: "block",
         imageRendering: "pixelated",
+        maxWidth: "100%",
         width: size,
-        height: size,
+        height: "auto",
       }}
     />
   );

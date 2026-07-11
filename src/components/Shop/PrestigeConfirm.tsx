@@ -1,7 +1,7 @@
 "use client";
 
 import { useGameStore } from "@/state/store";
-import { calculateLegacyPoints, applyMomentumLpBonus, deriveHighestCircuitTier, type RunStats } from "@/engine/prestige";
+import { calculateScrapResetAward, deriveHighestCircuitTier, type RunStats } from "@/engine/prestige";
 import { formatNumber } from "@/utils/format";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 
@@ -21,6 +21,11 @@ export default function PrestigeConfirm({
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
   const legacyPoints = useGameStore((s) => s.legacyPoints);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
+  const teamUpgradeLevels = useGameStore((s) => s.teamUpgradeLevels);
+  const trackPerkLevels = useGameStore((s) => s.trackPerkLevels);
+  const earnedAchievements = useGameStore((s) => s.earnedAchievements);
+  const unlockedPlaystyleNodes = useGameStore((s) => s.unlockedPlaystyleNodes);
+  const crewRoster = useGameStore((s) => s.crewRoster);
 
   const runStats: RunStats = {
     lifetimeScrapBucks,
@@ -31,8 +36,18 @@ export default function PrestigeConfirm({
     workshopUpgradesBought: Object.values(workshopLevels).reduce((a, b) => a + b, 0),
   };
 
-  const baseLp = calculateLegacyPoints(runStats);
-  const finalLp = applyMomentumLpBonus(baseLp, activeMomentumTiers);
+  const award = calculateScrapResetAward({
+    currentPrestigeCount: prestigeCount,
+    runStats,
+    activeMomentumTierIds: activeMomentumTiers,
+    teamUpgradeLevels,
+    trackPerkLevels,
+    earnedAchievements,
+    unlockedPlaystyleNodes,
+    crewRoster,
+  });
+  const baseLp = award.baseLp;
+  const finalLp = award.totalLp;
   const lpBonusPct = baseLp > 0 ? Math.round(((finalLp - baseLp) / baseLp) * 100) : 0;
 
   const activeBonuses = MOMENTUM_TIERS.filter((t) =>
@@ -66,7 +81,7 @@ export default function PrestigeConfirm({
         </div>
         {lpBonusPct > 0 && (
           <div style={{ color: "var(--accent)" }} className="text-xs mt-1">
-            ({baseLp} base + {lpBonusPct}% momentum bonus)
+            ({baseLp} base + {lpBonusPct}% active reset bonuses)
           </div>
         )}
         <div style={{ color: "var(--text-muted)" }} className="text-xs mt-1">
@@ -98,7 +113,7 @@ export default function PrestigeConfirm({
           Will reset:
         </div>
         <div style={{ color: "var(--text-secondary)" }} className="text-xs">
-          Scrap, Rep, Inventory, Garage, Workshop, Fatigue, Unlocks
+          Scrap, Rep, Inventory, Garage, Workshop, Materials, Fatigue, Run Unlocks
         </div>
       </div>
 
@@ -108,7 +123,7 @@ export default function PrestigeConfirm({
           Will keep:
         </div>
         <div style={{ color: "var(--text-secondary)" }} className="text-xs">
-          Legacy Points & Upgrades, Gear, Materials, Forge Tokens, Talent Nodes, Challenges
+          Legacy Points & Upgrades, Philosophy, Gear & Station Equipment, Forge Tokens, Talents, Crew, Discoveries, Challenges & Achievements
         </div>
       </div>
 

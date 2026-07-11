@@ -39,8 +39,6 @@ export default function AdminPanel() {
   const unlockedVehicleIds = useGameStore((s) => s.unlockedVehicleIds);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
-  const fatigue = useGameStore((s) => s.fatigue);
-  const activeVehicleId = useGameStore((s) => s.activeVehicleId);
 
   const devQuickStart = useGameStore((s) => s.devQuickStart);
   const devSetScrapBucks = useGameStore((s) => s.devSetScrapBucks);
@@ -108,7 +106,7 @@ export default function AdminPanel() {
   function applySimulation(result: DevSimulationSummary) {
     applyDevSimulation(useGameStore.getState(), result);
     setSimulationSummary(result);
-    log(`Seed ${result.seed}: ${result.ticksProcessed} ticks, ${result.racesCompleted} races, ${result.partsFound.length} parts`);
+    log(`Seed ${result.seed}: ${result.ticksProcessed} ticks, ${result.racesCompleted} races, ${result.partsScavenged} parts (${result.partsAutoSold} auto-sold)`);
   }
 
   function handleTicks(ticks: number) {
@@ -203,16 +201,26 @@ export default function AdminPanel() {
               <div data-testid="dev-simulation-summary" className="grid grid-cols-2 gap-x-4 gap-y-1 rounded border p-2 text-xs sm:grid-cols-4" style={{ borderColor: "var(--panel-border)", color: "var(--text-secondary)" }}>
                 <span>Ticks: {simulationSummary.ticksProcessed}</span>
                 <span>Races: {simulationSummary.racesCompleted}</span>
+                <span>Wins: {simulationSummary.winsCompleted}</span>
                 <span>Scavenges: {simulationSummary.scavengesCompleted}</span>
-                <span>Parts: {simulationSummary.partsFound.length}</span>
+                <span>Parts kept: {simulationSummary.partsFound.length}</span>
+                <span>Parts found: {simulationSummary.partsScavenged}</span>
+                <span>Auto-sold: {simulationSummary.partsAutoSold}</span>
                 <span>Scrap: {simulationSummary.scrapsEarned >= 0 ? "+" : ""}${formatNumber(simulationSummary.scrapsEarned)}</span>
                 <span>Rep: +{formatNumber(simulationSummary.repEarned)}</span>
+                <span>Fees: -${formatNumber(simulationSummary.entryFeesPaid)}</span>
+                <span>Tokens: +{simulationSummary.forgeTokensFound + simulationSummary.challengeForgeTokens}</span>
                 <span>Wear: -{simulationSummary.vehicleWearTotal.toFixed(1)}</span>
                 <span>Repairs: +{simulationSummary.vehicleRepairTotal.toFixed(1)}</span>
-                <span>Fatigue: {fatigue}</span>
-                <span>Condition: {garage.find((vehicle) => vehicle.id === activeVehicleId)?.condition.toFixed(1) ?? "n/a"}</span>
-                <span>Gear drops: {simulationSummary.lootGearDrops.length}</span>
-                <span>Mod drops: {simulationSummary.modDrops.length}</span>
+                <span>Fatigue: {simulationSummary.finalFatigue}</span>
+                <span>Condition: {simulationSummary.finalVehicleCondition?.toFixed(1) ?? "n/a"}</span>
+                <span>Gear kept: {simulationSummary.lootGearDrops.length}</span>
+                <span>Gear salvaged: {simulationSummary.stationEquipmentAutoSalvaged}</span>
+                <span>Mod drops: {simulationSummary.modDropsFound}</span>
+                <span>Reforge Shards: +{simulationSummary.reforgeShardsFound + simulationSummary.modDrops.length}</span>
+                <span>Challenges: +{simulationSummary.completedChallengeIds.length}</span>
+                <span>Achievements: +{simulationSummary.newAchievementIds.length}</span>
+                <span className="col-span-2 sm:col-span-4">Materials: {Object.entries(simulationSummary.challengeMaterials).filter(([, amount]) => (amount ?? 0) > 0).map(([id, amount]) => `+${amount} ${id}`).join(" · ") || "none"}</span>
               </div>
             )}
           </div>

@@ -88,7 +88,6 @@ export default function HelpReferenceTab() {
             { label: "Owner Upgrades", value: HELP_DATA_SNAPSHOT_EXTENDED.ownerUpgrades },
             { label: "Track Perks", value: HELP_DATA_SNAPSHOT_EXTENDED.trackPerks },
             { label: "Skills", value: HELP_DATA_SNAPSHOT_EXTENDED.skills },
-            { label: "Attributes", value: HELP_DATA_SNAPSHOT_EXTENDED.attributes },
             { label: "Crew Roles", value: HELP_DATA_SNAPSHOT_EXTENDED.crewRoles },
           ].map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">

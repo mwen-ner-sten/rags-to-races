@@ -21,7 +21,7 @@ export function trackPerkCost(def: TrackPerkDefinition, level: number): number {
 const CUSTOM_CIRCUITS: TrackPerkDefinition = {
   id: "track_custom_circuits",
   name: "Custom Circuits",
-  description: "Design circuits with custom difficulty/reward.",
+  description: "Unlock hosted-event payout tiers 4 and 5.",
   category: "track_mods",
   maxLevel: 1,
   baseCost: 10,
@@ -32,7 +32,7 @@ const CUSTOM_CIRCUITS: TrackPerkDefinition = {
 const NIGHT_RACING: TrackPerkDefinition = {
   id: "track_night_racing",
   name: "Night Racing",
-  description: "Alternate circuit variants with unique challenges.",
+  description: "Unlock night hosted events for +25% payout.",
   category: "track_mods",
   maxLevel: 1,
   baseCost: 8,
@@ -43,7 +43,7 @@ const NIGHT_RACING: TrackPerkDefinition = {
 const ENDURANCE_MODE: TrackPerkDefinition = {
   id: "track_endurance",
   name: "Endurance Mode",
-  description: "Ultra-long races with massive payouts.",
+  description: "Unlock endurance events: twice the duration and twice the payout.",
   category: "track_mods",
   maxLevel: 1,
   baseCost: 12,
@@ -56,7 +56,7 @@ const ENDURANCE_MODE: TrackPerkDefinition = {
 const MULTI_TRACK: TrackPerkDefinition = {
   id: "track_multi",
   name: "Multi-Track",
-  description: "Own multiple tracks for passive income.",
+  description: "+1 concurrent hosted event per level.",
   category: "empire",
   maxLevel: 3,
   baseCost: 8,
@@ -67,7 +67,7 @@ const MULTI_TRACK: TrackPerkDefinition = {
 const SPONSOR_NETWORK: TrackPerkDefinition = {
   id: "track_sponsors",
   name: "Sponsor Network",
-  description: "Passive scrap generation from sponsors.",
+  description: "Hosted event payouts +20% per level.",
   category: "empire",
   maxLevel: 5,
   baseCost: 5,
@@ -78,7 +78,7 @@ const SPONSOR_NETWORK: TrackPerkDefinition = {
 const TALENT_ACADEMY: TrackPerkDefinition = {
   id: "track_academy",
   name: "Talent Academy",
-  description: "Crew auto-recruit at milestones.",
+  description: "Auto-recruit one crew member in every role after higher-layer resets.",
   category: "empire",
   maxLevel: 1,
   baseCost: 10,
@@ -102,7 +102,7 @@ const PRESTIGE_CASCADE: TrackPerkDefinition = {
 const ETERNAL_WORKSHOP: TrackPerkDefinition = {
   id: "track_eternal",
   name: "Eternal Workshop",
-  description: "Some workshop upgrades persist through all resets.",
+  description: "All workshop upgrades persist through Team, Owner, and Track resets.",
   category: "meta_power",
   maxLevel: 1,
   baseCost: 25,

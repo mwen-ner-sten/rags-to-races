@@ -6,6 +6,7 @@ import { formatNumber } from "@/utils/format";
 import LegacyShop from "./LegacyShop";
 import MomentumTracker from "./MomentumTracker";
 import PrestigeConfirm from "./PrestigeConfirm";
+import { canScrapReset, scrapResetRequirementText } from "@/config/progression";
 
 export default function ShopPanel() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -22,7 +23,7 @@ export default function ShopPanel() {
 
   const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false);
 
-  const canPrestige = garage.length >= 3 && repPoints >= 5000 && lifetimeScrapBucks >= 50000;
+  const canPrestige = canScrapReset({ vehiclesBuilt: garage.length, reputation: repPoints, lifetimeScrapBucks });
 
   return (
     <>
@@ -53,7 +54,7 @@ export default function ShopPanel() {
             <div style={{ background: "var(--accent-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {prestigeBonus.scrapMultiplier > 1 && (
-                  <StatRow label="Scrap Multiplier" value={`\u00d7${prestigeBonus.scrapMultiplier.toFixed(1)}`} accent />
+                  <StatRow label="Race Scrap Multiplier" value={`\u00d7${prestigeBonus.scrapMultiplier.toFixed(1)}`} accent />
                 )}
                 {prestigeBonus.luckBonus > 0 && (
                   <StatRow label="Luck Bonus" value={`+${(prestigeBonus.luckBonus * 100).toFixed(0)}%`} accent />
@@ -124,7 +125,7 @@ export default function ShopPanel() {
             )}
             {!canPrestige && (
               <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-                Requirements: 3 vehicles built, 5,000 Rep, $50,000 lifetime Scrap Bucks
+                Requirements: {scrapResetRequirementText()}
               </p>
             )}
             <button

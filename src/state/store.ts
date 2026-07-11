@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import {
   backupPersistedStoreBeforeMigration,
   getPersistedGameState,
+  mergePersistedGameState,
   migratePersistedState,
   PERSISTENCE_STORAGE_KEY,
   PERSISTENCE_VERSION,
@@ -17,7 +18,7 @@ import type { PrestigeBonus, RunStats } from "@/engine/prestige";
 import { LEGACY_UPGRADES_BY_ID, legacyUpgradeCost } from "@/data/legacyUpgrades";
 import { getActiveMomentumTiers, getMomentumEffectValue } from "@/data/momentumBonuses";
 import type { PartCondition } from "@/data/parts";
-import { CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_MULTIPLIERS, getPartById } from "@/data/parts";
+import { CONDITIONS, CONDITION_ADDON_SLOTS, getPartById } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { InstalledPart } from "@/engine/build";
 import type { GearSlot } from "@/data/gear";
@@ -25,26 +26,26 @@ import { getGearById, DEFAULT_EQUIPPED_GEAR, DEFAULT_OWNED_GEAR } from "@/data/g
 import { getGearBonuses } from "@/engine/gear";
 import { random } from "@/utils/random";
 import type { LootGearItem, InstalledMod } from "@/data/lootGear";
+import { getModTemplateById } from "@/data/gearMods";
 import { TALENT_NODES, getTalentNodeById } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
 import { rollGearDrops } from "@/engine/gearDrop";
-import { calculatePrestigeBonus, calculatePrestigeBonusLegacy, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
+import { calculatePrestigeBonus, calculatePrestigeBonusLegacy, calculateScrapResetAward, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
-import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition } from "@/engine/build";
-import { simulateRace, calculateWear } from "@/engine/race";
+import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, validateBuildSelection } from "@/engine/build";
+import { simulateRace, calculateWear, compactRaceHistory } from "@/engine/race";
 import { decomposePart, decomposeMany } from "@/engine/decompose";
 import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
-import { getVehicleById } from "@/data/vehicles";
-import { getUpgradeById, getUpgradeCost } from "@/data/upgrades";
+import { getVehicleById, getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
+import { getUpgradeById, getUpgradeCost, UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { INITIAL_MATERIALS, type MaterialType } from "@/data/materials";
 import type { DealerListing } from "@/data/dealer";
 import { generateDealerBoard, shouldRefreshDealer, DEALER_UNLOCK_REP } from "@/data/dealer";
 import { CHALLENGE_DEFINITIONS, type ChallengeRewardType } from "@/data/challenges";
 import { calculateEnhancementCost, canAffordEnhancement, ARTIFACT_FORGE_COST, ARTIFACT_FORGE_TOKEN_COST } from "@/data/enhancement";
 import type { CraftRecipe } from "@/data/craftRecipes";
-import { canAffordRecipe } from "@/data/craftRecipes";
 import { PART_DEFINITIONS } from "@/data/parts";
 import { randInt } from "@/utils/random";
 import type { RacerSkills, SkillName } from "@/data/racerSkills";
@@ -54,11 +55,11 @@ import type { RacerAttributes, AttributeName } from "@/data/racerAttributes";
 import { createDefaultAttributes } from "@/data/racerAttributes";
 import { TEAM_UPGRADES_BY_ID, teamUpgradeCost } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS, OWNER_UPGRADES_BY_ID, ownerUpgradeCost } from "@/data/ownerUpgrades";
-import { TRACK_PERKS_BY_ID, trackPerkCost } from "@/data/trackPerks";
+import { TRACK_PERK_DEFINITIONS, TRACK_PERKS_BY_ID, trackPerkCost } from "@/data/trackPerks";
 import { calculateTeamPoints, calculateOwnerPoints, calculateTrackTokens } from "@/engine/prestige";
 import { FEATURE_UNLOCK_DEFINITIONS, checkFeatureUnlock } from "@/data/featureUnlocks";
-import type { CrewMember, CrewRole } from "@/data/crew";
-import { grantCrewXp } from "@/engine/crew";
+import { getSpecializationsForRole, type CrewMember, type CrewRole } from "@/data/crew";
+import { createCrewAtLevel, ensureAcademyRoster, grantCrewRoleXp, grantCrewXp } from "@/engine/crew";
 import { getPrestigeMilestoneBonuses, getNewlyUnlockedMilestones } from "@/data/prestigeMilestones";
 import { checkAchievements } from "@/engine/achievements";
 import { ACHIEVEMENTS_BY_ID, type AchievementStats } from "@/data/achievements";
@@ -66,16 +67,31 @@ import { PLAYSTYLE_NODES_BY_ID, canUnlockPlaystyleNode, getPlaystylePathRespecCo
 import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStations";
 import { convertLegacyLootDrop, type StationEquipment, type StationEquipmentRarity } from "@/data/stationEquipment";
 import { forgeStationEquipment, STATION_FORGE_COST } from "@/engine/stationForge";
-import { reforgeStationEquipment, REFORGE_COST_SHARDS, SHARDS_PER_SALVAGE } from "@/engine/stationReforge";
+import { getMaxStationEnhancementLevel, getStationEnhancementCost } from "@/engine/stationEquipment";
+import { canReforgeStationEquipment, getStationSalvageYield, reforgeStationEquipment, REFORGE_COST_SHARDS } from "@/engine/stationReforge";
 import { DEFAULT_RACE_PLAN, RACE_PLAN_PRESETS, type RacePlan } from "@/data/raceStrategy";
 import { getRivalById } from "@/data/rivals";
 import type { FleetAssignment } from "@/data/fleet";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
-import { DEFAULT_TRACK_CONFIG, type HostedEvent, type OwnedTrackConfig } from "@/data/trackVenue";
+import { calculateHostedEventTerms, DEFAULT_TRACK_CONFIG, normalizeHostedEventConfig, type HostedEvent, type OwnedTrackConfig } from "@/data/trackVenue";
+import { getPartSaleValue } from "@/engine/sale";
+import { autoSellRustedParts } from "@/engine/autoSell";
+import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
+import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
+import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
+import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "@/engine/progressionUnlocks";
+import {
+  BULK_DECOMPOSE_COST,
+  FATIGUE_DRINK_COST,
+  FATIGUE_DRINK_PROGRESS_KEY,
+  FATIGUE_DRINK_RECOVERY,
+  FATIGUE_DRINK_RUN_LIMIT,
+} from "@/data/workshopActions";
 
 // ── Activity log ────────────────────────────────────────────────────────────
-export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "gear" | "craft" | "trade" | "tick";
+export type LogCategory = "scavenge" | "sell" | "race" | "build" | "upgrade" | "prestige" | "achievement" | "gear" | "craft" | "trade" | "tick";
 
 export interface ActivityLogEntry {
   id: number;
@@ -96,7 +112,41 @@ export interface VehicleLoadout {
   parts: Record<string, { partId: string; addonIds: string[] }>;
 }
 
+export interface AutomationSettlementMeta {
+  partsScavenged: number;
+  partsAutoSold: number;
+  scavengesCompleted: number;
+  racesCompleted: number;
+  winsCompleted: number;
+  finalWinStreak: number;
+  bestWinStreak: number;
+  recentRaceOutcomes: RaceOutcome[];
+  winningCircuitIds: string[];
+  defeatedRivalIds: string[];
+  circuitWinStreaks: Record<string, number>;
+  raceSalvageFound: number;
+  forgeTokensFound: number;
+  entryFeesPaid: number;
+  challengesEvaluated: boolean;
+  completedChallengeIds: string[];
+  challengeForgeTokens: number;
+  challengeMaterials: Partial<Record<MaterialType, number>>;
+  ticksProcessed: number;
+  /** Exact evolved state supplied by batched/offline simulation. */
+  finalFatigue?: number;
+  finalVehicleCondition?: number | null;
+  finalRacerSkills?: RacerSkills;
+  finalCrewRoster?: CrewMember[];
+  finalActiveMomentumTiers?: string[];
+  newAchievementIds?: string[];
+  /** Automated station drops converted to shards after the inventory ceiling. */
+  stationEquipmentAutoSalvaged?: number;
+  /** Shards already aggregated by a batched/offline simulation. */
+  reforgeShardsFound?: number;
+}
+
 const MAX_LOG_ENTRIES = 200;
+let raceSessionCounter = 0;
 
 export interface GameState {
   // Currency
@@ -132,12 +182,14 @@ export interface GameState {
   selectedSellBelowQuality: PartCondition;
   isScavenging: boolean;
   autoScavengeUnlocked: boolean;
-  /** Counts manual scavenge button clicks; auto-scavenge unlocks at 500 */
+  /** Counts manual scavenge button clicks; auto-scavenge unlocks at the configured target. */
   manualScavengeClicks: number;
 
   // Racing
   selectedCircuitId: string;
   isRacing: boolean;
+  /** Ephemeral token that prevents an old race timer from settling into a replaced save. */
+  activeRaceSessionId: string | null;
   autoRaceUnlocked: boolean;
   /** Tick counter toward next auto-race fire (0 to raceTicksNeeded-1) */
   raceTickProgress: number;
@@ -343,6 +395,7 @@ export interface GameState {
   respecTalentTree: (treeId: string) => void;
   forgeStationItem: (slot: GarageStationSlot, rarity: StationEquipmentRarity) => void;
   equipStationItem: (itemId: string) => void;
+  unequipStationItem: (slot: GarageStationSlot) => void;
   reforgeStationItem: (itemId: string) => void;
   enhanceStationItem: (itemId: string) => void;
   salvageStationItem: (itemId: string) => void;
@@ -351,7 +404,7 @@ export interface GameState {
   prestige: () => void;
   purchaseLegacyUpgrade: (upgradeId: string) => void;
   checkMomentumTiers: () => void;
-  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[], racesCompleted?: number) => void;
+  applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[], meta?: AutomationSettlementMeta) => void;
 
   // ── New system actions ───────────────────────────────────────────────────────
   decomposePart: (partId: string) => void;
@@ -424,6 +477,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     manualScavengeClicks: 0,
     selectedCircuitId: "backyard_derby",
     isRacing: false,
+    activeRaceSessionId: null,
     autoRaceUnlocked: false,
     raceTickProgress: 0,
     lastRaceOutcome: null,
@@ -518,6 +572,44 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
   };
 }
 
+function getResetVehicleUnlockIds(
+  ownerUpgradeLevels: Record<string, number>,
+): string[] {
+  return getVehicleIdsUnlockedByProgress({
+    reputation: 0,
+    wonCircuitIds: [],
+    circuitWinStreaks: {},
+    ownerUpgradeLevels,
+  });
+}
+
+function getResetCircuitUnlockIds(
+  ownerUpgradeLevels: Record<string, number>,
+): string[] {
+  return (ownerUpgradeLevels.owner_adv_circuits ?? 0) > 0
+    ? ["backyard_derby", "continental_grand_prix", "endurance_series"]
+    : ["backyard_derby"];
+}
+
+function addReputationUnlocks(
+  reputation: number,
+  unlockedFeatures: readonly string[],
+  unlockedCircuitIds: string[],
+  unlockedLocationIds: string[],
+  unlockEvents: string[],
+): void {
+  for (const circuit of getCircuitsUnlockedByReputation(reputation, unlockedFeatures)) {
+    if (unlockedCircuitIds.includes(circuit.id)) continue;
+    unlockedCircuitIds.push(circuit.id);
+    unlockEvents.push(`${circuit.name} Unlocked! ${circuit.description}`);
+  }
+  for (const location of getLocationsUnlockedByReputation(reputation)) {
+    if (unlockedLocationIds.includes(location.id)) continue;
+    unlockedLocationIds.push(location.id);
+    unlockEvents.push(`New Location: ${location.name}!`);
+  }
+}
+
 // ── Workshop upgrade helpers (exported for tick.ts and UI) ───────────────────
 export function _getUpgradeLevel(state: GameState, upgradeId: string): number {
   return state.workshopLevels[upgradeId] ?? 0;
@@ -527,7 +619,301 @@ export function _getUpgradeEffectValue(state: GameState, upgradeId: string): num
   if (level === 0) return 0;
   const def = getUpgradeById(upgradeId);
   if (!def) return 0;
-  return def.effect.valuePerLevel * level;
+  const philosophyEffectBonus = getPermanentRuntimeBonuses(state).workshopEffectBonus;
+  return def.effect.valuePerLevel * level * (1 + philosophyEffectBonus);
+}
+
+function recalculateGarageStatsForStationEquipment(
+  state: GameState,
+  equippedStationEquipment: Record<GarageStationSlot, string | null>,
+  stationEquipmentInventory: StationEquipment[],
+): BuiltVehicle[] {
+  const gear = getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+    equippedStationEquipment,
+    stationEquipmentInventory,
+  );
+  const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
+  return state.garage.map((vehicle) => {
+    const definition = getVehicleById(vehicle.definitionId);
+    return definition
+      ? { ...vehicle, stats: calculateStats(definition, vehicle.parts, vehicle.condition ?? 100, handlingBonus) }
+      : vehicle;
+  });
+}
+
+/** Exact additive sell-value bonus used by manual, bulk, and automated sales. */
+export function getSellValueBonus(state: GameState): number {
+  const equipmentBonus = getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+    state.equippedStationEquipment,
+    state.stationEquipmentInventory,
+  ).sell_value_bonus_pct;
+  const permanent = getPermanentRuntimeBonuses(state);
+  return equipmentBonus + permanent.sellValueMult + permanent.allScrapIncomeMult;
+}
+
+export function grantTraderSaleXp(state: GameState, itemsSold: number): CrewMember[] {
+  if (itemsSold <= 0) return state.crewRoster;
+  const multiplier = 1 + getGameEffectValue(
+    TEAM_UPGRADE_DEFINITIONS,
+    state.teamUpgradeLevels,
+    "crew_xp_multiplier",
+  );
+  return grantCrewRoleXp(state.crewRoster, "trader", itemsSold, multiplier);
+}
+
+export function getCrewXpMultiplier(state: GameState): number {
+  return 1 + getGameEffectValue(
+    TEAM_UPGRADE_DEFINITIONS,
+    state.teamUpgradeLevels,
+    "crew_xp_multiplier",
+  );
+}
+
+/** Exact dealer listing price shared by the button and the purchase action. */
+export function getDealerPurchasePrice(state: GameState, listing: DealerListing): number {
+  return Math.max(
+    0,
+    Math.floor(
+      listing.price * (1 - getPermanentRuntimeBonuses(state).dealerDiscount),
+    ),
+  );
+}
+
+export function getVehicleSaleValue(state: GameState, vehicle: BuiltVehicle): number {
+  const definition = getVehicleById(vehicle.definitionId);
+  if (!definition) return 0;
+  const conditionMultiplier = Math.max(0.1, (vehicle.condition ?? 100) / 100);
+  return Math.max(
+    1,
+    Math.floor(
+      definition.sellValue * conditionMultiplier * (1 + getSellValueBonus(state)),
+    ),
+  );
+}
+
+export function getVehicleRepairCost(state: GameState, vehicle: BuiltVehicle): number {
+  const definition = getVehicleById(vehicle.definitionId);
+  if (!definition || (vehicle.condition ?? 100) >= 100) return 0;
+  const gear = getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+    state.equippedStationEquipment,
+    state.stationEquipmentInventory,
+  );
+  const reduction =
+    _getUpgradeEffectValue(state, "budget_repairs") +
+    gear.repair_cost_reduction_pct +
+    getPermanentRuntimeBonuses(state).repairCostReduction;
+  return calculateRepairCost(
+    definition,
+    vehicle.condition ?? 100,
+    100,
+    reduction,
+    state.fatigue,
+  );
+}
+
+export function getVehicleBuildCost(
+  state: GameState,
+  definition: NonNullable<ReturnType<typeof getVehicleById>>,
+): number {
+  const gear = getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+    state.equippedStationEquipment,
+    state.stationEquipmentInventory,
+  );
+  const reduction =
+    _getUpgradeEffectValue(state, "bargain_builder") +
+    gear.build_cost_reduction_pct +
+    getPermanentRuntimeBonuses(state).buildCostReduction;
+  return Math.max(0, Math.floor(definition.buildCost * (1 - Math.min(0.95, reduction))));
+}
+
+/** Exact refurbishment quote shared by the Junkyard button and store action. */
+export function getPartRefurbishQuote(
+  state: GameState,
+  part: ScavengedPart,
+): ReturnType<typeof calculateRefurbishCost> {
+  const gear = getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+    state.equippedStationEquipment,
+    state.stationEquipmentInventory,
+  );
+  const reduction =
+    _getUpgradeEffectValue(state, "cheap_refurb") +
+    gear.refurb_cost_reduction_pct +
+    getPermanentRuntimeBonuses(state).repairCostReduction;
+  return calculateRefurbishCost(part, reduction);
+}
+
+export function getDealerRefreshCost(state: GameState): number {
+  const reduction = getGameEffectValue(
+    OWNER_UPGRADE_DEFINITIONS,
+    state.ownerUpgradeLevels,
+    "unlock_cost_reduction",
+  );
+  return Math.max(0, Math.floor(300 * (1 - reduction)));
+}
+
+export function getMaterialSourcingTerms(
+  state: GameState,
+  material: MaterialType,
+): { available: boolean; cost: number; yield: number } {
+  const synthesis = getGameEffectValue(
+    OWNER_UPGRADE_DEFINITIONS,
+    state.ownerUpgradeLevels,
+    "material_conversion",
+  );
+  const basicMaterials: MaterialType[] = [
+    "metalScrap",
+    "rubberCompound",
+    "greaseSludge",
+  ];
+  return {
+    available: synthesis > 0 || basicMaterials.includes(material),
+    cost: synthesis > 0 ? 100 : 200,
+    yield: multiplyReward(
+      synthesis > 0 ? 10 : 5,
+      getPermanentRuntimeBonuses(state).materialYieldMult,
+    ),
+  };
+}
+
+export function getReducedEnhancementCost(
+  state: GameState,
+  cost: Partial<Record<MaterialType, number>>,
+): Partial<Record<MaterialType, number>> {
+  return reduceMaterialCost(
+    cost,
+    getPermanentRuntimeBonuses(state).enhancementCostReduction,
+  );
+}
+
+export function getReducedCraftCost(
+  state: GameState,
+  cost: Partial<Record<MaterialType, number>>,
+): Partial<Record<MaterialType, number>> {
+  return reduceMaterialCost(
+    cost,
+    getPermanentRuntimeBonuses(state).craftCostReduction,
+  );
+}
+
+export interface VehicleLoadoutResolution {
+  valid: boolean;
+  reason: string | null;
+  parts: Record<string, InstalledPart>;
+  inventory: ScavengedPart[];
+}
+
+/** Resolve a named loadout against current (possibly degraded) parts safely. */
+export function resolveVehicleLoadout(
+  vehicle: BuiltVehicle,
+  inventory: readonly ScavengedPart[],
+  loadout: VehicleLoadout,
+): VehicleLoadoutResolution {
+  const invalid = (reason: string): VehicleLoadoutResolution => ({
+    valid: false,
+    reason,
+    parts: {},
+    inventory: [...inventory],
+  });
+  const definition = getVehicleById(vehicle.definitionId);
+  if (!definition || loadout.vehicleId !== vehicle.id || loadout.vehicleDefinitionId !== vehicle.definitionId) {
+    return invalid("This loadout belongs to a different vehicle");
+  }
+
+  const available = [
+    ...inventory,
+    ...Object.values(vehicle.parts).flatMap((installed) => [installed.part, ...installed.addons]),
+  ];
+  const byId = new Map(available.map((part) => [part.id, part]));
+  const usedIds = new Set<string>();
+  const parts: Record<string, InstalledPart> = {};
+
+  for (const [slot, saved] of Object.entries(loadout.parts)) {
+    const slotDefinition = definition.slots.find((candidate) => candidate.slot === slot);
+    if (!slotDefinition) return invalid(`Saved slot ${slot} is not valid for this vehicle`);
+    const part = byId.get(saved.partId);
+    if (!part) return invalid(`The saved ${slot} part is no longer available`);
+    if (usedIds.has(part.id)) return invalid("A saved item is assigned more than once");
+    if (getAddonById(part.definitionId) || !slotDefinition.acceptableParts.includes(part.definitionId)) {
+      return invalid(`The saved ${slot} part is no longer compatible`);
+    }
+
+    const addons: ScavengedPart[] = [];
+    for (const addonId of saved.addonIds) {
+      const addon = byId.get(addonId);
+      const addonDefinition = addon ? getAddonById(addon.definitionId) : undefined;
+      if (!addon || !addonDefinition) return invalid(`A saved ${slot} add-on is no longer available`);
+      if (usedIds.has(addon.id) || addon.id === part.id) return invalid("A saved item is assigned more than once");
+      if (addonDefinition.targetSlot !== slot) return invalid(`A saved add-on is not compatible with ${slot}`);
+      usedIds.add(addon.id);
+      addons.push(addon);
+    }
+
+    const capacity = CONDITION_ADDON_SLOTS[part.condition as PartCondition] ?? 0;
+    if (addons.length > capacity) {
+      return invalid(`Saved ${slot} uses ${addons.length} add-ons, but ${part.condition} condition allows ${capacity}`);
+    }
+    usedIds.add(part.id);
+    parts[slot] = { part, addons };
+  }
+
+  for (const slot of definition.slots) {
+    if (slot.required && !parts[slot.slot]) return invalid(`The loadout is missing its required ${slot.slot} part`);
+  }
+
+  return {
+    valid: true,
+    reason: null,
+    parts,
+    inventory: available.filter((part) => !usedIds.has(part.id)),
+  };
+}
+
+export function getWorkshopUpgradePurchaseCost(
+  state: GameState,
+  upgradeId: string,
+): number | null {
+  const definition = getUpgradeById(upgradeId);
+  if (!definition) return null;
+  const currentLevel = state.workshopLevels[upgradeId] ?? 0;
+  if (currentLevel >= definition.maxLevel) return 0;
+  const milestoneReduction = getPrestigeMilestoneBonuses(
+    state.prestigeCount,
+  ).workshopCostReduction;
+  const philosophyReduction = getPermanentRuntimeBonuses(
+    state,
+  ).workshopCostReduction;
+  return Math.max(
+    0,
+    Math.floor(
+      getUpgradeCost(definition, currentLevel) *
+        (1 - Math.min(0.95, milestoneReduction + philosophyReduction)),
+    ),
+  );
 }
 
 /** Calculate fatigue from total races this run (logarithmic curve) */
@@ -541,7 +927,7 @@ export function calculateFatigue(lifetimeRaces: number, fatigueOffset: number = 
  * Check all challenge definitions against the current progress snapshot.
  * Returns newly-completed challenge IDs and their combined rewards.
  */
-function checkChallenges(
+export function checkChallenges(
   state: Pick<GameState, "completedChallenges">,
   progress: Record<string, number>,
   alreadyCompleted: string[],
@@ -559,6 +945,83 @@ function checkChallenges(
   }
 
   return { completed, rewards };
+}
+
+export interface ChallengeRewardBundle {
+  scrap: number;
+  forgeTokens: number;
+  materials: Partial<Record<MaterialType, number>>;
+}
+
+/** Normalize every challenge reward through permanent economy bonuses. */
+export function calculateChallengeRewardBundle(
+  state: GameState,
+  rewards: ChallengeRewardType[],
+): ChallengeRewardBundle {
+  const permanent = getPermanentRuntimeBonuses(state);
+  const scrap = multiplyReward(
+    rewards.reduce(
+      (total, reward) => total + (reward.type === "scrap" ? reward.amount : 0),
+      0,
+    ),
+    permanent.allScrapIncomeMult,
+  );
+  const forgeTokens = rewards.reduce(
+    (total, reward) =>
+      total + (reward.type === "forgeToken" ? reward.amount : 0),
+    0,
+  );
+  const materials: Partial<Record<MaterialType, number>> = {};
+  for (const reward of rewards) {
+    if (reward.type !== "material") continue;
+    materials[reward.material] =
+      (materials[reward.material] ?? 0) +
+      multiplyReward(reward.amount, permanent.materialYieldMult);
+  }
+  return { scrap, forgeTokens, materials };
+}
+
+export function addRewardMaterials(
+  materials: Record<MaterialType, number>,
+  rewards: Partial<Record<MaterialType, number>>,
+): Record<MaterialType, number> {
+  const updated = { ...materials };
+  for (const [material, amount] of Object.entries(rewards) as [MaterialType, number][]) {
+    updated[material] = (updated[material] ?? 0) + amount;
+  }
+  return updated;
+}
+
+function challengeCompletionEvents(completedIds: string[]): string[] {
+  return completedIds.map((id) => {
+    const challenge = CHALLENGE_DEFINITIONS.find((candidate) => candidate.id === id);
+    return challenge
+      ? `Challenge Complete: ${challenge.name}! ${challenge.completionText}`
+      : `Challenge Complete: ${id}`;
+  });
+}
+
+function announceChallengeCompletions(
+  set: SetState,
+  get: GetState,
+  completedIds: string[],
+  bundle: ChallengeRewardBundle,
+): void {
+  if (completedIds.length === 0) return;
+  const rewardParts = [
+    bundle.scrap > 0 ? `$${bundle.scrap}` : "",
+    bundle.forgeTokens > 0 ? `${bundle.forgeTokens} Forge Token${bundle.forgeTokens === 1 ? "" : "s"}` : "",
+    ...Object.entries(bundle.materials).map(([material, amount]) => `${amount} ${material}`),
+  ].filter(Boolean);
+  for (const id of completedIds) {
+    const challenge = CHALLENGE_DEFINITIONS.find((candidate) => candidate.id === id);
+    _appendLog(
+      set,
+      get,
+      "upgrade",
+      `Challenge complete: ${challenge?.name ?? id}${rewardParts.length > 0 ? ` — ${rewardParts.join(", ")}` : ""}`,
+    );
+  }
 }
 
 type SetState = (partial: Partial<GameState> | ((state: GameState) => Partial<GameState>)) => void;
@@ -581,7 +1044,7 @@ function _appendLog(set: SetState, get: GetState, category: LogCategory, message
 }
 
 /** Grant XP to a skill and recalculate level. Returns the updated skills object. */
-function _grantXp(skills: RacerSkills, skill: SkillName, amount: number): RacerSkills {
+export function _grantXp(skills: RacerSkills, skill: SkillName, amount: number): RacerSkills {
   const current = skills[skill];
   const newXp = current.xp + amount;
   const { level } = levelFromXp(newXp);
@@ -591,10 +1054,54 @@ function _grantXp(skills: RacerSkills, skill: SkillName, amount: number): RacerS
   };
 }
 
+function _selectBestBuildParts(vehicleId: string, inventory: ScavengedPart[]): Record<string, ScavengedPart> {
+  const vehicle = getVehicleById(vehicleId);
+  if (!vehicle) return {};
+  const selected: Record<string, ScavengedPart> = {};
+  const usedIds = new Set<string>();
+  for (const slot of vehicle.slots) {
+    const best = inventory
+      .filter((part) => part.type === "part" && !usedIds.has(part.id) && slot.acceptableParts.includes(part.definitionId))
+      .sort((left, right) => {
+        const conditionDelta = CONDITIONS.indexOf(right.condition) - CONDITIONS.indexOf(left.condition);
+        if (conditionDelta !== 0) return conditionDelta;
+        const leftDefinition = getPartById(left.definitionId);
+        const rightDefinition = getPartById(right.definitionId);
+        const leftScore = (leftDefinition?.basePower ?? 0) + (leftDefinition?.baseReliability ?? 0) - (leftDefinition?.baseWeight ?? 0) * 0.01;
+        const rightScore = (rightDefinition?.basePower ?? 0) + (rightDefinition?.baseReliability ?? 0) - (rightDefinition?.baseWeight ?? 0) * 0.01;
+        return rightScore - leftScore;
+      })[0];
+    if (!best) continue;
+    selected[slot.slot] = best;
+    usedIds.add(best.id);
+  }
+  return selected;
+}
+
+function _randomStartingWorkshopLevels(count: number): Record<string, number> {
+  if (count <= 0) return {};
+  const candidates = UPGRADE_DEFINITIONS
+    .filter((upgrade) => !upgrade.unlockRequirement)
+    .map((upgrade) => upgrade.id)
+    .sort(() => random() - 0.5)
+    .slice(0, count);
+  return Object.fromEntries(candidates.map((id) => [id, 1]));
+}
+
+function hasFleetAssignment(state: GameState, vehicleId: string): boolean {
+  return state.fleetAssignments.some((assignment) => assignment.vehicleId === vehicleId);
+}
+
+function isVehicleMutationLocked(state: GameState, vehicleId: string): boolean {
+  return hasFleetAssignment(state, vehicleId)
+    || (state.isRacing && state.activeVehicleId === vehicleId);
+}
+
 function createActions(set: SetState, get: GetState) {
   return {
     manualScavenge: () => {
       const state = get() as GameState;
+      if (!canScavengeSelectedLocation(state)) return;
       const location = getLocationById(state.selectedLocationId);
       if (!location) return;
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
@@ -602,9 +1109,13 @@ function createActions(set: SetState, get: GetState) {
       const fatigue = state.fatigue;
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
-      const parts = scavenge(location, state.prestigeBonus.luckBonus + extraLuck + scavSkill.scavengingLuckBonus, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus);
+      const milestoneBonuses = getPrestigeMilestoneBonuses(state.prestigeCount);
+      const permanentBonuses = getPermanentRuntimeBonuses(state);
+      const scavengeLuck = state.prestigeBonus.luckBonus + milestoneBonuses.scavengeLuckBonus + permanentBonuses.scavengeLuckBonus + extraLuck + scavSkill.scavengingLuckBonus;
+      const scavengeYield = gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus + milestoneBonuses.scavengeYieldMult + permanentBonuses.scavengeYieldMult;
+      const parts = scavenge(location, scavengeLuck, fatigue, gb.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus);
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, state.prestigeBonus.luckBonus + extraLuck + scavSkill.scavengingLuckBonus, fatigue, gb.scavenge_luck_bonus, gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus);
+        const bonus = scavenge(location, scavengeLuck, fatigue, gb.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       /* ── Early-game boost: first 30 clicks on first prestige guarantee enough to build ── */
@@ -638,6 +1149,7 @@ function createActions(set: SetState, get: GetState) {
         const dupes = parts.map((p) => ({ ...p, id: makePartId() }));
         parts.push(...dupes);
       }
+      const autoSale = autoSellRustedParts(parts, milestoneBonuses.autoSellRusted, getSellValueBonus(state));
       // Roll for gear/mod drops
       const { gearDrops, modDrop } = rollGearDrops({
         source: "scavenge",
@@ -652,124 +1164,129 @@ function createActions(set: SetState, get: GetState) {
       });
       set((s: GameState) => {
         const newClicks = s.manualScavengeClicks + 1;
-        const justUnlocked = !s.autoScavengeUnlocked && newClicks >= 500;
+        const justUnlocked = !s.autoScavengeUnlocked && newClicks >= AUTO_SCAVENGE_MANUAL_TARGET;
+        let updatedCrew = grantCrewRoleXp(s.crewRoster, "scout", 5, getCrewXpMultiplier(s));
+        if (autoSale.soldParts.length > 0) updatedCrew = grantTraderSaleXp({ ...s, crewRoster: updatedCrew }, autoSale.soldParts.length);
         return {
-          inventory: [...s.inventory, ...parts],
+          inventory: [...s.inventory, ...autoSale.keptParts],
+          scrapBucks: s.scrapBucks + autoSale.scrapEarned,
+          lifetimeScrapBucks: s.lifetimeScrapBucks + autoSale.scrapEarned,
           stationEquipmentInventory: gearDrops.length > 0 ? [...s.stationEquipmentInventory, ...gearDrops.map(convertLegacyLootDrop)] : s.stationEquipmentInventory,
           reforgeShards: s.reforgeShards + (modDrop ? 1 : 0),
           manualScavengeClicks: newClicks,
           autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
           racerSkills: _grantXp(s.racerSkills, "scavenging", 5),
+          crewRoster: updatedCrew,
           unlockEvents: justUnlocked
             ? [...s.unlockEvents, "Auto-Scavenge Enabled! Parts collect themselves now."]
             : s.unlockEvents,
           // Lifetime stats for achievements
           lifetimePartsScavengedAllTime: s.lifetimePartsScavengedAllTime + parts.length,
+          lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + autoSale.scrapEarned,
         };
       });
       const gearMsg = gearDrops.length > 0 ? ` + ${gearDrops.map((g) => g.name).join(", ")}` : "";
       _appendLog(set, get, "scavenge", `Scavenged ${parts.length} part${parts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}`);
+      if (autoSale.soldParts.length > 0) {
+        _appendLog(set, get, "sell", `Junk Filter auto-sold ${autoSale.soldParts.length} rusted part${autoSale.soldParts.length === 1 ? "" : "s"} for $${autoSale.scrapEarned}`, { scrapDelta: autoSale.scrapEarned });
+      }
+      (get() as GameState).checkAchievements();
     },
 
     sellPart: (partId: string) => {
       const state = get() as GameState;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const def = part.type === "addon" ? getAddonById(part.definitionId) : getPartById(part.definitionId);
       if (!def) return;
-      const mult = CONDITION_MULTIPLIERS[part.condition];
-      const value = Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
+      const value = getPartSaleValue(part, getSellValueBonus(state));
+      if (value === undefined) return;
       set((s: GameState) => ({
         inventory: s.inventory.filter((p) => p.id !== partId),
         scrapBucks: s.scrapBucks + value,
         lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
+        crewRoster: grantTraderSaleXp(s, 1),
       }));
       _appendLog(set, get, "sell", `Sold ${def.name} (${part.condition}) for $${value}`, { scrapDelta: value });
+      (get() as GameState).checkAchievements();
     },
 
     sellAllJunk: () => {
-      import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
-        const state = get() as GameState;
-        const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
-        let total = 0;
-        for (const part of state.inventory) {
-          const def = part.type === "addon" ? getAddonById(part.definitionId) : getPartById(part.definitionId);
-          if (!def) continue;
-          const mult = CONDITION_MULTIPLIERS[part.condition];
-          total += Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
-        }
-        const count = state.inventory.length;
-        set((s: GameState) => ({
-          inventory: [],
-          scrapBucks: s.scrapBucks + total,
-          lifetimeScrapBucks: s.lifetimeScrapBucks + total,
-        }));
-        if (count > 0) _appendLog(set, get, "sell", `Sold all ${count} parts for $${total}`, { scrapDelta: total });
+      const state = get() as GameState;
+      const sellValueBonus = getSellValueBonus(state);
+      const saleValues = state.inventory.flatMap((part) => {
+        const value = getPartSaleValue(part, sellValueBonus);
+        return value === undefined ? [] : [{ id: part.id, value }];
       });
+      if (saleValues.length === 0) return;
+      const soldIds = new Set(saleValues.map(({ id }) => id));
+      const total = saleValues.reduce((sum, { value }) => sum + value, 0);
+      set((s: GameState) => ({
+        inventory: s.inventory.filter((part) => !soldIds.has(part.id)),
+        scrapBucks: s.scrapBucks + total,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + total,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + total,
+        crewRoster: grantTraderSaleXp(s, saleValues.length),
+      }));
+      _appendLog(set, get, "sell", `Sold all ${saleValues.length} parts for $${total}`, { scrapDelta: total });
+      (get() as GameState).checkAchievements();
     },
 
     sellAllScrap: () => {
-      import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
-        const state = get() as GameState;
-        const gb = getGearBonuses(state.equippedGear, undefined, undefined, undefined, undefined, state.equippedStationEquipment, state.stationEquipmentInventory);
-        let total = 0;
-        const toSell: string[] = [];
-        for (const part of state.inventory) {
-          if (part.type !== "part") continue;
-          const def = getPartById(part.definitionId);
-          if (!def || def.category !== "misc") continue;
-          const mult = CONDITION_MULTIPLIERS[part.condition];
-          total += Math.floor(def.scrapValue * mult * (1 + gb.sell_value_bonus_pct));
-          toSell.push(part.id);
-        }
-        if (toSell.length === 0) return;
-        set((s: GameState) => ({
-          inventory: s.inventory.filter((p) => !toSell.includes(p.id)),
-          scrapBucks: s.scrapBucks + total,
-          lifetimeScrapBucks: s.lifetimeScrapBucks + total,
-        }));
-        _appendLog(set, get, "sell", `Sold ${toSell.length} scrap parts for $${total}`, { scrapDelta: total });
+      const state = get() as GameState;
+      const sellValueBonus = getSellValueBonus(state);
+      const saleValues = state.inventory.flatMap((part) => {
+        if (part.type !== "part") return [];
+        const def = getPartById(part.definitionId);
+        if (!def || def.category !== "misc") return [];
+        const value = getPartSaleValue(part, sellValueBonus);
+        return value === undefined ? [] : [{ id: part.id, value }];
       });
+      if (saleValues.length === 0) return;
+      const soldIds = new Set(saleValues.map(({ id }) => id));
+      const total = saleValues.reduce((sum, { value }) => sum + value, 0);
+      set((s: GameState) => ({
+        inventory: s.inventory.filter((part) => !soldIds.has(part.id)),
+        scrapBucks: s.scrapBucks + total,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + total,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + total,
+        crewRoster: grantTraderSaleXp(s, saleValues.length),
+      }));
+      _appendLog(set, get, "sell", `Sold ${saleValues.length} scrap parts for $${total}`, { scrapDelta: total });
+      (get() as GameState).checkAchievements();
     },
 
     sellBelowQuality: (threshold: PartCondition) => {
-      import("@/data/parts").then(({ getPartById, CONDITION_MULTIPLIERS }) => {
-        import("@/data/addons").then(({ getAddonById }) => {
-          const state = get() as GameState;
-          const gb = getGearBonuses(state.equippedGear, undefined, undefined, undefined, undefined, state.equippedStationEquipment, state.stationEquipmentInventory);
-          const thresholdIdx = CONDITIONS.indexOf(threshold);
-          let total = 0;
-          const toSell: string[] = [];
-          for (const part of state.inventory) {
-            if (CONDITIONS.indexOf(part.condition) >= thresholdIdx) continue;
-            let scrapValue = 0;
-            if (part.type === "part") {
-              const def = getPartById(part.definitionId);
-              if (!def) continue;
-              scrapValue = def.scrapValue;
-            } else {
-              const def = getAddonById(part.definitionId);
-              if (!def) continue;
-              scrapValue = def.scrapValue;
-            }
-            const mult = CONDITION_MULTIPLIERS[part.condition];
-            total += Math.floor(scrapValue * mult * (1 + gb.sell_value_bonus_pct));
-            toSell.push(part.id);
-          }
-          if (toSell.length === 0) return;
-          set((s: GameState) => ({
-            inventory: s.inventory.filter((p) => !toSell.includes(p.id)),
-            scrapBucks: s.scrapBucks + total,
-            lifetimeScrapBucks: s.lifetimeScrapBucks + total,
-          }));
-          _appendLog(set, get, "sell", `Sold ${toSell.length} parts below ${threshold} for $${total}`, { scrapDelta: total });
-        });
+      const state = get() as GameState;
+      const sellValueBonus = getSellValueBonus(state);
+      const thresholdIdx = CONDITIONS.indexOf(threshold);
+      const saleValues = state.inventory.flatMap((part) => {
+        if (CONDITIONS.indexOf(part.condition) >= thresholdIdx) return [];
+        const value = getPartSaleValue(part, sellValueBonus);
+        return value === undefined ? [] : [{ id: part.id, value }];
       });
+      if (saleValues.length === 0) return;
+      const soldIds = new Set(saleValues.map(({ id }) => id));
+      const total = saleValues.reduce((sum, { value }) => sum + value, 0);
+      set((s: GameState) => ({
+        inventory: s.inventory.filter((part) => !soldIds.has(part.id)),
+        scrapBucks: s.scrapBucks + total,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + total,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + total,
+        crewRoster: grantTraderSaleXp(s, saleValues.length),
+      }));
+      _appendLog(set, get, "sell", `Sold ${saleValues.length} parts below ${threshold} for $${total}`, { scrapDelta: total });
+      (get() as GameState).checkAchievements();
     },
 
     setPendingVehicle: (vehicleId: string) => {
-      set({ pendingBuildVehicleId: vehicleId, pendingBuildParts: {} });
+      const state = get() as GameState;
+      const autoSelect = _getUpgradeLevel(state, "auto_fitter") >= 1 || getPrestigeMilestoneBonuses(state.prestigeCount).autoEquipBest;
+      set({
+        pendingBuildVehicleId: vehicleId,
+        pendingBuildParts: autoSelect ? _selectBestBuildParts(vehicleId, state.inventory) : {},
+      });
     },
 
     setPendingPart: (slot: string, part: ScavengedPart | null) => {
@@ -786,21 +1303,17 @@ function createActions(set: SetState, get: GetState) {
       const vehicleDef = getVehicleById(pendingBuildVehicleId);
       if (!vehicleDef) return;
 
-      // Validate all required slots are filled
-      for (const slotCfg of vehicleDef.slots) {
-        if (slotCfg.required && !pendingBuildParts[slotCfg.slot]) return;
-      }
+      const buildSelection = validateBuildSelection(vehicleDef, pendingBuildParts, state.inventory);
+      if (!buildSelection.valid) return;
 
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
-      const buildReduction = _getUpgradeEffectValue(state, "bargain_builder") + gb.build_cost_reduction_pct;
-      const actualBuildCost = Math.max(0, Math.floor(vehicleDef.buildCost * (1 - buildReduction)));
+      const actualBuildCost = getVehicleBuildCost(state, vehicleDef);
       if (state.scrapBucks < actualBuildCost) return;
 
       // Build InstalledPart records and collect used part IDs
       const usedPartIds = new Set<string>();
       const builtParts: Record<string, InstalledPart> = {};
       for (const slotCfg of vehicleDef.slots) {
-        const part = pendingBuildParts[slotCfg.slot];
+        const part = buildSelection.parts[slotCfg.slot];
         if (part) {
           usedPartIds.add(part.id);
           builtParts[slotCfg.slot] = { part, addons: [] };
@@ -836,6 +1349,7 @@ function createActions(set: SetState, get: GetState) {
           // Auto-activate via prestige milestone system
           activeVehicleId: (s.activeVehicleId === null && mb.autoActivateVehicle) ? built.id : s.activeVehicleId,
           racerSkills: _grantXp(s.racerSkills, "mechanics", 20),
+          crewRoster: grantCrewRoleXp(s.crewRoster, "mechanic", 20, getCrewXpMultiplier(s)),
           // Lifetime stats for achievements
           lifetimeVehiclesBuiltAllTime: s.lifetimeVehiclesBuiltAllTime + 1,
           highestVehicleTierBuilt: Math.max(s.highestVehicleTierBuilt, vehicleDef.tier),
@@ -853,23 +1367,29 @@ function createActions(set: SetState, get: GetState) {
     },
 
     setActiveVehicle: (vehicleId: string) => {
+      const state = get() as GameState;
+      if (state.isRacing || hasFleetAssignment(state, vehicleId)) return;
+      if (!state.garage.some((vehicle) => vehicle.id === vehicleId)) return;
       set({ activeVehicleId: vehicleId });
     },
 
     sellVehicle: (vehicleId: string) => {
       const state = get() as GameState;
       const vehicle = state.garage.find((v) => v.id === vehicleId);
-      if (!vehicle) return;
+      if (!vehicle || isVehicleMutationLocked(state, vehicleId)) return;
       const vehicleDef = getVehicleById(vehicle.definitionId);
-      const value = vehicleDef?.sellValue ?? 10;
+      const value = getVehicleSaleValue(state, vehicle);
       set((s: GameState) => ({
         garage: s.garage.filter((v) => v.id !== vehicleId),
         scrapBucks: s.scrapBucks + value,
         lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
         activeVehicleId: s.activeVehicleId === vehicleId ? null : s.activeVehicleId,
         vehicleLoadouts: s.vehicleLoadouts.filter((loadout) => loadout.vehicleId !== vehicleId),
+        crewRoster: grantTraderSaleXp(s, 1),
       }));
       _appendLog(set, get, "sell", `Sold ${vehicleDef?.name ?? "vehicle"} for $${value}`, { scrapDelta: value });
+      (get() as GameState).checkAchievements();
     },
 
     saveVehicleLoadout: (vehicleId: string, name: string) => {
@@ -896,31 +1416,18 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const loadout = state.vehicleLoadouts.find((candidate) => candidate.id === loadoutId);
       const vehicle = loadout ? state.garage.find((candidate) => candidate.id === loadout.vehicleId) : undefined;
-      if (!loadout || !vehicle || vehicle.definitionId !== loadout.vehicleDefinitionId) return;
+      if (!loadout || !vehicle || vehicle.definitionId !== loadout.vehicleDefinitionId || isVehicleMutationLocked(state, vehicle.id)) return;
 
-      const available = [
-        ...state.inventory,
-        ...Object.values(vehicle.parts).flatMap((installed) => [installed.part, ...installed.addons]),
-      ];
-      const byId = new Map(available.map((part) => [part.id, part]));
-      const usedIds = new Set<string>();
-      const parts: Record<string, InstalledPart> = {};
-      for (const [slot, saved] of Object.entries(loadout.parts)) {
-        const part = byId.get(saved.partId);
-        const addons = saved.addonIds.map((id) => byId.get(id));
-        if (!part || addons.some((addon) => !addon)) return;
-        usedIds.add(part.id);
-        addons.forEach((addon) => usedIds.add(addon!.id));
-        parts[slot] = { part, addons: addons as ScavengedPart[] };
-      }
+      const resolved = resolveVehicleLoadout(vehicle, state.inventory, loadout);
+      if (!resolved.valid) return;
 
       const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
       const definition = getVehicleById(vehicle.definitionId);
       if (!definition) return;
-      const updated = { ...vehicle, parts, stats: calculateStats(definition, parts, vehicle.condition, handlingBonus) };
+      const updated = { ...vehicle, parts: resolved.parts, stats: calculateStats(definition, resolved.parts, vehicle.condition, handlingBonus) };
       set((current: GameState) => ({
-        inventory: available.filter((part) => !usedIds.has(part.id)),
+        inventory: resolved.inventory,
         garage: current.garage.map((candidate) => candidate.id === vehicle.id ? updated : candidate),
       }));
       _appendLog(set, get, "build", `Applied vehicle loadout ${loadout.name}`);
@@ -944,14 +1451,11 @@ function createActions(set: SetState, get: GetState) {
 
     enterRace: () => {
       const state = get() as GameState;
-      if (state.isRacing) return;
-      if (!state.activeVehicleId) return;
+      if (!canEnterSelectedRace(state)) return;
 
       const vehicle = state.garage.find((v) => v.id === state.activeVehicleId);
       const circuit = getCircuitById(state.selectedCircuitId);
       if (!vehicle || !circuit) return;
-      if (state.scrapBucks < circuit.entryFee) return;
-      if ((vehicle.condition ?? 100) <= 0) return;
 
       // Pre-compute the outcome immediately so the UI can animate it
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
@@ -961,16 +1465,20 @@ function createActions(set: SetState, get: GetState) {
       const salvageMaxCondition = scavengerEyeLevel >= 1 ? 2 : 1;
       const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
       const sb = getSkillBonuses(state.racerSkills, circuit.tier);
+      const permanentBonuses = getPermanentRuntimeBonuses(state);
       // Force DNF on the very first race of a new save so the tutorial
-      // reliably reaches the repair step. Tutorial step 10 is "Hit Enter Race!"
-      // right before the one-and-only race we want to break down.
-      const isFirstEverRace = state.lifetimeRacesAllTime === 0 && state.tutorialStep === 10;
+      // reliably reaches the repair step. Steps 9 and 10 both expose the race
+      // button, while step 11 is the safe retry state after an interrupted
+      // animation; all three must match the forced-DNF forecast.
+      const isFirstEverRace = state.lifetimeRacesAllTime === 0
+        && state.tutorialStep >= 9
+        && state.tutorialStep <= 11;
       const outcome = simulateRace(
         vehicle, circuit,
-        state.prestigeBonus.scrapMultiplier,
+        1,
         state.fatigue,
-        gb.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance"),
-        gb.race_dnf_reduction,
+        gb.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance") + permanentBonuses.racePerformanceBonus,
+        gb.race_dnf_reduction + permanentBonuses.raceDnfFlatReduction,
         salvageDropChance,
         salvageMaxCondition,
         momentumWinBonus,
@@ -979,46 +1487,60 @@ function createActions(set: SetState, get: GetState) {
         sb.drivingDnfReduction,
         isFirstEverRace,
         state.currentRacePlan,
+        permanentBonuses.raceDnfChanceMultiplier,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
+      const raceSessionId = `manual_race_${Date.now()}_${raceSessionCounter++}`;
 
       set({
         isRacing: true,
+        activeRaceSessionId: raceSessionId,
         scrapBucks: state.scrapBucks - circuit.entryFee,
+        challengeProgress: {
+          ...state.challengeProgress,
+          [PENDING_MANUAL_RACE_ENTRY_FEE_KEY]: circuit.entryFee,
+        },
         raceEvents: events,
         raceStartTime: Date.now(),
         precomputedOutcome: outcome,
       });
 
       setTimeout(() => {
+        let settledCurrentSession = false;
         set((s: GameState) => {
+          if (s.activeRaceSessionId !== raceSessionId) return s;
+          const sessionVehicleStillValid = s.isRacing
+            && s.activeVehicleId === racingVehicleId
+            && s.garage.some((candidate) => candidate.id === racingVehicleId);
+          if (!sessionVehicleStillValid) {
+            const pendingEntryFee = s.challengeProgress[PENDING_MANUAL_RACE_ENTRY_FEE_KEY] ?? 0;
+            return {
+              isRacing: false,
+              activeRaceSessionId: null,
+              scrapBucks: s.scrapBucks + pendingEntryFee,
+              challengeProgress: {
+                ...s.challengeProgress,
+                [PENDING_MANUAL_RACE_ENTRY_FEE_KEY]: 0,
+              },
+              raceEvents: [],
+              raceStartTime: null,
+              precomputedOutcome: null,
+            };
+          }
+          settledCurrentSession = true;
           // Apply prestige + momentum rep multiplier
           const mRepMult = getMomentumEffectValue(s.activeMomentumTiers, "rep_multiplier");
-          const effectiveRepEarned = outcome.repEarned * s.prestigeBonus.repMultiplier * (1 + mRepMult);
+          const raceMilestones = getPrestigeMilestoneBonuses(s.prestigeCount);
+          const racePermanent = getPermanentRuntimeBonuses(s);
+          const effectiveRepEarned = outcome.repEarned * s.prestigeBonus.repMultiplier * (1 + mRepMult) * (1 + raceMilestones.raceRepMult + racePermanent.allRepIncomeMult + racePermanent.raceRepMult);
           const newRep = s.repPoints + effectiveRepEarned;
           const newUnlockedCircuits = [...s.unlockedCircuitIds];
           const newUnlockedLocations = [...s.unlockedLocationIds];
           const newUnlockedVehicles = [...s.unlockedVehicleIds];
           const newUnlockEvents = [...s.unlockEvents];
 
-          // Unlock circuits by rep
-          if (newRep >= 25000 && !newUnlockedCircuits.includes("dirt_track")) { newUnlockedCircuits.push("dirt_track"); newUnlockEvents.push("Dirt Track Unlocked! Real gravel, real glory."); }
-          if (newRep >= 200000 && !newUnlockedCircuits.includes("regional_circuit")) { newUnlockedCircuits.push("regional_circuit"); newUnlockEvents.push("Regional Circuit Unlocked! Somebody brought a trailer."); }
-          if (newRep >= 800000 && !newUnlockedCircuits.includes("national_circuit")) { newUnlockedCircuits.push("national_circuit"); newUnlockEvents.push("National Circuit Unlocked! Corporate sponsors. Cameras."); }
-          if (newRep >= 2500000 && !newUnlockedCircuits.includes("world_championship")) { newUnlockedCircuits.push("world_championship"); newUnlockEvents.push("World Championship Unlocked! The big leagues."); }
-
-          // Unlock locations by rep
-          if (newRep >= 40000 && !newUnlockedLocations.includes("neighborhood_yards")) { newUnlockedLocations.push("neighborhood_yards"); newUnlockEvents.push("New Location: Neighborhood Yards!"); }
-          if (newRep >= 175000 && !newUnlockedLocations.includes("local_junkyard")) { newUnlockedLocations.push("local_junkyard"); newUnlockEvents.push("New Location: Local Junkyard — better parts await!"); }
-          if (newRep >= 600000 && !newUnlockedLocations.includes("salvage_auction")) { newUnlockedLocations.push("salvage_auction"); newUnlockEvents.push("New Location: Salvage Auction!"); }
-          if (newRep >= 2000000 && !newUnlockedLocations.includes("industrial_surplus")) { newUnlockedLocations.push("industrial_surplus"); newUnlockEvents.push("New Location: Industrial Surplus!"); }
-          if (newRep >= 5000000 && !newUnlockedLocations.includes("military_scrapyard")) { newUnlockedLocations.push("military_scrapyard"); newUnlockEvents.push("New Location: Military Scrapyard!"); }
-
-          // Unlock vehicles by rep
-          if (newRep >= 40000 && !newUnlockedVehicles.includes("beater_car")) { newUnlockedVehicles.push("beater_car"); newUnlockEvents.push("Beater Car Blueprint Unlocked!"); }
-          if (newRep >= 175000 && !newUnlockedVehicles.includes("street_racer")) { newUnlockedVehicles.push("street_racer"); newUnlockEvents.push("Street Racer Blueprint Unlocked!"); }
-          if (newRep >= 500000 && !newUnlockedVehicles.includes("stock_car")) { newUnlockedVehicles.push("stock_car"); newUnlockEvents.push("Stock Car Blueprint Unlocked!"); }
+          addReputationUnlocks(newRep, s.unlockedFeatures, newUnlockedCircuits, newUnlockedLocations, newUnlockEvents);
 
           // Win streak
           const newStreak = outcome.result === "win" ? s.winStreak + 1 : 0;
@@ -1027,34 +1549,34 @@ function createActions(set: SetState, get: GetState) {
           if (newStreak === 5) newUnlockEvents.push("5 WINS! Unstoppable!");
           if (newStreak === 10) newUnlockEvents.push("10 WINS! LEGENDARY!");
 
-          // Unlock vehicles by race achievement
-          if (outcome.result === "win" && s.selectedCircuitId === "backyard_derby" && !newUnlockedVehicles.includes("riding_mower")) {
-            newUnlockedVehicles.push("riding_mower");
-            newUnlockEvents.push("Riding Mower Blueprint Unlocked! Sit-down racing starts here.");
+          // Every blueprint label and transition is driven by one structured contract.
+          const recentOutcomes = [outcome, ...s.raceHistory];
+          const wonCircuitIds = [...new Set(recentOutcomes.filter((race) => race.result === "win").map((race) => race.circuitId))];
+          let currentCircuitWinStreak = 0;
+          for (const race of recentOutcomes) {
+            if (race.result !== "win" || race.circuitId !== outcome.circuitId) break;
+            currentCircuitWinStreak += 1;
           }
-          if (newStreak >= 5 && s.selectedCircuitId === "backyard_derby" && !newUnlockedVehicles.includes("go_kart")) {
-            newUnlockedVehicles.push("go_kart");
-            newUnlockEvents.push("Go-Kart Blueprint Unlocked! 5-win mastery of the backyard.");
-          }
-          if (outcome.result === "win" && s.selectedCircuitId === "regional_circuit" && !newUnlockedVehicles.includes("rally_car")) {
-            newUnlockedVehicles.push("rally_car");
-            newUnlockEvents.push("Rally Car Blueprint Unlocked! You proved you belong on a real track.");
-          }
-          if (outcome.result === "win" && s.selectedCircuitId === "national_circuit" && !newUnlockedVehicles.includes("prototype_racer")) {
-            newUnlockedVehicles.push("prototype_racer");
-            newUnlockEvents.push("Prototype Racer Blueprint Unlocked! The engineers are watching.");
-          }
-          if (outcome.result === "win" && s.selectedCircuitId === "world_championship" && !newUnlockedVehicles.includes("supercar")) {
-            newUnlockedVehicles.push("supercar");
-            newUnlockEvents.push("Supercar Blueprint Unlocked! The rags-to-races dream is real.");
+          const unlockedByProgress = getVehicleIdsUnlockedByProgress({
+            reputation: newRep,
+            wonCircuitIds,
+            circuitWinStreaks: { [outcome.circuitId]: currentCircuitWinStreak },
+            ownerUpgradeLevels: s.ownerUpgradeLevels,
+          });
+          for (const vehicleId of unlockedByProgress) {
+            if (newUnlockedVehicles.includes(vehicleId)) continue;
+            newUnlockedVehicles.push(vehicleId);
+            const vehicleDefinition = getVehicleById(vehicleId);
+            newUnlockEvents.push(`${vehicleDefinition?.name ?? vehicleId} Blueprint Unlocked!`);
           }
 
-          // (Auto-scavenge unlocks at 500 manual clicks; auto-race unlocks after first Scrap Reset)
+          // Automation is progression-based: manual scavenging or the first Scrap Reset.
 
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
+          const legacyWearReduction = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_wear_reduction");
           const racingV = s.garage.find((v) => v.id === racingVehicleId);
-          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction, s.fatigue, gb.race_wear_reduction_pct, sb.enduranceWearReduction, outcome.planEvaluation?.wearMultiplier ?? 1) : 0;
+          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction + legacyWearReduction, s.fatigue, gb.race_wear_reduction_pct, sb.enduranceWearReduction, outcome.planEvaluation?.wearMultiplier ?? 1) : 0;
           const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gb.race_handling_pct;
           const updatedGarage = s.garage.map((v) => {
             if (v.id !== racingVehicleId) return v;
@@ -1080,13 +1602,17 @@ function createActions(set: SetState, get: GetState) {
           // Momentum scrap multiplier
           const mScrapMult = getMomentumEffectValue(s.activeMomentumTiers, "scrap_multiplier");
           if (mScrapMult > 0) finalScraps = Math.floor(finalScraps * (1 + mScrapMult));
+          const streakScrapBonus = Math.min(racePermanent.winStreakScrapCap, newStreak * racePermanent.winStreakScrapBonus);
+          finalScraps = multiplyReward(finalScraps, (s.prestigeBonus.scrapMultiplier - 1) + raceMilestones.raceScrapMult + racePermanent.allScrapIncomeMult + racePermanent.raceScrapMult + streakScrapBonus);
+          let settledOutcome: RaceOutcome = { ...outcome, scrapsEarned: finalScraps, repEarned: effectiveRepEarned };
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
           const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + sb.enduranceFatigueOffset;
           const rawFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
           const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
+          const momentumFatigueReduction = getMomentumEffectValue(s.activeMomentumTiers, "fatigue_reduction");
           const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "fatigue_cap_reduction"));
-          const newFatigue = Math.min(fatigueCap, Math.floor(rawFatigue * (1 - gb.fatigue_rate_reduction - ownerFatigueReduction)));
+          const newFatigue = Math.min(fatigueCap, Math.floor(rawFatigue * Math.max(0, 1 - gb.fatigue_rate_reduction - ownerFatigueReduction - momentumFatigueReduction - racePermanent.fatigueReduction)));
 
           // Gear drop roll from manual race
           const raceVehicle = s.garage.find((v) => v.id === racingVehicleId);
@@ -1120,7 +1646,8 @@ function createActions(set: SetState, get: GetState) {
           let newDefeatedRivalIds = s.defeatedRivalIds;
           let newDiscoveredBlueprintIds = s.discoveredBlueprintIds;
           const rival = outcome.rivalId ? getRivalById(outcome.rivalId) : undefined;
-          if (outcome.result === "win" && rival && !s.defeatedRivalIds.includes(rival.id)) {
+          const rivalRewardClaimed = outcome.result === "win" && !!rival && !s.defeatedRivalIds.includes(rival.id);
+          if (rivalRewardClaimed && rival) {
             newDefeatedRivalIds = [...s.defeatedRivalIds, rival.id];
             newUnlockEvents.push(`Rival defeated: ${rival.name}! Reward: ${rival.reward.label}`);
             if (rival.reward.type === "blueprint") newDiscoveredBlueprintIds = [...s.discoveredBlueprintIds, rival.reward.id];
@@ -1131,27 +1658,30 @@ function createActions(set: SetState, get: GetState) {
               newStationEquipmentInventory = [...newStationEquipmentInventory, { ...stationItem, setId: rival.reward.id as "redline" | "slipstream", source: rival.name }];
             }
           }
-          const newForgeTokens = s.forgeTokens + (outcome.forgeTokenDrop ? 1 : 0);
+          if (outcome.result === "win" && rival) {
+            settledOutcome = { ...settledOutcome, rivalRewardClaimed };
+          }
+          const directForgeTokens = outcome.forgeTokenDrop ? 1 : 0;
           const newRaceSalvage = s.lifetimeTotalRaceSalvage + (outcome.salvageDrop ? 1 : 0);
 
           // Challenge tracking for win streaks, fatigue, lifetimeRaces
           const newChallengeProgress = {
             ...s.challengeProgress,
+            [PENDING_MANUAL_RACE_ENTRY_FEE_KEY]: 0,
             winStreak: newStreak,
             fatigue: newFatigue,
             lifetimeRaces: newLifetimeRaces,
             totalRaceSalvage: newRaceSalvage,
           };
           const { completed: newCompleted, rewards } = checkChallenges(s, newChallengeProgress, s.completedChallenges);
-          const challengeScrap = rewards.reduce((acc, r) => acc + (r.type === "scrap" ? r.amount : 0), 0);
-          const challengeMatRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
-          const challengeTokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
-          const newMaterials = { ...s.materials };
-          for (const mr of challengeMatRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+          const challengeBundle = calculateChallengeRewardBundle(s, rewards);
+          const newMaterials = addRewardMaterials(s.materials, challengeBundle.materials);
+          newUnlockEvents.push(...challengeCompletionEvents(newCompleted));
 
           // Dealer board auto-refresh
           const newTick = s.gameTick + 1;
-          const newDealerBoard = (s.repPoints >= DEALER_UNLOCK_REP && shouldRefreshDealer(s.dealerBoard, newTick))
+          const dealerUnlockedNow = s.repPoints < DEALER_UNLOCK_REP && newRep >= DEALER_UNLOCK_REP;
+          const newDealerBoard = (newRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newTick)))
             ? generateDealerBoard(newRep, newTick)
             : s.dealerBoard;
 
@@ -1163,16 +1693,17 @@ function createActions(set: SetState, get: GetState) {
 
           return {
             isRacing: false,
-            lastRaceOutcome: outcome,
-            raceHistory: [outcome, ...s.raceHistory].slice(0, 20),
-            scrapBucks: s.scrapBucks + finalScraps + challengeScrap,
-            lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps + challengeScrap,
+            activeRaceSessionId: null,
+            lastRaceOutcome: settledOutcome,
+            raceHistory: compactRaceHistory([settledOutcome, ...s.raceHistory], 20),
+            scrapBucks: s.scrapBucks + finalScraps + challengeBundle.scrap,
+            lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps + challengeBundle.scrap,
             repPoints: newRep,
             unlockedCircuitIds: newUnlockedCircuits,
             unlockedLocationIds: newUnlockedLocations,
             unlockedVehicleIds: newUnlockedVehicles,
-            autoRaceUnlocked: s.autoRaceUnlocked || newRep >= 50000,
-            autoScavengeUnlocked: s.autoScavengeUnlocked || newRep >= 25000,
+            autoRaceUnlocked: s.autoRaceUnlocked,
+            autoScavengeUnlocked: s.autoScavengeUnlocked,
             raceEvents: [],
             raceStartTime: null,
             precomputedOutcome: null,
@@ -1183,12 +1714,13 @@ function createActions(set: SetState, get: GetState) {
             lifetimeRaces: newLifetimeRaces,
             fatigue: newFatigue,
             racerSkills: updatedSkills,
+            crewRoster: grantCrewRoleXp(s.crewRoster, "driver", 10, getCrewXpMultiplier(s)),
             stationEquipmentInventory: newStationEquipmentInventory,
             reforgeShards: newReforgeShards,
             inventory: newInventory,
             defeatedRivalIds: newDefeatedRivalIds,
             discoveredBlueprintIds: newDiscoveredBlueprintIds,
-            forgeTokens: newForgeTokens + challengeTokenRewards.reduce((t, r) => t + r.amount, 0),
+            forgeTokens: s.forgeTokens + directForgeTokens + challengeBundle.forgeTokens,
             lifetimeTotalRaceSalvage: newRaceSalvage,
             challengeProgress: newChallengeProgress,
             completedChallenges: [...s.completedChallenges, ...newCompleted],
@@ -1198,18 +1730,20 @@ function createActions(set: SetState, get: GetState) {
             // Lifetime stats for achievements (never reset)
             lifetimeRacesAllTime: s.lifetimeRacesAllTime + 1,
             lifetimeWinsAllTime: s.lifetimeWinsAllTime + (outcome.result === "win" ? 1 : 0),
-            lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + finalScraps + challengeScrap,
+            lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + finalScraps + challengeBundle.scrap,
             bestWinStreakAllTime: Math.max(s.bestWinStreakAllTime, newBestStreak),
-            totalForgeTokensEarned: s.totalForgeTokensEarned + (newForgeTokens - s.forgeTokens),
+            totalForgeTokensEarned: s.totalForgeTokensEarned + directForgeTokens + challengeBundle.forgeTokens,
           };
         });
+        if (!settledCurrentSession) return;
         // Check achievements after race
         (get() as GameState).checkAchievements();
         // Check momentum tiers after race
         (get() as GameState).checkMomentumTiers();
         const resultLabel = outcome.result === "win" ? "Won" : outcome.result === "loss" ? "Lost" : "DNF";
-        const rewardMsg = outcome.result === "dnf" ? "" : ` +$${outcome.scrapsEarned}${outcome.repEarned > 0 ? `, +${Math.round(outcome.repEarned)} rep` : ""}`;
-        _appendLog(set, get, "race", `Race: ${resultLabel} at ${circuit.name}!${rewardMsg}`, { scrapDelta: outcome.scrapsEarned, repDelta: Math.round(outcome.repEarned) });
+        const settled = (get() as GameState).lastRaceOutcome ?? outcome;
+        const rewardMsg = outcome.result === "dnf" ? "" : ` +$${settled.scrapsEarned}${settled.repEarned > 0 ? `, +${Math.round(settled.repEarned)} rep` : ""}`;
+        _appendLog(set, get, "race", `Race: ${resultLabel} at ${circuit.name}!${rewardMsg}`, { scrapDelta: settled.scrapsEarned, repDelta: Math.round(settled.repEarned) });
       }, circuit.raceDuration);
     },
 
@@ -1220,12 +1754,18 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
       const circuit = getCircuitById(circuitId);
+      const crewMember = crewId ? state.crewRoster.find((candidate) => candidate.id === crewId) : null;
       const completedCircuit = state.raceHistory.some((outcome) => outcome.circuitId === circuitId && outcome.result === "win");
       const baseSlots = 1 + Math.floor(getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "active_vehicle_slot"));
-      if (!vehicle || !circuit || vehicleId === state.activeVehicleId || !completedCircuit || state.fleetAssignments.filter((assignment) => assignment.status === "running").length >= baseSlots) return;
-      if (state.fleetAssignments.some((assignment) => assignment.status === "running" && assignment.vehicleId === vehicleId)) return;
+      const physicalIneligibility = getVehicleCircuitIneligibilityReason(vehicle, circuit);
+      if (!vehicle || !circuit || physicalIneligibility || vehicleId === state.activeVehicleId || !completedCircuit || state.fleetAssignments.filter((assignment) => assignment.status === "running").length >= baseSlots) return;
+      if (crewId && !crewMember) return;
+      if (state.fleetAssignments.some((assignment) => assignment.vehicleId === vehicleId)) return;
+      if (crewMember && state.fleetAssignments.some((assignment) => assignment.crewId === crewMember.id)) return;
       const assignment: FleetAssignment = { id: `fleet_${Date.now()}_${state.fleetAssignments.length}`, vehicleId, crewId: crewId ?? null, circuitId, plan: { ...state.currentRacePlan }, status: "running", remainingTicks: Math.max(3, circuit.tier + 3), accumulatedWear: 0, rewards: { scrap: 0, materials: 0 } };
       set((current: GameState) => ({ fleetAssignments: [...current.fleetAssignments, assignment] }));
+      const vehicleName = getVehicleById(vehicle.definitionId)?.name ?? vehicle.definitionId;
+      _appendLog(set, get, "tick", `Fleet program started: ${vehicleName} at ${circuit.name}${crewMember ? ` with ${crewMember.name}` : " (uncrewed)"}`);
     },
 
     advanceFleetAssignments: (ticks = 1) => {
@@ -1236,7 +1776,26 @@ function createActions(set: SetState, get: GetState) {
         const remainingTicks = Math.max(0, assignment.remainingTicks - Math.max(1, ticks));
         if (remainingTicks > 0) return { ...assignment, remainingTicks };
         const circuit = getCircuitById(assignment.circuitId);
-        return { ...assignment, remainingTicks: 0, status: "complete", accumulatedWear: assignment.accumulatedWear + 5, rewards: { scrap: Math.floor((circuit?.rewardBase ?? 0) * 0.6), materials: Math.max(1, Math.floor((circuit?.tier ?? 0) * 0.6)) } };
+        const permanent = getPermanentRuntimeBonuses(current);
+        return {
+          ...assignment,
+          remainingTicks: 0,
+          status: "complete",
+          accumulatedWear: assignment.accumulatedWear + 5,
+          rewards: {
+            scrap: multiplyReward(
+              Math.floor((circuit?.rewardBase ?? 0) * 0.6),
+              permanent.allScrapIncomeMult,
+            ),
+            materials: Math.max(
+              1,
+              multiplyReward(
+                Math.max(1, Math.floor((circuit?.tier ?? 0) * 0.6)),
+                permanent.materialYieldMult,
+              ),
+            ),
+          },
+        };
       }), hostedEvents: current.hostedEvents.map((event) => event.status !== "running" ? event : event.remainingTicks > ticks ? { ...event, remainingTicks: event.remainingTicks - ticks } : { ...event, remainingTicks: 0, status: "complete" }) }));
     },
 
@@ -1244,30 +1803,73 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const assignment = state.fleetAssignments.find((candidate) => candidate.id === assignmentId && candidate.status === "complete");
       if (!assignment) return;
+      if (!state.garage.some((vehicle) => vehicle.id === assignment.vehicleId)) {
+        // Reconcile legacy/corrupt assignments without paying rewards for a
+        // vehicle that no longer exists.
+        set((current: GameState) => ({
+          fleetAssignments: current.fleetAssignments.filter((candidate) => candidate.id !== assignmentId),
+        }));
+        return;
+      }
       const materialKeys = Object.keys(state.materials) as MaterialType[];
       const material = materialKeys[(getCircuitById(assignment.circuitId)?.tier ?? 0) % materialKeys.length];
-      set((current: GameState) => ({
-        scrapBucks: current.scrapBucks + assignment.rewards.scrap,
-        lifetimeScrapBucks: current.lifetimeScrapBucks + assignment.rewards.scrap,
-        materials: { ...current.materials, [material]: current.materials[material] + assignment.rewards.materials },
-        garage: current.garage.map((vehicle) => vehicle.id === assignment.vehicleId ? { ...vehicle, condition: Math.max(0, vehicle.condition - assignment.accumulatedWear), totalRaces: vehicle.totalRaces + 1 } : vehicle),
-        crewRoster: current.crewRoster.map((crew) => crew.id === assignment.crewId ? grantCrewXp(crew, 5, 1 + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, current.teamUpgradeLevels, "crew_xp_multiplier")) : crew),
-        fleetAssignments: current.fleetAssignments.filter((candidate) => candidate.id !== assignmentId),
-      }));
+      const crewXpMultiplier = 1 + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "crew_xp_multiplier");
+      const crewXpAward = Math.floor(5 * crewXpMultiplier);
+      set((current: GameState) => {
+        const gear = getGearBonuses(current.equippedGear, current.equippedLootGear, current.lootGearInventory, current.unlockedTalentNodes, TALENT_NODES, current.equippedStationEquipment, current.stationEquipmentInventory);
+        const handlingBonus = _getUpgradeEffectValue(current, "tuned_suspension") + gear.race_handling_pct;
+        return {
+          scrapBucks: current.scrapBucks + assignment.rewards.scrap,
+          lifetimeScrapBucks: current.lifetimeScrapBucks + assignment.rewards.scrap,
+          lifetimeScrapBucksAllTime: current.lifetimeScrapBucksAllTime + assignment.rewards.scrap,
+          materials: { ...current.materials, [material]: current.materials[material] + assignment.rewards.materials },
+          garage: current.garage.map((vehicle) => {
+            if (vehicle.id !== assignment.vehicleId) return vehicle;
+            const condition = Math.max(0, (vehicle.condition ?? 100) - assignment.accumulatedWear);
+            const definition = getVehicleById(vehicle.definitionId);
+            return {
+              ...vehicle,
+              condition,
+              totalRaces: (vehicle.totalRaces ?? 0) + 1,
+              stats: definition ? calculateStats(definition, vehicle.parts, condition, handlingBonus) : vehicle.stats,
+            };
+          }),
+          crewRoster: current.crewRoster.map((crew) => crew.id === assignment.crewId ? grantCrewXp(crew, 5, crewXpMultiplier) : crew),
+          fleetAssignments: current.fleetAssignments.filter((candidate) => candidate.id !== assignmentId),
+        };
+      });
+      const assignedCrew = state.crewRoster.find((candidate) => candidate.id === assignment.crewId);
+      _appendLog(set, get, "tick", `Fleet program collected: +$${assignment.rewards.scrap}, +${assignment.rewards.materials} ${material}, -${assignment.accumulatedWear} vehicle condition${assignedCrew ? `, ${assignedCrew.name} +${crewXpAward} XP` : ""}`, { scrapDelta: assignment.rewards.scrap });
+      (get() as GameState).checkAchievements();
     },
 
-    updateOwnedTrackConfig: (config: OwnedTrackConfig) => set({ ownedTrackConfig: { ...config } }),
+    updateOwnedTrackConfig: (config: OwnedTrackConfig) => {
+      const state = get() as GameState;
+      set({
+        ownedTrackConfig: normalizeHostedEventConfig(config, {
+          customCircuits: Boolean(state.trackPerkLevels.track_custom_circuits),
+          nightRacing: Boolean(state.trackPerkLevels.track_night_racing),
+          enduranceMode: Boolean(state.trackPerkLevels.track_endurance),
+        }),
+      });
+    },
 
     hostTrackEvent: () => {
       const state = get() as GameState;
       const maxEvents = 1 + (state.trackPerkLevels.track_multi ?? 0);
       if (state.trackEraCount < 1 || state.hostedEvents.filter((event) => event.status === "running").length >= maxEvents) return;
-      const config = state.ownedTrackConfig;
-      const lengthMult = config.length === "long" ? 2 : config.length === "medium" ? 1.4 : 1;
-      const sponsorMult = 1 + (state.trackPerkLevels.track_sponsors ?? 0) * 0.2;
-      const reward = Math.floor(10000 * config.riskReward * lengthMult * (config.endurance ? 2 : 1) * (config.timeRule === "night" ? 1.25 : 1) * sponsorMult);
+      const config = normalizeHostedEventConfig(state.ownedTrackConfig, {
+        customCircuits: Boolean(state.trackPerkLevels.track_custom_circuits),
+        nightRacing: Boolean(state.trackPerkLevels.track_night_racing),
+        enduranceMode: Boolean(state.trackPerkLevels.track_endurance),
+      });
+      const terms = calculateHostedEventTerms(
+        config,
+        state.trackPerkLevels.track_sponsors ?? 0,
+        getPermanentRuntimeBonuses(state).allScrapIncomeMult,
+      );
       const sponsors = ["Rustbelt Tools", "Midnight Fuel", "Backlot Salvage", "Apex Fabrication"];
-      const event: HostedEvent = { id: `event_${Date.now()}_${state.hostedEvents.length}`, name: `${config.timeRule === "night" ? "Midnight " : ""}${config.endurance ? "Endurance " : ""}Invitational`, config: { ...config }, sponsor: sponsors[state.hostedEvents.length % sponsors.length], remainingTicks: config.endurance ? 10 : 5, status: "running", reward };
+      const event: HostedEvent = { id: `event_${Date.now()}_${state.hostedEvents.length}`, name: `${config.timeRule === "night" ? "Midnight " : ""}${config.endurance ? "Endurance " : ""}Invitational`, config: { ...config }, sponsor: sponsors[state.hostedEvents.length % sponsors.length], remainingTicks: terms.durationTicks, status: "running", reward: terms.reward };
       set((current: GameState) => ({ hostedEvents: [...current.hostedEvents, event] }));
     },
 
@@ -1275,8 +1877,8 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const event = state.hostedEvents.find((candidate) => candidate.id === eventId && candidate.status === "complete");
       if (!event) return;
-      const cascade = state.trackPerkLevels.track_cascade ?? 0;
-      set((current: GameState) => ({ scrapBucks: current.scrapBucks + event.reward, lifetimeScrapBucks: current.lifetimeScrapBucks + event.reward, legacyPoints: current.legacyPoints + cascade, teamPoints: current.teamPoints + cascade, ownerPoints: current.ownerPoints + cascade, hostedEvents: current.hostedEvents.filter((candidate) => candidate.id !== eventId) }));
+      set((current: GameState) => ({ scrapBucks: current.scrapBucks + event.reward, lifetimeScrapBucks: current.lifetimeScrapBucks + event.reward, lifetimeScrapBucksAllTime: current.lifetimeScrapBucksAllTime + event.reward, hostedEvents: current.hostedEvents.filter((candidate) => candidate.id !== eventId) }));
+      (get() as GameState).checkAchievements();
     },
 
     clearUnlockEvents: () => {
@@ -1314,12 +1916,11 @@ function createActions(set: SetState, get: GetState) {
     repairVehicle: (vehicleId: string) => {
       const state = get() as GameState;
       const vehicle = state.garage.find((v) => v.id === vehicleId);
-      if (!vehicle || (vehicle.condition ?? 100) >= 100) return;
+      if (!vehicle || isVehicleMutationLocked(state, vehicleId) || (vehicle.condition ?? 100) >= 100) return;
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
-      const reduction = _getUpgradeEffectValue(state, "budget_repairs") + gb.repair_cost_reduction_pct;
-      const cost = calculateRepairCost(vehicleDef, vehicle.condition ?? 100, 100, reduction, state.fatigue);
+      const cost = getVehicleRepairCost(state, vehicle);
       // Free repair during tutorial repair step
       const isTutorialRepair = state.tutorialStep === 13;
       const actualCost = isTutorialRepair ? 0 : cost;
@@ -1333,6 +1934,12 @@ function createActions(set: SetState, get: GetState) {
           stats: calculateStats(vehicleDef, v.parts, 100, handlingBonus),
         }),
         racerSkills: _grantXp(s.racerSkills, "mechanics", 5),
+        crewRoster: grantCrewRoleXp(
+          s.crewRoster,
+          "mechanic",
+          5,
+          getCrewXpMultiplier(s),
+        ),
       }));
       _appendLog(set, get, "build", `Repaired ${vehicleDef.name} for $${actualCost}`, { scrapDelta: -actualCost });
     },
@@ -1341,7 +1948,7 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       if (_getUpgradeLevel(state, "toolkit") < 1) return;
       const vehicle = state.garage.find((v) => v.id === vehicleId);
-      if (!vehicle) return;
+      if (!vehicle || isVehicleMutationLocked(state, vehicleId)) return;
 
       const installed = vehicle.parts[slot];
       if (!installed) return;
@@ -1381,6 +1988,7 @@ function createActions(set: SetState, get: GetState) {
 
     installAddon: (vehicleId: string, slot: string, addonId: string) => {
       const state = get() as GameState;
+      if (isVehicleMutationLocked(state, vehicleId)) return;
       if (_getUpgradeLevel(state, "addon_bench") < 1) return;
       const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
       const installed = vehicle?.parts[slot];
@@ -1409,6 +2017,7 @@ function createActions(set: SetState, get: GetState) {
 
     removeAddon: (vehicleId: string, slot: string, addonId: string) => {
       const state = get() as GameState;
+      if (isVehicleMutationLocked(state, vehicleId)) return;
       const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
       const installed = vehicle?.parts[slot];
       const addon = installed?.addons.find((candidate) => candidate.id === addonId);
@@ -1434,9 +2043,7 @@ function createActions(set: SetState, get: GetState) {
       if (_getUpgradeLevel(state, "refurbishment_bench") < 1) return;
       const part = state.inventory.find((p) => p.id === partId);
       if (!part) return;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
-      const reduction = _getUpgradeEffectValue(state, "cheap_refurb") + gb.refurb_cost_reduction_pct;
-      const result = calculateRefurbishCost(part, reduction);
+      const result = getPartRefurbishQuote(state, part);
       if (!result) return;
       if (state.scrapBucks < result.cost) return;
       set((s: GameState) => ({
@@ -1445,6 +2052,12 @@ function createActions(set: SetState, get: GetState) {
           ...p,
           condition: result.newCondition,
         }),
+        crewRoster: grantCrewRoleXp(
+          s.crewRoster,
+          "mechanic",
+          5,
+          getCrewXpMultiplier(s),
+        ),
       }));
       _appendLog(set, get, "build", `Refurbished part to ${result.newCondition} for $${result.cost}`, { scrapDelta: -result.cost });
     },
@@ -1469,7 +2082,8 @@ function createActions(set: SetState, get: GetState) {
         }
       }
 
-      const cost = getUpgradeCost(def, currentLevel);
+      const cost = getWorkshopUpgradePurchaseCost(state, upgradeId);
+      if (cost === null) return;
       if (state.scrapBucks < cost) return;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
@@ -1543,12 +2157,16 @@ function createActions(set: SetState, get: GetState) {
       const item = state.lootGearInventory.find((g) => g.id === lootGearId);
       if (!item) return;
       const salvageBonus = _getUpgradeEffectValue(state, "gear_recycler");
-      const value = getSalvageValue(item, salvageBonus);
+      const value = multiplyReward(
+        getSalvageValue(item, salvageBonus),
+        getPermanentRuntimeBonuses(state).allScrapIncomeMult,
+      );
       // Return installed mods to inventory
       const returnedMods = item.mods;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks + value,
         lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
         lootGearInventory: s.lootGearInventory.filter((g) => g.id !== lootGearId),
         // Unequip if this item was equipped
         equippedLootGear: s.equippedLootGear[item.slot] === lootGearId
@@ -1556,25 +2174,24 @@ function createActions(set: SetState, get: GetState) {
           : s.equippedLootGear,
         gearModInventory: [...s.gearModInventory, ...returnedMods],
       }));
+      _appendLog(set, get, "gear", `Salvaged ${item.name} for $${value}`, { scrapDelta: value });
+      (get() as GameState).checkAchievements();
     },
 
     installMod: (lootGearId: string, modInstanceId: string) => {
-      const state = get() as GameState;
-      const item = state.lootGearInventory.find((g) => g.id === lootGearId);
-      if (!item) return;
-      if (item.mods.length >= item.modSlots) return;
-      const mod = state.gearModInventory.find((m) => m.id === modInstanceId);
-      if (!mod) return;
-      // Check mod is compatible with this slot
-      import("@/data/gearMods").then(({ getModTemplateById }) => {
+      set((s: GameState) => {
+        const item = s.lootGearInventory.find((g) => g.id === lootGearId);
+        const mod = s.gearModInventory.find((m) => m.id === modInstanceId);
+        if (!item || !mod || item.mods.length >= item.modSlots) return s;
+        if (item.mods.some((installed) => installed.id === modInstanceId)) return s;
         const template = getModTemplateById(mod.templateId);
-        if (!template || !template.slots.includes(item.slot)) return;
-        set((s: GameState) => ({
+        if (!template || !template.slots.includes(item.slot)) return s;
+        return {
           lootGearInventory: s.lootGearInventory.map((g) =>
             g.id !== lootGearId ? g : { ...g, mods: [...g.mods, mod] }
           ),
           gearModInventory: s.gearModInventory.filter((m) => m.id !== modInstanceId),
-        }));
+        };
       });
     },
 
@@ -1636,39 +2253,79 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
       if (!item) return;
-      set((current: GameState) => ({ equippedStationEquipment: { ...current.equippedStationEquipment, [item.slot]: item.id } }));
+      set((current: GameState) => {
+        const equippedStationEquipment = { ...current.equippedStationEquipment, [item.slot]: item.id };
+        return {
+          equippedStationEquipment,
+          garage: recalculateGarageStatsForStationEquipment(current, equippedStationEquipment, current.stationEquipmentInventory),
+        };
+      });
+      _appendLog(set, get, "gear", `Installed ${item.name} at ${item.slot.replaceAll("_", " ")}`);
+    },
+
+    unequipStationItem: (slot: GarageStationSlot) => {
+      const state = get() as GameState;
+      const itemId = state.equippedStationEquipment[slot];
+      if (!itemId) return;
+      const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
+      set((current: GameState) => {
+        const equippedStationEquipment = { ...current.equippedStationEquipment, [slot]: null };
+        return {
+          equippedStationEquipment,
+          garage: recalculateGarageStatsForStationEquipment(current, equippedStationEquipment, current.stationEquipmentInventory),
+        };
+      });
+      _appendLog(set, get, "gear", `Removed ${item?.name ?? "station equipment"} from ${slot.replaceAll("_", " ")}`);
     },
 
     reforgeStationItem: (itemId: string) => {
       const state = get() as GameState;
       if ((state.workshopLevels.careful_modding ?? 0) < 1) return;
       const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
-      if (!item) return;
+      if (!item || !canReforgeStationEquipment(item)) return;
       const cost = REFORGE_COST_SHARDS[item.rarity];
       if (state.reforgeShards < cost) return;
       const reforged = reforgeStationEquipment(item);
-      set((current: GameState) => ({ reforgeShards: current.reforgeShards - cost, stationEquipmentInventory: current.stationEquipmentInventory.map((candidate) => candidate.id === itemId ? reforged : candidate) }));
+      set((current: GameState) => {
+        const stationEquipmentInventory = current.stationEquipmentInventory.map((candidate) => candidate.id === itemId ? reforged : candidate);
+        return {
+          reforgeShards: current.reforgeShards - cost,
+          stationEquipmentInventory,
+          garage: current.equippedStationEquipment[item.slot] === itemId
+            ? recalculateGarageStatsForStationEquipment(current, current.equippedStationEquipment, stationEquipmentInventory)
+            : current.garage,
+        };
+      });
+      _appendLog(set, get, "gear", `Reforged ${item.name} for ${cost} Reforge Shards`);
     },
 
     enhanceStationItem: (itemId: string) => {
       const state = get() as GameState;
       const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
-      const maxLevel = Math.min(13, 4 + (state.workshopLevels.enhancement_mastery ?? 0) * 3);
+      const maxLevel = getMaxStationEnhancementLevel(state.workshopLevels.enhancement_mastery ?? 0);
       if (!item || item.enhancementLevel >= maxLevel) return;
-      const rarityMultiplier = { common: 1, uncommon: 2, rare: 4, epic: 8, legendary: 16 }[item.rarity];
-      const cost = 100 * rarityMultiplier * (item.enhancementLevel + 1);
+      const cost = getStationEnhancementCost(item);
       if (state.scrapBucks < cost) return;
-      set((current: GameState) => ({ scrapBucks: current.scrapBucks - cost, stationEquipmentInventory: current.stationEquipmentInventory.map((candidate) => candidate.id === itemId ? { ...candidate, enhancementLevel: candidate.enhancementLevel + 1 } : candidate) }));
-      _appendLog(set, get, "gear", `Enhanced ${item.name} to +${item.enhancementLevel + 1}`, { scrapDelta: -cost });
+      set((current: GameState) => {
+        const stationEquipmentInventory = current.stationEquipmentInventory.map((candidate) => candidate.id === itemId ? { ...candidate, enhancementLevel: candidate.enhancementLevel + 1 } : candidate);
+        return {
+          scrapBucks: current.scrapBucks - cost,
+          stationEquipmentInventory,
+          garage: current.equippedStationEquipment[item.slot] === itemId
+            ? recalculateGarageStatsForStationEquipment(current, current.equippedStationEquipment, stationEquipmentInventory)
+            : current.garage,
+        };
+      });
+      _appendLog(set, get, "gear", `Enhanced ${item.name} to +${item.enhancementLevel + 1} for $${cost}`, { scrapDelta: -cost });
     },
 
     salvageStationItem: (itemId: string) => {
       const state = get() as GameState;
       const item = state.stationEquipmentInventory.find((candidate) => candidate.id === itemId);
       if (!item || state.equippedStationEquipment[item.slot] === item.id) return;
-      const baseShards = SHARDS_PER_SALVAGE[item.rarity] + (state.workshopLevels.mod_hunter ?? 0);
-      const shards = Math.max(1, Math.floor(baseShards * (1 + (state.workshopLevels.gear_recycler ?? 0) * 0.25)));
+      const shards = getStationSalvageYield(item, state.workshopLevels.mod_hunter ?? 0, state.workshopLevels.gear_recycler ?? 0);
       set((current: GameState) => ({ stationEquipmentInventory: current.stationEquipmentInventory.filter((candidate) => candidate.id !== itemId), reforgeShards: current.reforgeShards + shards }));
+      _appendLog(set, get, "gear", `Salvaged ${item.name} for ${shards} Reforge Shard${shards === 1 ? "" : "s"}`);
     },
 
     unlockLocation: (locationId: string) => {
@@ -1689,6 +2346,11 @@ function createActions(set: SetState, get: GetState) {
 
     prestige: () => {
       const state = get() as GameState;
+      if (!canScrapReset({
+        vehiclesBuilt: state.garage.length,
+        reputation: state.repPoints,
+        lifetimeScrapBucks: state.lifetimeScrapBucks,
+      })) return;
 
       // Build run stats for LP calculation
       const runStats: RunStats = {
@@ -1709,24 +2371,32 @@ function createActions(set: SetState, get: GetState) {
       );
 
       const newPrestigeCount = result.prestigeCount;
+      const milestoneBonuses = getPrestigeMilestoneBonuses(newPrestigeCount);
       const newProgress = { ...state.challengeProgress, prestigeCount: newPrestigeCount };
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
-      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
-      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+      const challengeBundle = calculateChallengeRewardBundle(state, rewards);
       const teamStartingMaterials = getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "starting_materials");
-      const newMaterials = Object.fromEntries(Object.keys(INITIAL_MATERIALS).map((key) => [key, teamStartingMaterials])) as Record<MaterialType, number>;
-      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
-
-      // Muscle Memory: starting auto-scavenge clicks
-      const startingClicks = result.startingScavClicks;
-      const autoScavUnlocked = startingClicks >= 500;
+      const baseMaterials = Object.fromEntries(Object.keys(INITIAL_MATERIALS).map((key) => [key, teamStartingMaterials])) as Record<MaterialType, number>;
+      const newMaterials = addRewardMaterials(baseMaterials, challengeBundle.materials);
 
       // Merge starting locations/circuits with defaults
       const startingLocations = Array.from(new Set(["curbside", ...result.startingLocationIds]));
-      const startingCircuits = Array.from(new Set(["backyard_derby", ...result.startingCircuitIds]));
+      const startingCircuits = Array.from(new Set([
+        ...getResetCircuitUnlockIds(state.ownerUpgradeLevels),
+        ...result.startingCircuitIds,
+      ]));
 
       // LP earned
-      const lpEarned = Math.floor(result.legacyPointsEarned * (1 + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "lp_multiplier")));
+      const lpEarned = calculateScrapResetAward({
+        currentPrestigeCount: state.prestigeCount,
+        runStats,
+        activeMomentumTierIds: state.activeMomentumTiers,
+        teamUpgradeLevels: state.teamUpgradeLevels,
+        trackPerkLevels: state.trackPerkLevels,
+        earnedAchievements: state.earnedAchievements,
+        unlockedPlaystyleNodes: state.unlockedPlaystyleNodes,
+        crewRoster: state.crewRoster,
+      }).totalLp;
       const newLp = state.legacyPoints + lpEarned;
       const newLifetimeLp = state.lifetimeLegacyPoints + lpEarned;
 
@@ -1739,7 +2409,16 @@ function createActions(set: SetState, get: GetState) {
       for (const m of newMilestones) {
         unlockEvents.push(`Milestone: ${m.name} — ${m.description}`);
       }
-      const milestoneBonuses = getPrestigeMilestoneBonuses(newPrestigeCount);
+      unlockEvents.push(...challengeCompletionEvents(completed));
+      const permanentBonuses = getPermanentRuntimeBonuses(state);
+      const milestoneWorkshopLevels = _randomStartingWorkshopLevels(milestoneBonuses.startWorkshopCount + permanentBonuses.startWorkshopCount);
+      if (milestoneBonuses.startWithToolkit) milestoneWorkshopLevels.toolkit = 1;
+      const startingScrapBeforeMilestone = result.startingScrap
+        + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "quick_start_bonus")
+        + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "starting_scrap")
+        + permanentBonuses.startingScrap;
+      const startingScrap = Math.floor(startingScrapBeforeMilestone * (1 + milestoneBonuses.startingScrapMult)) + challengeBundle.scrap;
+      const autoEverything = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "auto_all") > 0;
 
       set({
         ...createInitialState(),
@@ -1752,20 +2431,20 @@ function createActions(set: SetState, get: GetState) {
         activeMomentumTiers: [],
         currentEra: state.currentEra,
         // Blueprint Memory: keep workshop upgrades
-        workshopLevels: result.keptWorkshopUpgrades,
-        unlockedVehicleIds: ["push_mower"],
+        workshopLevels: { ...milestoneWorkshopLevels, ...result.keptWorkshopUpgrades },
+        unlockedVehicleIds: getResetVehicleUnlockIds(state.ownerUpgradeLevels),
         unlockedLocationIds: startingLocations,
         unlockedCircuitIds: startingCircuits,
         fatigue: 0,
         lifetimeRaces: 0,
         // Seed Money: starting scrap
-        scrapBucks: result.startingScrap + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "quick_start_bonus") + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "starting_scrap"),
-        lifetimeScrapBucks: result.startingScrap + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "quick_start_bonus") + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "starting_scrap"),
+        scrapBucks: startingScrap,
+        lifetimeScrapBucks: startingScrap,
         // Auto-race via prestige milestone system
-        autoRaceUnlocked: milestoneBonuses.autoRace,
-        // Auto-scavenge stays unlocked once earned, via Muscle Memory, or via milestone
-        autoScavengeUnlocked: state.autoScavengeUnlocked || autoScavUnlocked || milestoneBonuses.startWithAutoScavenge || getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "quick_start_bonus") > 0,
-        manualScavengeClicks: Math.min(startingClicks, 500),
+        autoRaceUnlocked: milestoneBonuses.autoRace || autoEverything,
+        // The first Scrap Reset permanently removes the repeated manual-scavenge grind.
+        autoScavengeUnlocked: newPrestigeCount >= 1 || state.autoScavengeUnlocked || autoEverything,
+        manualScavengeClicks: 0,
         raceTickProgress: 0,
         unlockEvents,
         // Shared station equipment persists through Scrap Reset
@@ -1782,11 +2461,15 @@ function createActions(set: SetState, get: GetState) {
         unlockedTalentNodes: state.unlockedTalentNodes,
         // New systems: materials, tokens, challenges persist
         materials: newMaterials,
-        forgeTokens: state.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        forgeTokens: state.forgeTokens + challengeBundle.forgeTokens,
         completedChallenges: [...state.completedChallenges, ...completed],
         challengeProgress: {
           ...newProgress,
           // Reset per-run trackers
+          [PENDING_MANUAL_RACE_ENTRY_FEE_KEY]: 0,
+          winStreak: 0,
+          fatigue: 0,
+          lifetimeRaces: 0,
           fatigueDrinksPurchased: 0,
         },
         lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
@@ -1834,12 +2517,12 @@ function createActions(set: SetState, get: GetState) {
         earnedAchievements: state.earnedAchievements,
         lifetimeRacesAllTime: state.lifetimeRacesAllTime,
         lifetimeWinsAllTime: state.lifetimeWinsAllTime,
-        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime,
+        lifetimeScrapBucksAllTime: state.lifetimeScrapBucksAllTime + challengeBundle.scrap,
         lifetimePartsScavengedAllTime: state.lifetimePartsScavengedAllTime,
         lifetimeVehiclesBuiltAllTime: state.lifetimeVehiclesBuiltAllTime,
         bestWinStreakAllTime: state.bestWinStreakAllTime,
         highestVehicleTierBuilt: state.highestVehicleTierBuilt,
-        totalForgeTokensEarned: state.totalForgeTokensEarned,
+        totalForgeTokensEarned: state.totalForgeTokensEarned + challengeBundle.forgeTokens,
         uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
         // Playstyle nodes persist through Scrap Reset
         unlockedPlaystyleNodes: state.unlockedPlaystyleNodes,
@@ -1878,6 +2561,7 @@ function createActions(set: SetState, get: GetState) {
         state.repPoints,
         state.lifetimeScrapBucks,
         highestTier,
+        getPermanentRuntimeBonuses(state).momentumThresholdReduction,
       );
       // Only update if changed
       if (newTiers.length !== state.activeMomentumTiers.length ||
@@ -1886,75 +2570,278 @@ function createActions(set: SetState, get: GetState) {
       }
     },
 
-    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[], racesCompleted?: number) => {
+    applyTickResult: (partsFound: ScavengedPart[], scrapsEarned: number, repEarned: number, vehicleWear?: number, vehicleRepair?: number, newRaceTickProgress?: number, lootGearDrops?: LootGearItem[], modDrops?: InstalledMod[], meta?: AutomationSettlementMeta) => {
+      const fallbackRaced = vehicleWear ? 1 : 0;
+      const baseSettlement: AutomationSettlementMeta = meta ?? {
+        partsScavenged: partsFound.length,
+        partsAutoSold: 0,
+        scavengesCompleted: partsFound.length > 0 ? 1 : 0,
+        racesCompleted: fallbackRaced,
+        winsCompleted: 0,
+        finalWinStreak: 0,
+        bestWinStreak: 0,
+        recentRaceOutcomes: [],
+        winningCircuitIds: [],
+        defeatedRivalIds: [],
+        circuitWinStreaks: {},
+        raceSalvageFound: 0,
+        forgeTokensFound: 0,
+        entryFeesPaid: 0,
+        challengesEvaluated: false,
+        completedChallengeIds: [],
+        challengeForgeTokens: 0,
+        challengeMaterials: {},
+        ticksProcessed: 1,
+      };
+
+      // Keep accelerated live automation at the same bounded-inventory
+      // contract as offline simulation. Existing oversized saves remain valid,
+      // but every newly produced overflow item is sold at its exact current
+      // value instead of expanding the persisted state indefinitely.
+      const stateBeforeSettlement = get() as GameState;
+      const availableInventorySlots = Math.max(
+        0,
+        LOOSE_INVENTORY_LIMIT - stateBeforeSettlement.inventory.length,
+      );
+      const retainedParts = partsFound.slice(0, availableInventorySlots);
+      const overflowParts = partsFound.slice(availableInventorySlots);
+      const overflowSellValueBonus = getSellValueBonus(stateBeforeSettlement);
+      const overflowScrap = overflowParts.reduce(
+        (total, part) => total + (getPartSaleValue(part, overflowSellValueBonus) ?? 0),
+        0,
+      );
+      const convertedGearDrops = (lootGearDrops ?? []).map(convertLegacyLootDrop);
+      const availableStationSlots = Math.max(
+        0,
+        STATION_EQUIPMENT_INVENTORY_LIMIT - stateBeforeSettlement.stationEquipmentInventory.length,
+      );
+      const retainedStationDrops = convertedGearDrops.slice(0, availableStationSlots);
+      const overflowStationDrops = convertedGearDrops.slice(availableStationSlots);
+      const automatedGearSalvageShards = overflowStationDrops.reduce(
+        (total, item) => total + getStationSalvageYield(
+          item,
+          stateBeforeSettlement.workshopLevels.mod_hunter ?? 0,
+          stateBeforeSettlement.workshopLevels.gear_recycler ?? 0,
+        ),
+        0,
+      );
+      const totalScrapsEarned = scrapsEarned + overflowScrap;
+      const settlement = overflowParts.length > 0 || overflowStationDrops.length > 0
+        ? {
+            ...baseSettlement,
+            partsAutoSold: baseSettlement.partsAutoSold + overflowParts.length,
+            stationEquipmentAutoSalvaged:
+              (baseSettlement.stationEquipmentAutoSalvaged ?? 0) + overflowStationDrops.length,
+            reforgeShardsFound:
+              (baseSettlement.reforgeShardsFound ?? 0) + automatedGearSalvageShards,
+          }
+        : baseSettlement;
+      const tickParts: string[] = [];
+      if (totalScrapsEarned > 0) tickParts.push(`+$${totalScrapsEarned}`);
+      if (repEarned > 0) tickParts.push(`+${Math.round(repEarned)} rep`);
+      if (retainedParts.length > 0) tickParts.push(`${retainedParts.length} parts`);
+      if (settlement.partsAutoSold > 0) tickParts.push(`${settlement.partsAutoSold} auto-sold`);
+      if (settlement.racesCompleted > 0) tickParts.push(`${settlement.racesCompleted} race${settlement.racesCompleted === 1 ? "" : "s"}`);
+      if (retainedStationDrops.length > 0) tickParts.push(`${retainedStationDrops.length} gear`);
+      if ((settlement.stationEquipmentAutoSalvaged ?? 0) > 0) {
+        tickParts.push(`${settlement.stationEquipmentAutoSalvaged} gear auto-salvaged`);
+      }
+      const tickMessage = tickParts.length > 0 ? `Auto: ${tickParts.join(", ")}` : null;
+
       set((s: GameState) => {
-        let updatedGarage = s.garage;
-        if ((vehicleWear || vehicleRepair) && s.activeVehicleId) {
-          const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
-          const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
-          updatedGarage = s.garage.map((v) => {
-            if (v.id !== s.activeVehicleId) return v;
-            let newCond = v.condition ?? 100;
-            if (vehicleWear) newCond = Math.max(0, newCond - vehicleWear);
-            if (vehicleRepair) newCond = Math.min(100, newCond + vehicleRepair);
-            const vDef = getVehicleById(v.definitionId);
-            return {
-              ...v,
-              condition: newCond,
-              totalRaces: vehicleWear ? (v.totalRaces ?? 0) + (racesCompleted ?? 1) : (v.totalRaces ?? 0),
-              stats: vDef ? calculateStats(vDef, v.parts, newCond, handlingBonus) : v.stats,
-            };
-          });
-        }
-        const raced = !!vehicleWear;
-        const newLifetimeRaces = raced ? s.lifetimeRaces + (racesCompleted ?? 1) : s.lifetimeRaces;
-        const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset");
-        const gbFatigue = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
+        const raced = settlement.racesCompleted > 0;
+        const newLifetimeRaces = s.lifetimeRaces + settlement.racesCompleted;
+        const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
+        const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
+        const updatedGarage = s.garage.map((vehicle) => {
+          if (vehicle.id !== s.activeVehicleId) return vehicle;
+          let condition = vehicle.condition ?? 100;
+          if (vehicleRepair) condition = Math.min(100, condition + vehicleRepair);
+          if (vehicleWear) condition = Math.max(0, condition - vehicleWear);
+          if (settlement.finalVehicleCondition != null) condition = settlement.finalVehicleCondition;
+          const definition = getVehicleById(vehicle.definitionId);
+          return {
+            ...vehicle,
+            condition,
+            totalRaces: (vehicle.totalRaces ?? 0) + settlement.racesCompleted,
+            stats: definition ? calculateStats(definition, vehicle.parts, condition, handlingBonus) : vehicle.stats,
+          };
+        });
+
+        const activeCircuitTier = getCircuitById(s.selectedCircuitId)?.tier ?? 1;
+        const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + getSkillBonuses(s.racerSkills, activeCircuitTier).enduranceFatigueOffset;
         const rawFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
         const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
+        const momentumFatigueReduction = getMomentumEffectValue(s.activeMomentumTiers, "fatigue_reduction");
+        const permanentFatigueReduction = getPermanentRuntimeBonuses(s).fatigueReduction;
         const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "fatigue_cap_reduction"));
-        const newFatigue = raced ? Math.min(fatigueCap, Math.floor(rawFatigue * (1 - gbFatigue.fatigue_rate_reduction - ownerFatigueReduction))) : s.fatigue;
-        // Grant skill XP from auto-tick actions
+        const calculatedFatigue = raced
+          ? Math.min(fatigueCap, Math.floor(rawFatigue * Math.max(0, 1 - gbTick.fatigue_rate_reduction - ownerFatigueReduction - momentumFatigueReduction - permanentFatigueReduction)))
+          : s.fatigue;
+        const newFatigue = settlement.finalFatigue ?? calculatedFatigue;
+
         let tickSkills = s.racerSkills;
-        if (partsFound.length > 0) tickSkills = _grantXp(tickSkills, "scavenging", 1);
+        if (settlement.scavengesCompleted > 0) tickSkills = _grantXp(tickSkills, "scavenging", settlement.scavengesCompleted);
         if (raced) {
-          tickSkills = _grantXp(tickSkills, "driving", 10 * (racesCompleted ?? 1));
-          if (newFatigue >= 60) tickSkills = _grantXp(tickSkills, "endurance", 10 * (racesCompleted ?? 1));
-          else if (newFatigue >= 40) tickSkills = _grantXp(tickSkills, "endurance", 5 * (racesCompleted ?? 1));
+          tickSkills = _grantXp(tickSkills, "driving", 10 * settlement.racesCompleted + 5 * settlement.winsCompleted);
+          if (newFatigue >= 60) tickSkills = _grantXp(tickSkills, "endurance", 10 * settlement.racesCompleted);
+          else if (newFatigue >= 40) tickSkills = _grantXp(tickSkills, "endurance", 5 * settlement.racesCompleted);
         }
 
+        let updatedCrew = grantCrewRoleXp(s.crewRoster, "scout", settlement.scavengesCompleted, getCrewXpMultiplier(s));
+        updatedCrew = grantCrewRoleXp(updatedCrew, "driver", 10 * settlement.racesCompleted, getCrewXpMultiplier(s));
+        if (settlement.partsAutoSold > 0) updatedCrew = grantTraderSaleXp({ ...s, crewRoster: updatedCrew }, settlement.partsAutoSold);
+
+        const newRep = s.repPoints + repEarned;
+        const unlockedCircuits = [...s.unlockedCircuitIds];
+        const unlockedLocations = [...s.unlockedLocationIds];
+        const unlockedVehicles = [...s.unlockedVehicleIds];
+        const unlockEvents = [...s.unlockEvents];
+        const addUnlock = (collection: string[], id: string, message: string) => {
+          if (collection.includes(id)) return;
+          collection.push(id);
+          unlockEvents.push(message);
+        };
+        addReputationUnlocks(newRep, s.unlockedFeatures, unlockedCircuits, unlockedLocations, unlockEvents);
+        const combinedOutcomes = [...settlement.recentRaceOutcomes, ...s.raceHistory];
+        const wonCircuitIds = [...new Set(combinedOutcomes.filter((race) => race.result === "win").map((race) => race.circuitId))];
+        const circuitWinStreaks = settlement.circuitWinStreaks;
+        for (const vehicleId of getVehicleIdsUnlockedByProgress({ reputation: newRep, wonCircuitIds, circuitWinStreaks, ownerUpgradeLevels: s.ownerUpgradeLevels })) {
+          const definition = getVehicleById(vehicleId);
+          addUnlock(unlockedVehicles, vehicleId, `${definition?.name ?? vehicleId} Blueprint Unlocked!`);
+        }
+
+        const newBestStreak = Math.max(s.bestWinStreak, settlement.bestWinStreak);
+        for (const threshold of [3, 5, 10]) {
+          if (s.bestWinStreak < threshold && newBestStreak >= threshold) unlockEvents.push(`${threshold}-Win Streak!`);
+        }
+        const newRaceSalvage = s.lifetimeTotalRaceSalvage + settlement.raceSalvageFound;
+        const challengeProgress = {
+          ...s.challengeProgress,
+          winStreak: newBestStreak,
+          fatigue: newFatigue,
+          lifetimeRaces: newLifetimeRaces,
+          totalRaceSalvage: newRaceSalvage,
+        };
+        const challengeCheck = settlement.challengesEvaluated
+          ? { completed: settlement.completedChallengeIds.filter((id) => !s.completedChallenges.includes(id)), rewards: [] }
+          : checkChallenges(s, challengeProgress, s.completedChallenges);
+        const completed = challengeCheck.completed;
+        const challengeRewards = settlement.challengesEvaluated
+          ? {
+              scrap: 0,
+              forgeTokens: settlement.challengeForgeTokens,
+              materials: settlement.challengeMaterials,
+            }
+          : calculateChallengeRewardBundle(s, challengeCheck.rewards);
+        unlockEvents.push(...challengeCompletionEvents(completed));
+        for (const achievementId of settlement.newAchievementIds ?? []) {
+          if (s.earnedAchievements.includes(achievementId)) continue;
+          const achievement = ACHIEVEMENTS_BY_ID[achievementId];
+          if (!achievement) continue;
+          const rewardText = achievement.reward.type === "bonus"
+            ? ` — ${achievement.reward.description}`
+            : achievement.reward.type === "title"
+              ? ` — Title: ${achievement.reward.title}`
+              : "";
+          unlockEvents.push(`Achievement: ${achievement.name}!${rewardText}`);
+        }
+
+        let inventory = retainedParts.length > 0
+          ? [...s.inventory, ...retainedParts]
+          : s.inventory;
+        let stationEquipmentInventory = retainedStationDrops.length > 0
+          ? [...s.stationEquipmentInventory, ...retainedStationDrops]
+          : s.stationEquipmentInventory;
+        const discoveredBlueprintIds = [...s.discoveredBlueprintIds];
+        const defeatedRivalIds = [...s.defeatedRivalIds];
+        for (const rivalId of settlement.defeatedRivalIds) {
+          if (defeatedRivalIds.includes(rivalId)) continue;
+          const rival = getRivalById(rivalId);
+          if (!rival) continue;
+          defeatedRivalIds.push(rivalId);
+          unlockEvents.push(`Rival defeated: ${rival.name}! Reward: ${rival.reward.label}`);
+          if (rival.reward.type === "blueprint" && !discoveredBlueprintIds.includes(rival.reward.id)) discoveredBlueprintIds.push(rival.reward.id);
+          if (rival.reward.type === "addon") {
+            inventory = [...inventory, { id: makePartId(), definitionId: rival.reward.id, condition: "pristine", foundAt: `rival_${rival.id}`, type: "addon" }];
+          }
+          if (rival.reward.type === "station_set") {
+            const slots = ["diagnostics", "lift", "logistics", "pit_equipment"] as const;
+            const item = forgeStationEquipment(slots[defeatedRivalIds.length % slots.length], "rare");
+            stationEquipmentInventory = [...stationEquipmentInventory, { ...item, setId: rival.reward.id as "redline" | "slipstream", source: rival.name }];
+          }
+        }
+
+        const history = compactRaceHistory([...settlement.recentRaceOutcomes, ...s.raceHistory], 20);
+        const directAndChallengeTokens = settlement.forgeTokensFound + challengeRewards.forgeTokens;
+        const earnedScrap = totalScrapsEarned + settlement.entryFeesPaid + challengeRewards.scrap;
+        const newGameTick = s.gameTick + settlement.ticksProcessed;
+        const dealerUnlockedNow = s.repPoints < DEALER_UNLOCK_REP && newRep >= DEALER_UNLOCK_REP;
+        const newDealerBoard = (newRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newGameTick)))
+          ? generateDealerBoard(newRep, newGameTick)
+          : s.dealerBoard;
+        const tickLogState = tickMessage
+          ? {
+              activityLog: [
+                ...s.activityLog,
+                {
+                  id: s._logIdCounter,
+                  timestamp: Date.now(),
+                  category: "tick" as const,
+                  message: tickMessage,
+                  scrapDelta: totalScrapsEarned || undefined,
+                  repDelta: repEarned ? Math.round(repEarned) : undefined,
+                },
+              ].slice(-MAX_LOG_ENTRIES),
+              _logIdCounter: s._logIdCounter + 1,
+            }
+          : {};
         return {
-          inventory: [...s.inventory, ...partsFound],
-          scrapBucks: s.scrapBucks + scrapsEarned,
-          lifetimeScrapBucks: s.lifetimeScrapBucks + scrapsEarned,
-          repPoints: s.repPoints + repEarned,
+          inventory,
+          scrapBucks: s.scrapBucks + totalScrapsEarned + challengeRewards.scrap,
+          lifetimeScrapBucks: s.lifetimeScrapBucks + earnedScrap,
+          repPoints: newRep,
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
           fatigue: newFatigue,
-          racerSkills: tickSkills,
-          stationEquipmentInventory: lootGearDrops && lootGearDrops.length > 0
-            ? [...s.stationEquipmentInventory, ...lootGearDrops.map(convertLegacyLootDrop)]
-            : s.stationEquipmentInventory,
-          reforgeShards: s.reforgeShards + (modDrops?.length ?? 0),
+          racerSkills: settlement.finalRacerSkills ?? tickSkills,
+          crewRoster: settlement.finalCrewRoster ?? updatedCrew,
+          stationEquipmentInventory,
+          reforgeShards: s.reforgeShards + (modDrops?.length ?? 0) + (settlement.reforgeShardsFound ?? 0),
           raceTickProgress: newRaceTickProgress ?? s.raceTickProgress,
+          lastRaceOutcome: settlement.recentRaceOutcomes[0] ?? s.lastRaceOutcome,
+          raceHistory: history,
+          winStreak: raced ? settlement.finalWinStreak : s.winStreak,
+          bestWinStreak: newBestStreak,
+          unlockedCircuitIds: unlockedCircuits,
+          unlockedLocationIds: unlockedLocations,
+          unlockedVehicleIds: unlockedVehicles,
+          unlockEvents,
+          defeatedRivalIds,
+          discoveredBlueprintIds,
+          forgeTokens: s.forgeTokens + directAndChallengeTokens,
+          totalForgeTokensEarned: s.totalForgeTokensEarned + directAndChallengeTokens,
+          materials: addRewardMaterials(s.materials, challengeRewards.materials),
+          challengeProgress,
+          completedChallenges: [...s.completedChallenges, ...completed],
+          lifetimeTotalRaceSalvage: newRaceSalvage,
           lastActiveTimestamp: Date.now(),
-          // Lifetime stats for achievements
-          lifetimePartsScavengedAllTime: s.lifetimePartsScavengedAllTime + partsFound.length,
-          lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + scrapsEarned,
-          lifetimeRacesAllTime: raced ? s.lifetimeRacesAllTime + (racesCompleted ?? 1) : s.lifetimeRacesAllTime,
+          lifetimePartsScavengedAllTime: s.lifetimePartsScavengedAllTime + settlement.partsScavenged,
+          lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + earnedScrap,
+          lifetimeRacesAllTime: s.lifetimeRacesAllTime + settlement.racesCompleted,
+          lifetimeWinsAllTime: s.lifetimeWinsAllTime + settlement.winsCompleted,
+          bestWinStreakAllTime: Math.max(s.bestWinStreakAllTime, newBestStreak),
+          gameTick: newGameTick,
+          dealerBoard: newDealerBoard,
+          activeMomentumTiers: settlement.finalActiveMomentumTiers ?? s.activeMomentumTiers,
+          earnedAchievements: [...new Set([...s.earnedAchievements, ...(settlement.newAchievementIds ?? [])])],
+          ...tickLogState,
         };
       });
-      // Check momentum tier activations after state update
-      (get() as GameState).checkMomentumTiers();
-      // Log auto-tick summary
-      const tickParts: string[] = [];
-      if (scrapsEarned > 0) tickParts.push(`+$${scrapsEarned}`);
-      if (repEarned > 0) tickParts.push(`+${Math.round(repEarned)} rep`);
-      if (partsFound.length > 0) tickParts.push(`${partsFound.length} parts`);
-      if (lootGearDrops && lootGearDrops.length > 0) tickParts.push(`${lootGearDrops.length} gear`);
-      if (tickParts.length > 0) {
-        _appendLog(set, get, "tick", `Auto: ${tickParts.join(", ")}`, { scrapDelta: scrapsEarned || undefined, repDelta: repEarned ? Math.round(repEarned) : undefined });
-      }
+      const postTick = get() as GameState;
+      postTick.checkMomentumTiers();
+      postTick.checkFeatureUnlocks();
+      postTick.checkAchievements();
     },
 
     // ── Challenge helpers ────────────────────────────────────────────────────
@@ -1973,69 +2860,108 @@ function createActions(set: SetState, get: GetState) {
       if (!result) return;
 
       // Apply legacy decompose yield multiplier + gear material bonus
-      const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
+      const permanent = getPermanentRuntimeBonuses(state);
+      const decompYieldMult =
+        1 +
+        getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield") +
+        permanent.materialYieldMult +
+        permanent.decomposeYieldMult;
       const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const newMaterials = { ...state.materials };
+      const awardedMaterials: Partial<Record<MaterialType, number>> = {};
       for (const [mat, qty] of Object.entries(result.materials) as [MaterialType, number][]) {
         const bonusQty = Math.floor(qty * decompYieldMult * (1 + gb.material_bonus_pct));
         newMaterials[mat] = (newMaterials[mat] ?? 0) + bonusQty;
+        awardedMaterials[mat] = bonusQty;
       }
 
       const newDecomposed = state.lifetimeTotalDecomposed + 1;
       const newProgress = { ...state.challengeProgress, totalDecomposed: newDecomposed };
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
-      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
-      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
-      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
-      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+      const challengeBundle = calculateChallengeRewardBundle(state, rewards);
+      const rewardedMaterials = addRewardMaterials(newMaterials, challengeBundle.materials);
 
       set((s: GameState) => ({
         inventory: s.inventory.filter((p) => p.id !== partId),
-        materials: newMaterials,
+        materials: rewardedMaterials,
         lifetimeTotalDecomposed: newDecomposed,
         challengeProgress: newProgress,
         completedChallenges: [...s.completedChallenges, ...completed],
-        scrapBucks: s.scrapBucks + scrapReward,
-        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        scrapBucks: s.scrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + challengeBundle.scrap,
+        forgeTokens: s.forgeTokens + challengeBundle.forgeTokens,
+        totalForgeTokensEarned: s.totalForgeTokensEarned + challengeBundle.forgeTokens,
+        unlockEvents: [...s.unlockEvents, ...challengeCompletionEvents(completed)],
       }));
-      const matSummary = Object.entries(result.materials).filter(([, q]) => q > 0).map(([m, q]) => `${q} ${m}`).join(", ");
+      const matSummary = Object.entries(awardedMaterials).filter(([, q]) => q > 0).map(([m, q]) => `${q} ${m}`).join(", ");
       _appendLog(set, get, "craft", `Decomposed part into ${matSummary}`);
+      announceChallengeCompletions(set, get, completed, challengeBundle);
+      (get() as GameState).checkAchievements();
     },
 
     decomposeAllJunk: () => {
       const state = get() as GameState;
-      const cost = 50;
+      const freeBulkDecompose = getPrestigeMilestoneBonuses(state.prestigeCount).freeDecomposeAll;
+      const cost = freeBulkDecompose ? 0 : BULK_DECOMPOSE_COST;
       if (state.scrapBucks < cost) return;
-      const junk = state.inventory.filter((p) => p.condition === "rusted" || p.condition === "worn");
+      const junk = state.inventory.filter(
+        (part) =>
+          (part.condition === "rusted" || part.condition === "worn") &&
+          decomposePart(part, state.fatigue) !== null,
+      );
       if (junk.length === 0) return;
 
       const { materials: matYield, count } = decomposeMany(junk, state.fatigue);
       // Apply legacy decompose yield multiplier + gear material bonus
-      const decompYieldMult = 1 + getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield");
+      const permanent = getPermanentRuntimeBonuses(state);
+      const decompYieldMult =
+        1 +
+        getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield") +
+        permanent.materialYieldMult +
+        permanent.decomposeYieldMult;
       const gbDecompose = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
       const newMaterials = { ...state.materials };
+      const awardedMaterials: Partial<Record<MaterialType, number>> = {};
       for (const [mat, qty] of Object.entries(matYield) as [MaterialType, number][]) {
         const bonusQty = Math.floor(qty * decompYieldMult * (1 + gbDecompose.material_bonus_pct));
         newMaterials[mat] = (newMaterials[mat] ?? 0) + bonusQty;
+        awardedMaterials[mat] = bonusQty;
       }
       const junkIds = new Set(junk.map((p) => p.id));
       const newDecomposed = state.lifetimeTotalDecomposed + count;
       const newProgress = { ...state.challengeProgress, totalDecomposed: newDecomposed };
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
-      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
-      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
-      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
-      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+      const challengeBundle = calculateChallengeRewardBundle(state, rewards);
+      const rewardedMaterials = addRewardMaterials(newMaterials, challengeBundle.materials);
 
       set((s: GameState) => ({
         inventory: s.inventory.filter((p) => !junkIds.has(p.id)),
-        materials: newMaterials,
-        scrapBucks: s.scrapBucks - cost + scrapReward,
+        materials: rewardedMaterials,
+        scrapBucks: s.scrapBucks - cost + challengeBundle.scrap,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + challengeBundle.scrap,
         lifetimeTotalDecomposed: newDecomposed,
         challengeProgress: newProgress,
         completedChallenges: [...s.completedChallenges, ...completed],
-        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        forgeTokens: s.forgeTokens + challengeBundle.forgeTokens,
+        totalForgeTokensEarned: s.totalForgeTokensEarned + challengeBundle.forgeTokens,
+        unlockEvents: [...s.unlockEvents, ...challengeCompletionEvents(completed)],
       }));
+      const materialSummary = Object.entries(awardedMaterials)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([material, quantity]) => `${quantity} ${material}`)
+        .join(", ");
+      const costText = cost === 0 ? "free" : `$${cost}`;
+      _appendLog(
+        set,
+        get,
+        "craft",
+        `Bulk-decomposed ${count} rusted/worn item${count === 1 ? "" : "s"} for ${costText} into ${materialSummary}`,
+        { scrapDelta: challengeBundle.scrap - cost || undefined },
+      );
+      announceChallengeCompletions(set, get, completed, challengeBundle);
+      (get() as GameState).checkAchievements();
     },
 
     enhancePart: (partId: string) => {
@@ -2051,8 +2977,9 @@ function createActions(set: SetState, get: GetState) {
       if (!def) return;
 
       const targetIdx = condIdx + 1;
-      const cost = calculateEnhancementCost(targetIdx, def.category, state.fatigue);
-      if (!cost) return;
+      const baseCost = calculateEnhancementCost(targetIdx, def.category, state.fatigue);
+      if (!baseCost) return;
+      const cost = getReducedEnhancementCost(state, baseCost);
       if (!canAffordEnhancement(cost, state.materials)) return;
 
       const newMaterials = { ...state.materials };
@@ -2068,22 +2995,26 @@ function createActions(set: SetState, get: GetState) {
         highestConditionReached: newHighest,
       };
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
-      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
-      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
-      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
-      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+      const challengeBundle = calculateChallengeRewardBundle(state, rewards);
+      const rewardedMaterials = addRewardMaterials(newMaterials, challengeBundle.materials);
 
       set((s: GameState) => ({
         inventory: s.inventory.map((p) => p.id !== partId ? p : { ...p, condition: newCondition }),
-        materials: newMaterials,
+        materials: rewardedMaterials,
         highestConditionReached: newHighest,
         lifetimeTotalEnhanced: newEnhanced,
         challengeProgress: newProgress,
         completedChallenges: [...s.completedChallenges, ...completed],
-        scrapBucks: s.scrapBucks + scrapReward,
-        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        scrapBucks: s.scrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + challengeBundle.scrap,
+        forgeTokens: s.forgeTokens + challengeBundle.forgeTokens,
+        totalForgeTokensEarned: s.totalForgeTokensEarned + challengeBundle.forgeTokens,
+        unlockEvents: [...s.unlockEvents, ...challengeCompletionEvents(completed)],
         racerSkills: _grantXp(s.racerSkills, "mechanics", 10),
       }));
+      announceChallengeCompletions(set, get, completed, challengeBundle);
+      (get() as GameState).checkAchievements();
     },
 
     forgePart: (partId: string) => {
@@ -2092,34 +3023,42 @@ function createActions(set: SetState, get: GetState) {
       const part = state.inventory.find((p) => p.id === partId);
       if (!part || part.condition !== "mythic") return;
       if (state.forgeTokens < ARTIFACT_FORGE_TOKEN_COST) return;
-      if (!canAffordEnhancement(ARTIFACT_FORGE_COST, state.materials)) return;
+      const forgeMaterialCost = getReducedEnhancementCost(state, ARTIFACT_FORGE_COST);
+      if (!canAffordEnhancement(forgeMaterialCost, state.materials)) return;
 
       const newMaterials = { ...state.materials };
-      for (const [mat, qty] of Object.entries(ARTIFACT_FORGE_COST) as [MaterialType, number][]) {
+      for (const [mat, qty] of Object.entries(forgeMaterialCost) as [MaterialType, number][]) {
         newMaterials[mat] = Math.max(0, (newMaterials[mat] ?? 0) - qty);
       }
       const newHighest = Math.max(state.highestConditionReached, 8);
       const newProgress = { ...state.challengeProgress, highestConditionReached: newHighest };
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
-      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
-      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
+      const challengeBundle = calculateChallengeRewardBundle(state, rewards);
+      const rewardedMaterials = addRewardMaterials(newMaterials, challengeBundle.materials);
 
       set((s: GameState) => ({
         inventory: s.inventory.map((p) => p.id !== partId ? p : { ...p, condition: "artifact" as PartCondition }),
-        materials: newMaterials,
-        forgeTokens: s.forgeTokens - ARTIFACT_FORGE_TOKEN_COST + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        materials: rewardedMaterials,
+        forgeTokens: s.forgeTokens - ARTIFACT_FORGE_TOKEN_COST + challengeBundle.forgeTokens,
+        totalForgeTokensEarned: s.totalForgeTokensEarned + challengeBundle.forgeTokens,
         highestConditionReached: newHighest,
         challengeProgress: newProgress,
         completedChallenges: [...s.completedChallenges, ...completed],
-        scrapBucks: s.scrapBucks + scrapReward,
+        scrapBucks: s.scrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + challengeBundle.scrap,
+        unlockEvents: [...s.unlockEvents, ...challengeCompletionEvents(completed)],
       }));
       _appendLog(set, get, "craft", `Forged part to artifact quality!`);
+      announceChallengeCompletions(set, get, completed, challengeBundle);
+      (get() as GameState).checkAchievements();
     },
 
     craftPart: (recipe: CraftRecipe) => {
       const state = get() as GameState;
       if (_getUpgradeLevel(state, "parts_bin") < 1) return;
-      if (!canAffordRecipe(recipe, state.materials)) return;
+      const craftCost = getReducedCraftCost(state, recipe.cost);
+      if (!canAffordEnhancement(craftCost, state.materials)) return;
 
       // Pick a random part definition from the recipe's category at T0/T1
       const eligible = PART_DEFINITIONS.filter(
@@ -2137,13 +3076,19 @@ function createActions(set: SetState, get: GetState) {
       };
 
       const newMaterials = { ...state.materials };
-      for (const [mat, qty] of Object.entries(recipe.cost) as [MaterialType, number][]) {
+      for (const [mat, qty] of Object.entries(craftCost) as [MaterialType, number][]) {
         newMaterials[mat] = Math.max(0, (newMaterials[mat] ?? 0) - qty);
       }
 
       set((s: GameState) => ({
         inventory: [...s.inventory, newPart],
         materials: newMaterials,
+        crewRoster: grantCrewRoleXp(
+          s.crewRoster,
+          "mechanic",
+          10,
+          getCrewXpMultiplier(s),
+        ),
       }));
       _appendLog(set, get, "craft", `Crafted ${def.name} (${recipe.resultCondition})`);
     },
@@ -2151,6 +3096,7 @@ function createActions(set: SetState, get: GetState) {
     tradeUpParts: (partIds: [string, string, string]) => {
       const state = get() as GameState;
       if (_getUpgradeLevel(state, "parts_trader") < 1) return;
+      if (new Set(partIds).size !== 3) return;
 
       const parts = partIds.map((id) => state.inventory.find((p) => p.id === id)).filter(Boolean) as ScavengedPart[];
       if (parts.length !== 3) return;
@@ -2167,9 +3113,16 @@ function createActions(set: SetState, get: GetState) {
       if (!parts.every((p) => p.condition === condition)) return;
 
       const targetCondition = CONDITIONS[condIdx + 1] as PartCondition;
-      const eligible = PART_DEFINITIONS.filter((d) => d.category === category && d.minTier <= 1);
-      if (eligible.length === 0) return;
-      const def = eligible[randInt(0, eligible.length - 1)];
+      // Preserve the strongest underlying part model from the consumed trio.
+      // A condition trade-up must never turn late-game hardware into a T0 part.
+      const def = [...defs]
+        .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
+        .sort((left, right) =>
+          right.minTier - left.minTier ||
+          (right.basePower + right.baseReliability) - (left.basePower + left.baseReliability) ||
+          right.scrapValue - left.scrapValue,
+        )[0];
+      if (!def) return;
 
       const newPart: ScavengedPart = {
         id: makePartId(),
@@ -2183,22 +3136,31 @@ function createActions(set: SetState, get: GetState) {
       const newTradeUps = state.lifetimeTotalTradeUps + 1;
       const newProgress = { ...state.challengeProgress, totalTradeUps: newTradeUps };
       const { completed, rewards } = checkChallenges(state, newProgress, state.completedChallenges);
-      const scrapReward = rewards.reduce((s, r) => s + (r.type === "scrap" ? r.amount : 0), 0);
-      const matRewards = rewards.filter((r) => r.type === "material") as Extract<ChallengeRewardType, { type: "material" }>[];
-      const tokenRewards = rewards.filter((r) => r.type === "forgeToken") as Extract<ChallengeRewardType, { type: "forgeToken" }>[];
-      const newMaterials = { ...state.materials };
-      for (const mr of matRewards) newMaterials[mr.material] = (newMaterials[mr.material] ?? 0) + mr.amount;
+      const challengeBundle = calculateChallengeRewardBundle(state, rewards);
+      const newMaterials = addRewardMaterials(state.materials, challengeBundle.materials);
 
       set((s: GameState) => ({
         inventory: [...s.inventory.filter((p) => !usedIds.has(p.id)), newPart],
         lifetimeTotalTradeUps: newTradeUps,
         challengeProgress: newProgress,
         completedChallenges: [...s.completedChallenges, ...completed],
-        scrapBucks: s.scrapBucks + scrapReward,
-        forgeTokens: s.forgeTokens + tokenRewards.reduce((t, r) => t + r.amount, 0),
+        scrapBucks: s.scrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucks: s.lifetimeScrapBucks + challengeBundle.scrap,
+        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + challengeBundle.scrap,
+        forgeTokens: s.forgeTokens + challengeBundle.forgeTokens,
+        totalForgeTokensEarned: s.totalForgeTokensEarned + challengeBundle.forgeTokens,
         materials: newMaterials,
+        crewRoster: grantCrewRoleXp(
+          s.crewRoster,
+          "trader",
+          1,
+          getCrewXpMultiplier(s),
+        ),
+        unlockEvents: [...s.unlockEvents, ...challengeCompletionEvents(completed)],
       }));
       _appendLog(set, get, "trade", `Traded up 3 parts into ${def.name} (${targetCondition})`);
+      announceChallengeCompletions(set, get, completed, challengeBundle);
+      (get() as GameState).checkAchievements();
     },
 
     buyFromDealer: (listingId: string) => {
@@ -2206,7 +3168,8 @@ function createActions(set: SetState, get: GetState) {
       if (state.repPoints < DEALER_UNLOCK_REP) return;
       const listing = state.dealerBoard.find((l) => l.id === listingId);
       if (!listing) return;
-      if (state.scrapBucks < listing.price) return;
+      const price = getDealerPurchasePrice(state, listing);
+      if (state.scrapBucks < price) return;
 
       const newPart: ScavengedPart = {
         id: makePartId(),
@@ -2217,57 +3180,72 @@ function createActions(set: SetState, get: GetState) {
       };
 
       set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - listing.price,
+        scrapBucks: s.scrapBucks - price,
         inventory: [...s.inventory, newPart],
         dealerBoard: s.dealerBoard.filter((l) => l.id !== listingId),
+        crewRoster: grantCrewRoleXp(
+          s.crewRoster,
+          "trader",
+          1,
+          getCrewXpMultiplier(s),
+        ),
       }));
-      _appendLog(set, get, "trade", `Bought ${listing.definitionId} from dealer for $${listing.price}`, { scrapDelta: -listing.price });
+      _appendLog(set, get, "trade", `Bought ${listing.definitionId} from dealer for $${price}`, { scrapDelta: -price });
     },
 
     refreshDealer: () => {
       const state = get() as GameState;
-      const cost = Math.max(0, Math.floor(300 * (1 - getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "unlock_cost_reduction"))));
+      const cost = getDealerRefreshCost(state);
       if (state.scrapBucks < cost) return;
       if (state.repPoints < DEALER_UNLOCK_REP) return;
       const newBoard = generateDealerBoard(state.repPoints, state.gameTick);
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
         dealerBoard: newBoard,
+        crewRoster: grantCrewRoleXp(
+          s.crewRoster,
+          "trader",
+          1,
+          getCrewXpMultiplier(s),
+        ),
       }));
+      _appendLog(set, get, "trade", `Refreshed dealer inventory for $${cost}`, { scrapDelta: -cost });
     },
 
     convertScrapToMaterial: (material: MaterialType) => {
       const state = get() as GameState;
-      const conversionLevel = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "material_conversion");
-      const cost = conversionLevel > 0 ? 100 : 200;
-      const yield_ = conversionLevel > 0 ? 10 : 5;
-      const basicMaterials: MaterialType[] = ["metalScrap", "rubberCompound", "greaseSludge"];
-      if (!basicMaterials.includes(material) && conversionLevel < 1) return;
+      const { available, cost, yield: yield_ } = getMaterialSourcingTerms(state, material);
+      if (!available) return;
       if (state.scrapBucks < cost) return;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
         materials: { ...s.materials, [material]: (s.materials[material] ?? 0) + yield_ },
+        crewRoster: grantCrewRoleXp(
+          s.crewRoster,
+          "trader",
+          1,
+          getCrewXpMultiplier(s),
+        ),
       }));
       _appendLog(set, get, "trade", `Converted $${cost} into ${yield_} ${material}`, { scrapDelta: -cost });
     },
 
     purchaseFatigueDrink: () => {
       const state = get() as GameState;
-      const cost = 500;
-      const maxPurchasesPerRun = 3;
-      const purchased = state.challengeProgress["fatigueDrinksPurchased"] ?? 0;
-      if (purchased >= maxPurchasesPerRun) return;
-      if (state.scrapBucks < cost) return;
+      const purchased = state.challengeProgress[FATIGUE_DRINK_PROGRESS_KEY] ?? 0;
+      if (purchased >= FATIGUE_DRINK_RUN_LIMIT) return;
+      if (state.scrapBucks < FATIGUE_DRINK_COST) return;
       if (state.fatigue <= 0) return;
+      const recovered = Math.min(FATIGUE_DRINK_RECOVERY, state.fatigue);
       set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - cost,
-        fatigue: Math.max(0, s.fatigue - 10),
+        scrapBucks: s.scrapBucks - FATIGUE_DRINK_COST,
+        fatigue: Math.max(0, s.fatigue - recovered),
         challengeProgress: {
           ...s.challengeProgress,
-          fatigueDrinksPurchased: purchased + 1,
+          [FATIGUE_DRINK_PROGRESS_KEY]: purchased + 1,
         },
       }));
-      _appendLog(set, get, "upgrade", `Bought Fatigue Drink for $${cost} (-10 fatigue)`, { scrapDelta: -cost });
+      _appendLog(set, get, "upgrade", `Bought Fatigue Drink for $${FATIGUE_DRINK_COST} (-${recovered} fatigue)`, { scrapDelta: -FATIGUE_DRINK_COST });
     },
 
     // ── Dev / admin actions ──────────────────────────────────────────────────
@@ -2346,7 +3324,22 @@ function createActions(set: SetState, get: GetState) {
     },
 
     devClearGarage: () => {
-      set({ garage: [], activeVehicleId: null });
+      const state = get() as GameState;
+      const pendingEntryFee = state.challengeProgress[PENDING_MANUAL_RACE_ENTRY_FEE_KEY] ?? 0;
+      set({
+        garage: [],
+        activeVehicleId: null,
+        isRacing: false,
+        activeRaceSessionId: null,
+        scrapBucks: state.scrapBucks + pendingEntryFee,
+        challengeProgress: {
+          ...state.challengeProgress,
+          [PENDING_MANUAL_RACE_ENTRY_FEE_KEY]: 0,
+        },
+        raceEvents: [],
+        raceStartTime: null,
+        precomputedOutcome: null,
+      });
     },
 
     devSetAutoUnlocks: (scavengeUnlocked: boolean, raceUnlocked: boolean) => {
@@ -2357,17 +3350,70 @@ function createActions(set: SetState, get: GetState) {
 
     teamReset: () => {
       const state = get() as GameState;
+      if (!canTeamReset({
+        lifetimeLegacyPoints: state.lifetimeLPAllTime,
+        lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
+        unspentLegacyPoints: state.legacyPoints,
+      })) return;
       const stats = {
         lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
         teamEraCount: state.teamEraCount,
         unspentLP: state.legacyPoints,
       };
-      const tpEarned = calculateTeamPoints(stats);
+      const cascadeMultiplier = 1 + getGameEffectValue(
+        TRACK_PERK_DEFINITIONS,
+        state.trackPerkLevels,
+        "lower_currency_mult",
+      );
+      const tpEarned = Math.floor(calculateTeamPoints(stats) * cascadeMultiplier);
       const newTP = state.teamPoints + tpEarned;
       const newLifetimeTP = state.lifetimeTeamPoints + tpEarned;
+      const permanent = getPermanentRuntimeBonuses(state);
+      const bornRich = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "starting_scrap",
+      );
+      const quickStart = getGameEffectValue(
+        TEAM_UPGRADE_DEFINITIONS,
+        state.teamUpgradeLevels,
+        "quick_start_bonus",
+      );
+      const startingScrap = permanent.startingScrap + bornRich + quickStart;
+      const autoEverything = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "auto_all",
+      ) > 0;
+      const academyActive = getGameEffectValue(
+        TRACK_PERK_DEFINITIONS,
+        state.trackPerkLevels,
+        "crew_auto_recruit",
+      ) > 0;
+      const ownerCrewLevel = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "crew_starting_level",
+      );
+      const teamCrewSlots = 1 + (state.teamUpgradeLevels.team_crew_slots ?? 0);
+      const startingCrew = academyActive
+        ? ensureAcademyRoster([], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
+        : [];
+      const startingMaterials = getGameEffectValue(
+        TEAM_UPGRADE_DEFINITIONS,
+        state.teamUpgradeLevels,
+        "starting_materials",
+      );
 
       set({
         ...createInitialState(),
+        scrapBucks: startingScrap,
+        lifetimeScrapBucks: startingScrap,
+        autoScavengeUnlocked: autoEverything,
+        autoRaceUnlocked: autoEverything,
+        materials: Object.fromEntries(
+          Object.keys(INITIAL_MATERIALS).map((material) => [material, startingMaterials]),
+        ) as Record<MaterialType, number>,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
@@ -2394,7 +3440,10 @@ function createActions(set: SetState, get: GetState) {
         hostedEvents: state.hostedEvents,
         ownedTrackConfig: state.ownedTrackConfig,
         workshopLevels: (state.trackPerkLevels.track_eternal ?? 0) > 0 ? state.workshopLevels : {},
-        // Attributes persist through Team Reset
+        unlockedVehicleIds: getResetVehicleUnlockIds(state.ownerUpgradeLevels),
+        unlockedCircuitIds: getResetCircuitUnlockIds(state.ownerUpgradeLevels),
+        // Attributes are Team-era progression: Scrap Reset preserves them,
+        // while Team Reset and every higher reset start them over.
         racerAttributes: createDefaultAttributes(),
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
@@ -2408,8 +3457,8 @@ function createActions(set: SetState, get: GetState) {
         // Challenges persist
         completedChallenges: state.completedChallenges,
         // Crew resets on Team Reset
-        crewRoster: [],
-        crewSlots: 1 + (state.teamUpgradeLevels["team_crew_slots"] ?? 0),
+        crewRoster: startingCrew,
+        crewSlots: academyActive ? Math.max(4, teamCrewSlots) : teamCrewSlots,
         // Log persists
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
@@ -2449,22 +3498,66 @@ function createActions(set: SetState, get: GetState) {
       set({
         teamPoints: state.teamPoints - cost,
         teamUpgradeLevels: { ...state.teamUpgradeLevels, [upgradeId]: currentLevel + 1 },
+        crewSlots:
+          def.effect.type === "crew_slot"
+            ? state.crewSlots + def.effect.valuePerLevel
+            : state.crewSlots,
       });
     },
 
     ownerReset: () => {
       const state = get() as GameState;
+      if (!canOwnerReset({
+        lifetimeTeamPoints: state.lifetimeTeamPoints,
+        teamEras: state.teamEraCount,
+        lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
+        unspentTeamPoints: state.teamPoints,
+      })) return;
       const stats = {
         lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
         ownerEraCount: state.ownerEraCount,
         unspentTP: state.teamPoints,
       };
-      const opEarned = calculateOwnerPoints(stats);
+      const cascadeMultiplier = 1 + getGameEffectValue(
+        TRACK_PERK_DEFINITIONS,
+        state.trackPerkLevels,
+        "lower_currency_mult",
+      );
+      const opEarned = Math.floor(calculateOwnerPoints(stats) * cascadeMultiplier);
       const newOP = state.ownerPoints + opEarned;
       const newLifetimeOP = state.lifetimeOwnerPoints + opEarned;
+      const permanent = getPermanentRuntimeBonuses(state);
+      const bornRich = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "starting_scrap",
+      );
+      const startingScrap = permanent.startingScrap + bornRich;
+      const autoEverything = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "auto_all",
+      ) > 0;
+      const academyActive = getGameEffectValue(
+        TRACK_PERK_DEFINITIONS,
+        state.trackPerkLevels,
+        "crew_auto_recruit",
+      ) > 0;
+      const ownerCrewLevel = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "crew_starting_level",
+      );
+      const startingCrew = academyActive
+        ? ensureAcademyRoster([], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
+        : [];
 
       set({
         ...createInitialState(),
+        scrapBucks: startingScrap,
+        lifetimeScrapBucks: startingScrap,
+        autoScavengeUnlocked: autoEverything,
+        autoRaceUnlocked: autoEverything,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
@@ -2485,6 +3578,10 @@ function createActions(set: SetState, get: GetState) {
         hostedEvents: state.hostedEvents,
         ownedTrackConfig: state.ownedTrackConfig,
         workshopLevels: (state.trackPerkLevels.track_eternal ?? 0) > 0 ? state.workshopLevels : {},
+        unlockedVehicleIds: getResetVehicleUnlockIds(state.ownerUpgradeLevels),
+        unlockedCircuitIds: getResetCircuitUnlockIds(state.ownerUpgradeLevels),
+        crewRoster: startingCrew,
+        crewSlots: academyActive ? 4 : 0,
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
         defeatedRivalIds: state.defeatedRivalIds,
@@ -2532,9 +3629,28 @@ function createActions(set: SetState, get: GetState) {
       const unlockedFeatures = [...state.unlockedFeatures];
       const feature = def.effect.type === "unlock_adv_circuits" ? "advanced_circuits" : def.effect.type === "unlock_t9_vehicles" ? "vehicle_mastery" : def.effect.type === "unlock_research" ? "new_workshop_cats" : null;
       if (feature && !unlockedFeatures.includes(feature)) unlockedFeatures.push(feature);
+      const ownerUpgradeLevels = { ...state.ownerUpgradeLevels, [upgradeId]: currentLevel + 1 };
+      const unlockedVehicleIds = [...new Set([
+        ...state.unlockedVehicleIds,
+        ...getVehicleIdsUnlockedByProgress({
+          reputation: state.repPoints,
+          wonCircuitIds: state.raceHistory.filter((race) => race.result === "win").map((race) => race.circuitId),
+          circuitWinStreaks: {},
+          ownerUpgradeLevels,
+        }),
+      ])];
+      const unlockedCircuitIds = def.effect.type === "unlock_adv_circuits"
+        ? [...new Set([
+            ...state.unlockedCircuitIds,
+            "continental_grand_prix",
+            "endurance_series",
+          ])]
+        : state.unlockedCircuitIds;
       set({
         ownerPoints: state.ownerPoints - cost,
-        ownerUpgradeLevels: { ...state.ownerUpgradeLevels, [upgradeId]: currentLevel + 1 },
+        ownerUpgradeLevels,
+        unlockedVehicleIds,
+        unlockedCircuitIds,
         unlockedFeatures,
         autoScavengeUnlocked: state.autoScavengeUnlocked || def.effect.type === "auto_all",
         autoRaceUnlocked: state.autoRaceUnlocked || def.effect.type === "auto_all",
@@ -2543,6 +3659,12 @@ function createActions(set: SetState, get: GetState) {
 
     trackReset: () => {
       const state = get() as GameState;
+      if (!canTrackReset({
+        lifetimeOwnerPoints: state.lifetimeOwnerPoints,
+        ownerEras: state.ownerEraCount,
+        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
+        unspentOwnerPoints: state.ownerPoints,
+      })) return;
       const stats = {
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
         trackEraCount: state.trackEraCount,
@@ -2551,9 +3673,40 @@ function createActions(set: SetState, get: GetState) {
       const ptEarned = calculateTrackTokens(stats);
       const newPT = state.trackPrestigeTokens + ptEarned;
       const newLifetimePT = state.lifetimeTrackTokens + ptEarned;
+      const permanent = getPermanentRuntimeBonuses(state);
+      const bornRich = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "starting_scrap",
+      );
+      const startingScrap = permanent.startingScrap + bornRich;
+      const autoEverything = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "auto_all",
+      ) > 0;
+      const academyActive = getGameEffectValue(
+        TRACK_PERK_DEFINITIONS,
+        state.trackPerkLevels,
+        "crew_auto_recruit",
+      ) > 0;
+      // Reset-seeding Owner effects apply to the Track Reset that consumes
+      // them. Persistent Owner content still clears with the Owner layer.
+      const ownerCrewLevel = getGameEffectValue(
+        OWNER_UPGRADE_DEFINITIONS,
+        state.ownerUpgradeLevels,
+        "crew_starting_level",
+      );
+      const startingCrew = academyActive
+        ? ensureAcademyRoster([], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
+        : [];
 
       set({
         ...createInitialState(),
+        scrapBucks: startingScrap,
+        lifetimeScrapBucks: startingScrap,
+        autoScavengeUnlocked: autoEverything,
+        autoRaceUnlocked: autoEverything,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
@@ -2567,8 +3720,12 @@ function createActions(set: SetState, get: GetState) {
         lifetimeOPThisTrackEra: 0,
         ownedTrackConfig: state.ownedTrackConfig,
         workshopLevels: (state.trackPerkLevels.track_eternal ?? 0) > 0 ? state.workshopLevels : {},
-        // Feature unlocks never reset
-        unlockedFeatures: state.unlockedFeatures,
+        crewRoster: startingCrew,
+        crewSlots: academyActive ? 4 : 0,
+        // Owner-derived feature flags clear with the Owner layer.
+        unlockedFeatures: state.unlockedFeatures.filter(
+          (feature) => feature !== "vehicle_mastery" && feature !== "advanced_circuits",
+        ),
         defeatedRivalIds: state.defeatedRivalIds,
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
@@ -2616,7 +3773,15 @@ function createActions(set: SetState, get: GetState) {
       let crewSlots = state.crewSlots;
       if (def.effect.type === "crew_auto_recruit" && currentLevel === 0) {
         crewSlots = Math.max(crewSlots, 4);
-        crewRoster = (["mechanic", "scout", "driver", "trader"] as CrewRole[]).map((role, index) => ({ id: `academy_${role}`, name: ["Mara", "Rook", "Ace", "Ledger"][index], role, level: 1, xp: 0, specialization: null }));
+        const ownerCrewLevel = getGameEffectValue(
+          OWNER_UPGRADE_DEFINITIONS,
+          state.ownerUpgradeLevels,
+          "crew_starting_level",
+        );
+        crewRoster = ensureAcademyRoster(
+          crewRoster,
+          ownerCrewLevel > 0 ? ownerCrewLevel : 1,
+        );
       }
       set({
         trackPrestigeTokens: state.trackPrestigeTokens - cost,
@@ -2645,8 +3810,14 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       if (state.teamEraCount < 1 || state.crewRoster.length >= state.crewSlots || state.teamPoints < 1) return;
       const names: Record<CrewRole, string[]> = { mechanic: ["Mara", "Wrench", "June"], scout: ["Scout", "Rook", "Piper"], driver: ["Ace", "Nova", "Mick"], trader: ["Ledger", "Cass", "Hank"] };
-      const startingLevel = 1 + Math.floor(getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "crew_starting_level"));
-      const member: CrewMember = { id: `crew_${Date.now()}_${state.crewRoster.length}`, name: names[role][state.crewRoster.filter((crew) => crew.role === role).length % names[role].length], role, level: startingLevel, xp: startingLevel <= 1 ? 0 : 50 * (Math.pow(2, startingLevel - 1) - 1), specialization: null };
+      const ownerCrewLevel = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "crew_starting_level");
+      const startingLevel = ownerCrewLevel > 0 ? ownerCrewLevel : 1;
+      const member = createCrewAtLevel(
+        `crew_${Date.now()}_${state.crewRoster.length}`,
+        names[role][state.crewRoster.filter((crew) => crew.role === role).length % names[role].length],
+        role,
+        startingLevel,
+      );
       set((current: GameState) => ({ teamPoints: current.teamPoints - 1, crewRoster: [...current.crewRoster, member] }));
     },
 
@@ -2654,7 +3825,11 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       set({
         crewRoster: state.crewRoster.map((m) =>
-          m.id === crewId && m.level >= 5 ? { ...m, specialization: spec as CrewMember["specialization"] } : m
+          m.id === crewId &&
+          m.level >= 5 &&
+          getSpecializationsForRole(m.role).some((definition) => definition.id === spec)
+            ? { ...m, specialization: spec as CrewMember["specialization"] }
+            : m
         ),
       });
     },
@@ -2717,7 +3892,7 @@ function createActions(set: SetState, get: GetState) {
           earnedAchievements: [...state.earnedAchievements, ...newlyEarned],
           unlockEvents: newEvents,
         });
-        _appendLog(set, get, "prestige", `Earned ${newlyEarned.length} achievement(s)`);
+        _appendLog(set, get, "achievement", `Earned ${newlyEarned.length} achievement(s)`);
       }
     },
 
@@ -2830,6 +4005,7 @@ export const useGameStore = create<GameState>()(
       };
     }),
       migrate: migratePersistedState,
+      merge: mergePersistedGameState,
       partialize: getPersistedGameState,
     },
   ),

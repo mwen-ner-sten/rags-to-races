@@ -108,7 +108,6 @@ function VehicleTooltipContent({
       {/* Racing */}
       <Section label="Racing">
         <Row label="Total races" value={totalRaces.toLocaleString()} />
-        <Row label="Race tiers" value={vehicleDef.raceTiers.join(", ")} dim />
       </Section>
     </TooltipPanel>
   );

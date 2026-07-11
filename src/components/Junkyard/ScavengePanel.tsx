@@ -1,17 +1,18 @@
 "use client";
 
-import { useGameStore, _getUpgradeEffectValue } from "@/state/store";
+import { useGameStore, _getUpgradeEffectValue, getPartRefurbishQuote, getSellValueBonus } from "@/state/store";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
 import type { PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import GameAssetImage from "@/components/GameAssetImage";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { calculateRefurbishCost } from "@/engine/build";
 import { computeTickSpeedMs } from "@/engine/tick";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
+import { getPartSaleValue } from "@/engine/sale";
+import { AUTO_SCAVENGE_MANUAL_TARGET } from "@/config/gameplayLimits";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -52,7 +53,7 @@ interface InventoryGroup {
   partType: "part" | "addon";
 }
 
-function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
+function groupInventory(inventory: ScavengedPart[], sellValueBonus: number): InventoryGroup[] {
   const map = new Map<string, InventoryGroup>();
   for (const p of inventory) {
     const key = `${p.definitionId}:${p.condition}`;
@@ -62,13 +63,12 @@ function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
       const defAddon = !defPart ? getAddonById(p.definitionId) : undefined;
       const src = defPart ?? defAddon;
       if (!src) continue;
-      const mult = CONDITION_MULTIPLIERS[p.condition as keyof typeof CONDITION_MULTIPLIERS];
       g = {
         key,
         definitionId: p.definitionId,
         condition: p.condition,
         count: 0,
-        unitValue: Math.floor(src.scrapValue * mult),
+        unitValue: getPartSaleValue(p, sellValueBonus) ?? 0,
         parts: [],
         name: src.name,
         slot: defPart ? defPart.category : defAddon!.targetSlot,
@@ -87,6 +87,10 @@ function groupInventory(inventory: ScavengedPart[]): InventoryGroup[] {
 }
 
 export default function ScavengePanel() {
+  // Targeted selectors below drive rendering. Read the complete snapshot only
+  // for synchronous quote helpers so an unrelated 100ms automation update
+  // does not subscribe this large inventory surface to the entire store.
+  const gameState = useGameStore.getState();
   const inventory = useGameStore((s) => s.inventory);
   const selectedLocationId = useGameStore((s) => s.selectedLocationId);
   const unlockedLocationIds = useGameStore((s) => s.unlockedLocationIds);
@@ -108,6 +112,7 @@ export default function ScavengePanel() {
   const workshopLevels = useGameStore((s) => s.workshopLevels);
   const refurbishPart = useGameStore((s) => s.refurbishPart);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const sellValueBonus = useGameStore(getSellValueBonus);
   const refurbBenchUnlocked = (workshopLevels["refurbishment_bench"] ?? 0) >= 1;
 
   const unlockedLocations = LOCATION_DEFINITIONS.filter((l) =>
@@ -117,7 +122,10 @@ export default function ScavengePanel() {
     (l) => !unlockedLocationIds.includes(l.id),
   );
 
-  const groups = useMemo(() => groupInventory(inventory), [inventory]);
+  const groups = useMemo(
+    () => groupInventory(inventory, sellValueBonus),
+    [inventory, sellValueBonus],
+  );
 
   // Track inventory changes for new-part animations via Zustand subscription
   const [newPartKeys, setNewPartKeys] = useState<Set<string>>(new Set());
@@ -218,7 +226,7 @@ export default function ScavengePanel() {
                   : { borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
               }
             >
-              <GameAssetImage kind="location" id={loc.id} width={120} height={68} className="mb-2 rounded object-cover" />
+              <GameAssetImage kind="location" id={loc.id} width={120} height={68} loading="eager" className="mb-2 rounded object-cover" />
               <div className="font-semibold text-sm" style={{ color: "var(--text-white)" }}>{loc.name}</div>
               <div className="mt-0.5 text-xs hidden lg:block" style={{ color: "var(--text-secondary)" }}>{loc.description}</div>
               <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -227,6 +235,18 @@ export default function ScavengePanel() {
             </button>
           ))}
         </div>
+
+        {lockedLocations[0] && (
+          <div
+            className="rounded-lg border p-2.5 opacity-70 lg:hidden"
+            style={{ borderColor: "var(--divider)", background: "var(--panel-bg)" }}
+          >
+            <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>🔒 Next: {lockedLocations[0].name}</div>
+            <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              Need {lockedLocations[0].unlockCost} Rep (you have {Math.floor(repPoints)})
+            </div>
+          </div>
+        )}
 
         {lockedLocations.map((loc) => (
           <div
@@ -254,6 +274,12 @@ export default function ScavengePanel() {
             onMouseLeave={stopHold}
             onTouchStart={(e) => { e.preventDefault(); startHold(); }}
             onTouchEnd={stopHold}
+            onKeyDown={(event) => {
+              if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
+                event.preventDefault();
+                fireScavenge();
+              }
+            }}
             className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
               isScavengeAnimating ? "scale-90" : "scale-100"
             } ${isHolding ? "ring-2 ring-offset-1" : ""} ${autoScavengeUnlocked ? "auto-scavenge-active" : ""}`}
@@ -275,13 +301,13 @@ export default function ScavengePanel() {
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
-                    width: `${Math.min(100, (manualScavengeClicks / 500) * 100)}%`,
+                    width: `${Math.min(100, (manualScavengeClicks / AUTO_SCAVENGE_MANUAL_TARGET) * 100)}%`,
                     background: "var(--info)",
                   }}
                 />
               </div>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {manualScavengeClicks}/500 for Auto
+                {manualScavengeClicks}/{AUTO_SCAVENGE_MANUAL_TARGET} for Auto
               </span>
             </div>
           )}
@@ -398,8 +424,7 @@ export default function ScavengePanel() {
                     <span className="font-mono text-xs shrink-0" style={{ color: "var(--success)" }}>${formatNumber(group.unitValue)}</span>
                     <div className="flex items-center gap-1.5 shrink-0 self-stretch -my-1.5 py-1.5 sm:-my-2 sm:py-2" onMouseEnter={() => setHoveredGroup(null)}>
                       {refurbBenchUnlocked && group.partType === "part" && !["rusted", "good", "pristine", "polished", "legendary", "mythic", "artifact"].includes(group.condition) && (() => {
-                        const refurbDiscount = _getUpgradeEffectValue(useGameStore.getState(), "cheap_refurb");
-                        const refurbInfo = calculateRefurbishCost(group.parts[0], refurbDiscount);
+                        const refurbInfo = getPartRefurbishQuote(gameState, group.parts[0]);
                         if (!refurbInfo) return null;
                         return (
                           <button

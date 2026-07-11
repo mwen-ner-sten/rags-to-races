@@ -54,7 +54,7 @@ const LP_PRINTING_PRESS: OwnerUpgradeDefinition = {
 const AUTO_EVERYTHING: OwnerUpgradeDefinition = {
   id: "owner_auto_all",
   name: "Auto-Everything",
-  description: "All automation from tick 0.",
+  description: "Auto-Scavenge and Auto-Race start enabled after every reset.",
   category: "franchise",
   maxLevel: 1,
   baseCost: 30,
@@ -78,7 +78,7 @@ const ADVANCED_CIRCUITS: OwnerUpgradeDefinition = {
 const VEHICLE_MASTERY: OwnerUpgradeDefinition = {
   id: "owner_vehicle_mastery",
   name: "Vehicle Mastery",
-  description: "Unlock T9+ vehicles.",
+  description: "Unlock T9+ vehicle blueprints.",
   category: "facilities",
   maxLevel: 1,
   baseCost: 15,
@@ -159,7 +159,7 @@ const FATIGUE_IMMUNITY: OwnerUpgradeDefinition = {
 const MATERIAL_SYNTHESIS: OwnerUpgradeDefinition = {
   id: "owner_mat_synth",
   name: "Material Synthesis",
-  description: "Convert materials at 2:1 ratio.",
+  description: "Material sourcing yields 10 units for $100 and can source any material.",
   category: "network",
   maxLevel: 1,
   baseCost: 10,
@@ -192,7 +192,7 @@ const OWNERS_INSIGHT: OwnerUpgradeDefinition = {
 const UNLOCK_COST_SLASH: OwnerUpgradeDefinition = {
   id: "owner_cost_slash",
   name: "Unlock Cost Slash",
-  description: "Dealer refresh and advanced sourcing costs -75%.",
+  description: "Dealer refresh costs -75%.",
   category: "network",
   maxLevel: 1,
   baseCost: 15,
@@ -206,7 +206,6 @@ export const OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [
   AUTO_EVERYTHING,
   ADVANCED_CIRCUITS,
   VEHICLE_MASTERY,
-  RD_LAB,
   BORN_RICH,
   FATIGUE_IMMUNITY,
   MATERIAL_SYNTHESIS,
@@ -215,7 +214,7 @@ export const OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [
 ];
 
 /** Multiplier-only and obsolete definitions retained for design history, hidden from released purchase surfaces. */
-export const DEFERRED_OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [SCRAP_EMPIRE, REP_DYNASTY, LP_PRINTING_PRESS, INFINITE_GARAGE, TEAM_LEGACY, TALENT_PIPELINE, OWNERS_INSIGHT];
+export const DEFERRED_OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [SCRAP_EMPIRE, REP_DYNASTY, LP_PRINTING_PRESS, RD_LAB, INFINITE_GARAGE, TEAM_LEGACY, TALENT_PIPELINE, OWNERS_INSIGHT];
 
 export const OWNER_UPGRADES_BY_ID = Object.fromEntries(
   OWNER_UPGRADE_DEFINITIONS.map((u) => [u.id, u]),

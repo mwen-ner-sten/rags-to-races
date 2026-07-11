@@ -699,7 +699,9 @@
         "lifetimeLegacyPoints": 0,
         "legacyUpgradeLevels": {},
         "activeMomentumTiers": [
-          "momentum_1"
+          "momentum_warmed_up",
+          "momentum_in_the_zone",
+          "momentum_reputation"
         ],
         "currentEra": 1,
         "inventory": [
@@ -1906,7 +1908,7 @@
             "totalRaces": 66
           }
         ],
-        "activeVehicleId": "fixture_vehicle_21_beater_car",
+        "activeVehicleId": "fixture_vehicle_22_street_racer",
         "vehicleLoadouts": [],
         "selectedLocationId": "industrial_surplus",
         "selectedSellBelowQuality": "decent",
@@ -1934,7 +1936,7 @@
         },
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
-        "manualScavengeClicks": 500,
+        "manualScavengeClicks": 100,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -2132,14 +2134,12 @@
           "fortune": 3
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 250,
         "lifetimeScrapResets": 0,
@@ -2248,7 +2248,7 @@
         },
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
-        "manualScavengeClicks": 499,
+        "manualScavengeClicks": 99,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -2395,14 +2395,12 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 0,
         "lifetimeScrapResets": 0,
@@ -2430,9 +2428,9 @@
     "payload": {
       "version": 3,
       "state": {
-        "scrapBucks": 100000,
-        "repPoints": 10000,
-        "lifetimeScrapBucks": 100000,
+        "scrapBucks": 1000,
+        "repPoints": 500,
+        "lifetimeScrapBucks": 8000,
         "prestigeCount": 0,
         "prestigeBonus": {
           "scrapMultiplier": 1,
@@ -2612,576 +2610,16 @@
             "condition": "decent",
             "foundAt": "dev_fixture",
             "type": "part"
-          },
-          {
-            "id": "fixture_part_1024_drive_sequential",
-            "definitionId": "drive_sequential",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1025_drive_dualclutch",
-            "definitionId": "drive_dualclutch",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1026_exhaust_rusted",
-            "definitionId": "exhaust_rusted",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1027_exhaust_straight",
-            "definitionId": "exhaust_straight",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1028_exhaust_headers",
-            "definitionId": "exhaust_headers",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1029_exhaust_titanium",
-            "definitionId": "exhaust_titanium",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1030_susp_leaf",
-            "definitionId": "susp_leaf",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1031_susp_coilovers",
-            "definitionId": "susp_coilovers",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1032_susp_adjustable",
-            "definitionId": "susp_adjustable",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1033_susp_active",
-            "definitionId": "susp_active",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1034_aero_cardboard",
-            "definitionId": "aero_cardboard",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1035_aero_spoiler",
-            "definitionId": "aero_spoiler",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1036_aero_diffuser",
-            "definitionId": "aero_diffuser",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1037_aero_carbon",
-            "definitionId": "aero_carbon",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1038_misc_junk",
-            "definitionId": "misc_junk",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1039_misc_seat",
-            "definitionId": "misc_seat",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1040_misc_roll_cage",
-            "definitionId": "misc_roll_cage",
-            "condition": "decent",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1041_engine_small",
-            "definitionId": "engine_small",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1042_engine_lawn",
-            "definitionId": "engine_lawn",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1043_engine_v4",
-            "definitionId": "engine_v4",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1044_engine_v6",
-            "definitionId": "engine_v6",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1045_engine_v8",
-            "definitionId": "engine_v8",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1046_engine_turbo_v6",
-            "definitionId": "engine_turbo_v6",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1047_wheel_busted",
-            "definitionId": "wheel_busted",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1048_wheel_basic",
-            "definitionId": "wheel_basic",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1049_wheel_sport",
-            "definitionId": "wheel_sport",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1050_wheel_racing",
-            "definitionId": "wheel_racing",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1051_frame_scrap",
-            "definitionId": "frame_scrap",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1052_frame_mower",
-            "definitionId": "frame_mower",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1053_frame_kart",
-            "definitionId": "frame_kart",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1054_frame_steel",
-            "definitionId": "frame_steel",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1055_frame_carbon",
-            "definitionId": "frame_carbon",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1056_elec_none",
-            "definitionId": "elec_none",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1057_elec_basic",
-            "definitionId": "elec_basic",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1058_elec_ecu",
-            "definitionId": "elec_ecu",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1059_elec_racing",
-            "definitionId": "elec_racing",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1060_fuel_gas_can",
-            "definitionId": "fuel_gas_can",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1061_fuel_tank_small",
-            "definitionId": "fuel_tank_small",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1062_fuel_tank_large",
-            "definitionId": "fuel_tank_large",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1063_drive_chain",
-            "definitionId": "drive_chain",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1064_drive_manual",
-            "definitionId": "drive_manual",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1065_drive_sequential",
-            "definitionId": "drive_sequential",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1066_drive_dualclutch",
-            "definitionId": "drive_dualclutch",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1067_exhaust_rusted",
-            "definitionId": "exhaust_rusted",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1068_exhaust_straight",
-            "definitionId": "exhaust_straight",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1069_exhaust_headers",
-            "definitionId": "exhaust_headers",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1070_exhaust_titanium",
-            "definitionId": "exhaust_titanium",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1071_susp_leaf",
-            "definitionId": "susp_leaf",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1072_susp_coilovers",
-            "definitionId": "susp_coilovers",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1073_susp_adjustable",
-            "definitionId": "susp_adjustable",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1074_susp_active",
-            "definitionId": "susp_active",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1075_aero_cardboard",
-            "definitionId": "aero_cardboard",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1076_aero_spoiler",
-            "definitionId": "aero_spoiler",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1077_aero_diffuser",
-            "definitionId": "aero_diffuser",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1078_aero_carbon",
-            "definitionId": "aero_carbon",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1079_misc_junk",
-            "definitionId": "misc_junk",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1080_misc_seat",
-            "definitionId": "misc_seat",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1081_misc_roll_cage",
-            "definitionId": "misc_roll_cage",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "part"
-          },
-          {
-            "id": "fixture_part_1082_addon_air_filter",
-            "definitionId": "addon_air_filter",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1083_addon_turbo_snail",
-            "definitionId": "addon_turbo_snail",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1084_addon_nitrous",
-            "definitionId": "addon_nitrous",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1085_addon_forged_internals",
-            "definitionId": "addon_forged_internals",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1086_addon_wheel_spacers",
-            "definitionId": "addon_wheel_spacers",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1087_addon_tire_warmers",
-            "definitionId": "addon_tire_warmers",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1088_addon_slick_compound",
-            "definitionId": "addon_slick_compound",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1089_addon_roll_cage",
-            "definitionId": "addon_roll_cage",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1090_addon_weight_reduction",
-            "definitionId": "addon_weight_reduction",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1091_addon_carbon_panels",
-            "definitionId": "addon_carbon_panels",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1092_addon_fuel_filter",
-            "definitionId": "addon_fuel_filter",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1093_addon_racing_fuel",
-            "definitionId": "addon_racing_fuel",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1094_addon_traction_control",
-            "definitionId": "addon_traction_control",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1095_addon_launch_control",
-            "definitionId": "addon_launch_control",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1096_addon_lsd",
-            "definitionId": "addon_lsd",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1097_addon_short_ratio",
-            "definitionId": "addon_short_ratio",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1098_addon_cat_delete",
-            "definitionId": "addon_cat_delete",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1099_addon_exhaust_wrap",
-            "definitionId": "addon_exhaust_wrap",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1100_addon_sway_bar",
-            "definitionId": "addon_sway_bar",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1101_addon_camber_kit",
-            "definitionId": "addon_camber_kit",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1102_addon_splitter",
-            "definitionId": "addon_splitter",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
-          },
-          {
-            "id": "fixture_part_1103_addon_gurney_flap",
-            "definitionId": "addon_gurney_flap",
-            "condition": "good",
-            "foundAt": "dev_fixture",
-            "type": "addon"
           }
         ],
         "garage": [
           {
-            "id": "fixture_vehicle_1_push_mower",
+            "id": "fixture_vehicle_41_push_mower",
             "definitionId": "push_mower",
             "parts": {
               "engine": {
                 "part": {
-                  "id": "fixture_part_20_engine_lawn",
+                  "id": "fixture_part_820_engine_lawn",
                   "definitionId": "engine_lawn",
                   "condition": "good",
                   "foundAt": "dev_fixture",
@@ -3191,7 +2629,7 @@
               },
               "wheel": {
                 "part": {
-                  "id": "fixture_part_21_wheel_basic",
+                  "id": "fixture_part_821_wheel_basic",
                   "definitionId": "wheel_basic",
                   "condition": "good",
                   "foundAt": "dev_fixture",
@@ -3201,23 +2639,23 @@
               }
             },
             "stats": {
-              "speed": 23.049599999999998,
-              "handling": 6.6718399999999995,
+              "speed": 23.52,
+              "handling": 6.808,
               "reliability": 19.3,
               "weight": 66,
-              "performance": 17.386352
+              "performance": 17.662399999999998
             },
-            "builtAt": 1700000000001,
-            "condition": 68,
-            "totalRaces": 3
+            "builtAt": 1700000000041,
+            "condition": 74,
+            "totalRaces": 123
           },
           {
-            "id": "fixture_vehicle_2_riding_mower",
+            "id": "fixture_vehicle_42_riding_mower",
             "definitionId": "riding_mower",
             "parts": {
               "engine": {
                 "part": {
-                  "id": "fixture_part_40_engine_v4",
+                  "id": "fixture_part_840_engine_v4",
                   "definitionId": "engine_v4",
                   "condition": "pristine",
                   "foundAt": "dev_fixture",
@@ -3227,7 +2665,7 @@
               },
               "wheel": {
                 "part": {
-                  "id": "fixture_part_41_wheel_sport",
+                  "id": "fixture_part_841_wheel_sport",
                   "definitionId": "wheel_sport",
                   "condition": "pristine",
                   "foundAt": "dev_fixture",
@@ -3237,7 +2675,7 @@
               },
               "frame": {
                 "part": {
-                  "id": "fixture_part_42_frame_kart",
+                  "id": "fixture_part_842_frame_kart",
                   "definitionId": "frame_kart",
                   "condition": "pristine",
                   "foundAt": "dev_fixture",
@@ -3247,23 +2685,23 @@
               }
             },
             "stats": {
-              "speed": 83.84,
-              "handling": 22.200000000000003,
-              "reliability": 72,
+              "speed": 103.84,
+              "handling": 36.2,
+              "reliability": 85,
               "weight": 188,
-              "performance": 62.980000000000004
+              "performance": 79.78
             },
-            "builtAt": 1700000000002,
-            "condition": 76,
-            "totalRaces": 6
+            "builtAt": 1700000000042,
+            "condition": 82,
+            "totalRaces": 126
           },
           {
-            "id": "fixture_vehicle_3_go_kart",
+            "id": "fixture_vehicle_43_go_kart",
             "definitionId": "go_kart",
             "parts": {
               "engine": {
                 "part": {
-                  "id": "fixture_part_60_engine_v6",
+                  "id": "fixture_part_860_engine_v6",
                   "definitionId": "engine_v6",
                   "condition": "pristine",
                   "foundAt": "dev_fixture",
@@ -3273,7 +2711,7 @@
               },
               "wheel": {
                 "part": {
-                  "id": "fixture_part_61_wheel_sport",
+                  "id": "fixture_part_861_wheel_sport",
                   "definitionId": "wheel_sport",
                   "condition": "pristine",
                   "foundAt": "dev_fixture",
@@ -3283,7 +2721,7 @@
               },
               "frame": {
                 "part": {
-                  "id": "fixture_part_62_frame_steel",
+                  "id": "fixture_part_862_frame_steel",
                   "definitionId": "frame_steel",
                   "condition": "pristine",
                   "foundAt": "dev_fixture",
@@ -3293,7 +2731,7 @@
               },
               "fuel": {
                 "part": {
-                  "id": "fixture_part_63_fuel_tank_large",
+                  "id": "fixture_part_863_fuel_tank_large",
                   "definitionId": "fuel_tank_large",
                   "condition": "pristine",
                   "foundAt": "dev_fixture",
@@ -3309,16 +2747,16 @@
               "weight": 463,
               "performance": 112.03
             },
-            "builtAt": 1700000000003,
+            "builtAt": 1700000000043,
             "condition": 91,
-            "totalRaces": 9
+            "totalRaces": 129
           }
         ],
-        "activeVehicleId": "fixture_vehicle_3_go_kart",
+        "activeVehicleId": "fixture_vehicle_43_go_kart",
         "vehicleLoadouts": [],
         "selectedLocationId": "industrial_surplus",
         "selectedSellBelowQuality": "decent",
-        "selectedCircuitId": "regional_circuit",
+        "selectedCircuitId": "dirt_track",
         "currentRacePlan": {
           "tire": "medium",
           "fuelLoad": "balanced",
@@ -3345,8 +2783,8 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": true,
-        "manualScavengeClicks": 500,
+        "autoScavengeUnlocked": false,
+        "manualScavengeClicks": 0,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -3354,41 +2792,85 @@
           "neighborhood_yards",
           "local_junkyard",
           "salvage_auction",
-          "industrial_surplus",
-          "military_scrapyard"
+          "industrial_surplus"
         ],
         "unlockedCircuitIds": [
           "backyard_derby",
           "dirt_track",
-          "regional_circuit",
-          "national_circuit",
-          "world_championship",
-          "continental_grand_prix",
-          "endurance_series"
+          "regional_circuit"
         ],
         "unlockedVehicleIds": [
           "push_mower",
           "riding_mower",
           "go_kart",
           "beater_car",
-          "street_racer",
-          "rally_car",
-          "stock_car",
-          "prototype_racer",
-          "supercar",
-          "hypercar",
-          "prototype_x"
+          "street_racer"
         ],
         "_vehicleIdCounter": 0,
-        "raceHistory": [],
+        "raceHistory": [
+          {
+            "circuitId": "backyard_derby",
+            "result": "win",
+            "position": 1,
+            "totalRacers": 8,
+            "scrapsEarned": 10,
+            "repEarned": 1,
+            "log": [
+              "Fixture race completed"
+            ]
+          },
+          {
+            "circuitId": "backyard_derby",
+            "result": "win",
+            "position": 1,
+            "totalRacers": 8,
+            "scrapsEarned": 10,
+            "repEarned": 1,
+            "log": [
+              "Fixture race completed"
+            ]
+          },
+          {
+            "circuitId": "backyard_derby",
+            "result": "win",
+            "position": 1,
+            "totalRacers": 8,
+            "scrapsEarned": 10,
+            "repEarned": 1,
+            "log": [
+              "Fixture race completed"
+            ]
+          },
+          {
+            "circuitId": "backyard_derby",
+            "result": "win",
+            "position": 1,
+            "totalRacers": 8,
+            "scrapsEarned": 10,
+            "repEarned": 1,
+            "log": [
+              "Fixture race completed"
+            ]
+          },
+          {
+            "circuitId": "backyard_derby",
+            "result": "win",
+            "position": 1,
+            "totalRacers": 8,
+            "scrapsEarned": 10,
+            "repEarned": 1,
+            "log": [
+              "Fixture race completed"
+            ]
+          }
+        ],
         "winStreak": 0,
-        "bestWinStreak": 0,
-        "fatigue": 18,
-        "lifetimeRaces": 40,
+        "bestWinStreak": 5,
+        "fatigue": 19,
+        "lifetimeRaces": 74,
         "workshopLevels": {
-          "toolkit": 1,
-          "refurbishment_bench": 1,
-          "bargain_builder": 1
+          "budget_repairs": 2,
+          "reinforced_chassis": 2
         },
         "equippedGear": {
           "head": "head_bare",
@@ -3430,19 +2912,20 @@
         "pendingBuildVehicleId": "push_mower",
         "pendingBuildParts": {},
         "materials": {
-          "metalScrap": 80,
-          "rubberCompound": 80,
-          "heatCore": 80,
-          "circuitFragment": 80,
-          "carbonDust": 80,
-          "greaseSludge": 80
+          "metalScrap": 0,
+          "rubberCompound": 0,
+          "heatCore": 0,
+          "circuitFragment": 0,
+          "carbonDust": 0,
+          "greaseSludge": 0
         },
-        "forgeTokens": 25,
+        "forgeTokens": 0,
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
         "completedChallenges": [
-          "first_build"
+          "races_25",
+          "streak_5"
         ],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -3498,29 +2981,20 @@
           "engineering": 0,
           "fortune": 0
         },
-        "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
-          "crew_system",
-          "new_workshop_cats",
-          "advanced_circuits",
-          "fleet_garage",
-          "vehicle_mastery",
-          "track_customization"
-        ],
+        "unlockedFeatures": [],
         "lifetimeLPAllTime": 0,
         "lifetimeScrapResets": 0,
         "crewRoster": [],
         "crewSlots": 0,
         "earnedAchievements": [
-          "first_vehicle"
+          "ach_first_win"
         ],
-        "lifetimeRacesAllTime": 40,
-        "lifetimeWinsAllTime": 24,
-        "lifetimeScrapBucksAllTime": 100000,
-        "lifetimePartsScavengedAllTime": 650,
+        "lifetimeRacesAllTime": 74,
+        "lifetimeWinsAllTime": 38,
+        "lifetimeScrapBucksAllTime": 8000,
+        "lifetimePartsScavengedAllTime": 441,
         "lifetimeVehiclesBuiltAllTime": 3,
-        "bestWinStreakAllTime": 0,
+        "bestWinStreakAllTime": 5,
         "highestVehicleTierBuilt": 0,
         "totalForgeTokensEarned": 0,
         "uniqueVehicleTypesBuilt": [
@@ -3549,8 +3023,8 @@
           "luckBonus": 0,
           "repMultiplier": 1
         },
-        "legacyPoints": 106,
-        "lifetimeLegacyPoints": 106,
+        "legacyPoints": 27,
+        "lifetimeLegacyPoints": 27,
         "legacyUpgradeLevels": {},
         "activeMomentumTiers": [],
         "currentEra": 1,
@@ -3587,7 +3061,7 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
@@ -3647,19 +3121,21 @@
         "pendingBuildVehicleId": "push_mower",
         "pendingBuildParts": {},
         "materials": {
-          "metalScrap": 80,
-          "rubberCompound": 80,
-          "heatCore": 80,
-          "circuitFragment": 80,
-          "carbonDust": 80,
-          "greaseSludge": 80
+          "metalScrap": 0,
+          "rubberCompound": 0,
+          "heatCore": 0,
+          "circuitFragment": 0,
+          "carbonDust": 0,
+          "greaseSludge": 0
         },
-        "forgeTokens": 25,
+        "forgeTokens": 1,
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
         "completedChallenges": [
-          "first_build"
+          "races_25",
+          "streak_5",
+          "prestige_first"
         ],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -3696,7 +3172,7 @@
         "lifetimeTeamPoints": 0,
         "teamUpgradeLevels": {},
         "teamEraCount": 0,
-        "lifetimeLPThisTeamEra": 106,
+        "lifetimeLPThisTeamEra": 27,
         "ownerPoints": 0,
         "lifetimeOwnerPoints": 0,
         "ownerUpgradeLevels": {},
@@ -3715,22 +3191,14 @@
           "engineering": 0,
           "fortune": 0
         },
-        "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
-          "crew_system",
-          "new_workshop_cats",
-          "advanced_circuits",
-          "fleet_garage",
-          "vehicle_mastery",
-          "track_customization"
-        ],
-        "lifetimeLPAllTime": 106,
+        "unlockedFeatures": [],
+        "lifetimeLPAllTime": 27,
         "lifetimeScrapResets": 1,
         "crewRoster": [],
         "crewSlots": 0,
         "earnedAchievements": [
-          "first_vehicle"
+          "ach_first_win",
+          "ach_prestige_1"
         ],
         "lifetimeRacesAllTime": 0,
         "lifetimeWinsAllTime": 0,
@@ -4570,11 +4038,11 @@
               }
             },
             "stats": {
-              "speed": 83.84,
-              "handling": 22.200000000000003,
-              "reliability": 72,
+              "speed": 103.84,
+              "handling": 36.2,
+              "reliability": 85,
               "weight": 188,
-              "performance": 62.980000000000004
+              "performance": 79.78
             },
             "builtAt": 1700000000002,
             "condition": 76,
@@ -4641,7 +4109,7 @@
         "vehicleLoadouts": [],
         "selectedLocationId": "industrial_surplus",
         "selectedSellBelowQuality": "decent",
-        "selectedCircuitId": "regional_circuit",
+        "selectedCircuitId": "dirt_track",
         "currentRacePlan": {
           "tire": "medium",
           "fuelLoad": "balanced",
@@ -4669,7 +4137,7 @@
         },
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
-        "manualScavengeClicks": 500,
+        "manualScavengeClicks": 100,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -4703,7 +4171,19 @@
           "prototype_x"
         ],
         "_vehicleIdCounter": 0,
-        "raceHistory": [],
+        "raceHistory": [
+          {
+            "circuitId": "backyard_derby",
+            "result": "win",
+            "position": 1,
+            "totalRacers": 8,
+            "scrapsEarned": 10,
+            "repEarned": 1,
+            "log": [
+              "Fixture race completed"
+            ]
+          }
+        ],
         "winStreak": 0,
         "bestWinStreak": 0,
         "fatigue": 18,
@@ -4765,7 +4245,8 @@
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
         "completedChallenges": [
-          "first_build"
+          "races_25",
+          "streak_5"
         ],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -4822,14 +4303,12 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 400,
         "lifetimeScrapResets": 6,
@@ -4839,13 +4318,13 @@
             "name": "Rook",
             "role": "mechanic",
             "level": 3,
-            "xp": 40,
+            "xp": 190,
             "specialization": null
           }
         ],
         "crewSlots": 2,
         "earnedAchievements": [
-          "first_vehicle"
+          "ach_first_win"
         ],
         "lifetimeRacesAllTime": 40,
         "lifetimeWinsAllTime": 24,
@@ -4861,7 +4340,7 @@
           "go_kart"
         ],
         "unlockedPlaystyleNodes": [
-          "scrapper_start"
+          "ps_scrap_t1"
         ]
       }
     }
@@ -5044,14 +4523,12 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 400,
         "lifetimeScrapResets": 6,
@@ -5896,11 +5373,11 @@
               }
             },
             "stats": {
-              "speed": 83.84,
-              "handling": 22.200000000000003,
-              "reliability": 72,
+              "speed": 103.84,
+              "handling": 36.2,
+              "reliability": 85,
               "weight": 188,
-              "performance": 62.980000000000004
+              "performance": 79.78
             },
             "builtAt": 1700000000002,
             "condition": 76,
@@ -5967,7 +5444,7 @@
         "vehicleLoadouts": [],
         "selectedLocationId": "industrial_surplus",
         "selectedSellBelowQuality": "decent",
-        "selectedCircuitId": "regional_circuit",
+        "selectedCircuitId": "dirt_track",
         "currentRacePlan": {
           "tire": "medium",
           "fuelLoad": "balanced",
@@ -5995,7 +5472,7 @@
         },
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
-        "manualScavengeClicks": 500,
+        "manualScavengeClicks": 100,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -6091,7 +5568,8 @@
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
         "completedChallenges": [
-          "first_build"
+          "races_25",
+          "streak_5"
         ],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -6148,21 +5626,19 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 500,
         "lifetimeScrapResets": 8,
         "crewRoster": [],
         "crewSlots": 0,
         "earnedAchievements": [
-          "first_vehicle"
+          "ach_first_win"
         ],
         "lifetimeRacesAllTime": 40,
         "lifetimeWinsAllTime": 24,
@@ -6359,14 +5835,12 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 500,
         "lifetimeScrapResets": 8,
@@ -7211,11 +6685,11 @@
               }
             },
             "stats": {
-              "speed": 83.84,
-              "handling": 22.200000000000003,
-              "reliability": 72,
+              "speed": 103.84,
+              "handling": 36.2,
+              "reliability": 85,
               "weight": 188,
-              "performance": 62.980000000000004
+              "performance": 79.78
             },
             "builtAt": 1700000000002,
             "condition": 76,
@@ -7282,7 +6756,7 @@
         "vehicleLoadouts": [],
         "selectedLocationId": "industrial_surplus",
         "selectedSellBelowQuality": "decent",
-        "selectedCircuitId": "regional_circuit",
+        "selectedCircuitId": "dirt_track",
         "currentRacePlan": {
           "tire": "medium",
           "fuelLoad": "balanced",
@@ -7310,7 +6784,7 @@
         },
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
-        "manualScavengeClicks": 500,
+        "manualScavengeClicks": 100,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -7406,7 +6880,8 @@
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
         "completedChallenges": [
-          "first_build"
+          "races_25",
+          "streak_5"
         ],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -7463,21 +6938,19 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 700,
         "lifetimeScrapResets": 10,
         "crewRoster": [],
         "crewSlots": 0,
         "earnedAchievements": [
-          "first_vehicle"
+          "ach_first_win"
         ],
         "lifetimeRacesAllTime": 40,
         "lifetimeWinsAllTime": 24,
@@ -7674,14 +7147,12 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 700,
         "lifetimeScrapResets": 10,
@@ -7720,8 +7191,25 @@
         },
         "legacyPoints": 100000,
         "lifetimeLegacyPoints": 1000000,
-        "legacyUpgradeLevels": {},
-        "activeMomentumTiers": [],
+        "legacyUpgradeLevels": {
+          "leg_scrap_mult": 10,
+          "leg_rep_mult": 10,
+          "leg_starting_scrap": 20,
+          "leg_luck": 10,
+          "leg_decompose_yield": 8,
+          "leg_fatigue_offset": 10,
+          "leg_wear_reduction": 8,
+          "leg_keep_workshop": 5,
+          "leg_starting_location": 3
+        },
+        "activeMomentumTiers": [
+          "momentum_warmed_up",
+          "momentum_in_the_zone",
+          "momentum_reputation",
+          "momentum_second_wind",
+          "momentum_deep_run",
+          "momentum_legendary"
+        ],
         "currentEra": 1,
         "inventory": [
           {
@@ -10248,11 +9736,11 @@
               }
             },
             "stats": {
-              "speed": 161.94,
-              "handling": 37.82,
-              "reliability": 138,
+              "speed": 181.94,
+              "handling": 51.82,
+              "reliability": 151,
               "weight": 188,
-              "performance": 119.916
+              "performance": 136.716
             },
             "builtAt": 1700000000101,
             "condition": 100,
@@ -11037,8 +10525,25 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
-        "defeatedRivalIds": [],
-        "discoveredBlueprintIds": [],
+        "defeatedRivalIds": [
+          "rival_greasy_pete",
+          "rival_redline_rosa",
+          "rival_scrap_queen",
+          "rival_dust_storm"
+        ],
+        "discoveredBlueprintIds": [
+          "push_mower",
+          "riding_mower",
+          "go_kart",
+          "beater_car",
+          "street_racer",
+          "rally_car",
+          "stock_car",
+          "prototype_racer",
+          "supercar",
+          "hypercar",
+          "prototype_x"
+        ],
         "fleetAssignments": [],
         "ownedTrackConfig": {
           "surface": "gravel",
@@ -11051,7 +10556,7 @@
         },
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
-        "manualScavengeClicks": 500,
+        "manualScavengeClicks": 100,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -11085,9 +10590,21 @@
           "prototype_x"
         ],
         "_vehicleIdCounter": 0,
-        "raceHistory": [],
+        "raceHistory": [
+          {
+            "circuitId": "world_championship",
+            "result": "win",
+            "position": 1,
+            "totalRacers": 8,
+            "scrapsEarned": 10,
+            "repEarned": 1,
+            "log": [
+              "Fixture race completed"
+            ]
+          }
+        ],
         "winStreak": 0,
-        "bestWinStreak": 0,
+        "bestWinStreak": 100,
         "fatigue": 99,
         "lifetimeRaces": 100000,
         "workshopLevels": {
@@ -11127,40 +10644,208 @@
           "scavengers_eye": 1
         },
         "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
+          "head": "head_racing_helmet",
+          "body": "body_race_suit",
+          "hands": "hands_racing",
+          "feet": "feet_racing_boots",
+          "tool": "tool_power_tools",
+          "accessory": "acc_sponsor_bag"
         },
         "ownedGearIds": [
           "head_bare",
+          "head_bandana",
+          "head_goggles",
+          "head_mechanic_helmet",
+          "head_racing_helmet",
           "body_rags",
+          "body_coveralls",
+          "body_overalls",
+          "body_jumpsuit",
+          "body_race_suit",
           "hands_bare",
+          "hands_garden",
+          "hands_work",
+          "hands_mechanic",
+          "hands_racing",
           "feet_bare",
+          "feet_sneakers",
+          "feet_boots",
+          "feet_mechanic_boots",
+          "feet_racing_boots",
           "tool_stick",
-          "acc_empty"
+          "tool_screwdriver",
+          "tool_wrench",
+          "tool_pro_toolbox",
+          "tool_power_tools",
+          "acc_empty",
+          "acc_plastic_bag",
+          "acc_satchel",
+          "acc_belt",
+          "acc_sponsor_bag"
         ],
-        "lootGearInventory": [],
+        "lootGearInventory": [
+          {
+            "id": "fixture_loot_head",
+            "slot": "head",
+            "rarity": "epic",
+            "name": "Fixture Rally Goggles",
+            "effects": [
+              {
+                "type": "race_dnf_reduction",
+                "value": 0.08
+              }
+            ],
+            "enhancementLevel": 3,
+            "modSlots": 1,
+            "mods": [
+              {
+                "id": "fixture_installed_padding",
+                "templateId": "mod_padding",
+                "name": "Fixture Impact Padding",
+                "effectType": "race_wear_reduction_pct",
+                "value": 0.05
+              }
+            ],
+            "source": "fixture_maxed"
+          },
+          {
+            "id": "fixture_loot_hands",
+            "slot": "hands",
+            "rarity": "rare",
+            "name": "Fixture Pit Gloves",
+            "effects": [
+              {
+                "type": "build_cost_reduction_pct",
+                "value": 0.06
+              }
+            ],
+            "enhancementLevel": 1,
+            "modSlots": 1,
+            "mods": [],
+            "source": "fixture_maxed"
+          }
+        ],
         "equippedLootGear": {
-          "head": null,
+          "head": "fixture_loot_head",
           "body": null,
           "hands": null,
           "feet": null,
           "tool": null,
           "accessory": null
         },
-        "gearModInventory": [],
+        "gearModInventory": [
+          {
+            "id": "fixture_mod_grip",
+            "templateId": "mod_grip_tape",
+            "name": "Fixture Grip Tape",
+            "effectType": "race_handling_pct",
+            "value": 0.03
+          }
+        ],
         "unlockedTalentNodes": [],
-        "stationEquipmentInventory": [],
+        "stationEquipmentInventory": [
+          {
+            "id": "fixture_station_workbench",
+            "slot": "workbench",
+            "rarity": "legendary",
+            "name": "Maxed workbench",
+            "effects": [
+              {
+                "type": "attribute",
+                "attribute": "engineering",
+                "value": 18
+              }
+            ],
+            "enhancementLevel": 13,
+            "setId": "redline",
+            "source": "fixture_maxed"
+          },
+          {
+            "id": "fixture_station_lift",
+            "slot": "lift",
+            "rarity": "legendary",
+            "name": "Maxed lift",
+            "effects": [
+              {
+                "type": "attribute",
+                "attribute": "engineering",
+                "value": 18
+              }
+            ],
+            "enhancementLevel": 13,
+            "setId": "redline",
+            "source": "fixture_maxed"
+          },
+          {
+            "id": "fixture_station_diagnostics",
+            "slot": "diagnostics",
+            "rarity": "legendary",
+            "name": "Maxed diagnostics",
+            "effects": [
+              {
+                "type": "attribute",
+                "attribute": "engineering",
+                "value": 18
+              }
+            ],
+            "enhancementLevel": 13,
+            "setId": "redline",
+            "source": "fixture_maxed"
+          },
+          {
+            "id": "fixture_station_fabrication",
+            "slot": "fabrication",
+            "rarity": "legendary",
+            "name": "Maxed fabrication",
+            "effects": [
+              {
+                "type": "attribute",
+                "attribute": "engineering",
+                "value": 18
+              }
+            ],
+            "enhancementLevel": 13,
+            "setId": "redline",
+            "source": "fixture_maxed"
+          },
+          {
+            "id": "fixture_station_pit_equipment",
+            "slot": "pit_equipment",
+            "rarity": "legendary",
+            "name": "Maxed pit equipment",
+            "effects": [
+              {
+                "type": "attribute",
+                "attribute": "engineering",
+                "value": 18
+              }
+            ],
+            "enhancementLevel": 13,
+            "source": "fixture_maxed"
+          },
+          {
+            "id": "fixture_station_logistics",
+            "slot": "logistics",
+            "rarity": "legendary",
+            "name": "Maxed logistics",
+            "effects": [
+              {
+                "type": "attribute",
+                "attribute": "engineering",
+                "value": 18
+              }
+            ],
+            "enhancementLevel": 13,
+            "source": "fixture_maxed"
+          }
+        ],
         "equippedStationEquipment": {
-          "workbench": null,
-          "lift": null,
-          "diagnostics": null,
-          "fabrication": null,
-          "pit_equipment": null,
-          "logistics": null
+          "workbench": "fixture_station_workbench",
+          "lift": "fixture_station_lift",
+          "diagnostics": "fixture_station_diagnostics",
+          "fabrication": "fixture_station_fabrication",
+          "pit_equipment": "fixture_station_pit_equipment",
+          "logistics": "fixture_station_logistics"
         },
         "reforgeShards": 100000,
         "pendingBuildVehicleId": "push_mower",
@@ -11174,16 +10859,65 @@
           "greaseSludge": 1000000
         },
         "forgeTokens": 100000,
-        "dealerBoard": [],
-        "gameTick": 0,
+        "dealerBoard": [
+          {
+            "id": "fixture_max_dealer_1",
+            "definitionId": "engine_v8",
+            "condition": "pristine",
+            "price": 1500,
+            "expiresAt": 1000030
+          },
+          {
+            "id": "fixture_max_dealer_2",
+            "definitionId": "wheel_racing",
+            "condition": "pristine",
+            "price": 400,
+            "expiresAt": 1000030
+          },
+          {
+            "id": "fixture_max_dealer_3",
+            "definitionId": "frame_carbon",
+            "condition": "pristine",
+            "price": 2500,
+            "expiresAt": 1000030
+          }
+        ],
+        "gameTick": 1000000,
         "lastActiveTimestamp": 1700000000000,
-        "completedChallenges": [],
-        "challengeProgress": {},
-        "lifetimeTotalDecomposed": 0,
-        "lifetimeTotalEnhanced": 0,
-        "lifetimeTotalTradeUps": 0,
-        "lifetimeTotalRaceSalvage": 0,
-        "highestConditionReached": 0,
+        "completedChallenges": [
+          "first_decompose",
+          "decompose_50",
+          "decompose_200",
+          "streak_5",
+          "streak_10",
+          "first_enhance",
+          "first_legendary",
+          "first_mythic",
+          "fatigue_50",
+          "fatigue_80",
+          "races_25",
+          "races_100",
+          "prestige_first",
+          "prestige_3",
+          "first_tradeup",
+          "salvage_10"
+        ],
+        "challengeProgress": {
+          "totalDecomposed": 10000,
+          "winStreak": 100,
+          "fatigue": 99,
+          "lifetimeRaces": 100000,
+          "totalEnhanced": 10000,
+          "highestConditionReached": 8,
+          "prestigeCount": 25,
+          "totalTradeUps": 10000,
+          "totalRaceSalvage": 10000
+        },
+        "lifetimeTotalDecomposed": 10000,
+        "lifetimeTotalEnhanced": 10000,
+        "lifetimeTotalTradeUps": 10000,
+        "lifetimeTotalRaceSalvage": 10000,
+        "highestConditionReached": 8,
         "tutorialStep": -1,
         "tutorialDismissed": true,
         "tutorialMinimized": false,
@@ -11193,20 +10927,20 @@
         "_logIdCounter": 0,
         "racerSkills": {
           "driving": {
-            "xp": 0,
-            "level": 0
+            "xp": 1000000,
+            "level": 20
           },
           "mechanics": {
-            "xp": 0,
-            "level": 0
+            "xp": 1000000,
+            "level": 20
           },
           "scavenging": {
-            "xp": 0,
-            "level": 0
+            "xp": 1000000,
+            "level": 20
           },
           "endurance": {
-            "xp": 0,
-            "level": 0
+            "xp": 1000000,
+            "level": 20
           }
         },
         "teamPoints": 100000,
@@ -11231,7 +10965,6 @@
           "owner_auto_all": 1,
           "owner_adv_circuits": 1,
           "owner_vehicle_mastery": 1,
-          "owner_rd_lab": 1,
           "owner_born_rich": 5,
           "owner_fatigue_immune": 1,
           "owner_mat_synth": 1,
@@ -11264,28 +10997,87 @@
           "fortune": 0
         },
         "unlockedFeatures": [
-          "racer_attributes",
-          "expanded_talents",
           "crew_system",
-          "new_workshop_cats",
           "advanced_circuits",
           "fleet_garage",
           "vehicle_mastery",
-          "track_customization"
+          "track_customization",
+          "save_recovery"
         ],
         "lifetimeLPAllTime": 1000000,
-        "lifetimeScrapResets": 0,
-        "crewRoster": [],
+        "lifetimeScrapResets": 25,
+        "crewRoster": [
+          {
+            "id": "fixture_crew_mechanic",
+            "name": "Rook",
+            "role": "mechanic",
+            "level": 10,
+            "xp": 100000,
+            "specialization": "tuner"
+          },
+          {
+            "id": "fixture_crew_scout",
+            "name": "Scout",
+            "role": "scout",
+            "level": 10,
+            "xp": 100000,
+            "specialization": "treasure_hunter"
+          },
+          {
+            "id": "fixture_crew_driver",
+            "name": "Ace",
+            "role": "driver",
+            "level": 10,
+            "xp": 100000,
+            "specialization": "safety_first"
+          },
+          {
+            "id": "fixture_crew_trader",
+            "name": "Mags",
+            "role": "trader",
+            "level": 10,
+            "xp": 100000,
+            "specialization": "negotiator"
+          }
+        ],
         "crewSlots": 8,
-        "earnedAchievements": [],
+        "earnedAchievements": [
+          "ach_first_win",
+          "ach_wins_100",
+          "ach_wins_500",
+          "ach_races_1000",
+          "ach_streak_20",
+          "ach_vehicles_10",
+          "ach_vehicles_50",
+          "ach_all_types",
+          "ach_tier_8",
+          "ach_artifact",
+          "ach_scav_500",
+          "ach_scav_2000",
+          "ach_decompose_500",
+          "ach_prestige_1",
+          "ach_prestige_10",
+          "ach_prestige_25",
+          "ach_team_era",
+          "ach_owner_era",
+          "ach_scrap_1m",
+          "ach_scrap_10m",
+          "ach_lp_100",
+          "ach_lp_500",
+          "ach_tokens_10",
+          "ach_streak_50",
+          "ach_prestige_50",
+          "ach_scav_10000",
+          "ach_wins_2000"
+        ],
         "lifetimeRacesAllTime": 1000000,
         "lifetimeWinsAllTime": 800000,
         "lifetimeScrapBucksAllTime": 0,
         "lifetimePartsScavengedAllTime": 5000000,
         "lifetimeVehiclesBuiltAllTime": 11,
-        "bestWinStreakAllTime": 0,
-        "highestVehicleTierBuilt": 0,
-        "totalForgeTokensEarned": 0,
+        "bestWinStreakAllTime": 100,
+        "highestVehicleTierBuilt": 10,
+        "totalForgeTokensEarned": 100000,
         "uniqueVehicleTypesBuilt": [
           "push_mower",
           "riding_mower",
@@ -11299,7 +11091,20 @@
           "hypercar",
           "prototype_x"
         ],
-        "unlockedPlaystyleNodes": []
+        "unlockedPlaystyleNodes": [
+          "ps_scrap_t1",
+          "ps_scrap_t2a",
+          "ps_scrap_t3a",
+          "ps_scrap_t4",
+          "ps_speed_t1",
+          "ps_speed_t2a",
+          "ps_speed_t3a",
+          "ps_speed_t4",
+          "ps_eng_t1",
+          "ps_eng_t2a",
+          "ps_eng_t3a",
+          "ps_eng_t4"
+        ]
       }
     }
   }

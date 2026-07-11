@@ -32,7 +32,7 @@ const LP_AMPLIFIER: TeamUpgradeDefinition = {
 const QUICK_START: TeamUpgradeDefinition = {
   id: "team_quick_start",
   name: "Quick Start",
-  description: "Start L1 with 500 bonus scrap + auto-scavenge per level.",
+  description: "Start each Scrap run with 500 bonus Scrap Bucks per level.",
   category: "legacy",
   maxLevel: 5,
   baseCost: 5,
@@ -78,7 +78,7 @@ const EXTENDED_WORKSHOP: TeamUpgradeDefinition = {
 const FLEET_GARAGE: TeamUpgradeDefinition = {
   id: "team_fleet",
   name: "Fleet Garage",
-  description: "+1 active vehicle per level.",
+  description: "+1 concurrent Fleet Program assignment per level.",
   category: "infrastructure",
   maxLevel: 3,
   baseCost: 8,
@@ -216,7 +216,7 @@ const LOOT_MAGNETISM: TeamUpgradeDefinition = {
 const MATERIAL_RESONANCE: TeamUpgradeDefinition = {
   id: "team_mat_resonance",
   name: "Material Resonance",
-  description: "Start each team era with N materials per level.",
+  description: "Start each Scrap run with 1 of every material per level.",
   category: "fortune",
   maxLevel: 5,
   baseCost: 5,

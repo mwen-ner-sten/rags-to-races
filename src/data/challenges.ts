@@ -3,8 +3,7 @@ import type { MaterialType } from "./materials";
 export type ChallengeRewardType =
   | { type: "forgeToken"; amount: number }
   | { type: "material"; material: MaterialType; amount: number }
-  | { type: "scrap"; amount: number }
-  | { type: "dealerRefresh" };
+  | { type: "scrap"; amount: number };
 
 export interface ChallengeDefinition {
   id: string;
@@ -104,7 +103,7 @@ export const CHALLENGE_DEFINITIONS: ChallengeDefinition[] = [
     target: 6, // legendary = index 6
     rewards: [
       { type: "forgeToken", amount: 1 },
-      { type: "dealerRefresh" },
+      { type: "scrap", amount: 300 },
     ],
     completionText: "A trash-heap part with a legendary soul. Beautiful.",
     repeatable: false,

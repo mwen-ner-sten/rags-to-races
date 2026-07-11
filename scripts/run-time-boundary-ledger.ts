@@ -21,13 +21,18 @@ const durations = [
     ticks: result.ticksProcessed,
     scavenges: result.scavengesCompleted,
     races: result.racesCompleted,
-    parts: result.partsFound.length,
+    partsFound: result.partsScavenged,
+    partsKept: result.partsFound.length,
+    partsAutoSold: result.partsAutoSold,
+    overflowScrap: result.scrapsFromAutoSoldParts,
     scrap: result.scrapsEarned,
     rep: result.repEarned,
     wear: result.vehicleWearTotal,
     repairs: result.vehicleRepairTotal,
-    gearDrops: result.lootGearDrops.length,
-    modDrops: result.modDrops.length,
+    gearDropsKept: result.lootGearDrops.length,
+    gearDropsAutoSalvaged: result.stationEquipmentAutoSalvaged,
+    modDrops: result.modDropsFound,
+    reforgeShards: result.reforgeShardsFound + result.modDrops.length,
   };
 });
 

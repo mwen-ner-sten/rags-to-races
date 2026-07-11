@@ -1,3 +1,5 @@
+import { REP_PROGRESSION } from "@/config/progression";
+
 export type GearSlot = "head" | "body" | "hands" | "feet" | "tool" | "accessory";
 
 export const GEAR_SLOTS: GearSlot[] = ["head", "body", "hands", "feet", "tool", "accessory"];
@@ -64,7 +66,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "scavenge_luck_bonus", value: 0.05 },
       { type: "race_dnf_reduction", value: 0.03 },
     ],
-    unlockRequirement: { repPoints: 3000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.uncommon },
   },
   {
     id: "head_mechanic_helmet",
@@ -78,7 +80,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "race_wear_reduction_pct", value: 0.05 },
       { type: "scavenge_luck_bonus", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 12000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.rare },
   },
   {
     id: "head_racing_helmet",
@@ -92,7 +94,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "race_wear_reduction_pct", value: 0.10 },
       { type: "race_dnf_reduction", value: 0.08 },
     ],
-    unlockRequirement: { repPoints: 80000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.epic },
   },
 
   // ── Body ──────────────────────────────────────────────────────────────────
@@ -128,7 +130,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "build_cost_reduction_pct", value: 0.05 },
       { type: "repair_cost_reduction_pct", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 3000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.uncommon },
   },
   {
     id: "body_jumpsuit",
@@ -142,7 +144,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "build_cost_reduction_pct", value: 0.08 },
       { type: "repair_cost_reduction_pct", value: 0.08 },
     ],
-    unlockRequirement: { repPoints: 12000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.rare },
   },
   {
     id: "body_race_suit",
@@ -156,7 +158,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "race_performance_pct", value: 0.08 },
       { type: "race_wear_reduction_pct", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 80000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.epic },
   },
 
   // ── Hands ─────────────────────────────────────────────────────────────────
@@ -192,7 +194,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "scavenge_luck_bonus", value: 0.05 },
       { type: "scavenge_yield_pct", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 3000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.uncommon },
   },
   {
     id: "hands_mechanic",
@@ -206,7 +208,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "build_cost_reduction_pct", value: 0.05 },
       { type: "refurb_cost_reduction_pct", value: 0.08 },
     ],
-    unlockRequirement: { repPoints: 12000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.rare },
   },
   {
     id: "hands_racing",
@@ -220,7 +222,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "race_performance_pct", value: 0.05 },
       { type: "race_handling_pct", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 80000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.epic },
   },
 
   // ── Feet ──────────────────────────────────────────────────────────────────
@@ -256,7 +258,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "scavenge_yield_pct", value: 0.05 },
       { type: "scavenge_luck_bonus", value: 0.03 },
     ],
-    unlockRequirement: { repPoints: 3000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.uncommon },
   },
   {
     id: "feet_mechanic_boots",
@@ -270,7 +272,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "scavenge_yield_pct", value: 0.10 },
       { type: "scavenge_luck_bonus", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 12000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.rare },
   },
   {
     id: "feet_racing_boots",
@@ -284,7 +286,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "race_handling_pct", value: 0.05 },
       { type: "race_performance_pct", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 80000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.epic },
   },
 
   // ── Tool ──────────────────────────────────────────────────────────────────
@@ -320,7 +322,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "build_cost_reduction_pct", value: 0.08 },
       { type: "repair_cost_reduction_pct", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 3000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.uncommon },
   },
   {
     id: "tool_pro_toolbox",
@@ -334,7 +336,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "build_cost_reduction_pct", value: 0.12 },
       { type: "repair_cost_reduction_pct", value: 0.10 },
     ],
-    unlockRequirement: { repPoints: 12000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.rare },
   },
   {
     id: "tool_power_tools",
@@ -348,7 +350,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "build_cost_reduction_pct", value: 0.15 },
       { type: "repair_cost_reduction_pct", value: 0.15 },
     ],
-    unlockRequirement: { repPoints: 80000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.epic },
   },
 
   // ── Accessory ─────────────────────────────────────────────────────────────
@@ -384,7 +386,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "scavenge_yield_pct", value: 0.05 },
       { type: "sell_value_bonus_pct", value: 0.08 },
     ],
-    unlockRequirement: { repPoints: 3000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.uncommon },
   },
   {
     id: "acc_belt",
@@ -398,7 +400,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "sell_value_bonus_pct", value: 0.10 },
       { type: "repair_cost_reduction_pct", value: 0.05 },
     ],
-    unlockRequirement: { repPoints: 12000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.rare },
   },
   {
     id: "acc_sponsor_bag",
@@ -412,7 +414,7 @@ export const GEAR_DEFINITIONS: GearDefinition[] = [
       { type: "sell_value_bonus_pct", value: 0.15 },
       { type: "race_scrap_bonus_pct", value: 0.10 },
     ],
-    unlockRequirement: { repPoints: 80000 },
+    unlockRequirement: { repPoints: REP_PROGRESSION.gear.epic },
   },
 ];
 

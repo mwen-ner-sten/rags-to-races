@@ -7,8 +7,8 @@ import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateOdds } from "@/engine/race";
 import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
-import { RACE_TICKS_DEFAULT } from "@/engine/tick";
-import { formatNumber } from "@/utils/format";
+import { getRaceTicksNeeded } from "@/engine/tick";
+import { formatNumber, formatRep } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
 import RaceTrackSVG from "@/components/RaceTrack/RaceTrackSVG";
@@ -16,7 +16,12 @@ import type { RaceEvent } from "@/engine/raceEvents";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import GameAssetImage from "@/components/GameAssetImage";
-import { getRivalById } from "@/data/rivals";
+import { formatRivalWinStatus, getRivalById } from "@/data/rivals";
+import { getPermanentRuntimeBonuses } from "@/engine/permanentBonuses";
+import { getGameEffectValue } from "@/data/gameEffects";
+import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
+import { TALENT_NODES } from "@/data/talentNodes";
+import { getRaceIneligibilityReason } from "@/engine/eligibility";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -220,6 +225,7 @@ function OddsDisplay({
   profile,
   plan,
   diagnosticsLevel,
+  dnfChanceMultiplier,
 }: {
   performance: number;
   reliability: number;
@@ -235,11 +241,12 @@ function OddsDisplay({
   profile: CircuitProfile;
   plan: RacePlan;
   diagnosticsLevel: number;
+  dnfChanceMultiplier: number;
 }) {
   const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation],
+    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation, dnfChanceMultiplier),
+    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation, dnfChanceMultiplier],
   );
   const forecast = useMemo(() => buildRaceForecast(odds.winChance, odds.dnfChance, 5, evaluation, diagnosticsLevel), [odds, evaluation, diagnosticsLevel]);
 
@@ -339,23 +346,29 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const selectedCircuitId = useGameStore((s) => s.selectedCircuitId);
   const unlockedCircuitIds = useGameStore((s) => s.unlockedCircuitIds);
+  const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
   const isRacing = useGameStore((s) => s.isRacing);
   const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
   const raceHistory = useGameStore((s) => s.raceHistory);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
   const raceTickProgress = useGameStore((s) => s.raceTickProgress);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
-  const workshopLevels = useGameStore((s) => s.workshopLevels);
   const raceEvents = useGameStore((s) => s.raceEvents);
   const raceStartTime = useGameStore((s) => s.raceStartTime);
   const winStreak = useGameStore((s) => s.winStreak);
   const bestWinStreak = useGameStore((s) => s.bestWinStreak);
-  const prestigeBonus = useGameStore((s) => s.prestigeBonus);
+  const earnedAchievements = useGameStore((s) => s.earnedAchievements);
+  const unlockedPlaystyleNodes = useGameStore((s) => s.unlockedPlaystyleNodes);
+  const crewRoster = useGameStore((s) => s.crewRoster);
+  const teamUpgradeLevels = useGameStore((s) => s.teamUpgradeLevels);
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
   const lifetimeRacesAllTime = useGameStore((s) => s.lifetimeRacesAllTime);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const fatigue = useGameStore((s) => s.fatigue);
   const equippedGear = useGameStore((s) => s.equippedGear);
+  const equippedLootGear = useGameStore((s) => s.equippedLootGear);
+  const lootGearInventory = useGameStore((s) => s.lootGearInventory);
+  const unlockedTalentNodes = useGameStore((s) => s.unlockedTalentNodes);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
   const currentRacePlan = useGameStore((s) => s.currentRacePlan);
@@ -363,10 +376,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const applyRacePlanPreset = useGameStore((s) => s.applyRacePlanPreset);
 
   // Compute how many ticks are needed between auto-races
-  const raceTicksNeeded = Math.max(
-    1,
-    RACE_TICKS_DEFAULT - (workshopLevels["pit_crew"] ?? 0),
-  );
+  const raceTicksNeeded = useGameStore(getRaceTicksNeeded);
 
   // Track when result changes to trigger confetti/shake via Zustand subscription
   const [confettiKey, setConfettiKey] = useState<number | null>(null);
@@ -407,11 +417,34 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const stationEquipmentInventory = useGameStore((s) => s.stationEquipmentInventory);
   const diagnosticsItem = stationEquipmentInventory.find((item) => item.id === equippedStationEquipment.diagnostics);
   const diagnosticsLevel = diagnosticsItem ? diagnosticsItem.enhancementLevel + ({ common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 }[diagnosticsItem.rarity]) : 0;
-  const gb = useMemo(() => getGearBonuses(equippedGear, undefined, undefined, undefined, undefined, equippedStationEquipment, stationEquipmentInventory), [equippedGear, equippedStationEquipment, stationEquipmentInventory]);
+  const gb = useMemo(
+    () => getGearBonuses(
+      equippedGear,
+      equippedLootGear,
+      lootGearInventory,
+      unlockedTalentNodes,
+      TALENT_NODES,
+      equippedStationEquipment,
+      stationEquipmentInventory,
+    ),
+    [equippedGear, equippedLootGear, lootGearInventory, unlockedTalentNodes, equippedStationEquipment, stationEquipmentInventory],
+  );
   const racerSkills = useGameStore((s) => s.racerSkills);
+  const permanentRaceBonuses = useMemo(
+    () => getPermanentRuntimeBonuses({ earnedAchievements, unlockedPlaystyleNodes, crewRoster }),
+    [earnedAchievements, unlockedPlaystyleNodes, crewRoster],
+  );
+  const teamRacePerformance = getGameEffectValue(
+    TEAM_UPGRADE_DEFINITIONS,
+    teamUpgradeLevels,
+    "base_race_performance",
+  );
 
   const availableCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
-    !c.requiredFeature || isFeatureAvailable(c.requiredFeature as FeatureId),
+    !c.requiredFeature || (
+      isFeatureAvailable(c.requiredFeature as FeatureId) &&
+      unlockedFeatures.includes(c.requiredFeature)
+    ),
   );
   const unlockedCircuits = availableCircuits.filter((c) =>
     unlockedCircuitIds.includes(c.id),
@@ -423,14 +456,15 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const selectedCircuit = availableCircuits.find((c) => c.id === selectedCircuitId);
   const sb = getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0);
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
-  const canEnter =
-    !isRacing &&
-    activeVehicle &&
-    selectedCircuit &&
-    scrapBucks >= selectedCircuit.entryFee &&
-    activeVehicleDef &&
-    activeVehicleDef.tier >= selectedCircuit.minVehicleTier &&
-    vehicleCondition > 0;
+  const raceIneligibilityReason = getRaceIneligibilityReason({
+    activeVehicleId,
+    garage,
+    selectedCircuitId,
+    unlockedCircuitIds,
+    scrapBucks,
+    isRacing,
+  });
+  const canEnter = raceIneligibilityReason === null;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
@@ -456,7 +490,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                   : { borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
               }
             >
-              <GameAssetImage kind="circuit" id={circuit.id} width={120} height={68} className="mb-2 rounded object-cover" />
+              <GameAssetImage kind="circuit" id={circuit.id} width={120} height={68} loading="eager" className="mb-2 rounded object-cover" />
               <div className="font-semibold text-sm" style={{ color: "var(--text-white)" }}>{circuit.name}</div>
               <div className="mt-0.5 text-xs hidden lg:block" style={{ color: "var(--text-heading)" }}>{circuit.description}</div>
               <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -465,11 +499,22 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 <span>+{circuit.repReward} Rep</span>
               </div>
               <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                T{circuit.minVehicleTier}+ vehicle
+                Vehicle T{circuit.minVehicleTier}–T{circuit.maxVehicleTier}
               </div>
             </button>
           ))}
         </div>
+        {lockedCircuits[0] && (
+          <div
+            className="rounded-lg p-2.5 opacity-70 lg:hidden"
+            style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
+          >
+            <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>🔒 Next: {lockedCircuits[0].name}</div>
+            <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              Need {lockedCircuits[0].unlockRepCost} Rep (you have {Math.floor(repPoints)})
+            </div>
+          </div>
+        )}
         {lockedCircuits.map((circuit) => (
           <div
             key={circuit.id}
@@ -525,14 +570,16 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
               Your vehicle is falling apart! Consider repairing.
             </div>
             {(() => {
-              const showTierWarning = !!(selectedCircuit && activeVehicleDef && activeVehicleDef.tier < selectedCircuit.minVehicleTier);
+              const showTierWarning = !!(selectedCircuit && activeVehicleDef && (
+                activeVehicleDef.tier < selectedCircuit.minVehicleTier || activeVehicleDef.tier > selectedCircuit.maxVehicleTier
+              ));
               const qualifyingVehicle = showTierWarning ? garage.find((v) => {
                 const def = VEHICLE_DEFINITIONS.find((d) => d.id === v.definitionId);
-                return def && def.tier >= selectedCircuit!.minVehicleTier;
+                return def && def.tier >= selectedCircuit!.minVehicleTier && def.tier <= selectedCircuit!.maxVehicleTier;
               }) : null;
               return (
                 <div className={`mt-1.5 text-xs font-semibold ${showTierWarning ? "" : "invisible"}`} style={{ color: "var(--warning)" }}>
-                  Your racer doesn&apos;t meet the {selectedCircuit ? `T${selectedCircuit.minVehicleTier}+` : ""} requirement.{" "}
+                  Your racer doesn&apos;t meet the {selectedCircuit ? `T${selectedCircuit.minVehicleTier}–T${selectedCircuit.maxVehicleTier}` : ""} requirement.{" "}
                   {qualifyingVehicle ? (
                     <button onClick={() => setActiveTab?.("garage")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
                       Activate a qualifying vehicle in the Garage
@@ -557,7 +604,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 {(() => {
                   const qualifyingVehicle = garage.find((v) => {
                     const def = VEHICLE_DEFINITIONS.find((d) => d.id === v.definitionId);
-                    return def && def.tier >= selectedCircuit.minVehicleTier;
+                    return def && def.tier >= selectedCircuit.minVehicleTier && def.tier <= selectedCircuit.maxVehicleTier;
                   });
                   return qualifyingVehicle ? (
                     <button onClick={() => setActiveTab?.("garage")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
@@ -565,7 +612,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                     </button>
                   ) : (
                     <>
-                      You need a T{selectedCircuit.minVehicleTier}+ vehicle.{" "}
+                      You need a T{selectedCircuit.minVehicleTier}–T{selectedCircuit.maxVehicleTier} vehicle.{" "}
                       <button onClick={() => setActiveTab?.("junkyard")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
                         Scavenge parts in the Junkyard
                       </button>
@@ -587,17 +634,18 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             performance={activeVehicle.stats.performance}
             reliability={activeVehicle.stats.reliability}
             difficulty={selectedCircuit.difficulty}
-            prestigeBonus={prestigeBonus.scrapMultiplier}
+            prestigeBonus={1}
             fatigue={fatigue}
-            gearPerformanceBonus={gb.race_performance_pct}
-            gearDnfReduction={gb.race_dnf_reduction}
+            gearPerformanceBonus={gb.race_performance_pct + teamRacePerformance + permanentRaceBonuses.racePerformanceBonus}
+            gearDnfReduction={gb.race_dnf_reduction + permanentRaceBonuses.raceDnfFlatReduction}
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
             momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
-            forceDNF={lifetimeRacesAllTime === 0 && (tutorialStep === 9 || tutorialStep === 10)}
+            forceDNF={lifetimeRacesAllTime === 0 && tutorialStep >= 9 && tutorialStep <= 11}
             profile={selectedCircuit.profile}
             plan={currentRacePlan}
             diagnosticsLevel={diagnosticsLevel}
+            dnfChanceMultiplier={permanentRaceBonuses.raceDnfChanceMultiplier}
           />
           </div>
         )}
@@ -615,7 +663,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           </button>
           {!autoRaceUnlocked && prestigeCount === 0 && (
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Auto-Race unlocks after first Prestige
+              Auto-Race unlocks after the first Scrap Reset
             </span>
           )}
           {autoRaceUnlocked && (
@@ -649,12 +697,18 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           )}
           <StreakDisplay streak={winStreak} best={bestWinStreak} />
           <span className={`text-xs ${selectedCircuit && !canEnter && !isRacing ? "" : "invisible"}`} style={{ color: "var(--text-muted)" }}>
-            {!activeVehicle
+            {raceIneligibilityReason === "no_vehicle"
               ? "No vehicle"
-              : selectedCircuit && scrapBucks < selectedCircuit.entryFee
+              : raceIneligibilityReason === "circuit_locked"
+              ? "Circuit is locked"
+              : raceIneligibilityReason === "entry_fee" && selectedCircuit
               ? `Need $${formatNumber(selectedCircuit.entryFee)}`
-              : activeVehicleDef && selectedCircuit && activeVehicleDef.tier < selectedCircuit.minVehicleTier
+              : raceIneligibilityReason === "vehicle_tier_low" && selectedCircuit
               ? `Need T${selectedCircuit.minVehicleTier}+ vehicle`
+              : raceIneligibilityReason === "vehicle_tier_high" && selectedCircuit
+              ? `Maximum T${selectedCircuit.maxVehicleTier} vehicle`
+              : raceIneligibilityReason === "vehicle_broken"
+              ? "Repair the active vehicle"
               : "\u00A0"}
           </span>
         </div>
@@ -695,7 +749,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 ? "💥 DNF"
                 : `P${lastRaceOutcome.position}/${lastRaceOutcome.totalRacers}`}
             </div>
-            {lastRaceOutcome.rivalId && (() => { const rival = getRivalById(lastRaceOutcome.rivalId!); return rival ? <div className="mb-3 flex items-center gap-3 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}><GameAssetImage kind="rival" id={rival.id} width={48} /><div><strong className="text-sm" style={{ color: "var(--text-white)" }}>{rival.name}</strong><p className="text-xs" style={{ color: "var(--text-muted)" }}>{rival.flavor}</p>{lastRaceOutcome.result === "win" && <p className="text-xs" style={{ color: "var(--success)" }}>Defeated · {rival.reward.label}</p>}</div></div> : null; })()}
+            {lastRaceOutcome.rivalId && (() => { const rival = getRivalById(lastRaceOutcome.rivalId!); return rival ? <div className="mb-3 flex items-center gap-3 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}><GameAssetImage kind="rival" id={rival.id} width={48} /><div><strong className="text-sm" style={{ color: "var(--text-white)" }}>{rival.name}</strong><p className="text-xs" style={{ color: "var(--text-muted)" }}>{rival.flavor}</p>{lastRaceOutcome.result === "win" && <p className="text-xs" style={{ color: lastRaceOutcome.rivalRewardClaimed ? "var(--success)" : "var(--text-muted)" }}>{formatRivalWinStatus(rival, lastRaceOutcome.rivalRewardClaimed === true)}</p>}</div></div> : null; })()}
             {lastRaceOutcome.log.map((line, i) => (
               <div
                 key={i}
@@ -749,9 +803,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
 
         {/* Rep display */}
         <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-          Rep Points: <span className="font-semibold" style={{ color: "var(--info)" }}>{Math.floor(repPoints)}</span>
+          Rep Points: <span className="font-semibold" style={{ color: "var(--info)" }}>{formatRep(repPoints)}</span>
           {!autoRaceUnlocked && prestigeCount === 0 && (
-            <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>(Auto-Race unlocks after first Prestige)</span>
+            <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>(Auto-Race unlocks after the first Scrap Reset)</span>
           )}
         </div>
       </div>

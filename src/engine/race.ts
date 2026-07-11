@@ -23,6 +23,8 @@ export interface RaceOutcome {
   forgeTokenDrop?: boolean;
   planEvaluation?: RacePlanEvaluation;
   rivalId?: string;
+  /** True only when this result granted the rival's one-time reward. */
+  rivalRewardClaimed?: boolean;
   circuitId: string;
 }
 
@@ -66,11 +68,21 @@ export function calculateOdds(
   momentumWinBonus: number = 0,
   forceDNF: boolean = false,
   planEvaluation?: RacePlanEvaluation,
+  dnfChanceMultiplier: number = 1,
 ): { winChance: number; dnfChance: number; oddsLabel: string } {
   const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
   const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult) * (planEvaluation?.performanceMultiplier ?? 1);
   const winChance = forceDNF ? 0 : Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2) + momentumWinBonus));
-  const dnfChance = forceDNF ? 1 : Math.max(0, Math.min(0.95, 0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction + (planEvaluation?.dnfDelta ?? 0)));
+  const dnfChance = forceDNF
+    ? 1
+    : Math.max(
+        0,
+        Math.min(
+          0.95,
+          (0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction + (planEvaluation?.dnfDelta ?? 0)) *
+            Math.max(0, dnfChanceMultiplier),
+        ),
+      );
 
   // Convert to odds format (e.g., 2:1, 5:1)
   let oddsLabel: string;
@@ -140,6 +152,7 @@ export function simulateRace(
   skillDnfReduction: number = 0,
   forceDNF: boolean = false,
   racePlan: RacePlan = DEFAULT_RACE_PLAN,
+  dnfChanceMultiplier: number = 1,
 ): RaceOutcome {
   const totalRacers = 8;
   const { performance } = vehicle.stats;
@@ -180,6 +193,7 @@ export function simulateRace(
     momentumWinBonus,
     forceDNF,
     planEvaluation,
+    dnfChanceMultiplier,
   );
   const dnfChance = odds.dnfChance;
   if (random() < dnfChance) {
@@ -234,6 +248,31 @@ export function simulateRace(
     rivalId: rival?.id,
     circuitId: circuit.id,
   };
+}
+
+/**
+ * Keep recent outcomes bounded without forgetting that a circuit was won.
+ * Fleet Programs use retained circuit wins as their completion certificate.
+ */
+export function compactRaceHistory(
+  outcomes: RaceOutcome[],
+  maxEntries: number = 20,
+): RaceOutcome[] {
+  if (outcomes.length <= maxEntries) return outcomes;
+  const requiredWinIndexes = new Set<number>();
+  const representedCircuits = new Set<string>();
+  for (let index = 0; index < outcomes.length; index++) {
+    const outcome = outcomes[index];
+    if (outcome.result !== "win" || representedCircuits.has(outcome.circuitId)) continue;
+    representedCircuits.add(outcome.circuitId);
+    requiredWinIndexes.add(index);
+    if (requiredWinIndexes.size >= maxEntries) break;
+  }
+  const selectedIndexes = new Set(requiredWinIndexes);
+  for (let index = 0; index < outcomes.length && selectedIndexes.size < maxEntries; index++) {
+    selectedIndexes.add(index);
+  }
+  return outcomes.filter((_, index) => selectedIndexes.has(index));
 }
 
 /** Calculate condition points lost from a race. */

@@ -3,6 +3,11 @@ import { RESET_PRESERVE_FIELDS, type ResetLayer } from "@/data/resetContracts";
 import { createInitialState, type GameState, useGameStore } from "@/state/store";
 import { getPersistedGameState } from "@/state/persistence";
 import { createAllGameplayFixtures, createGameplayFixture, GAMEPLAY_FIXTURE_NAMES, validateGameplayFixture } from "../gameplayFixtures";
+import { AUTO_SCAVENGE_MANUAL_TARGET } from "@/config/gameplayLimits";
+import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
+import { LEGACY_UPGRADE_DEFINITIONS } from "@/data/legacyUpgrades";
+import { PLAYSTYLE_PATHS } from "@/data/playstyleUpgrades";
+import { GARAGE_STATION_IDS } from "@/data/garageStations";
 
 afterEach(() => useGameStore.setState(createInitialState()));
 
@@ -17,28 +22,109 @@ describe("accelerated campaign fixtures", () => {
     for (const fixture of Object.values(fixtures)) expect(validateGameplayFixture(fixture), fixture.name).toEqual([]);
   });
 
-  it("unlocks auto-scavenge at exactly the 500th manual action", () => {
+  it("rejects stale or unknown scenario identifiers", () => {
+    const fixture = createGameplayFixture("workshop_ready");
+    const invalid = {
+      ...fixture,
+      payload: {
+        ...fixture.payload,
+        state: {
+          ...fixture.payload.state,
+          completedChallenges: ["not_a_challenge"],
+          earnedAchievements: ["not_an_achievement"],
+          unlockedPlaystyleNodes: ["not_a_node"],
+          activeMomentumTiers: ["not_momentum"],
+          crewRoster: [{ id: "bad_crew", name: "Bad Crew", role: "mechanic", level: 3, xp: 0, specialization: null }],
+          unlockedFeatures: ["not_a_feature"],
+          unlockedLocationIds: [...fixture.payload.state.unlockedLocationIds, "not_a_location"],
+          unlockedCircuitIds: [...fixture.payload.state.unlockedCircuitIds, "not_a_circuit"],
+          unlockedVehicleIds: [...fixture.payload.state.unlockedVehicleIds, "not_a_vehicle"],
+        } as typeof fixture.payload.state,
+      },
+    };
+    expect(validateGameplayFixture(invalid)).toEqual(expect.arrayContaining([
+      "unknown challenge not_a_challenge",
+      "unknown achievement not_an_achievement",
+      "unknown playstyle node not_a_node",
+      "unknown momentum tier not_momentum",
+      "crew level/xp mismatch for bad_crew",
+      "unknown feature not_a_feature",
+      "unknown location not_a_location",
+      "unknown circuit not_a_circuit",
+      "unknown vehicle unlock not_a_vehicle",
+    ]));
+  });
+
+  it("unlocks auto-scavenge at exactly the configured manual-action target", () => {
     load("auto_scavenge_boundary");
-    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: 499, autoScavengeUnlocked: false });
+    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET - 1, autoScavengeUnlocked: false });
     useGameStore.getState().manualScavenge();
-    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: 500, autoScavengeUnlocked: true });
+    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET, autoScavengeUnlocked: true });
   });
 
-  it("unlocks auto-race on the first Scrap Reset, not before", () => {
+  it("unlocks both automation systems on the first Scrap Reset, not before", () => {
     load("first_scrap_reset_ready");
-    expect(useGameStore.getState().autoRaceUnlocked).toBe(false);
+    expect(useGameStore.getState()).toMatchObject({ autoScavengeUnlocked: false, autoRaceUnlocked: false });
     useGameStore.getState().prestige();
-    expect(useGameStore.getState()).toMatchObject({ prestigeCount: 1, autoRaceUnlocked: true });
+    expect(useGameStore.getState()).toMatchObject({ prestigeCount: 1, autoScavengeUnlocked: true, autoRaceUnlocked: true });
   });
 
-  it("models the first post-reset run with Auto-Race but without Auto-Scavenge", () => {
+  it("clears per-run challenge snapshots on Scrap Reset", () => {
+    load("first_scrap_reset_ready");
+    useGameStore.setState((state) => ({
+      challengeProgress: { ...state.challengeProgress, winStreak: 9, fatigue: 72, lifetimeRaces: 99, totalRaceSalvage: 12 },
+    }));
+    useGameStore.getState().prestige();
+    expect(useGameStore.getState().challengeProgress).toMatchObject({
+      winStreak: 0,
+      fatigue: 0,
+      lifetimeRaces: 0,
+      totalRaceSalvage: 12,
+    });
+  });
+
+  it("models the first post-reset run with both automation systems", () => {
     load("post_scrap_reset");
     expect(useGameStore.getState()).toMatchObject({
       prestigeCount: 1,
       manualScavengeClicks: 0,
-      autoScavengeUnlocked: false,
+      autoScavengeUnlocked: true,
       autoRaceUnlocked: true,
     });
+  });
+
+  it("keeps the first-reset ready and post-reset fixtures at the exact live contract", () => {
+    const expectedPost = createGameplayFixture("post_scrap_reset").payload.state;
+    load("first_scrap_reset_ready");
+    const ready = useGameStore.getState();
+    expect(ready.garage).toHaveLength(SCRAP_RESET_REQUIREMENTS.vehiclesBuilt);
+    expect(ready.repPoints).toBe(SCRAP_RESET_REQUIREMENTS.reputation);
+    expect(ready.lifetimeScrapBucks).toBe(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks);
+
+    ready.prestige();
+    const actual = useGameStore.getState();
+    expect(actual).toMatchObject({
+      prestigeCount: expectedPost.prestigeCount,
+      legacyPoints: expectedPost.legacyPoints,
+      lifetimeLegacyPoints: expectedPost.lifetimeLegacyPoints,
+      autoScavengeUnlocked: expectedPost.autoScavengeUnlocked,
+      autoRaceUnlocked: expectedPost.autoRaceUnlocked,
+      forgeTokens: expectedPost.forgeTokens,
+    });
+    expect(actual.completedChallenges).toEqual(expect.arrayContaining(expectedPost.completedChallenges));
+    expect(actual.earnedAchievements).toEqual(expect.arrayContaining(expectedPost.earnedAchievements));
+  });
+
+  it("makes the maxed fixture cover every released maxable system", () => {
+    load("maxed");
+    const state = useGameStore.getState();
+    for (const definition of LEGACY_UPGRADE_DEFINITIONS) expect(state.legacyUpgradeLevels[definition.id]).toBe(definition.maxLevel);
+    for (const path of PLAYSTYLE_PATHS) expect(state.unlockedPlaystyleNodes.some((nodeId) => nodeId.startsWith(path.id === "scrapper" ? "ps_scrap" : path.id === "speedster" ? "ps_speed" : "ps_eng"))).toBe(true);
+    expect(state.stationEquipmentInventory).toHaveLength(GARAGE_STATION_IDS.length);
+    expect(state.stationEquipmentInventory.every((item) => item.rarity === "legendary" && item.enhancementLevel === 13)).toBe(true);
+    expect(Object.values(state.equippedStationEquipment).filter(Boolean)).toHaveLength(GARAGE_STATION_IDS.length);
+    expect(state.earnedAchievements.length).toBeGreaterThan(0);
+    expect(state.completedChallenges.length).toBeGreaterThan(0);
   });
 });
 

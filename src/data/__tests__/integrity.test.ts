@@ -11,6 +11,7 @@ import {
   PLAYSTYLE_NODES_BY_ID,
   PLAYSTYLE_PATHS,
 } from "@/data/playstyleUpgrades";
+import { getCircuitTheme } from "@/components/RaceTrack/circuitThemes";
 
 describe("CIRCUIT_DEFINITIONS integrity", () => {
   it("has no duplicate IDs", () => {
@@ -40,6 +41,11 @@ describe("CIRCUIT_DEFINITIONS integrity", () => {
         CIRCUIT_DEFINITIONS[i - 1].rewardBase,
       );
     }
+  });
+
+  it("gives every circuit a distinct visual theme instead of the backyard fallback", () => {
+    const labels = CIRCUIT_DEFINITIONS.map((circuit) => getCircuitTheme(circuit.id).label);
+    expect(new Set(labels).size).toBe(CIRCUIT_DEFINITIONS.length);
   });
 });
 
@@ -75,6 +81,28 @@ describe("LEGACY_UPGRADE_DEFINITIONS integrity", () => {
       expect(def.maxLevel, `${def.id} maxLevel`).toBeGreaterThan(0);
     }
   });
+
+  it("does not sell starting-click effects made inert by first-reset automation", () => {
+    expect(LEGACY_UPGRADE_DEFINITIONS.some((def) => def.effect.type === "starting_scav_clicks")).toBe(false);
+  });
+
+  it("has a reachable vehicle for every circuit without depending on that circuit or a later one", () => {
+    const circuitIndex = new Map(CIRCUIT_DEFINITIONS.map((circuit, index) => [circuit.id, index]));
+    for (const [index, circuit] of CIRCUIT_DEFINITIONS.entries()) {
+      const eligible = VEHICLE_DEFINITIONS.filter((vehicle) =>
+        vehicle.tier >= circuit.minVehicleTier && vehicle.tier <= circuit.maxVehicleTier,
+      );
+      const reachable = eligible.filter((vehicle) => {
+        const requirement = vehicle.unlockRequirement;
+        if (requirement.type === "start" || requirement.type === "owner_upgrade") return true;
+        if (requirement.type === "reputation") return requirement.amount <= circuit.unlockRepCost;
+        const prerequisiteIndex = circuitIndex.get(requirement.circuitId);
+        return prerequisiteIndex != null && prerequisiteIndex < index;
+      });
+      expect(reachable.length, `${circuit.name} has no reachable eligible vehicle`).toBeGreaterThan(0);
+    }
+  });
+
 });
 
 describe("MOMENTUM_TIERS integrity", () => {

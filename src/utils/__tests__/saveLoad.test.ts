@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createInitialState } from "@/state/store";
+import { createInitialState, useGameStore } from "@/state/store";
 import type { GameState } from "@/state/store";
-import { getPersistedGameState } from "@/state/persistence";
+import { getPersistedGameState, mergePersistedGameState } from "@/state/persistence";
 import {
   SAVE_FORMAT,
   SAVE_VERSION,
@@ -16,6 +16,7 @@ describe("save envelope", () => {
     const transientKeys = new Set([
       "isScavenging",
       "isRacing",
+      "activeRaceSessionId",
       "lastRaceOutcome",
       "raceEvents",
       "raceStartTime",
@@ -96,6 +97,68 @@ describe("save envelope", () => {
     expect(decoded.envelope.state.vehicleLoadouts).toEqual([]);
   });
 
+  it("reconciles structured vehicle unlocks in an existing current-version save", () => {
+    const backyardWins = Array.from({ length: 5 }, () => ({
+      result: "win" as const,
+      position: 1,
+      totalRacers: 8,
+      scrapsEarned: 10,
+      repEarned: 1,
+      log: [],
+      circuitId: "backyard_derby",
+    }));
+    const decoded = decodeSavePayload(JSON.stringify({
+      format: SAVE_FORMAT,
+      version: SAVE_VERSION,
+      build: "pre-reconciliation-v3",
+      exportedAt: 100,
+      label: "Stale vehicle unlocks",
+      state: {
+        repPoints: 100_000,
+        unlockedVehicleIds: ["push_mower"],
+        ownerUpgradeLevels: { owner_vehicle_mastery: 1 },
+        raceHistory: backyardWins,
+      },
+    }));
+
+    expect(decoded.sourceVersion).toBe(SAVE_VERSION);
+    expect(decoded.envelope.state.unlockedVehicleIds).toEqual([
+      "push_mower",
+      "hypercar",
+      "prototype_x",
+      "riding_mower",
+      "go_kart",
+      "beater_car",
+      "street_racer",
+      "stock_car",
+      "supercar",
+    ]);
+
+    const hydrated = mergePersistedGameState(
+      {
+        repPoints: 100_000,
+        unlockedVehicleIds: ["push_mower"],
+        ownerUpgradeLevels: { owner_vehicle_mastery: 1 },
+        raceHistory: backyardWins,
+      },
+      createInitialState() as GameState,
+    );
+    expect(hydrated.unlockedVehicleIds).toEqual(decoded.envelope.state.unlockedVehicleIds);
+
+    const staleAfterTrackReset = mergePersistedGameState(
+      {
+        unlockedFeatures: ["crew_system", "vehicle_mastery", "advanced_circuits"],
+        unlockedVehicleIds: ["push_mower", "hypercar", "prototype_x"],
+        unlockedCircuitIds: ["backyard_derby", "continental_grand_prix", "endurance_series"],
+        ownerUpgradeLevels: {},
+      },
+      createInitialState() as GameState,
+    );
+    expect(staleAfterTrackReset.unlockedFeatures).toEqual(["crew_system"]);
+    expect(staleAfterTrackReset.unlockedVehicleIds).toEqual(["push_mower"]);
+    expect(staleAfterTrackReset.unlockedCircuitIds).toEqual(["backyard_derby"]);
+  });
+
   it("maps legacy outfit slots to stations and salvages unmappable effects", () => {
     const decoded = decodeSavePayload(JSON.stringify({ state: {
       materials: { metalScrap: 2 },
@@ -123,6 +186,123 @@ describe("save envelope", () => {
         }),
       ),
     ).toThrow("Invalid persisted game state");
+  });
+
+  it.each([
+    ["null garage entries", { garage: [null] }],
+    ["negative material balances", { materials: { metalScrap: -1 } }],
+    ["non-numeric fatigue", { fatigue: "broken" }],
+    ["null vehicle loadouts", { vehicleLoadouts: [null] }],
+    ["malformed inventory entries", { inventory: [{ id: 7 }] }],
+    ["null race-history entries", { raceHistory: [null] }],
+    ["null station-equipment entries", { stationEquipmentInventory: [null] }],
+    ["a null station-equipment map", { equippedStationEquipment: null }],
+    ["null Fleet assignments", { fleetAssignments: [null] }],
+    ["null hosted events", { hostedEvents: [null] }],
+    ["null activity entries", { activityLog: [null] }],
+    ["malformed racer skills", { racerSkills: { driving: null } }],
+    ["malformed racer attributes", { racerAttributes: { reflexes: "bad" } }],
+    ["null loot-gear entries", { lootGearInventory: [null] }],
+    ["a null equipped-loot map", { equippedLootGear: null }],
+    ["null gear mods", { gearModInventory: [null] }],
+    ["a null momentum list", { activeMomentumTiers: null }],
+    ["a null playstyle list", { unlockedPlaystyleNodes: null }],
+    ["a null tutorial-skip list", { tutorialSkippedSteps: null }],
+  ])("rejects %s in a current save envelope", (_label, corruptState) => {
+    expect(() => decodeSavePayload(JSON.stringify({
+      format: SAVE_FORMAT,
+      version: SAVE_VERSION,
+      build: "test",
+      exportedAt: Date.now(),
+      label: "Corrupt nested state",
+      state: corruptState,
+    }))).toThrow("Invalid persisted game state");
+  });
+
+  it("rejects malformed nested state in a raw Zustand payload", () => {
+    expect(() => decodeSavePayload(JSON.stringify({
+      version: SAVE_VERSION,
+      state: { garage: [null] },
+    }))).toThrow("not a recognized Rags to Races save");
+  });
+
+  it("falls back to the live initial state when browser hydration is corrupt", () => {
+    const initial = createInitialState() as GameState;
+    const hydrated = mergePersistedGameState(
+      {
+        garage: [null],
+        materials: { metalScrap: -10 },
+        fatigue: "broken",
+        vehicleLoadouts: [null],
+      },
+      initial,
+    );
+
+    expect(hydrated).toBe(initial);
+    expect(hydrated.garage).toEqual([]);
+    expect(hydrated.materials.metalScrap).toBe(0);
+    expect(hydrated.fatigue).toBe(0);
+  });
+
+  it("strips action-name injection before an import or browser merge can replace live actions", () => {
+    const decoded = decodeSavePayload(JSON.stringify({
+      format: SAVE_FORMAT,
+      version: SAVE_VERSION,
+      build: "test",
+      exportedAt: Date.now(),
+      label: "Injected actions",
+      state: {
+        scrapBucks: 10,
+        manualScavenge: null,
+        prestige: "broken",
+      },
+    }));
+
+    expect(decoded.envelope.state).not.toHaveProperty("manualScavenge");
+    expect(decoded.envelope.state).not.toHaveProperty("prestige");
+
+    const live = useGameStore.getState();
+    const hydrated = mergePersistedGameState(
+      {
+        scrapBucks: 10,
+        manualScavenge: null,
+        prestige: "broken",
+      },
+      live,
+    );
+    expect(hydrated.manualScavenge).toBe(live.manualScavenge);
+    expect(hydrated.prestige).toBe(live.prestige);
+    expect(() => hydrated.manualScavenge()).not.toThrow();
+  });
+
+  it("normalizes safe legacy part defaults and fills newly added materials", () => {
+    const decoded = decodeSavePayload(JSON.stringify({
+      version: "1.0",
+      exportedAt: 100,
+      state: {
+        inventory: [{
+          id: "legacy-engine",
+          definitionId: "engine_small",
+          condition: "worn",
+        }],
+        garage: [],
+        materials: { metalScrap: 2 },
+      },
+    }));
+
+    expect(decoded.envelope.state.inventory?.[0]).toMatchObject({
+      id: "legacy-engine",
+      foundAt: "legacy_save",
+      type: "part",
+    });
+    expect(decoded.envelope.state.materials).toEqual({
+      metalScrap: 2,
+      rubberCompound: 0,
+      heatCore: 0,
+      circuitFragment: 0,
+      carbonDust: 0,
+      greaseSludge: 0,
+    });
   });
 
   it("refuses saves from a newer schema", () => {

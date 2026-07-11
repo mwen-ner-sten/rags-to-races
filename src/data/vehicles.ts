@@ -1,4 +1,20 @@
 import type { CoreSlot } from "./parts";
+import { getCircuitById } from "./circuits";
+import { REP_PROGRESSION } from "@/config/progression";
+
+export type VehicleUnlockRequirement =
+  | { type: "start" }
+  | { type: "reputation"; amount: number }
+  | { type: "circuit_win"; circuitId: string }
+  | { type: "circuit_win_streak"; circuitId: string; wins: number }
+  | { type: "owner_upgrade"; upgradeId: string };
+
+export interface VehicleUnlockProgress {
+  reputation: number;
+  wonCircuitIds: readonly string[];
+  circuitWinStreaks: Readonly<Record<string, number>>;
+  ownerUpgradeLevels: Readonly<Record<string, number>>;
+}
 
 export interface SlotConfig {
   slot: CoreSlot;
@@ -18,10 +34,9 @@ export interface VehicleDefinition {
     reliability: number;
     weight: number;
   };
-  unlockCondition: string;
+  unlockRequirement: VehicleUnlockRequirement;
   buildCost: number; // Scrap Bucks to build (workbench fee)
   sellValue: number;
-  raceTiers: number[]; // which race circuits this can enter
   /** Feature unlock required to see this vehicle (e.g. "vehicle_mastery") */
   requiredFeature?: string;
 }
@@ -37,10 +52,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "wheel", required: true, acceptableParts: ["wheel_busted", "wheel_basic"] },
     ],
     baseStats: { speed: 5, handling: 3, reliability: 4, weight: 40 },
-    unlockCondition: "Start",
+    unlockRequirement: { type: "start" },
     buildCost: 10,
     sellValue: 10,
-    raceTiers: [0],
   },
   {
     id: "riding_mower",
@@ -52,11 +66,10 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "wheel", required: true, acceptableParts: ["wheel_basic", "wheel_sport"] },
       { slot: "frame", required: true, acceptableParts: ["frame_mower", "frame_kart"] },
     ],
-    baseStats: { speed: 15, handling: 8, reliability: 12, weight: 80 },
-    unlockCondition: "Win a Backyard Derby race",
+    baseStats: { speed: 35, handling: 22, reliability: 25, weight: 80 },
+    unlockRequirement: { type: "circuit_win", circuitId: "backyard_derby" },
     buildCost: 40,
     sellValue: 40,
-    raceTiers: [0, 1],
   },
   {
     id: "go_kart",
@@ -70,10 +83,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "fuel", required: true, acceptableParts: ["fuel_tank_small", "fuel_tank_large"] },
     ],
     baseStats: { speed: 35, handling: 30, reliability: 20, weight: 120 },
-    unlockCondition: "5-win streak at the Backyard Derby",
+    unlockRequirement: { type: "circuit_win_streak", circuitId: "backyard_derby", wins: 5 },
     buildCost: 120,
     sellValue: 150,
-    raceTiers: [1, 2],
   },
   {
     id: "beater_car",
@@ -88,10 +100,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "electronics", required: false, acceptableParts: ["elec_none", "elec_basic", "elec_ecu"] },
     ],
     baseStats: { speed: 60, handling: 35, reliability: 30, weight: 900 },
-    unlockCondition: "Reach 8,000 Reputation",
+    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.beater_car },
     buildCost: 300,
     sellValue: 400,
-    raceTiers: [2, 3],
   },
   {
     id: "street_racer",
@@ -107,10 +118,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "drivetrain", required: true, acceptableParts: ["drive_chain", "drive_manual"] },
     ],
     baseStats: { speed: 110, handling: 65, reliability: 45, weight: 1100 },
-    unlockCondition: "Reach 35,000 Reputation",
+    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.street_racer },
     buildCost: 900,
     sellValue: 1200,
-    raceTiers: [3, 4],
   },
   {
     id: "rally_car",
@@ -127,10 +137,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "suspension", required: true, acceptableParts: ["susp_leaf", "susp_coilovers"] },
     ],
     baseStats: { speed: 160, handling: 90, reliability: 60, weight: 1200 },
-    unlockCondition: "Win a Regional Circuit race",
+    unlockRequirement: { type: "circuit_win", circuitId: "regional_circuit" },
     buildCost: 2200,
     sellValue: 3000,
-    raceTiers: [4, 5],
   },
   {
     id: "stock_car",
@@ -148,10 +157,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "suspension", required: true, acceptableParts: ["susp_coilovers", "susp_adjustable"] },
     ],
     baseStats: { speed: 220, handling: 70, reliability: 80, weight: 1450 },
-    unlockCondition: "Reach 100,000 Reputation",
+    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.stock_car },
     buildCost: 6000,
     sellValue: 8000,
-    raceTiers: [5, 6],
   },
   {
     id: "prototype_racer",
@@ -170,10 +178,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "aero", required: true, acceptableParts: ["aero_spoiler", "aero_diffuser", "aero_carbon"] },
     ],
     baseStats: { speed: 320, handling: 140, reliability: 65, weight: 700 },
-    unlockCondition: "Win a National Circuit race",
+    unlockRequirement: { type: "circuit_win", circuitId: "national_circuit" },
     buildCost: 18000,
     sellValue: 25000,
-    raceTiers: [6, 7],
   },
   {
     id: "supercar",
@@ -192,10 +199,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "aero", required: true, acceptableParts: ["aero_diffuser", "aero_carbon"] },
     ],
     baseStats: { speed: 450, handling: 200, reliability: 85, weight: 1050 },
-    unlockCondition: "Win a World Championship race",
+    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.supercar },
     buildCost: 60000,
     sellValue: 80000,
-    raceTiers: [7, 8],
   },
   {
     id: "hypercar",
@@ -214,10 +220,9 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "aero", required: true, acceptableParts: ["aero_carbon"] },
     ],
     baseStats: { speed: 550, handling: 250, reliability: 90, weight: 900 },
-    unlockCondition: "Owner upgrade: Vehicle Mastery",
+    unlockRequirement: { type: "owner_upgrade", upgradeId: "owner_vehicle_mastery" },
     buildCost: 200000,
     sellValue: 250000,
-    raceTiers: [8, 9],
     requiredFeature: "vehicle_mastery",
   },
   {
@@ -237,16 +242,63 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "aero", required: true, acceptableParts: ["aero_carbon"] },
     ],
     baseStats: { speed: 700, handling: 300, reliability: 95, weight: 800 },
-    unlockCondition: "Owner upgrade: Vehicle Mastery",
+    unlockRequirement: { type: "owner_upgrade", upgradeId: "owner_vehicle_mastery" },
     buildCost: 800000,
     sellValue: 1000000,
-    raceTiers: [9, 10],
     requiredFeature: "vehicle_mastery",
   },
 ];
 
 export function getVehicleById(id: string): VehicleDefinition | undefined {
   return VEHICLE_DEFINITIONS.find((v) => v.id === id);
+}
+
+function titleCaseIdentifier(id: string): string {
+  return id
+    .replace(/^owner_/, "")
+    .split("_")
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+/** Player-facing copy derived from the same structured requirement the store evaluates. */
+export function formatVehicleUnlockRequirement(requirement: VehicleUnlockRequirement): string {
+  switch (requirement.type) {
+    case "start":
+      return "Start";
+    case "reputation":
+      return `Reach ${requirement.amount.toLocaleString("en-US")} Reputation`;
+    case "circuit_win":
+      return `Win a ${getCircuitById(requirement.circuitId)?.name ?? titleCaseIdentifier(requirement.circuitId)} race`;
+    case "circuit_win_streak":
+      return `${requirement.wins}-win streak at the ${getCircuitById(requirement.circuitId)?.name ?? titleCaseIdentifier(requirement.circuitId)}`;
+    case "owner_upgrade":
+      return `Owner upgrade: ${titleCaseIdentifier(requirement.upgradeId)}`;
+  }
+}
+
+export function isVehicleUnlockRequirementMet(
+  requirement: VehicleUnlockRequirement,
+  progress: VehicleUnlockProgress,
+): boolean {
+  switch (requirement.type) {
+    case "start":
+      return true;
+    case "reputation":
+      return progress.reputation >= requirement.amount;
+    case "circuit_win":
+      return progress.wonCircuitIds.includes(requirement.circuitId);
+    case "circuit_win_streak":
+      return (progress.circuitWinStreaks[requirement.circuitId] ?? 0) >= requirement.wins;
+    case "owner_upgrade":
+      return (progress.ownerUpgradeLevels[requirement.upgradeId] ?? 0) > 0;
+  }
+}
+
+export function getVehicleIdsUnlockedByProgress(progress: VehicleUnlockProgress): string[] {
+  return VEHICLE_DEFINITIONS
+    .filter((vehicle) => isVehicleUnlockRequirementMet(vehicle.unlockRequirement, progress))
+    .map((vehicle) => vehicle.id);
 }
 
 /** Get the slot config for a specific slot on a vehicle */

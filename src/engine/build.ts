@@ -28,6 +28,69 @@ export interface BuiltVehicle {
   totalRaces: number;   // lifetime race counter
 }
 
+export interface BuildSelectionValidation {
+  valid: boolean;
+  reason: string | null;
+  /** Canonical inventory objects to install, keyed by vehicle slot. */
+  parts: Record<string, ScavengedPart>;
+}
+
+/**
+ * Validate a pending garage build against the inventory as it exists now.
+ *
+ * Pending selections are persisted UI state, so a selected part can become
+ * stale after selling, enhancing, importing, or loading a DEV scenario.  A
+ * build must never install the stale object or reuse one inventory item in
+ * multiple slots.
+ */
+export function validateBuildSelection(
+  vehicleDef: VehicleDefinition,
+  pendingParts: Readonly<Record<string, ScavengedPart | null>>,
+  inventory: readonly ScavengedPart[],
+): BuildSelectionValidation {
+  const inventoryById = new Map(inventory.map((part) => [part.id, part]));
+  const usedIds = new Set<string>();
+  const parts: Record<string, ScavengedPart> = {};
+
+  for (const slot of vehicleDef.slots) {
+    const pending = pendingParts[slot.slot];
+    if (!pending) {
+      if (slot.required) {
+        return { valid: false, reason: "Select a part for each required slot", parts: {} };
+      }
+      continue;
+    }
+
+    const current = inventoryById.get(pending.id);
+    if (!current) {
+      return {
+        valid: false,
+        reason: `The selected ${slot.slot} part is no longer in inventory`,
+        parts: {},
+      };
+    }
+    if (current.type === "addon" || !slot.acceptableParts.includes(current.definitionId)) {
+      return {
+        valid: false,
+        reason: `The selected ${slot.slot} part is not compatible with this vehicle`,
+        parts: {},
+      };
+    }
+    if (usedIds.has(current.id)) {
+      return {
+        valid: false,
+        reason: "Each installed slot needs a different inventory part",
+        parts: {},
+      };
+    }
+
+    usedIds.add(current.id);
+    parts[slot.slot] = current;
+  }
+
+  return { valid: true, reason: null, parts };
+}
+
 export function calculateStats(
   vehicleDef: VehicleDefinition,
   parts: BuiltVehicle["parts"],

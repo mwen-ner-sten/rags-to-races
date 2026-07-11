@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { create } from "zustand";
 
 export type Theme = "grease" | "neon" | "prestige" | "rustbelt" | "arctic" | "vaporwave" | "tactical" | "sunset" | "deepsix" | "bloodmoon" | "sakura" | "outlaw" | "chrome" | "terminal" | "sandstorm" | "midnight";
@@ -15,25 +16,29 @@ function readStored(): Theme {
 
 interface ThemeStore {
   theme: Theme;
+  hydrated: boolean;
   setTheme: (t: Theme) => void;
+  hydrate: () => void;
 }
 
-export const useThemeStore = create<ThemeStore>((set) => ({
+export const useThemeStore = create<ThemeStore>((set, get) => ({
   theme: "neon", // SSR-safe default; hydrated below
+  hydrated: false,
   setTheme: (theme) => {
     localStorage.setItem(STORAGE_KEY, theme);
     set({ theme });
   },
+  hydrate: () => {
+    if (get().hydrated) return;
+    set({ theme: readStored(), hydrated: true });
+  },
 }));
-
-// Hydrate from localStorage once on the client
-if (typeof window !== "undefined") {
-  useThemeStore.setState({ theme: readStored() });
-}
 
 /** Convenience hook matching the original [theme, setTheme] API */
 export function useTheme(): [Theme, (t: Theme) => void] {
   const theme    = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
+  const hydrate = useThemeStore((s) => s.hydrate);
+  useEffect(() => hydrate(), [hydrate]);
   return [theme, setTheme];
 }
