@@ -22,7 +22,7 @@ export default function UpgradesPanel() {
   const TABS: { id: UpgradeSubTab; label: string; show: boolean }[] = [
     { id: "legacy",    label: "Legacy", show: true },
     { id: "prestige",  label: "Scrap Reset", show: true },
-    { id: "trophies",  label: "Trophies", show: true },
+    { id: "trophies",  label: "Achievements", show: true },
     { id: "team",      label: "Team", show: isFeatureAvailable("crew_system") && (teamEraCount > 0 || unlockedFeatures.includes("crew_system")) },
     { id: "owner",     label: "Owner", show: isFeatureAvailable("advanced_circuits") && ownerEraCount > 0 },
     { id: "track",     label: "Track", show: isFeatureAvailable("track_customization") && trackEraCount > 0 },
@@ -38,7 +38,7 @@ export default function UpgradesPanel() {
             key={tab.id}
             data-tutorial={tab.id === "prestige" ? "prestige-subtab-btn" : undefined}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors ${
+            className={`flex-1 rounded-md px-1.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors sm:px-2 sm:text-xs sm:tracking-wider ${
               activeTab === tab.id
                 ? "bg-cyan-400 text-black"
                 : "text-zinc-400 hover:text-zinc-200"

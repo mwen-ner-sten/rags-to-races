@@ -277,7 +277,7 @@ function OddsDisplay({
         <>
           <span style={{ color: "var(--text-muted)" }}>·</span>
           <span style={dnfStyle}>
-            {Math.round(forecast.dnfRisk.min * 100)}–{Math.round(forecast.dnfRisk.max * 100)}% DNF Risk
+            {Math.round(forecast.dnfRisk.min * 100)}–{Math.round(forecast.dnfRisk.max * 100)}% DNF (Did Not Finish) Risk
           </span>
         </>
       )}
@@ -651,12 +651,12 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         )}
 
         {/* Race button + streak */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <button
             data-tutorial="race-btn"
             onClick={enterRace}
             disabled={!canEnter}
-            className="rounded-lg px-6 py-2.5 font-bold text-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+            className="min-h-12 w-full rounded-lg px-6 py-2.5 font-bold text-sm transition-all active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 sm:min-h-0 sm:w-auto sm:active:scale-95"
             style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
           >
             {isRacing ? "Racing..." : "Enter Race"}
@@ -746,7 +746,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
               {lastRaceOutcome.result === "win"
                 ? "🏆 WIN"
                 : lastRaceOutcome.result === "dnf"
-                ? "💥 DNF"
+                ? "💥 DNF — DID NOT FINISH"
                 : `P${lastRaceOutcome.position}/${lastRaceOutcome.totalRacers}`}
             </div>
             {lastRaceOutcome.rivalId && (() => { const rival = getRivalById(lastRaceOutcome.rivalId!); return rival ? <div className="mb-3 flex items-center gap-3 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}><GameAssetImage kind="rival" id={rival.id} width={48} /><div><strong className="text-sm" style={{ color: "var(--text-white)" }}>{rival.name}</strong><p className="text-xs" style={{ color: "var(--text-muted)" }}>{rival.flavor}</p>{lastRaceOutcome.result === "win" && <p className="text-xs" style={{ color: lastRaceOutcome.rivalRewardClaimed ? "var(--success)" : "var(--text-muted)" }}>{formatRivalWinStatus(rival, lastRaceOutcome.rivalRewardClaimed === true)}</p>}</div></div> : null; })()}

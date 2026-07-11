@@ -71,7 +71,7 @@ html {
 
   /* Content: less padding on mobile */
   main {
-    padding: .75rem .75rem calc(1.5rem + env(safe-area-inset-bottom)) !important;
+    padding: .75rem .75rem calc(5rem + env(safe-area-inset-bottom)) !important;
   }
 
   /* Shell: reserve space for fixed bottom nav (56px) so no content is covered */

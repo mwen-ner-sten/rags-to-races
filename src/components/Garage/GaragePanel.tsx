@@ -360,6 +360,7 @@ function VehicleCard({
 }) {
   const [swapSlot, setSwapSlot] = useState<string | null>(null);
   const [loadoutName, setLoadoutName] = useState("");
+  const [showSaveSetup, setShowSaveSetup] = useState(false);
   const installAddon = useGameStore((s) => s.installAddon);
   const removeAddon = useGameStore((s) => s.removeAddon);
   const allVehicleLoadouts = useGameStore((s) => s.vehicleLoadouts);
@@ -521,44 +522,116 @@ function VehicleCard({
         </div>
       )}
 
-      {/* Named engineering loadouts */}
-      <div className="mt-2 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <input
-            value={loadoutName}
-            onChange={(event) => setLoadoutName(event.target.value)}
-            placeholder="Loadout name"
-            aria-label={`New loadout name for ${def.name}`}
-            className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
-            style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
-          />
-          <button
-            onClick={() => { saveVehicleLoadout(vehicle.id, loadoutName); setLoadoutName(""); }}
-            disabled={!loadoutName.trim()}
-            className="rounded border px-2 py-1 text-xs disabled:opacity-40"
-            style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
-          >
-            Save build
-          </button>
-        </div>
-        {vehicleLoadouts.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {vehicleLoadouts.map((loadout) => {
-              const resolution = resolveVehicleLoadout(vehicle, inventory, loadout);
-              const disabledReason = mutationLocked ? lockMessage : resolution.reason ?? undefined;
-              return (
-                <span key={loadout.id} className="inline-flex max-w-56 flex-col">
-                  <span className="inline-flex overflow-hidden rounded border" style={{ borderColor: "var(--btn-border)" }}>
-                    <button disabled={Boolean(disabledReason)} title={disabledReason} onClick={() => applyVehicleLoadout(loadout.id)} className="min-w-0 truncate px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40" style={{ color: "var(--text-primary)" }}>{loadout.name}</button>
-                    <button onClick={() => deleteVehicleLoadout(loadout.id)} aria-label={`Delete ${loadout.name} loadout`} className="shrink-0 border-l px-1.5 text-xs" style={{ borderColor: "var(--btn-border)", color: "var(--danger)" }}>×</button>
-                  </span>
-                  {resolution.reason && !mutationLocked && <span className="mt-0.5 text-[10px] leading-tight" style={{ color: "var(--warning)" }}>{resolution.reason}</span>}
-                </span>
-              );
-            })}
+      {/* Saved part configurations become useful once the Toolkit enables swapping. */}
+      {toolkitUnlocked && (
+        <section className="mt-3 rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--input-bg)" }} aria-label={`Saved setups for ${def.name}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-heading)" }}>Saved Setups</h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                Save this vehicle&apos;s installed parts and add-ons, then restore them later.
+              </p>
+            </div>
+            {!showSaveSetup && (
+              <button
+                onClick={() => setShowSaveSetup(true)}
+                disabled={mutationLocked}
+                className="min-h-11 shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                Save current setup
+              </button>
+            )}
           </div>
-        )}
-      </div>
+
+          {showSaveSetup && (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                value={loadoutName}
+                onChange={(event) => setLoadoutName(event.target.value)}
+                placeholder="Setup name (e.g. Dirt Track)"
+                aria-label={`New setup name for ${def.name}`}
+                className="min-h-11 min-w-0 flex-1 rounded-lg border px-3 py-2 text-xs"
+                style={{ background: "var(--panel-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    saveVehicleLoadout(vehicle.id, loadoutName);
+                    setLoadoutName("");
+                    setShowSaveSetup(false);
+                  }}
+                  disabled={!loadoutName.trim()}
+                  className="min-h-11 flex-1 rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-40 sm:flex-none"
+                  style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                >
+                  Save setup
+                </button>
+                <button
+                  onClick={() => { setLoadoutName(""); setShowSaveSetup(false); }}
+                  className="min-h-11 flex-1 rounded-lg border px-3 py-2 text-xs sm:flex-none"
+                  style={{ borderColor: "var(--btn-border)", color: "var(--text-secondary)" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {vehicleLoadouts.length === 0 && !showSaveSetup && (
+            <p className="mt-3 text-xs italic" style={{ color: "var(--text-muted)" }}>No setups saved for this vehicle yet.</p>
+          )}
+
+          {vehicleLoadouts.length > 0 && (
+            <div className="mt-3 flex flex-col gap-2">
+              {vehicleLoadouts.map((loadout) => {
+                const resolution = resolveVehicleLoadout(vehicle, inventory, loadout);
+                const installedEntries = Object.entries(vehicle.parts);
+                const isInstalled = Object.entries(loadout.parts).length === installedEntries.length
+                  && Object.entries(loadout.parts).every(([slot, saved]) => {
+                    const installed = vehicle.parts[slot];
+                    return installed?.part.id === saved.partId
+                      && installed.addons.length === saved.addonIds.length
+                      && installed.addons.every((addon, index) => addon.id === saved.addonIds[index]);
+                  });
+                const disabledReason = mutationLocked ? lockMessage : resolution.reason ?? undefined;
+                const partCount = Object.keys(loadout.parts).length;
+                return (
+                  <div key={loadout.id} className="flex flex-col gap-2 rounded-lg border p-2.5 sm:flex-row sm:items-center" style={{ borderColor: "var(--btn-border)", background: "var(--panel-bg)" }}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{loadout.name}</span>
+                        {isInstalled && <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>Installed</span>}
+                      </div>
+                      <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>{partCount} installed {partCount === 1 ? "part" : "parts"} plus saved add-ons</p>
+                      {resolution.reason && !mutationLocked && <p className="mt-1 text-xs" style={{ color: "var(--warning)" }}>{resolution.reason}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={Boolean(disabledReason) || isInstalled}
+                        title={disabledReason}
+                        onClick={() => applyVehicleLoadout(loadout.id)}
+                        className="min-h-11 flex-1 rounded-lg border px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+                        style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+                      >
+                        {isInstalled ? "Installed" : "Apply setup"}
+                      </button>
+                      <button
+                        onClick={() => deleteVehicleLoadout(loadout.id)}
+                        aria-label={`Delete ${loadout.name} setup`}
+                        className="min-h-11 flex-1 rounded-lg border px-3 py-2 text-xs sm:flex-none"
+                        style={{ borderColor: "var(--btn-border)", color: "var(--danger)" }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Part swap UI */}
       {(toolkitUnlocked || addonBenchUnlocked) && !mutationLocked && (

@@ -57,6 +57,7 @@ export default function Home() {
     const allowed = getAdaptiveAllowedTabs(tutorialStep, { garage, raceHistory, workshopLevels });
     if (allowed && !allowed.has(tab)) return;
     setActiveTab(tab);
+    window.scrollTo(0, 0);
   }, [tutorialStep, garage, raceHistory, workshopLevels]);
 
   // Keep storeRef in sync without triggering re-renders
@@ -209,7 +210,7 @@ export default function Home() {
         />
       )}
       <ThemeShell activeTab={displayedTab} setActiveTab={guardedSetActiveTab}>
-        <TutorialOverlay activeTab={displayedTab} />
+        {!offlineResult && <TutorialOverlay activeTab={displayedTab} />}
         {displayedTab === "junkyard" && <ScavengePanel />}
         {displayedTab === "garage"   && <GaragePanel />}
         {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}

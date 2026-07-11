@@ -598,12 +598,14 @@ test("named loadouts cannot restore more add-ons than a degraded part can hold",
   await page.getByRole("button", { name: "Install Turbo Snail", exact: true }).click();
 
   await openTab(page, "garage");
-  const loadoutName = page.getByLabel("New loadout name for Street Racer");
-  const streetRacer = loadoutName.locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
+  const streetRacer = page.getByLabel("Saved setups for Street Racer");
+  const streetRacerCard = streetRacer.locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
+  await streetRacer.getByRole("button", { name: "Save current setup" }).click();
+  const loadoutName = page.getByLabel("New setup name for Street Racer");
   await loadoutName.fill("Two Boosters");
-  await streetRacer.getByRole("button", { name: "Save build" }).click();
-  await streetRacer.getByRole("button", { name: /engine:/i }).click();
-  const goodReplacement = streetRacer.getByRole("button", { name: /V8 Engine.*x2/ }).first();
+  await streetRacer.getByRole("button", { name: "Save setup" }).click();
+  await streetRacerCard.getByRole("button", { name: /engine:/i }).click();
+  const goodReplacement = streetRacerCard.getByRole("button", { name: /V8 Engine.*x2/ }).first();
   await goodReplacement.click();
 
   const stateAfterSwap = await persistedState(page);
@@ -611,7 +613,7 @@ test("named loadouts cannot restore more add-ons than a degraded part can hold",
     (vehicle) => vehicle.id === stateAfterSwap.activeVehicleId,
   )!;
   expect(active.parts.engine.addons).toHaveLength(1);
-  const savedLoadout = streetRacer.getByRole("button", { name: "Two Boosters", exact: true });
+  const savedLoadout = streetRacer.getByRole("button", { name: "Apply setup", exact: true });
   await expect(savedLoadout).toBeDisabled();
   await expect(streetRacer.getByText(/uses 2 add-ons, but good condition allows 1/i)).toBeVisible();
 });

@@ -48,7 +48,7 @@ export const STEPS: TutorialStepDef[] = [
   /* 6  */ { icon: "\u{1F528}", tip: "Hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
   /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to race.", allowedTabs: ["garage"], target: "activate-btn" },
   /* 8  */ { icon: "\u{1F4CD}", tip: "Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
-  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your **Win** chance and **DNF Risk**. **DNF** = your vehicle broke down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF (Did Not Finish) means your vehicle broke down mid-race \u2014 higher reliability reduces this risk. Every result earns Rep; wins and stronger finishes also pay Scrap Bucks." },
+  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your **Win** chance and **DNF Risk**. **DNF** stands for **Did Not Finish** \u2014 in this game, that usually means your vehicle broke down before the finish.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF stands for Did Not Finish. In this game, it usually means your vehicle broke down before completing the race; higher reliability reduces this risk. Every result earns Rep; wins and stronger finishes also pay Scrap Bucks." },
   /* 10 */ { icon: "\u{1F3C1}", tip: "Hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
   /* 11 */ { icon: "\u{1F3C1}", tip: "The race was interrupted. Hit **Enter Race** to try again.", allowedTabs: ["race"], target: "race-btn", hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
@@ -1071,11 +1071,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
         </div>
       )}
 
-      {/* Goal badge — centered in the content area (offset for sidebar on desktop) */}
+      {/* Keep the mobile goal tracker compact and above the bottom navigation;
+          placing a multi-line tracker at the top hides the page header. */}
       {showGoal && goalContent && (
-        <div className="fixed top-2 left-1/2 z-[10000] -translate-x-1/2 sm:left-[calc(50%+100px)] sm:top-2">
+        <div className="fixed right-3 bottom-[72px] left-3 z-[10000] sm:top-2 sm:right-auto sm:bottom-auto sm:left-[calc(50%+100px)] sm:-translate-x-1/2">
           <div
-            className="animate-fade-up flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium"
+            className="animate-fade-up flex flex-wrap items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-medium sm:flex-nowrap sm:justify-start sm:py-1.5"
             style={{
               ...BADGE_BG,
               color: "var(--text-primary)",
@@ -1083,14 +1084,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
           >
             <span className="text-sm">{stepDef.icon}</span>
             {goalContent}
-            <div className="ml-1">
+            <div className="ml-1 hidden sm:block">
               <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
             </div>
             <button
               onClick={toggleTutorialMinimized}
               aria-label="Minimize tutorial"
               title="Minimize"
-              className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-50 transition-opacity hover:opacity-100"
+              className="ml-1 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-60 transition-opacity hover:opacity-100"
               style={{ color: "#888", background: "#333", fontSize: 12, lineHeight: 1 }}
             >
               {"\u2013"}
