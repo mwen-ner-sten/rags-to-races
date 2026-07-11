@@ -374,7 +374,7 @@ test("tutorial routes the first upgrade through Workshop Facilities", async ({ p
   await page.getByRole("button", { name: "Got it" }).click();
   await workshopTab(page, "Facilities");
   await page.getByRole("button", { name: /\$75/ }).first().click();
-  await expect(page.getByText(/Workshop tabs cover inventory, fabrication/i)).toBeVisible();
+  await expect(page.getByText(/Use Inventory to manage parts, Fabrication to make parts/i)).toBeVisible();
   await page.getByRole("button", { name: "Got it" }).click();
   await expect(page.getByText(/\$500 and 100 Rep/i)).toBeVisible();
 });

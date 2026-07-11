@@ -591,28 +591,37 @@ function NeonShell({ activeTab, setActiveTab, children }: Props) {
         .mc-tab-dev:hover { color: rgba(255,0,144,.6) !important; }
         .mc-tab-dev-on { color: #ff0090 !important; border-bottom-color: #ff0090 !important; text-shadow: 0 0 10px rgba(255,0,144,.6); }
         .mc-stat-label { font-family: 'Orbitron', sans-serif; font-size: .48rem; font-weight: 700; letter-spacing: .18em; color: rgba(0,229,255,.75); }
+        @media (max-width: 640px) {
+          .mc-hud { flex-wrap: nowrap !important; gap: .5rem !important; }
+          .mc-hud-brand { flex: 0 1 auto; min-width: 0; gap: .4rem !important; }
+          .mc-hud-title { font-size: .9rem !important; white-space: nowrap; }
+          .mc-hud-divider, .mc-hud-theme { display: none; }
+          .mc-hud-data { flex: 1 1 auto; min-width: 0; justify-content: flex-end; gap: .65rem !important; flex-wrap: nowrap !important; }
+          .mc-hud-data > div:first-child { gap: .6rem !important; }
+          .mc-hud-vehicle { font-size: .78rem !important; white-space: nowrap; }
+        }
       `}</style>
 
       <div className="mc-scanlines" />
 
       {/* HUD */}
-      <header style={{ position: "relative", zIndex: 10, background: "rgba(0,229,255,.03)", borderBottom: "1px solid rgba(0,229,255,.12)", padding: ".7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(4px)", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+      <header className="mc-hud" style={{ position: "relative", zIndex: 10, background: "rgba(0,229,255,.03)", borderBottom: "1px solid rgba(0,229,255,.12)", padding: ".7rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(4px)", flexShrink: 0 }}>
+        <div className="mc-hud-brand" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div>
-            <div className="mc mc-glow-c" style={{ fontSize: "1.4rem", fontWeight: 900, letterSpacing: ".08em", color: "#00e5ff", lineHeight: 1 }}>RAGS TO RACES</div>
+            <div className="mc mc-glow-c mc-hud-title" style={{ fontSize: "1.4rem", fontWeight: 900, letterSpacing: ".08em", color: "#00e5ff", lineHeight: 1 }}>RAGS TO RACES</div>
             {prestigeCount > 0 && (
               <div style={{ fontSize: ".5rem", color: "#ff0090", letterSpacing: ".2em", marginTop: ".1rem" }}>PRESTIGE {prestigeCount}</div>
             )}
           </div>
-          <div style={{ width: 1, height: 32, background: "rgba(0,229,255,.15)" }} />
-          <div style={{ fontSize: ".55rem", color: "rgba(0,229,255,.75)", letterSpacing: ".2em", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>MIDNIGHT CIRCUIT</div>
+          <div className="mc-hud-divider" style={{ width: 1, height: 32, background: "rgba(0,229,255,.15)" }} />
+          <div className="mc-hud-theme" style={{ fontSize: ".55rem", color: "rgba(0,229,255,.75)", letterSpacing: ".2em", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>MIDNIGHT CIRCUIT</div>
         </div>
-        <div style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
+        <div className="mc-hud-data" style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
           <CurrencyBar activeTab={activeTab} />
           {vehicleDef && activeVehicle && (
             <VehicleTooltip vehicleDef={vehicleDef} activeVehicle={activeVehicle}>
               <div style={{ textAlign: "right" }}>
-                <div className="mc" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#c0d8e0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
+                <div className="mc mc-hud-vehicle" style={{ fontSize: "1.1rem", fontWeight: 700, color: "#c0d8e0", letterSpacing: ".04em" }}>{vehicleDef.name.toUpperCase()}</div>
                 <div className="mc-stat-label">{Math.floor(activeVehicle.stats.performance)} PTS</div>
               </div>
             </VehicleTooltip>

@@ -45,7 +45,7 @@ export default function MobileSubNav({ tabs, activeTab, setActiveTab, tutorialTa
     <div ref={containerRef} className="mobile-sub-nav" style={{ position: "relative" }}>
       {/* Trigger button — shows current tab name + chevron */}
       <button
-        data-tutorial={tutorialTargetId}
+        data-tutorial={open ? undefined : tutorialTargetId}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors w-full"

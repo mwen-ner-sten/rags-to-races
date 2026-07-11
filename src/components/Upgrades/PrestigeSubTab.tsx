@@ -153,7 +153,7 @@ export default function PrestigeSubTab() {
             onClick={() => setShowPrestigeConfirm(true)}
             disabled={!canPrestige}
             style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-semibold transition-opacity active:scale-[.98] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:w-auto sm:active:scale-100"
           >
             Scrap Reset
           </button>
@@ -196,7 +196,7 @@ export default function PrestigeSubTab() {
               onClick={() => setConfirmingResponsibilityReset("team")}
               disabled={!canTeam}
               style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-              className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-semibold transition-opacity active:scale-[.98] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:w-auto sm:active:scale-100"
             >
               Team Reset
             </button>
@@ -240,7 +240,7 @@ export default function PrestigeSubTab() {
               onClick={() => setConfirmingResponsibilityReset("owner")}
               disabled={!canOwner}
               style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-              className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-semibold transition-opacity active:scale-[.98] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:w-auto sm:active:scale-100"
             >
               Owner Reset
             </button>
@@ -284,7 +284,7 @@ export default function PrestigeSubTab() {
               onClick={() => setConfirmingResponsibilityReset("track")}
               disabled={!canTrack}
               style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-              className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 w-full rounded-lg px-4 py-2 text-sm font-semibold transition-opacity active:scale-[.98] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:w-auto sm:active:scale-100"
             >
               Track Reset
             </button>

@@ -79,7 +79,9 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
           bottom: 0,
           left: 0,
           right: 0,
-          zIndex: 1000,
+          // Navigation must remain usable above tutorial and first-unlock
+          // acknowledgement layers.
+          zIndex: 11000,
           height: 56,
           display: "flex",
           alignItems: "stretch",
@@ -189,7 +191,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
                 borderRadius: 8,
                 boxShadow: "0 -4px 20px rgba(0,0,0,.5)",
                 overflow: "hidden",
-                zIndex: 1001,
+                zIndex: 11001,
               }}
             >
               {overflowTabs.map((t) => {
