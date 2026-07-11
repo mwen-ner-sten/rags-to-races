@@ -73,6 +73,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
     <div className="mobile-nav" style={{ ...themeVars as React.CSSProperties }}>
       {/* Bottom tab bar */}
       <nav
+        data-testid="mobile-nav"
         style={{
           position: "fixed",
           bottom: 0,
@@ -82,7 +83,11 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
           height: 56,
           display: "flex",
           alignItems: "stretch",
-          background: "var(--panel-bg, #181008)",
+          // Some themes intentionally use a translucent panel token. Layer it
+          // over a solid base here so page content can never show through the
+          // fixed navigation controls while scrolling.
+          background: "linear-gradient(var(--panel-bg, #181008), var(--panel-bg, #181008)), #181008",
+          isolation: "isolate",
           borderTop: "1px solid var(--panel-border, #3a2510)",
           boxShadow: "0 -2px 12px rgba(0,0,0,.4)",
         }}

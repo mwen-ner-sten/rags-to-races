@@ -215,7 +215,7 @@ export default function Home() {
         {displayedTab === "gear"     && <SalvageWorkshopPanel />}
         {displayedTab === "upgrades" && <UpgradesPanel />}
         {displayedTab === "help"     && <HelpPanel />}
-        {displayedTab === "log"      && <HelpActivityTab />}
+        {displayedTab === "log"      && <HelpActivityTab setActiveTab={guardedSetActiveTab} />}
         {displayedTab === "settings" && <SettingsPanel />}
         {SHOW_DEV_TAB && displayedTab === "dev" && <AdminPanel />}
       </ThemeShell>

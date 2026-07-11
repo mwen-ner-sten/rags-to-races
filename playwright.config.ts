@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const fullMatrix = process.env.PLAYWRIGHT_FULL_MATRIX === "1";
+const existingBaseURL = process.env.PLAYWRIGHT_BASE_URL;
 
 export default defineConfig({
   testDir: "./tests/playwright",
@@ -10,7 +11,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: "http://127.0.0.1:3101",
+    baseURL: existingBaseURL ?? "http://127.0.0.1:3101",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -23,7 +24,7 @@ export default defineConfig({
       ? [{ name: "mobile-390", use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true } }]
       : []),
   ],
-  webServer: {
+  webServer: existingBaseURL ? undefined : {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3101",
     url: "http://127.0.0.1:3101",
     reuseExistingServer: !process.env.CI,

@@ -214,12 +214,12 @@ export default function ScavengePanel() {
           Locations
         </h2>
         {/* Horizontal scroll on mobile, vertical stack on desktop */}
-        <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-x-visible lg:pb-0">
+        <div className="location-carousel flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-x-visible lg:pb-0">
           {unlockedLocations.map((loc) => (
             <button
               key={loc.id}
               onClick={() => setSelectedLocation(loc.id)}
-              className="shrink-0 rounded-lg border p-3 text-left transition-colors lg:shrink"
+              className="snap-start shrink-0 rounded-lg border p-3 text-left transition-colors lg:shrink"
               style={
                 selectedLocationId === loc.id
                   ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)" }
@@ -280,7 +280,7 @@ export default function ScavengePanel() {
                 fireScavenge();
               }
             }}
-            className={`rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
+            className={`min-h-11 rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
               isScavengeAnimating ? "scale-90" : "scale-100"
             } ${isHolding ? "ring-2 ring-offset-1" : ""} ${autoScavengeUnlocked ? "auto-scavenge-active" : ""}`}
             style={{
@@ -378,7 +378,7 @@ export default function ScavengePanel() {
               <span>Value</span>
               <span>Actions</span>
             </div>
-            <div className="max-h-72 sm:max-h-96 overflow-y-scroll inventory-scroll" onMouseLeave={() => setHoveredGroup(null)}>
+            <div className="junkyard-inventory-scroll inventory-scroll" onMouseLeave={() => setHoveredGroup(null)}>
               {groups.map((group) => {
                 const condColor = CONDITION_COLORS[group.condition] ?? "var(--text-secondary)";
                 return (

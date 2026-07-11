@@ -54,7 +54,7 @@ export default function HelpProgressionTab() {
             <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
               Scavenging Locations ({HELP_LOCATIONS.length})
             </h3>
-            <div className="mt-2 max-h-64 space-y-1 overflow-y-auto pr-1">
+            <div className="mobile-natural-scroll mt-2 max-h-64 space-y-1 overflow-y-auto pr-1">
               {HELP_LOCATIONS.map((loc) => (
                 <div key={loc.id} className="rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}>
                   <div className="font-semibold" style={{ color: "var(--text-white)" }}>
@@ -71,7 +71,7 @@ export default function HelpProgressionTab() {
             <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
               Race Circuits ({HELP_CIRCUITS.length})
             </h3>
-            <div className="mt-2 max-h-64 space-y-1 overflow-y-auto pr-1">
+            <div className="mobile-natural-scroll mt-2 max-h-64 space-y-1 overflow-y-auto pr-1">
               {HELP_CIRCUITS.map((c) => (
                 <div key={c.id} className="rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}>
                   <div className="font-semibold" style={{ color: "var(--text-white)" }}>
@@ -101,7 +101,7 @@ export default function HelpProgressionTab() {
 
       {/* Challenges */}
       <SectionCard title="Challenges">
-        <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+        <div className="mobile-natural-scroll max-h-64 space-y-1 overflow-y-auto pr-1">
           {HELP_CHALLENGES.map((c) => (
             <div key={c.id} className="rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}>
               <div className="flex justify-between">

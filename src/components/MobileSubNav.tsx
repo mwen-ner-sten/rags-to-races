@@ -12,9 +12,10 @@ interface Props {
   tabs: Tab[];
   activeTab: string;
   setActiveTab: (id: string) => void;
+  tutorialTargetId?: string;
 }
 
-export default function MobileSubNav({ tabs, activeTab, setActiveTab }: Props) {
+export default function MobileSubNav({ tabs, activeTab, setActiveTab, tutorialTargetId }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,9 +45,10 @@ export default function MobileSubNav({ tabs, activeTab, setActiveTab }: Props) {
     <div ref={containerRef} className="mobile-sub-nav" style={{ position: "relative" }}>
       {/* Trigger button — shows current tab name + chevron */}
       <button
+        data-tutorial={tutorialTargetId}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors w-full"
+        className="flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors w-full"
         style={{
           borderColor: "var(--panel-border, #3a2510)",
           background: "var(--panel-bg, #181008)",
@@ -86,11 +88,13 @@ export default function MobileSubNav({ tabs, activeTab, setActiveTab }: Props) {
             return (
               <button
                 key={t.id}
+                data-tutorial={t.id === "facilities" ? tutorialTargetId : undefined}
                 onClick={() => pick(t.id)}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   width: "100%",
+                  minHeight: "44px",
                   padding: ".7rem 1rem",
                   background: isActive
                     ? "var(--accent-bg, rgba(200,62,12,.1))"
