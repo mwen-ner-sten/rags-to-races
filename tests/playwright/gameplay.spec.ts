@@ -46,7 +46,7 @@ async function openTab(page: Page, name: string) {
     await page.getByRole("button", { name: "More tabs" }).click();
   }
   await page.locator(`[data-tutorial-tab="${name}"]:visible`).first().click();
-  if (name === "gear") await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
+  if (name === "gear") await expect(page.getByRole("heading", { name: "Workshop" })).toBeVisible();
 }
 
 async function openResetTab(page: Page) {
@@ -653,7 +653,7 @@ test("Workshop add-on controls explain and enforce the active-race mutation lock
   await expect(page.getByText(/currently racing|finish the current race/i).first()).toBeVisible();
 });
 
-test("Junkyard refurbishment quote matches the executable discounted store cost", async ({ page }) => {
+test("Salvage refurbishment quote matches the executable discounted store cost", async ({ page }) => {
   const part = {
     ...fixtures.workshop_ready.payload.state.inventory.find((candidate) => candidate.definitionId === "engine_turbo_v6")!,
     id: "e2e_discounted_refurb",
@@ -1047,7 +1047,7 @@ test("all supported themes survive reload without hydration errors or horizontal
 
 test("desktop and mobile primary navigation keeps every critical action reachable", async ({ page }) => {
   await loadFixture(page, "workshop_ready");
-  for (const [tab, text] of [["junkyard", "Scavenge!"], ["garage", "Your Garage"], ["race", "Enter Race"], ["gear", "Salvage Workshop"], ["upgrades", "Legacy"]] as const) {
+  for (const [tab, text] of [["junkyard", "Scavenge!"], ["garage", "Your Garage"], ["race", "Enter Race"], ["gear", "Workshop"], ["upgrades", "Legacy"]] as const) {
     if (tab !== "junkyard") await openTab(page, tab);
     await expect(page.getByText(text, { exact: false }).first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

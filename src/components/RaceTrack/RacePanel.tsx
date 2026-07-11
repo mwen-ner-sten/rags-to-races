@@ -586,7 +586,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                     </button>
                   ) : (
                     <button onClick={() => setActiveTab?.("junkyard")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
-                      Scavenge parts in the Junkyard to build one
+                      Find parts in Salvage to build one
                     </button>
                   )}
                 </div>
@@ -614,7 +614,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                     <>
                       You need a T{selectedCircuit.minVehicleTier}–T{selectedCircuit.maxVehicleTier} vehicle.{" "}
                       <button onClick={() => setActiveTab?.("junkyard")} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
-                        Scavenge parts in the Junkyard
+                        Find parts in Salvage
                       </button>
                       {" "}to get started.
                     </>

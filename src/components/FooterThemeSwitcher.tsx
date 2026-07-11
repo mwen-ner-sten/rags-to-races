@@ -2,14 +2,14 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { THEMES } from "@/data/themes";
+import { AVAILABLE_THEMES } from "@/data/themes";
 
 export default function FooterThemeSwitcher() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useTheme();
   const ref = useRef<HTMLDivElement>(null);
 
-  const current = THEMES.find((t) => t.id === theme);
+  const current = AVAILABLE_THEMES.find((t) => t.id === theme);
 
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -23,6 +23,8 @@ export default function FooterThemeSwitcher() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [open, handleClickOutside]);
+
+  if (AVAILABLE_THEMES.length <= 1) return null;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -68,7 +70,7 @@ export default function FooterThemeSwitcher() {
           maxHeight: 240,
           overflowY: "auto",
         }}>
-          {THEMES.map((t) => {
+          {AVAILABLE_THEMES.map((t) => {
             const isActive = theme === t.id;
             return (
               <button

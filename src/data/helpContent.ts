@@ -25,10 +25,10 @@ import type { CoreSlot } from "@/data/parts";
 // ── How to Play ─────────────────────────────────────────────────────────────
 
 export const HELP_OVERVIEW_STEPS: string[] = [
-  "Scavenge parts in the Junkyard — each location drops different tiers and rarities.",
+  "Visit Salvage to find parts — each location drops different tiers and rarities.",
   "Head to the Garage to assemble a vehicle. Fill the required slots and pay the build cost.",
   "Race your vehicle on circuits to earn Scrap Bucks and Rep. Higher circuits pay more but are harder.",
-  "Use the Salvage Workshop to compare, decompose, repair, enhance, craft, source, and install parts.",
+  "Use the Workshop to compare, decompose, repair, enhance, craft, source, and install parts.",
   "Equip and improve six shared garage stations for stronger engineering, preparation, and sourcing.",
   "When fatigue climbs and progress stalls, Prestige via the Upgrades tab to earn Legacy Points.",
   "Spend Legacy Points on permanent upgrades and Garage Philosophy paths that compound future runs.",
@@ -37,7 +37,7 @@ export const HELP_OVERVIEW_STEPS: string[] = [
 // ── Tutorial Walkthrough ───────────────────────────────────────────────────
 
 export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] = [
-  { step: "Scavenge", description: "Click Scavenge in the Junkyard to search the curb for parts." },
+  { step: "Scavenge", description: "Open Salvage and click Scavenge to search the curb for parts." },
   { step: "Gather materials", description: "Collect an engine, a wheel, and $10 by scavenging. Sell extras for cash." },
   { step: "Visit the Garage", description: "Head to the Garage tab to start building your first vehicle." },
   { step: "Pick a blueprint", description: "Select the Push Mower blueprint — it's the cheapest starter ride." },

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useGameStore } from "@/state/store";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
@@ -19,7 +20,7 @@ interface Props {
 }
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "junkyard", label: "Junkyard" },
+  { id: "junkyard", label: "Salvage" },
   { id: "garage",   label: "Garage"   },
   { id: "race",     label: "Race"     },
   { id: "gear",     label: "Workshop" },
@@ -1979,6 +1980,13 @@ export default function ThemeShell(props: Props) {
   };
 
   const vars = THEME_VARS[theme] ?? THEME_VARS.grease;
+
+  // Portaled UI (tutorial and offline modals) renders outside the shell, so
+  // expose the active palette at the document root as well.
+  useEffect(() => {
+    const root = document.documentElement;
+    Object.entries(vars).forEach(([name, value]) => root.style.setProperty(name, value));
+  }, [vars]);
 
   return (
     <>

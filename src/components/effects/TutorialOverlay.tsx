@@ -506,7 +506,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       return tabLabels.some((l) => text.includes(l));
     });
 
-    const allowedSet = stepDef.allowedTabs ? new Set(stepDef.allowedTabs) : null;
+    // Use the same expanded set as the navigation guard. Utility destinations
+    // (Help, Activity, Settings, and Dev) should never look locked.
+    const allowedSet = getAllowedTabs(tutorialStep);
 
     if (effectiveHighlightTab) {
       // Prefer exact matching via data-tutorial-tab attribute (robust to abbreviated labels)
@@ -686,7 +688,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
         ))}
         {targetRect && (
           <div
-            className="tutorial-pulse fixed z-[9999] rounded-lg"
+            className="tutorial-pulse fixed z-[999] rounded-lg"
             style={{
               ...haloBounds(targetRect, 5),
               pointerEvents: "none",
@@ -888,10 +890,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
       ))}
 
       {/* Pulsing halo on target button (in-panel elements) */}
+      {/* Keep content highlights below MobileNav's z-index 1000 so scrolled
+          targets are occluded by the fixed bar. Tab halos stay above it. */}
       {targetRect && (
         <div
           data-testid="tutorial-target-halo"
-          className="tutorial-pulse fixed z-[9998] rounded-lg"
+          className="tutorial-pulse fixed z-[999] rounded-lg"
           style={{
             ...haloBounds(targetRect, 3),
             pointerEvents: "none",
@@ -904,7 +908,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           pulse on top. Gives the "this is THE button" cue. */}
       {sellBtnRect && (
         <div
-          className="fixed z-[9999] rounded-md"
+          className="fixed z-[999] rounded-md"
           style={{
             left: sellBtnRect.left - 2, top: sellBtnRect.top - 2,
             width: sellBtnRect.width + 4, height: sellBtnRect.height + 4,
@@ -923,7 +927,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {hintRects.map((rect, i) => (
         <div
           key={`hint-${i}`}
-          className="fixed z-[9998] rounded-md"
+          className="fixed z-[999] rounded-md"
           style={{
             left: rect.left - 2, top: rect.top - 2,
             width: rect.width + 4, height: rect.height + 4,
@@ -1050,6 +1054,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
                     style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
                   >
                     Got it &rarr;
+                  </button>
+                )}
+                {isGoalStep && !hasIntro && (
+                  <button
+                    onClick={() => setCardDismissed(true)}
+                    className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
+                  >
+                    Got it
                   </button>
                 )}
               </div>

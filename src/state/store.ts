@@ -606,7 +606,7 @@ function addReputationUnlocks(
   for (const location of getLocationsUnlockedByReputation(reputation)) {
     if (unlockedLocationIds.includes(location.id)) continue;
     unlockedLocationIds.push(location.id);
-    unlockEvents.push(`New Location: ${location.name}!`);
+    unlockEvents.push(`New Location: ${location.name}! ${location.description}`);
   }
 }
 
@@ -1567,7 +1567,9 @@ function createActions(set: SetState, get: GetState) {
             if (newUnlockedVehicles.includes(vehicleId)) continue;
             newUnlockedVehicles.push(vehicleId);
             const vehicleDefinition = getVehicleById(vehicleId);
-            newUnlockEvents.push(`${vehicleDefinition?.name ?? vehicleId} Blueprint Unlocked!`);
+            newUnlockEvents.push(
+              `${vehicleDefinition?.name ?? vehicleId} Blueprint Unlocked!${vehicleDefinition ? ` ${vehicleDefinition.description}` : ""}`,
+            );
           }
 
           // Automation is progression-based: manual scavenging or the first Scrap Reset.
@@ -2708,7 +2710,11 @@ function createActions(set: SetState, get: GetState) {
         const circuitWinStreaks = settlement.circuitWinStreaks;
         for (const vehicleId of getVehicleIdsUnlockedByProgress({ reputation: newRep, wonCircuitIds, circuitWinStreaks, ownerUpgradeLevels: s.ownerUpgradeLevels })) {
           const definition = getVehicleById(vehicleId);
-          addUnlock(unlockedVehicles, vehicleId, `${definition?.name ?? vehicleId} Blueprint Unlocked!`);
+          addUnlock(
+            unlockedVehicles,
+            vehicleId,
+            `${definition?.name ?? vehicleId} Blueprint Unlocked!${definition ? ` ${definition.description}` : ""}`,
+          );
         }
 
         const newBestStreak = Math.max(s.bestWinStreak, settlement.bestWinStreak);

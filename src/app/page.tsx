@@ -6,7 +6,7 @@ import ScavengePanel from "@/components/Junkyard/ScavengePanel";
 import GaragePanel from "@/components/Garage/GaragePanel";
 import RacePanel from "@/components/RaceTrack/RacePanel";
 import AdminPanel from "@/components/Admin/AdminPanel";
-import SalvageWorkshopPanel from "@/components/Workshop/SalvageWorkshopPanel";
+import SalvageWorkshopPanel, { type WorkshopTab } from "@/components/Workshop/SalvageWorkshopPanel";
 import UpgradesPanel from "@/components/Upgrades/UpgradesPanel";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 import HelpPanel from "@/components/Help/HelpPanel";
@@ -41,6 +41,7 @@ function circuitStreakAfterOutcome(
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
+  const [workshopTab, setWorkshopTab] = useState<WorkshopTab>("inventory");
   const [offlineResult, setOfflineResult] = useState<{ result: OfflineResult; timeAway: number } | null>(null);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
@@ -212,12 +213,19 @@ export default function Home() {
         {displayedTab === "junkyard" && <ScavengePanel />}
         {displayedTab === "garage"   && <GaragePanel />}
         {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
-        {displayedTab === "gear"     && <SalvageWorkshopPanel />}
+        {displayedTab === "gear"     && <SalvageWorkshopPanel tab={workshopTab} setTab={setWorkshopTab} />}
         {displayedTab === "upgrades" && <UpgradesPanel />}
         {displayedTab === "help"     && <HelpPanel />}
         {displayedTab === "log"      && <HelpActivityTab setActiveTab={guardedSetActiveTab} />}
         {displayedTab === "settings" && <SettingsPanel />}
-        {SHOW_DEV_TAB && displayedTab === "dev" && <AdminPanel />}
+        {SHOW_DEV_TAB && displayedTab === "dev" && (
+          <AdminPanel
+            onFullSaveReset={() => {
+              setWorkshopTab("inventory");
+              setActiveTab("junkyard");
+            }}
+          />
+        )}
       </ThemeShell>
     </>
   );

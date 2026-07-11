@@ -21,7 +21,7 @@ function formatTimeAway(minutes: number): string {
 const CARD_STYLE: React.CSSProperties = {
   background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
   boxShadow:
-    "0 0 48px rgba(234, 179, 8, 0.22), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
+    "0 0 48px color-mix(in srgb, var(--accent, #00e5ff) 22%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
 };
 
 interface StatRowProps {
@@ -33,11 +33,11 @@ interface StatRowProps {
 function StatRow({ icon, label, value }: StatRowProps) {
   return (
     <div className="flex min-w-0 items-start justify-between gap-3 py-1.5">
-      <span className="flex shrink-0 items-center gap-2 text-sm text-zinc-300">
+      <span className="flex shrink-0 items-center gap-2 text-sm" style={{ color: "var(--text-primary)" }}>
         <span className="w-5 text-center">{icon}</span>
         {label}
       </span>
-      <span className="min-w-0 break-words text-right text-sm font-semibold text-amber-300">{value}</span>
+      <span className="min-w-0 break-words text-right text-sm font-semibold" style={{ color: "var(--accent)" }}>{value}</span>
     </div>
   );
 }
@@ -126,32 +126,33 @@ export default function OfflineProgressModal({
       onClick={onDismiss}
     >
       <div
-        className="animate-fade-up mx-4 w-full max-w-sm rounded-xl border border-amber-500/20 p-6"
-        style={CARD_STYLE}
+        className="animate-fade-up mx-4 w-full max-w-sm rounded-xl border p-6"
+        style={{ ...CARD_STYLE, borderColor: "var(--accent-border)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-1 text-center text-xl font-bold text-amber-300">
+        <h2 className="mb-1 text-center text-xl font-bold" style={{ color: "var(--text-heading)" }}>
           Welcome Back!
         </h2>
-        <p className="mb-4 text-center text-sm text-zinc-400">
+        <p className="mb-4 text-center text-sm" style={{ color: "var(--text-muted)" }}>
           You were away for {formatTimeAway(timeAwayMinutes)}
         </p>
 
         {rows.length > 0 ? (
-          <div className="mb-5 divide-y divide-zinc-700/50 rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-3 py-1">
+          <div className="mb-5 divide-y rounded-lg border px-3 py-1" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}>
             {rows.map((row) => (
               <StatRow key={row.label} {...row} />
             ))}
           </div>
         ) : (
-          <p className="mb-5 text-center text-sm text-zinc-500">
+          <p className="mb-5 text-center text-sm" style={{ color: "var(--text-muted)" }}>
             Nothing happened while you were away.
           </p>
         )}
 
         <button
           onClick={onDismiss}
-          className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 transition-colors hover:bg-amber-500/20"
+          className="w-full rounded-lg border px-4 py-2.5 text-sm font-semibold transition-opacity hover:opacity-90"
+          style={{ borderColor: "var(--accent-border)", background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
         >
           Continue
         </button>

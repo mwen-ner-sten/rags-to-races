@@ -271,6 +271,20 @@ html {
   }
 }
 
+@keyframes unlock-announcement-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.unlock-announcement-timer {
+  transform-origin: left;
+  animation: unlock-announcement-countdown 7s linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unlock-announcement-timer { animation: none; }
+}
+
 /* Arrow pointing from tutorial card toward target */
 .tutorial-arrow-down::after,
 .tutorial-arrow-up::after {

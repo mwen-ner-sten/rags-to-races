@@ -48,7 +48,7 @@ import {
   FATIGUE_DRINK_RUN_LIMIT,
 } from "@/data/workshopActions";
 
-type WorkshopTab = "inventory" | "fabrication" | "addons" | "dealer" | "stations" | "philosophy" | "skills" | "facilities";
+export type WorkshopTab = "inventory" | "fabrication" | "addons" | "dealer" | "stations" | "philosophy" | "skills" | "facilities";
 
 const TABS: { id: WorkshopTab; label: string }[] = [
   { id: "inventory", label: "Inventory" },
@@ -102,16 +102,20 @@ const STATION_REDUCTION_BONUSES = new Set<Extract<StationEquipmentEffect, { type
   "fatigue_rate_reduction",
 ]);
 
-export default function SalvageWorkshopPanel() {
-  const [tab, setTab] = useState<WorkshopTab>("inventory");
+interface SalvageWorkshopPanelProps {
+  tab: WorkshopTab;
+  setTab: (tab: WorkshopTab) => void;
+}
+
+export default function SalvageWorkshopPanel({ tab, setTab }: SalvageWorkshopPanelProps) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-bold uppercase tracking-widest" style={{ color: "var(--text-heading)" }}>Salvage Workshop</h1>
+        <h1 className="text-lg font-bold uppercase tracking-widest" style={{ color: "var(--text-heading)" }}>Workshop</h1>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>Inspect, improve, source, and equip everything your garage needs.</p>
       </div>
       <MobileSubNav tabs={TABS} activeTab={tab} setActiveTab={(id) => setTab(id as WorkshopTab)} tutorialTargetId="workshop-facilities-tab" />
-      <div className="hidden gap-1 overflow-x-auto rounded-lg border p-1 sm:flex" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} role="tablist" aria-label="Salvage Workshop sections">
+      <div className="hidden gap-1 overflow-x-auto rounded-lg border p-1 sm:flex" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} role="tablist" aria-label="Workshop sections">
         {TABS.map((item) => (
           <button key={item.id} role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}
             data-tutorial={item.id === "facilities" ? "workshop-facilities-tab" : undefined}

@@ -17,6 +17,9 @@ export const THEMES: ThemeEntry[] = [
   { id: "midnight",  label: "Midnight",  color: "#3b82f6", bg: "#080c18", border: "rgba(59,130,246,.4)"  },
 ];
 
+// Temporarily restrict player-facing theme selection to the default theme.
+export const AVAILABLE_THEMES = THEMES.filter((theme) => theme.id === "neon");
+
 // Hidden themes — kept for future use, not shown in settings
 export const HIDDEN_THEMES: ThemeEntry[] = [
   { id: "rustbelt",  label: "Rust Belt",  color: "#b44a1a", bg: "#0c0806", border: "rgba(180,74,26,.4)" },

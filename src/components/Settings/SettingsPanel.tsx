@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { THEMES } from "@/data/themes";
+import { AVAILABLE_THEMES } from "@/data/themes";
 import SaveLoadPanel from "@/components/Shop/SaveLoadPanel";
 import StartOverPanel from "@/components/Settings/StartOverPanel";
 import { useGameStore } from "@/state/store";
@@ -55,7 +55,7 @@ export default function SettingsPanel() {
             borderColor: "rgba(255,255,255,.1)",
           }}
         >
-          {THEMES.map((t) => {
+          {AVAILABLE_THEMES.map((t) => {
             const isActive = theme === t.id;
             return (
               <button

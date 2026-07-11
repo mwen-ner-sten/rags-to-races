@@ -6,7 +6,7 @@ import { isFeatureAvailable } from "@/config/features";
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "junkyard", label: "Junkyard" },
+  { id: "junkyard", label: "Salvage" },
   { id: "garage",   label: "Garage" },
   { id: "race",     label: "Race" },
   { id: "gear",     label: "Workshop" },

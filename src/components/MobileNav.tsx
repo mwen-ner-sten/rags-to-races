@@ -7,7 +7,7 @@ type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "lo
 
 /** Primary tabs shown directly in the bottom bar */
 const PRIMARY_TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "junkyard", label: "Junk",    icon: "\u{1F5D1}\uFE0F" },  // 🗑️
+  { id: "junkyard", label: "Salvage", icon: "\u267B\uFE0F" },        // ♻️
   { id: "garage",   label: "Garage",  icon: "\u{1F527}" },          // 🔧
   { id: "race",     label: "Race",    icon: "\u{1F3CE}\uFE0F" },   // 🏎️
   { id: "gear",     label: "Workshop", icon: "\u{1F9F0}" },         // 🧰

@@ -51,7 +51,7 @@ export default function MobileSubNav({ tabs, activeTab, setActiveTab, tutorialTa
         className="flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors w-full"
         style={{
           borderColor: "var(--panel-border, #3a2510)",
-          background: "var(--panel-bg, #181008)",
+          background: "linear-gradient(var(--panel-bg, #181008), var(--panel-bg, #181008)), #080808",
           color: "var(--accent, #c83e0c)",
         }}
       >
@@ -76,7 +76,9 @@ export default function MobileSubNav({ tabs, activeTab, setActiveTab, tutorialTa
             left: 0,
             right: 0,
             zIndex: 50,
-            background: "var(--panel-bg, #181008)",
+            // Several themes intentionally use translucent panel tokens. Add
+            // a solid base so page content never shows through this overlay.
+            background: "linear-gradient(var(--panel-bg, #181008), var(--panel-bg, #181008)), #080808",
             border: "1px solid var(--panel-border, #3a2510)",
             borderRadius: "0.5rem",
             overflow: "hidden",
