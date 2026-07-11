@@ -16,12 +16,12 @@ Owner and Track still need UAT feedback on whether their decisions feel distinct
 | OS | Windows 11 Home 10.0.26200 build 26200 |
 | Node / npm | v24.11.0 / 11.6.1 |
 | Next / React | Next 16.2.10 / React 19.2.4 |
-| Commit / branch | `[FINAL COMMIT SHA]` / `codex/accelerated-full-campaign-playtest` |
+| Tested implementation / branch | `f4bb29aaf5f7ad39044797fa47641a3262ed34e2` / `codex/accelerated-full-campaign-playtest` |
 | Manual browser | Playwright Chromium, isolated `127.0.0.1:3100` origin, 1440×900 and 390×844 |
 | Automated viewports | 1440×900 and 390×844 |
 | Campaign seed family | `full-campaign-2026:*` |
 | Persistence | Existing schema version 3; no version bump |
-| CI | `[FINAL CI RESULT / RUN]` |
+| CI | [Run 29132990899](https://github.com/mwen-ner-sten/rags-to-races/actions/runs/29132990899): **passed** on the tested implementation (`npm audit`, typecheck, lint, unit tests, production build, and Playwright) |
 
 ## Harness and blocker result
 
@@ -275,7 +275,7 @@ No release-blocking defect remains open. The remaining notes below are UAT produ
 
 ```text
 Environment: local production build and isolated Chromium save
-Build SHA: [FINAL COMMIT SHA]
+Tested implementation SHA: f4bb29aaf5f7ad39044797fa47641a3262ed34e2
 Fresh-save duration: 67.7 minutes estimated hands-on to first Scrap Reset
 Existing-save source: persistence v3 plus legacy-normalization regressions
 Desktop result: pass at 1440x900
