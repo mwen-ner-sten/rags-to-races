@@ -5,6 +5,7 @@ import { useGameStore } from "@/state/store";
 import { formatNumber, formatRep } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { touchLastSaved } from "@/utils/saveLoad";
+import { REP_PROGRESSION, SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 
 function useAutoSaveIndicator() {
   const [label, setLabel] = useState<string | null>(null);
@@ -74,20 +75,20 @@ export default function HUD() {
                 ${formatNumber(lifetimeScrapBucks)}/$500
               </span>
               <span className="text-zinc-600">·</span>
-              <span className={`font-mono text-xs font-semibold ${repPoints >= 100 ? "text-green-400" : "text-zinc-300"}`}>
-                {formatRep(repPoints)}/100 Rep
+              <span className={`font-mono text-xs font-semibold ${repPoints >= REP_PROGRESSION.tutorial.systemsTour ? "text-green-400" : "text-zinc-300"}`}>
+                {formatRep(repPoints)}/{formatRep(REP_PROGRESSION.tutorial.systemsTour)} Rep
               </span>
             </div>
           )}
           {tutorialStep === 19 && (
             <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
               <span className="text-sm">🚀</span>
-              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 5000 ? "text-green-400" : "text-zinc-300"}`}>
-                ${formatNumber(lifetimeScrapBucks)}/$5k
+              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks ? "text-green-400" : "text-zinc-300"}`}>
+                ${formatNumber(lifetimeScrapBucks)}/$${formatNumber(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks)}
               </span>
               <span className="text-zinc-600">·</span>
-              <span className={`font-mono text-xs font-semibold ${repPoints >= 500 ? "text-green-400" : "text-zinc-300"}`}>
-                {formatRep(repPoints)}/500 Rep
+              <span className={`font-mono text-xs font-semibold ${repPoints >= SCRAP_RESET_REQUIREMENTS.reputation ? "text-green-400" : "text-zinc-300"}`}>
+                {formatRep(repPoints)}/{formatRep(SCRAP_RESET_REQUIREMENTS.reputation)} Rep
               </span>
             </div>
           )}

@@ -1,7 +1,9 @@
 "use client";
 
 import { HELP_LOCATIONS, HELP_CIRCUITS, HELP_VEHICLES, HELP_CHALLENGES, HELP_DEALER } from "@/data/helpContent";
+import { AUTO_SCAVENGE_MANUAL_TARGET } from "@/config/gameplayLimits";
 import { formatNumber } from "@/utils/format";
+import { REP_PROGRESSION } from "@/config/progression";
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -24,15 +26,14 @@ export default function HelpProgressionTab() {
       <SectionCard title="Key Thresholds">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {[
-            { label: "Auto-Scavenge", value: "100 clicks" },
-            { label: "Auto-Race", value: "30 Rep" },
+            { label: "Auto-Scavenge", value: `${AUTO_SCAVENGE_MANUAL_TARGET} clicks / Reset 1` },
             { label: "Dealer", value: `${formatNumber(HELP_DEALER.unlockRep)} Rep` },
-            { label: "Crafting", value: "~15k Rep" },
+            { label: "Crafting", value: `${formatNumber(REP_PROGRESSION.workshop.parts_bin)} Rep` },
             { label: "Dealer T2", value: `${formatNumber(HELP_DEALER.tier2Rep)} Rep` },
             { label: "Dealer T3", value: `${formatNumber(HELP_DEALER.tier3Rep)} Rep` },
-            { label: "Auto-Race", value: "Prestige 1" },
+            { label: "Auto-Race", value: "Scrap Reset 1" },
             { label: "Junk Filter", value: "Prestige 2" },
-            { label: "Garage Philosophy", value: "Prestige 3" },
+            { label: "Garage Philosophy", value: "Scrap Reset 1" },
             { label: "Quick Builder", value: "Prestige 5" },
           ].map((item) => (
             <div key={item.label} className="rounded border p-2 text-center" style={{ borderColor: "var(--panel-border)" }}>

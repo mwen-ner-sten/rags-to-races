@@ -3,8 +3,8 @@ import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStation
 import type { StationEquipment } from "@/data/stationEquipment";
 import { SeededRandomSource } from "@/utils/random";
 import { forgeStationEquipment } from "../stationForge";
-import { reforgeStationEquipment } from "../stationReforge";
-import { getStationEquipmentBonuses, STATION_BONUS_CAPS } from "../stationEquipment";
+import { canReforgeStationEquipment, getStationSalvageYield, reforgeStationEquipment } from "../stationReforge";
+import { getEnhancedStationEquipmentEffects, getMaxStationEnhancementLevel, getStationEnhancementCost, getStationEquipmentBonuses, STATION_BONUS_CAPS } from "../stationEquipment";
 
 const emptyEquipment = () => Object.fromEntries(GARAGE_STATION_IDS.map((slot) => [slot, null])) as Record<GarageStationSlot, string | null>;
 
@@ -41,5 +41,17 @@ describe("station equipment", () => {
     const reforged = reforgeStationEquipment(item, new SeededRandomSource(2));
     expect(reforged.effects[0]).toEqual(item.effects[0]);
     expect(reforged.effects.slice(1)).not.toEqual(item.effects.slice(1));
+  });
+
+  it("exposes exact enhancement and salvage terms and identifies no-op reforges", () => {
+    const common = forgeStationEquipment("lift", "common", new SeededRandomSource(5));
+    const rare = { ...forgeStationEquipment("lift", "rare", new SeededRandomSource(5)), enhancementLevel: 2 };
+    expect(canReforgeStationEquipment(common)).toBe(false);
+    expect(canReforgeStationEquipment(rare)).toBe(true);
+    expect(getStationEnhancementCost(rare)).toBe(1_200);
+    expect(getMaxStationEnhancementLevel(0)).toBe(4);
+    expect(getMaxStationEnhancementLevel(3)).toBe(13);
+    expect(getStationSalvageYield(common, 2, 2)).toBe(4);
+    expect(getEnhancedStationEquipmentEffects(rare)[0].value).toBeCloseTo(rare.effects[0].value * 1.24);
   });
 });

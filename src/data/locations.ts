@@ -1,4 +1,5 @@
 import type { PartCategory } from "./parts";
+import { REP_PROGRESSION } from "@/config/progression";
 
 export interface LocationDefinition {
   id: string;
@@ -10,6 +11,8 @@ export interface LocationDefinition {
   partDropRates: Record<PartCategory, number>; // relative weight per category
   rarityBias: number; // 0–1: higher = better condition rolls
   maxPartsPerScavenge: number;
+  /** Highest part definition tier this source can contain (defaults to location tier). */
+  maxPartTier?: number;
 }
 
 export const LOCATION_DEFINITIONS: LocationDefinition[] = [
@@ -18,7 +21,7 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
     name: "Curbside Trash",
     tier: 0,
     description: "Somebody's junk is your treasure. Usually still junk though.",
-    unlockCost: 0,
+    unlockCost: REP_PROGRESSION.locations.curbside,
     scavengeTime: 3000,
     partDropRates: { engine: 4, wheel: 4, frame: 0.5, electronics: 0, fuel: 0.3, drivetrain: 0, exhaust: 0, suspension: 0, aero: 0, misc: 2 },
     rarityBias: 0.1,
@@ -29,7 +32,7 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
     name: "Neighborhood Yards",
     tier: 1,
     description: "Garage sales, alleyways, and that one guy who never mows.",
-    unlockCost: 40000,
+    unlockCost: REP_PROGRESSION.locations.neighborhood_yards,
     scavengeTime: 3000,
     partDropRates: { engine: 3, wheel: 3, frame: 3, electronics: 0.5, fuel: 2, drivetrain: 0, exhaust: 0.3, suspension: 0, aero: 0, misc: 1 },
     rarityBias: 0.2,
@@ -40,7 +43,7 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
     name: "Local Junkyard",
     tier: 2,
     description: "Towers of crushed cars and the smell of opportunity.",
-    unlockCost: 175000,
+    unlockCost: REP_PROGRESSION.locations.local_junkyard,
     scavengeTime: 4000,
     partDropRates: { engine: 3, wheel: 3, frame: 4, electronics: 2, fuel: 2, drivetrain: 1, exhaust: 1, suspension: 1, aero: 0.5, misc: 1 },
     rarityBias: 0.35,
@@ -51,7 +54,7 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
     name: "Salvage Auction",
     tier: 3,
     description: "Bulk lots, mystery pallets, and cutthroat bidding.",
-    unlockCost: 600000,
+    unlockCost: REP_PROGRESSION.locations.salvage_auction,
     scavengeTime: 5000,
     partDropRates: { engine: 4, wheel: 2, frame: 3, electronics: 3, fuel: 2, drivetrain: 2, exhaust: 2, suspension: 1.5, aero: 0.5, misc: 1 },
     rarityBias: 0.5,
@@ -62,7 +65,7 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
     name: "Industrial Surplus",
     tier: 4,
     description: "High-grade materials from factories that didn't make it.",
-    unlockCost: 2000000,
+    unlockCost: REP_PROGRESSION.locations.industrial_surplus,
     scavengeTime: 6000,
     partDropRates: { engine: 4, wheel: 3, frame: 3, electronics: 5, fuel: 3, drivetrain: 3, exhaust: 2, suspension: 2, aero: 1, misc: 0 },
     rarityBias: 0.65,
@@ -73,11 +76,12 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
     name: "Military Scrapyard",
     tier: 5,
     description: "Exotic alloys and prototype components. Don't ask questions.",
-    unlockCost: 5000000,
+    unlockCost: REP_PROGRESSION.locations.military_scrapyard,
     scavengeTime: 8000,
     partDropRates: { engine: 5, wheel: 2, frame: 4, electronics: 5, fuel: 2, drivetrain: 4, exhaust: 3, suspension: 3, aero: 2, misc: 0 },
     rarityBias: 0.8,
     maxPartsPerScavenge: 4,
+    maxPartTier: 7,
   },
 ];
 

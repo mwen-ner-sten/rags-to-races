@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { isFeatureAvailable } from "@/config/features";
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
@@ -9,7 +10,7 @@ const PRIMARY_TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "junkyard", label: "Junk",    icon: "\u{1F5D1}\uFE0F" },  // 🗑️
   { id: "garage",   label: "Garage",  icon: "\u{1F527}" },          // 🔧
   { id: "race",     label: "Race",    icon: "\u{1F3CE}\uFE0F" },   // 🏎️
-  { id: "gear",     label: "Shop",    icon: "\u{1F9F0}" },          // 🧰
+  { id: "gear",     label: "Workshop", icon: "\u{1F9F0}" },         // 🧰
   { id: "upgrades", label: "Upgr",    icon: "\u2B06\uFE0F" },      // ⬆️
 ];
 
@@ -20,7 +21,7 @@ const OVERFLOW_TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "settings", label: "Settings", icon: "\u2699\uFE0F" }, // ⚙️
 ];
 
-const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
 
 interface Props {
   activeTab: string;

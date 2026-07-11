@@ -24,6 +24,7 @@ export function scavenge(
   fatigue: number = 0,     // 0–99 fatigue penalty
   gearLuckBonus: number = 0,   // gear scavenge_luck_bonus (can be negative for T0 penalties)
   gearYieldBonus: number = 0,  // gear scavenge_yield_pct
+  qualityBonus: number = 0,    // chance to favor the highest available part tier
 ): ScavengedPart[] {
   const baseCount = randInt(1, location.maxPartsPerScavenge);
   const count = Math.max(1, Math.round(baseCount * (1 + gearYieldBonus)));
@@ -40,12 +41,17 @@ export function scavenge(
 
     // Filter eligible parts by category and tier
     const eligible = PART_DEFINITIONS.filter(
-      (p) => p.category === category && p.minTier <= location.tier,
+      (p) => p.category === category && p.minTier <= (location.maxPartTier ?? location.tier),
     );
     if (eligible.length === 0) continue;
 
     // Bias toward lower-tier parts with small chance of higher
-    const def = eligible[randInt(0, Math.min(eligible.length - 1, Math.floor(eligible.length * 0.6 + random() * eligible.length * 0.4)))];
+    let def = eligible[randInt(0, Math.min(eligible.length - 1, Math.floor(eligible.length * 0.6 + random() * eligible.length * 0.4)))];
+    if (qualityBonus > 0 && random() < Math.min(1, qualityBonus)) {
+      const highestAvailableTier = Math.max(...eligible.map((candidate) => candidate.minTier));
+      const highTierParts = eligible.filter((candidate) => candidate.minTier === highestAvailableTier);
+      def = highTierParts[randInt(0, highTierParts.length - 1)];
+    }
 
     results.push({
       id: makePartId(),

@@ -1,5 +1,5 @@
 import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStations";
-import { STATION_ATTRIBUTES, STATION_SETS, type StationAttribute, type StationEquipment, type StationEquipmentEffect } from "@/data/stationEquipment";
+import { STATION_ATTRIBUTES, STATION_SETS, type StationAttribute, type StationEquipment, type StationEquipmentEffect, type StationEquipmentRarity } from "@/data/stationEquipment";
 
 export interface StationEquipmentBonuses {
   scavenge_luck_bonus: number; scavenge_yield_pct: number; sell_value_bonus_pct: number;
@@ -19,9 +19,38 @@ const DERIVATION: Record<StationAttribute, Partial<StationEquipmentBonuses>> = {
 const EMPTY: StationEquipmentBonuses = { scavenge_luck_bonus: 0, scavenge_yield_pct: 0, sell_value_bonus_pct: 0, race_performance_pct: 0, race_dnf_reduction: 0, race_handling_pct: 0, race_wear_reduction_pct: 0, race_scrap_bonus_pct: 0, build_cost_reduction_pct: 0, repair_cost_reduction_pct: 0, refurb_cost_reduction_pct: 0, tick_speed_reduction_ms: 0, fatigue_rate_reduction: 0, material_bonus_pct: 0, forge_token_chance_bonus: 0 };
 export const STATION_BONUS_CAPS: StationEquipmentBonuses = { scavenge_luck_bonus: 0.5, scavenge_yield_pct: 2, sell_value_bonus_pct: 0.75, race_performance_pct: 1, race_dnf_reduction: 0.5, race_handling_pct: 1, race_wear_reduction_pct: 0.75, race_scrap_bonus_pct: 1, build_cost_reduction_pct: 0.75, repair_cost_reduction_pct: 0.75, refurb_cost_reduction_pct: 0.75, tick_speed_reduction_ms: 29000, fatigue_rate_reduction: 0.75, material_bonus_pct: 2, forge_token_chance_bonus: 0.25 };
 
+const STATION_ENHANCEMENT_COST_MULTIPLIER: Record<StationEquipmentRarity, number> = {
+  common: 1,
+  uncommon: 2,
+  rare: 4,
+  epic: 8,
+  legendary: 16,
+};
+
+/** Each enhancement level increases an item's own effects by 12%. */
+export function getStationEnhancementMultiplier(level: number): number {
+  return 1 + Math.max(0, level) * 0.12;
+}
+
+/** Station equipment starts at a +4 cap and gains +3 per mastery level, up to +13. */
+export function getMaxStationEnhancementLevel(enhancementMasteryLevel: number): number {
+  return Math.min(13, 4 + Math.max(0, Math.floor(enhancementMasteryLevel)) * 3);
+}
+
+/** Scrap cost to buy the item's next enhancement level. */
+export function getStationEnhancementCost(item: StationEquipment): number {
+  return 100 * STATION_ENHANCEMENT_COST_MULTIPLIER[item.rarity] * (item.enhancementLevel + 1);
+}
+
+/** Item-only effects after its enhancement multiplier; set bonuses are added separately. */
+export function getEnhancedStationEquipmentEffects(item: StationEquipment): StationEquipmentEffect[] {
+  const multiplier = getStationEnhancementMultiplier(item.enhancementLevel);
+  return item.effects.map((effect) => ({ ...effect, value: effect.value * multiplier }));
+}
+
 export function getStationEquipmentEffects(equipped: Record<GarageStationSlot, string | null>, inventory: StationEquipment[]): StationEquipmentEffect[] {
   const items = GARAGE_STATION_IDS.map((slot) => inventory.find((item) => item.id === equipped[slot])).filter((item): item is StationEquipment => !!item);
-  const effects = items.flatMap((item) => item.effects.map((effect) => ({ ...effect, value: effect.value * (1 + item.enhancementLevel * 0.12) })));
+  const effects = items.flatMap(getEnhancedStationEquipmentEffects);
   const counts = new Map<string, number>(); items.forEach((item) => item.setId && counts.set(item.setId, (counts.get(item.setId) ?? 0) + 1));
   for (const set of STATION_SETS) for (const tier of set.tiers) if ((counts.get(set.id) ?? 0) >= tier.piecesRequired) effects.push(...tier.effects);
   return effects;

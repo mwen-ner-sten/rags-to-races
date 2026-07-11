@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createAllGameplayFixtures } from "../src/testing/gameplayFixtures";
+import { createAllGameplayFixtures, validateGameplayFixture } from "../src/testing/gameplayFixtures";
 import { parseZustandPayload } from "../src/state/persistence";
 
 async function main() {
@@ -10,6 +10,8 @@ async function main() {
 
   for (const fixture of Object.values(fixtures)) {
     parseZustandPayload(JSON.stringify(fixture.payload));
+    const errors = validateGameplayFixture(fixture);
+    if (errors.length > 0) throw new Error(`${fixture.name}: ${errors.join(", ")}`);
   }
 
   await mkdir(outputDirectory, { recursive: true });

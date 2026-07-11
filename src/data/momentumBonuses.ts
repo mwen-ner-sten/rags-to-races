@@ -1,3 +1,5 @@
+import { REP_PROGRESSION } from "@/config/progression";
+
 export interface MomentumCondition {
   type: "fatigue_gte" | "races_gte" | "scrap_gte" | "rep_gte" | "circuit_tier_gte";
   value: number;
@@ -44,14 +46,14 @@ export const MOMENTUM_TIERS: MomentumTier[] = [
     id: "momentum_reputation",
     name: "Reputation Precedes You",
     description: "+25% rep from all sources",
-    condition: { type: "rep_gte", value: 5000 },
+    condition: { type: "rep_gte", value: REP_PROGRESSION.momentum.reputation },
     effect: { type: "rep_multiplier", value: 0.25 },
     unlockText: "People know your name. They want to see you race.",
   },
   {
     id: "momentum_second_wind",
     name: "Second Wind",
-    description: "Fatigue penalties reduced by 15%",
+    description: "Fatigue gain reduced by 15%",
     condition: { type: "fatigue_gte", value: 40 },
     effect: { type: "fatigue_reduction", value: 0.15 },
     unlockText: "You've pushed through the wall. Everything hurts less.",
@@ -67,7 +69,7 @@ export const MOMENTUM_TIERS: MomentumTier[] = [
   {
     id: "momentum_legendary",
     name: "Legendary Run",
-    description: "+100% Legacy Points, +20% all bonuses",
+    description: "+100% Legacy Points at next Scrap Reset",
     condition: { type: "fatigue_gte", value: 80 },
     effect: { type: "lp_multiplier", value: 1.0 },
     unlockText: "This run will be remembered. The legacy compounds.",
@@ -81,20 +83,23 @@ export function getActiveMomentumTiers(
   repPoints: number,
   lifetimeScrapBucks: number,
   highestCircuitTier: number,
+  thresholdReduction: number = 0,
 ): string[] {
+  const thresholdMultiplier = 1 - Math.max(0, Math.min(0.95, thresholdReduction));
   return MOMENTUM_TIERS.filter((tier) => {
     const { type, value } = tier.condition;
+    const effectiveValue = Math.ceil(value * thresholdMultiplier);
     switch (type) {
       case "races_gte":
-        return lifetimeRaces >= value;
+        return lifetimeRaces >= effectiveValue;
       case "fatigue_gte":
-        return fatigue >= value;
+        return fatigue >= effectiveValue;
       case "rep_gte":
-        return repPoints >= value;
+        return repPoints >= effectiveValue;
       case "scrap_gte":
-        return lifetimeScrapBucks >= value;
+        return lifetimeScrapBucks >= effectiveValue;
       case "circuit_tier_gte":
-        return highestCircuitTier >= value;
+        return highestCircuitTier >= effectiveValue;
       default:
         return false;
     }

@@ -5,6 +5,11 @@ import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { random } from "@/utils/random";
+import { getGameEffectValue } from "@/data/gameEffects";
+import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
+import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
+import { getPrestigeMilestoneBonuses } from "@/data/prestigeMilestones";
+import { getPermanentRuntimeBonuses, type PermanentBonusState } from "./permanentBonuses";
 
 // ── Backward-compatible bonus interface (populated from legacy upgrades) ─────
 
@@ -83,6 +88,44 @@ export function applyMomentumLpBonus(
   return Math.floor(baseLp * (1 + lpMult));
 }
 
+export interface ScrapResetAwardInput extends PermanentBonusState {
+  currentPrestigeCount: number;
+  runStats: RunStats;
+  activeMomentumTierIds: string[];
+  teamUpgradeLevels: Record<string, number>;
+  trackPerkLevels: Record<string, number>;
+}
+
+export interface ScrapResetAward {
+  baseLp: number;
+  momentumAdjustedLp: number;
+  additiveBonus: number;
+  trackCascadeBonus: number;
+  totalLp: number;
+}
+
+/** Single source of truth shared by the reset confirmation and actual award. */
+export function calculateScrapResetAward(input: ScrapResetAwardInput): ScrapResetAward {
+  const baseLp = calculateLegacyPoints(input.runStats);
+  const momentumAdjustedLp = applyMomentumLpBonus(baseLp, input.activeMomentumTierIds);
+  const milestones = getPrestigeMilestoneBonuses(input.currentPrestigeCount + 1);
+  const permanent = getPermanentRuntimeBonuses(input);
+  const additiveBonus =
+    getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, input.teamUpgradeLevels, "lp_multiplier")
+    + permanent.lpMultiplier
+    + milestones.lpMultiplier
+    + (input.runStats.fatigue > 50 ? milestones.deepRunLpMult : 0);
+  const beforeCascade = Math.floor(momentumAdjustedLp * (1 + additiveBonus));
+  const trackCascadeBonus = getGameEffectValue(TRACK_PERK_DEFINITIONS, input.trackPerkLevels, "lower_currency_mult");
+  return {
+    baseLp,
+    momentumAdjustedLp,
+    additiveBonus,
+    trackCascadeBonus,
+    totalLp: Math.floor(beforeCascade * (1 + trackCascadeBonus)),
+  };
+}
+
 // ── Prestige result ─────────────────────────────────────────────────────────
 
 export interface PrestigeResult {
@@ -93,8 +136,6 @@ export interface PrestigeResult {
   keptWorkshopUpgrades: Record<string, number>;
   /** Starting scrap from Seed Money */
   startingScrap: number;
-  /** Starting auto-scavenge clicks from Muscle Memory */
-  startingScavClicks: number;
   /** Starting unlocked location IDs from Old Haunts */
   startingLocationIds: string[];
   /** Starting unlocked circuit IDs from Old Haunts */
@@ -131,11 +172,6 @@ export function doPrestige(
     getLegacyEffectValue(legacyUpgradeLevels, "leg_starting_scrap"),
   );
 
-  // Muscle Memory: starting auto-scavenge clicks
-  const startingClicks = Math.floor(
-    getLegacyEffectValue(legacyUpgradeLevels, "leg_auto_scav_clicks"),
-  );
-
   // Old Haunts: starting locations/circuits by tier
   const startingLocTier = Math.floor(
     getLegacyEffectValue(legacyUpgradeLevels, "leg_starting_location"),
@@ -149,7 +185,6 @@ export function doPrestige(
     bonuses,
     keptWorkshopUpgrades: keptWorkshop,
     startingScrap,
-    startingScavClicks: startingClicks,
     startingLocationIds,
     startingCircuitIds,
   };

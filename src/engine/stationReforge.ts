@@ -4,6 +4,20 @@ import { randInt, type RandomSource } from "@/utils/random";
 export const SHARDS_PER_SALVAGE: Record<StationEquipmentRarity, number> = { common: 1, uncommon: 3, rare: 10, epic: 40, legendary: 200 };
 export const REFORGE_COST_SHARDS: Record<StationEquipmentRarity, number> = { common: 2, uncommon: 5, rare: 15, epic: 50, legendary: 250 };
 
+/** Common equipment has no secondary affix, so charging to reforge it would be a no-op. */
+export function canReforgeStationEquipment(item: StationEquipment): boolean {
+  return RARITY_SECONDARY_COUNT[item.rarity] > 0 && item.effects.some((effect) => effect.type === "attribute");
+}
+
+export function getStationSalvageYield(
+  item: StationEquipment,
+  shardSifterLevel: number,
+  recyclerLevel: number,
+): number {
+  const baseShards = SHARDS_PER_SALVAGE[item.rarity] + Math.max(0, Math.floor(shardSifterLevel));
+  return Math.max(1, Math.floor(baseShards * (1 + Math.max(0, recyclerLevel) * 0.25)));
+}
+
 export function reforgeStationEquipment(item: StationEquipment, source?: RandomSource): StationEquipment {
   const attributes = item.effects.filter((effect) => effect.type === "attribute"); const bonuses = item.effects.filter((effect) => effect.type === "bonus");
   const primary = attributes[0]; if (!primary || primary.type !== "attribute") return item;

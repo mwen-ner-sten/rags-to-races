@@ -8,7 +8,9 @@ import {
   trackPerkCost,
   type TrackPerkCategory,
 } from "@/data/trackPerks";
-import type { OwnedTrackConfig } from "@/data/trackVenue";
+import { calculateHostedEventTerms, normalizeHostedEventConfig, type OwnedTrackConfig } from "@/data/trackVenue";
+import { getPermanentRuntimeBonuses } from "@/engine/permanentBonuses";
+import { formatNumber } from "@/utils/format";
 
 export default function TrackSubTab() {
   const trackPrestigeTokens = useGameStore((s) => s.trackPrestigeTokens);
@@ -50,19 +52,27 @@ export default function TrackSubTab() {
 const CONFIG_OPTIONS: { key: keyof OwnedTrackConfig; label: string; values: string[] }[] = [
   { key: "surface", label: "Surface", values: ["grass", "gravel", "asphalt"] }, { key: "length", label: "Length", values: ["short", "medium", "long"] },
   { key: "cornerDensity", label: "Corners", values: ["low", "medium", "high"] }, { key: "timeRule", label: "Conditions", values: ["day", "night", "variable_weather"] },
-  { key: "vehicleClass", label: "Vehicle class", values: ["open", "scrap", "street", "prototype"] }, { key: "riskReward", label: "Risk / reward", values: ["1", "2", "3", "4", "5"] },
+  { key: "vehicleClass", label: "Vehicle class", values: ["open", "scrap", "street", "prototype"] }, { key: "riskReward", label: "Payout tier", values: ["1", "2", "3", "4", "5"] },
 ];
 
 function VenueManager() {
   const config = useGameStore((s) => s.ownedTrackConfig); const events = useGameStore((s) => s.hostedEvents);
   const perks = useGameStore((s) => s.trackPerkLevels);
+  const allScrapIncomeMult = useGameStore((state) => getPermanentRuntimeBonuses(state).allScrapIncomeMult);
   const update = useGameStore((s) => s.updateOwnedTrackConfig); const host = useGameStore((s) => s.hostTrackEvent); const collect = useGameStore((s) => s.collectHostedEvent);
+  const effectiveConfig = normalizeHostedEventConfig(config, {
+    customCircuits: Boolean(perks.track_custom_circuits),
+    nightRacing: Boolean(perks.track_night_racing),
+    enduranceMode: Boolean(perks.track_endurance),
+  });
+  const preview = calculateHostedEventTerms(effectiveConfig, perks.track_sponsors ?? 0, allScrapIncomeMult);
   return <section className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}>
-    <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-heading)" }}>Owned Venue</h3><p className="text-xs" style={{ color: "var(--text-muted)" }}>Configure bounded event rules, sign a sponsor, and run specialized programs.</p>
-    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{CONFIG_OPTIONS.map((option) => <label key={option.key} className="text-xs" style={{ color: "var(--text-muted)" }}>{option.label}<select value={String(config[option.key])} onChange={(event) => update({ ...config, [option.key]: option.key === "riskReward" ? Number(event.target.value) : event.target.value } as OwnedTrackConfig)} className="mt-1 w-full rounded border px-2 py-1.5 capitalize" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{option.values.map((value) => <option key={value} disabled={(option.key === "timeRule" && value === "night" && !perks.track_night_racing) || (option.key === "riskReward" && Number(value) > 3 && !perks.track_custom_circuits)}>{value}</option>)}</select></label>)}</div>
-    <label className="mt-3 flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={config.endurance} disabled={!perks.track_endurance} onChange={(event) => update({ ...config, endurance: event.target.checked })} /> Endurance modifier {!perks.track_endurance && "(perk required)"}</label>
-    <button onClick={host} disabled={events.filter((event) => event.status === "running").length >= 1 + (perks.track_multi ?? 0)} className="mt-3 rounded border px-3 py-1.5 text-xs font-semibold disabled:opacity-40" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Host event</button>
-    <div className="mt-3 space-y-2">{events.map((event) => <div key={event.id} className="flex items-center gap-2 rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}><strong className="mr-auto" style={{ color: "var(--text-white)" }}>{event.name} · {event.sponsor}</strong><span style={{ color: event.status === "complete" ? "var(--success)" : "var(--text-muted)" }}>{event.status === "complete" ? `$${event.reward}` : `${event.remainingTicks} ticks`}</span>{event.status === "complete" && <button onClick={() => collect(event.id)} className="rounded border px-2 py-1" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Collect</button>}</div>)}</div>
+    <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-heading)" }}>Owned Venue</h3><p className="text-xs" style={{ color: "var(--text-muted)" }}>Configure hosted events. Surface, length, corners, vehicle class, conditions, endurance, payout tier, and Sponsor Network all affect the displayed payout.</p>
+    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{CONFIG_OPTIONS.map((option) => <label key={option.key} className="text-xs" style={{ color: "var(--text-muted)" }}>{option.label}<select value={String(effectiveConfig[option.key])} onChange={(event) => update({ ...effectiveConfig, [option.key]: option.key === "riskReward" ? Number(event.target.value) : event.target.value } as OwnedTrackConfig)} className="mt-1 w-full rounded border px-2 py-1.5 capitalize" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{option.values.map((value) => <option key={value} disabled={(option.key === "timeRule" && value === "night" && !perks.track_night_racing) || (option.key === "riskReward" && Number(value) > 3 && !perks.track_custom_circuits)}>{value}</option>)}</select></label>)}</div>
+    <label className="mt-3 flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={effectiveConfig.endurance} disabled={!perks.track_endurance} onChange={(event) => update({ ...effectiveConfig, endurance: event.target.checked })} /> Endurance modifier {!perks.track_endurance && "(perk required)"}</label>
+    <div className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>Forecast: ${formatNumber(preview.reward)} after {preview.durationTicks} ticks</div>
+    <button onClick={host} disabled={events.filter((event) => event.status === "running").length >= 1 + (perks.track_multi ?? 0)} className="mt-2 rounded border px-3 py-1.5 text-xs font-semibold disabled:opacity-40" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Host event</button>
+    <div className="mt-3 space-y-2">{events.map((event) => <div key={event.id} className="flex items-center gap-2 rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}><strong className="mr-auto" style={{ color: "var(--text-white)" }}>{event.name} · {event.sponsor}</strong><span style={{ color: event.status === "complete" ? "var(--success)" : "var(--text-muted)" }}>{event.status === "complete" ? `$${formatNumber(event.reward)}` : `${event.remainingTicks} ticks`}</span>{event.status === "complete" && <button onClick={() => collect(event.id)} className="rounded border px-2 py-1" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Collect</button>}</div>)}</div>
   </section>;
 }
 
@@ -194,8 +204,9 @@ function formatEffect(type: string, value: number): string {
     case "lower_currency_mult":
       return `+${Math.round(value * 100)}%`;
     case "extra_track":
-    case "passive_scrap":
       return `${value}`;
+    case "passive_scrap":
+      return `+${Math.round(value * 20)}%`;
     case "tick_speed_reduction":
       return `-${value}s`;
     default:

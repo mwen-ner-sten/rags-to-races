@@ -49,14 +49,10 @@ export default function SettingsPanel() {
           Theme
         </h2>
         <div
+          className="grid grid-cols-2 gap-2 rounded-lg border p-3 sm:grid-cols-3"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "0.5rem",
-            padding: "0.75rem",
             background: "rgba(255,255,255,.03)",
-            border: "1px solid rgba(255,255,255,.1)",
-            borderRadius: 8,
+            borderColor: "rgba(255,255,255,.1)",
           }}
         >
           {THEMES.map((t) => {
@@ -76,6 +72,7 @@ export default function SettingsPanel() {
                   cursor: "pointer",
                   transition: "all .15s",
                   opacity: isActive ? 1 : 0.75,
+                  minWidth: 0,
                 }}
               >
                 <span

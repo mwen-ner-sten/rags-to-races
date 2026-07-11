@@ -22,7 +22,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "junkyard", label: "Junkyard" },
   { id: "garage",   label: "Garage"   },
   { id: "race",     label: "Race"     },
-  { id: "gear",     label: "Gear"     },
+  { id: "gear",     label: "Workshop" },
   { id: "upgrades", label: "Upgrades" },
   { id: "help",     label: "Help"     },
   { id: "log",      label: "Activity" },

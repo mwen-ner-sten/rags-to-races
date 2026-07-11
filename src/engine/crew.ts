@@ -1,4 +1,4 @@
-import type { CrewMember } from "@/data/crew";
+import type { CrewMember, CrewRole } from "@/data/crew";
 
 export interface CrewBonuses {
   scavengeLuckBonus: number;
@@ -103,7 +103,75 @@ export function grantCrewXp(
   amount: number,
   crewXpMultiplier: number = 1,
 ): CrewMember {
-  const newXp = member.xp + Math.floor(amount * crewXpMultiplier);
+  // Keep fractional XP so a +20% training bonus remains +20% even for the
+  // one-XP Trader actions. Rounding each action would erase four upgrade
+  // levels of the advertised bonus.
+  const newXp = member.xp + amount * crewXpMultiplier;
   const { level } = crewLevelFromXp(newXp);
   return { ...member, xp: newXp, level: Math.min(level, 10) };
+}
+
+/** Grant XP to every crew member whose role matches the completed action. */
+export function grantCrewRoleXp(
+  roster: CrewMember[],
+  role: CrewRole,
+  amount: number,
+  crewXpMultiplier: number = 1,
+): CrewMember[] {
+  if (amount <= 0) return roster;
+  return roster.map((member) =>
+    member.role === role
+      ? grantCrewXp(member, amount, crewXpMultiplier)
+      : member,
+  );
+}
+
+/** Total XP required for a crew member to begin at a given level. */
+export function crewTotalXpForLevel(level: number): number {
+  const boundedLevel = Math.max(1, Math.min(10, Math.floor(level)));
+  let total = 0;
+  for (let nextLevel = 2; nextLevel <= boundedLevel; nextLevel++) {
+    total += crewXpForLevel(nextLevel);
+  }
+  return total;
+}
+
+export function createCrewAtLevel(
+  id: string,
+  name: string,
+  role: CrewRole,
+  level: number,
+): CrewMember {
+  const boundedLevel = Math.max(1, Math.min(10, Math.floor(level)));
+  return {
+    id,
+    name,
+    role,
+    level: boundedLevel,
+    xp: crewTotalXpForLevel(boundedLevel),
+    specialization: null,
+  };
+}
+
+/** Stable four-role roster used whenever Talent Academy re-recruits a team. */
+export function createAcademyRoster(startingLevel: number = 1): CrewMember[] {
+  const names = ["Mara", "Rook", "Ace", "Ledger"];
+  return (["mechanic", "scout", "driver", "trader"] as CrewRole[]).map(
+    (role, index) =>
+      createCrewAtLevel(`academy_${role}`, names[index], role, startingLevel),
+  );
+}
+
+/** Preserve recruited crew and fill only roles that Talent Academy is missing. */
+export function ensureAcademyRoster(
+  roster: CrewMember[],
+  startingLevel: number = 1,
+): CrewMember[] {
+  const existingRoles = new Set(roster.map((member) => member.role));
+  return [
+    ...roster,
+    ...createAcademyRoster(startingLevel).filter(
+      (member) => !existingRoles.has(member.role),
+    ),
+  ];
 }

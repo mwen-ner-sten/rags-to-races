@@ -123,7 +123,7 @@ const achAllTypes: AchievementDefinition = {
   description: "Build every vehicle type at least once.",
   category: "building",
   statKey: "uniqueVehicleTypesBuiltCount",
-  target: 10,
+  target: VEHICLE_DEFINITIONS.length,
   reward: { type: "bonus", bonusId: "ach_build_cost_25", description: "-25% build costs" },
   flavorText: "Push mower to prototype. You've built them all.",
 };
@@ -399,3 +399,4 @@ export const ACHIEVEMENT_CATEGORIES: { id: AchievementCategory; label: string }[
   { id: "wealth", label: "Wealth" },
   { id: "mastery", label: "Mastery" },
 ];
+import { VEHICLE_DEFINITIONS } from "@/data/vehicles";

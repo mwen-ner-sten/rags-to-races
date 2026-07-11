@@ -171,8 +171,11 @@ function formatEffect(type: string, value: number): string {
     case "unlock_t9_vehicles":
     case "unlock_research":
     case "infinite_garage":
+      return value >= 1 ? "Active" : "Inactive";
     case "material_conversion":
+      return value >= 1 ? "10 materials / $100" : "Inactive";
     case "crew_starting_level":
+      return value >= 1 ? `Level ${value}` : "Inactive";
     case "legacy_starting_level":
       return value >= 1 ? "Active" : "Inactive";
     case "keep_team_upgrades":

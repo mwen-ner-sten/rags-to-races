@@ -111,7 +111,7 @@ const PS_SCRAP_T4: PlaystyleNodeDefinition = {
   id: "ps_scrap_t4",
   path: "scrapper",
   name: "Junkyard King",
-  description: "All scavenge bonuses doubled, auto-decompose junk.",
+  description: "All scavenge luck, quality, and yield bonuses doubled.",
   tier: 4,
   lpCost: 60,
   prerequisiteTier: 3,
@@ -134,7 +134,7 @@ const PS_SPEED_T2A: PlaystyleNodeDefinition = {
   id: "ps_speed_t2a",
   path: "speedster",
   name: "Adrenaline Rush",
-  description: "+25% race scrap + rep on wins.",
+  description: "+25% Scrap Bucks and Rep from every race.",
   tier: 2,
   lpCost: 15,
   prerequisiteNodeId: "ps_speed_t1",
@@ -181,7 +181,7 @@ const PS_SPEED_T4: PlaystyleNodeDefinition = {
   id: "ps_speed_t4",
   path: "speedster",
   name: "Speed Demon",
-  description: "+25% all race rewards, DNF chance halved.",
+  description: "+25% race Scrap Bucks and Rep; DNF chance halved.",
   tier: 4,
   lpCost: 60,
   prerequisiteTier: 3,
@@ -216,7 +216,7 @@ const PS_ENG_T2B: PlaystyleNodeDefinition = {
   id: "ps_eng_t2b",
   path: "engineer",
   name: "Material Science",
-  description: "+40% decompose yield, -30% enhancement costs.",
+  description: "+40% decompose yield, -30% part enhancement material costs.",
   tier: 2,
   lpCost: 15,
   prerequisiteNodeId: "ps_eng_t1",
@@ -239,7 +239,7 @@ const PS_ENG_T3B: PlaystyleNodeDefinition = {
   id: "ps_eng_t3b",
   path: "engineer",
   name: "Master Craftsman",
-  description: "Enhancement always succeeds, craft recipes cost -40%.",
+  description: "Part enhancement and craft recipe material costs -40%.",
   tier: 3,
   lpCost: 30,
   prerequisiteNodeId: "ps_eng_t2b",
@@ -251,7 +251,7 @@ const PS_ENG_T4: PlaystyleNodeDefinition = {
   path: "engineer",
   name: "Innovator",
   description:
-    "Start each run with 5 random workshop upgrades, build costs -50%.",
+    "After each Scrap Reset, start with 5 random workshop upgrades; build costs -50%.",
   tier: 4,
   lpCost: 60,
   prerequisiteTier: 3,
@@ -352,7 +352,6 @@ export interface PlaystyleBonuses {
   scavengeQualityBonus: number;
   sellValueMult: number;
   materialYieldMult: number;
-  autoDecomposeJunk: boolean;
   racePerformanceBonus: number;
   raceScrapMult: number;
   raceRepMult: number;
@@ -379,7 +378,6 @@ function defaultBonuses(): PlaystyleBonuses {
     scavengeQualityBonus: 0,
     sellValueMult: 0,
     materialYieldMult: 0,
-    autoDecomposeJunk: false,
     racePerformanceBonus: 0,
     raceScrapMult: 0,
     raceRepMult: 0,
@@ -431,7 +429,6 @@ export function getPlaystyleBonuses(
         break;
       case "ps_scrap_t4":
         b.allScavengeDoubled = true;
-        b.autoDecomposeJunk = true;
         break;
 
       // ── Speedster ───────────────────────────────────────────────────────
@@ -475,7 +472,7 @@ export function getPlaystyleBonuses(
         b.workshopEffectBonus += 0.5;
         break;
       case "ps_eng_t3b":
-        b.enhancementCostReduction = 1; // always succeeds => 100% reduction in failure
+        b.enhancementCostReduction += 0.4;
         b.craftCostReduction += 0.4;
         break;
       case "ps_eng_t4":

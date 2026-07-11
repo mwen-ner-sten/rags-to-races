@@ -28,7 +28,7 @@ export function legacyEffectTotal(def: LegacyUpgradeDefinition, level: number): 
 const SCRAP_MAGNATE: LegacyUpgradeDefinition = {
   id: "leg_scrap_mult",
   name: "Scrap Magnate",
-  description: "All scrap earned increased by 20% per level.",
+  description: "Race prize Scrap increased by 20% per level.",
   category: "velocity",
   maxLevel: 10,
   baseCost: 5,
@@ -56,17 +56,6 @@ const SEED_MONEY: LegacyUpgradeDefinition = {
   baseCost: 3,
   costScaling: 1.5,
   effect: { type: "starting_scrap", valuePerLevel: 100 },
-};
-
-const MUSCLE_MEMORY: LegacyUpgradeDefinition = {
-  id: "leg_auto_scav_clicks",
-  name: "Muscle Memory",
-  description: "Start with 20 auto-scavenge clicks per level (100 unlocks auto).",
-  category: "velocity",
-  maxLevel: 5,
-  baseCost: 8,
-  costScaling: 2.0,
-  effect: { type: "starting_scav_clicks", valuePerLevel: 20 },
 };
 
 // ── Fortune (quality of loot) ───────────────────────────────────────────────
@@ -147,7 +136,6 @@ export const LEGACY_UPGRADE_DEFINITIONS: LegacyUpgradeDefinition[] = [
   SCRAP_MAGNATE,
   STREET_CRED,
   SEED_MONEY,
-  MUSCLE_MEMORY,
   BORN_LUCKY,
   EFFICIENT_SALVAGER,
   IRON_WILL,

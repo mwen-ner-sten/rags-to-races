@@ -106,7 +106,7 @@ export default function CrewPanel() {
                   <span>
                     {isMaxLevel
                       ? "MAX"
-                      : `${xpIntoLevel} / ${xpForNext}`}
+                      : `${formatCrewXp(xpIntoLevel)} / ${xpForNext}`}
                   </span>
                 </div>
                 <div
@@ -197,6 +197,10 @@ export default function CrewPanel() {
       </div>
     </div>
   );
+}
+
+function formatCrewXp(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 function formatRoleBonuses(role: string, level: number): string {

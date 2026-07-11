@@ -78,6 +78,32 @@ const CIRCUIT_THEMES: Record<string, CircuitTheme> = {
     curbColorA: "#cc2222",
     curbColorB: "#ffffff",
   },
+  continental_grand_prix: {
+    trackSurface: "#242936",
+    trackEdge: "#151923",
+    trackEdgePattern: "alternating",
+    infield: "#101827",
+    infieldOpacity: 0.18,
+    surroundType: "lights",
+    ambientParticles: "sparks",
+    startFinishColor: "#f5d76e",
+    label: "CONTINENTAL",
+    curbColorA: "#2457d6",
+    curbColorB: "#f4f4f4",
+  },
+  endurance_series: {
+    trackSurface: "#252a2f",
+    trackEdge: "#11161b",
+    trackEdgePattern: "alternating",
+    infield: "#0c1820",
+    infieldOpacity: 0.22,
+    surroundType: "lights",
+    ambientParticles: null,
+    startFinishColor: "#dcecff",
+    label: "ENDURANCE",
+    curbColorA: "#2f80b7",
+    curbColorB: "#dcecff",
+  },
 };
 
 /** Default theme used when circuitId is unknown */

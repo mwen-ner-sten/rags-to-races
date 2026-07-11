@@ -42,8 +42,6 @@ export interface PrestigeMilestoneBonuses {
   deepRunLpMult: number;
   startWorkshopCount: number;
   startingScrapMult: number;
-  startWithAutoScavenge: boolean;
-  allMultiplier: number;
   lpMultiplier: number;
 }
 
@@ -70,7 +68,7 @@ const PM_AUTO_ACTIVATE: PrestigeMilestoneDefinition = {
 const PM_JUNK_FILTER: PrestigeMilestoneDefinition = {
   id: "pm_junk_filter",
   name: "Junk Filter",
-  description: "Rusted items are sold automatically on pickup.",
+  description: "Rusted parts are sold automatically when scavenged.",
   prestigeRequired: 2,
   reward: { type: "qol", qolId: "auto_sell_rusted" },
   flavorText: "If it's rusted, it's sold. No questions asked.",
@@ -79,7 +77,7 @@ const PM_JUNK_FILTER: PrestigeMilestoneDefinition = {
 const PM_BULK_SCRAP: PrestigeMilestoneDefinition = {
   id: "pm_bulk_scrap",
   name: "Bulk Scrapper",
-  description: "Decomposing all parts is free.",
+  description: "Bulk-decomposing rusted and worn items is free.",
   prestigeRequired: 3,
   reward: { type: "qol", qolId: "free_decompose_all" },
   flavorText: "Break it all down. On the house.",
@@ -127,7 +125,7 @@ const PM_RACER_MOMENTUM: PrestigeMilestoneDefinition = {
 const PM_WORKSHOP_PRODIGY: PrestigeMilestoneDefinition = {
   id: "pm_workshop_prodigy",
   name: "Workshop Prodigy",
-  description: "Workshop costs -40% and start each run with a toolkit.",
+  description: "Workshop upgrade costs -40% and start each run with a Toolkit.",
   prestigeRequired: 12,
   reward: {
     type: "softwall",
@@ -181,15 +179,11 @@ const PM_MASTER_MECH: PrestigeMilestoneDefinition = {
 const PM_SCRAP_BARON: PrestigeMilestoneDefinition = {
   id: "pm_scrap_baron",
   name: "Scrap Baron",
-  description:
-    "x3 total starting scrap and auto-scavenge from tick 0.",
+  description: "x3 total starting Scrap Bucks.",
   prestigeRequired: 40,
   reward: {
     type: "softwall",
-    bonuses: [
-      { bonusType: "starting_scrap_mult", value: 2.0 },
-      { bonusType: "start_with_auto_scavenge", value: 1 },
-    ],
+    bonuses: [{ bonusType: "starting_scrap_mult", value: 2.0 }],
   },
   flavorText: "You don't start from nothing anymore.",
 };
@@ -197,12 +191,13 @@ const PM_SCRAP_BARON: PrestigeMilestoneDefinition = {
 const PM_LEGEND: PrestigeMilestoneDefinition = {
   id: "pm_legend",
   name: "Living Legend",
-  description: "+25% to all multipliers and +25% LP.",
+  description: "+25% race Scrap, race Rep, and Legacy Points.",
   prestigeRequired: 50,
   reward: {
     type: "softwall",
     bonuses: [
-      { bonusType: "all_multiplier", value: 0.25 },
+      { bonusType: "race_scrap_mult", value: 0.25 },
+      { bonusType: "race_rep_mult", value: 0.25 },
       { bonusType: "lp_multiplier", value: 0.25 },
     ],
   },
@@ -275,14 +270,11 @@ const BONUS_TYPE_MAP: Record<string, keyof PrestigeMilestoneBonuses> = {
   deep_run_lp_mult: "deepRunLpMult",
   start_workshop_count: "startWorkshopCount",
   starting_scrap_mult: "startingScrapMult",
-  start_with_auto_scavenge: "startWithAutoScavenge",
-  all_multiplier: "allMultiplier",
   lp_multiplier: "lpMultiplier",
 };
 
 const BOOLEAN_BONUS_KEYS = new Set<keyof PrestigeMilestoneBonuses>([
   "startWithToolkit",
-  "startWithAutoScavenge",
 ]);
 
 /** Aggregate all active milestone rewards into a single bonus struct */
@@ -305,8 +297,6 @@ export function getPrestigeMilestoneBonuses(
     deepRunLpMult: 0,
     startWorkshopCount: 0,
     startingScrapMult: 0,
-    startWithAutoScavenge: false,
-    allMultiplier: 0,
     lpMultiplier: 0,
   };
 

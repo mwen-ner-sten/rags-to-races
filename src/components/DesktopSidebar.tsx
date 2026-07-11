@@ -1,6 +1,7 @@
 "use client";
 
 import { useGameStore } from "@/state/store";
+import { isFeatureAvailable } from "@/config/features";
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
@@ -15,7 +16,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "dev",      label: "Dev" },
 ];
 
-const SHOW_DEV_TAB = process.env.NEXT_PUBLIC_VERCEL_ENV !== "production";
+const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
 
 interface Props {
   activeTab: string;

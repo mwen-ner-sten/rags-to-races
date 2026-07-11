@@ -1,6 +1,7 @@
 import type { PartCondition } from "./parts";
 import { PART_DEFINITIONS } from "./parts";
 import { randInt } from "@/utils/random";
+import { REP_PROGRESSION } from "@/config/progression";
 
 export interface DealerListing {
   id: string;             // unique listing instance id
@@ -18,13 +19,13 @@ export const DEALER_REFRESH_INTERVAL = 30;
 export const DEALER_BOARD_SIZE = 3;
 
 /** Rep threshold to unlock the dealer board */
-export const DEALER_UNLOCK_REP = 8000;
+export const DEALER_UNLOCK_REP = REP_PROGRESSION.dealer.unlock;
 
 /** Rep threshold for tier-2 stock (better conditions available) */
-export const DEALER_TIER2_REP = 50000;
+export const DEALER_TIER2_REP = REP_PROGRESSION.dealer.tier2;
 
 /** Rep threshold for tier-3 stock (high-tier parts available) */
-export const DEALER_TIER3_REP = 200000;
+export const DEALER_TIER3_REP = REP_PROGRESSION.dealer.tier3;
 
 let _listingCounter = 0;
 function makeListingId(): string {
@@ -105,6 +106,9 @@ export function shouldRefreshDealer(
   board: DealerListing[],
   currentTick: number,
 ): boolean {
-  if (board.length === 0) return true;
+  // An empty board may mean the player bought every listing. Refilling it on
+  // the next tick would bypass the paid Refresh action; the unlock transition
+  // is handled explicitly by the store.
+  if (board.length === 0) return false;
   return board.some((l) => currentTick >= l.expiresAt);
 }

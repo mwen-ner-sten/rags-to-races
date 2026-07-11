@@ -7,6 +7,7 @@ interface GameAssetImageProps {
   width?: number;
   height?: number;
   className?: string;
+  loading?: "eager" | "lazy";
 }
 
 export default function GameAssetImage({
@@ -15,6 +16,7 @@ export default function GameAssetImage({
   width = 64,
   height = width,
   className,
+  loading,
 }: GameAssetImageProps) {
   const asset = getFixedAsset(kind, id);
   if (!asset) return null;
@@ -25,8 +27,13 @@ export default function GameAssetImage({
       width={width}
       height={height}
       unoptimized
+      loading={loading}
       className={className}
-      style={{ objectFit: kind === "location" || kind === "circuit" ? "cover" : "contain" }}
+      style={{
+        alignSelf: "center",
+        flexShrink: 0,
+        objectFit: kind === "location" || kind === "circuit" ? "cover" : "contain",
+      }}
     />
   );
 }

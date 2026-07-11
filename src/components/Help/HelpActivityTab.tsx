@@ -11,6 +11,7 @@ const CATEGORIES: { id: LogCategory | "all"; label: string }[] = [
   { id: "build", label: "Build" },
   { id: "upgrade", label: "Upg" },
   { id: "prestige", label: "Pres" },
+  { id: "achievement", label: "Achievements" },
   { id: "gear", label: "Station" },
   { id: "craft", label: "Craft" },
   { id: "trade", label: "Trade" },
@@ -24,6 +25,7 @@ const CATEGORY_COLORS: Record<LogCategory, string> = {
   build: "#c87030",
   upgrade: "#9966cc",
   prestige: "#d4a030",
+  achievement: "#f0c75e",
   gear: "#44aacc",
   craft: "#44aa88",
   trade: "#cc6699",
@@ -57,6 +59,9 @@ export default function HelpActivityTab() {
     ? activityLog
     : activityLog.filter((e) => e.category === filter);
   const entries = [...filtered].reverse();
+  const emptyMessage = filter === "all"
+    ? "No activity yet. Start scavenging!"
+    : `No ${CATEGORIES.find((category) => category.id === filter)?.label.toLowerCase()} activity yet.`;
 
   return (
     <div style={{
@@ -136,7 +141,7 @@ export default function HelpActivityTab() {
       }}>
         {entries.length === 0 ? (
           <div style={{ padding: "32px 16px", textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.25)" }}>
-            No activity yet. Start scavenging!
+            {emptyMessage}
           </div>
         ) : (
           entries.map((entry) => (

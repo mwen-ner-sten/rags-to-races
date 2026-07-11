@@ -27,7 +27,7 @@ export const FEATURE_AVAILABILITY: Record<FeatureId, FeatureAvailability> = {
   racer_attributes: { availability: "dev", description: "Legacy assignable racer attributes pending crew migration." },
   expanded_talents: { availability: "dev", description: "Legacy talent expansion pending Garage Philosophy migration." },
   crew_system: { availability: "released", description: "Team-layer crew recruitment, development, and fleet assignment." },
-  new_workshop_cats: { availability: "released", description: "Station Lab and advanced Salvage Workshop facilities." },
+  new_workshop_cats: { availability: "dev", description: "Deferred Research workshop category." },
   advanced_circuits: { availability: "released", description: "Profiled Owner-layer international and endurance circuits." },
   fleet_garage: { availability: "released", description: "Passive programs for non-focus vehicles on completed circuits." },
   vehicle_mastery: { availability: "released", description: "Owner R&D access to T9 and T10 vehicles." },

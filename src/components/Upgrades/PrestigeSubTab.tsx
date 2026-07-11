@@ -6,6 +6,10 @@ import { formatNumber } from "@/utils/format";
 import MomentumTracker from "@/components/Shop/MomentumTracker";
 import PrestigeMilestoneTrack from "./PrestigeMilestoneTrack";
 import PrestigeConfirm from "@/components/Shop/PrestigeConfirm";
+import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, RESPONSIBILITY_RESET_REQUIREMENTS, scrapResetRequirementText } from "@/config/progression";
+import { calculateOwnerPoints, calculateTeamPoints, calculateTrackTokens } from "@/engine/prestige";
+
+type ResponsibilityResetLayer = "team" | "owner" | "track";
 
 export default function PrestigeSubTab() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
@@ -14,6 +18,7 @@ export default function PrestigeSubTab() {
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
   const legacyPoints = useGameStore((s) => s.legacyPoints);
+  const lifetimeLPThisTeamEra = useGameStore((s) => s.lifetimeLPThisTeamEra);
   const garage = useGameStore((s) => s.garage);
   const inventory = useGameStore((s) => s.inventory);
   const fatigue = useGameStore((s) => s.fatigue);
@@ -22,17 +27,29 @@ export default function PrestigeSubTab() {
   const lifetimeLPAllTime = useGameStore((s) => s.lifetimeLPAllTime);
   const lifetimeScrapResets = useGameStore((s) => s.lifetimeScrapResets);
   const teamEraCount = useGameStore((s) => s.teamEraCount);
+  const teamPoints = useGameStore((s) => s.teamPoints);
   const lifetimeTeamPoints = useGameStore((s) => s.lifetimeTeamPoints);
+  const lifetimeTPThisOwnerEra = useGameStore((s) => s.lifetimeTPThisOwnerEra);
   const ownerEraCount = useGameStore((s) => s.ownerEraCount);
+  const ownerPoints = useGameStore((s) => s.ownerPoints);
   const lifetimeOwnerPoints = useGameStore((s) => s.lifetimeOwnerPoints);
+  const lifetimeOPThisTrackEra = useGameStore((s) => s.lifetimeOPThisTrackEra);
   const trackEraCount = useGameStore((s) => s.trackEraCount);
+  const trackPrestigeTokens = useGameStore((s) => s.trackPrestigeTokens);
   const teamReset = useGameStore((s) => s.teamReset);
   const ownerReset = useGameStore((s) => s.ownerReset);
   const trackReset = useGameStore((s) => s.trackReset);
 
   const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false);
+  const [confirmingResponsibilityReset, setConfirmingResponsibilityReset] = useState<ResponsibilityResetLayer | null>(null);
 
-  const canPrestige = garage.length >= 3 && repPoints >= 5000 && lifetimeScrapBucks >= 50000;
+  const canPrestige = canScrapReset({ vehiclesBuilt: garage.length, reputation: repPoints, lifetimeScrapBucks });
+  const canTeam = canTeamReset({ lifetimeLegacyPoints: lifetimeLPAllTime, lifetimeLPThisTeamEra, unspentLegacyPoints: legacyPoints });
+  const canOwner = canOwnerReset({ lifetimeTeamPoints, teamEras: teamEraCount, lifetimeTPThisOwnerEra, unspentTeamPoints: teamPoints });
+  const canTrack = canTrackReset({ lifetimeOwnerPoints, ownerEras: ownerEraCount, lifetimeOPThisTrackEra, unspentOwnerPoints: ownerPoints });
+  const teamPointAward = calculateTeamPoints({ lifetimeLPThisTeamEra, teamEraCount, unspentLP: legacyPoints });
+  const ownerPointAward = calculateOwnerPoints({ lifetimeTPThisOwnerEra, ownerEraCount, unspentTP: teamPoints });
+  const trackTokenAward = calculateTrackTokens({ lifetimeOPThisTrackEra, trackEraCount, unspentOP: ownerPoints });
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,7 +76,7 @@ export default function PrestigeSubTab() {
           <div style={{ background: "var(--accent-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
               {prestigeBonus.scrapMultiplier > 1 && (
-                <StatRow label="Scrap Multiplier" value={`\u00d7${prestigeBonus.scrapMultiplier.toFixed(1)}`} accent />
+                <StatRow label="Race Scrap Multiplier" value={`\u00d7${prestigeBonus.scrapMultiplier.toFixed(1)}`} accent />
               )}
               {prestigeBonus.luckBonus > 0 && (
                 <StatRow label="Luck Bonus" value={`+${(prestigeBonus.luckBonus * 100).toFixed(0)}%`} accent />
@@ -128,7 +145,7 @@ export default function PrestigeSubTab() {
           )}
           {!canPrestige && (
             <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-              Requirements: 3 vehicles built, 5,000 Rep, $50,000 lifetime Scrap Bucks
+              Requirements: {scrapResetRequirementText()}
             </p>
           )}
           <button
@@ -144,7 +161,7 @@ export default function PrestigeSubTab() {
       )}
 
       {/* Team Reset */}
-      {lifetimeLPAllTime >= 200 && (
+      {canTeam && (
         <div
           style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
           className="rounded-lg border p-4"
@@ -154,24 +171,41 @@ export default function PrestigeSubTab() {
           </div>
           <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
             Disband your team and rebuild. Clears Scrap/Legacy progress, vehicles, fleet assignments,
-            crew levels, and station item levels. Keeps Team Points, Team upgrades, blueprints, and achievements.
+            the crew roster, and station equipment. Keeps Team Points, Team upgrades, blueprints, and achievements.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-            Requires 200 lifetime LP (you have {lifetimeLPAllTime})
+            Requires {RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints} lifetime LP (you have {lifetimeLPAllTime})
           </p>
-          <button
-            onClick={teamReset}
-            disabled={lifetimeLPAllTime < 200}
-            style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Team Reset
-          </button>
+          <p style={{ color: "var(--accent)" }} className="mb-3 font-mono text-sm font-semibold">
+            Award: +{teamPointAward} TP · Total after reset: {teamPoints + teamPointAward} TP
+          </p>
+          {confirmingResponsibilityReset === "team" ? (
+            <ResponsibilityResetConfirm
+              layerName="Team"
+              award={`+${teamPointAward} TP`}
+              resetText="Scrap and Legacy progress, vehicles, fleet assignments, crew, and station equipment"
+              keepText="Team Points and upgrades, discovered blueprints, achievements, and lifetime history"
+              onConfirm={() => {
+                setConfirmingResponsibilityReset(null);
+                teamReset();
+              }}
+              onCancel={() => setConfirmingResponsibilityReset(null)}
+            />
+          ) : (
+            <button
+              onClick={() => setConfirmingResponsibilityReset("team")}
+              disabled={!canTeam}
+              style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Team Reset
+            </button>
+          )}
         </div>
       )}
 
       {/* Owner Reset */}
-      {lifetimeTeamPoints >= 500 && ownerEraCount >= 0 && teamEraCount >= 3 && (
+      {canOwner && (
         <div
           style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
           className="rounded-lg border p-4"
@@ -184,21 +218,38 @@ export default function PrestigeSubTab() {
             Keeps Owner Points, Owner facilities, permanent discoveries, achievements, and lifetime history.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-            Requires 500 lifetime TP + 3 team eras (you have {lifetimeTeamPoints} TP, {teamEraCount} eras)
+            Requires {RESPONSIBILITY_RESET_REQUIREMENTS.owner.lifetimeTeamPoints} lifetime TP + {RESPONSIBILITY_RESET_REQUIREMENTS.owner.teamEras} team eras (you have {lifetimeTeamPoints} TP, {teamEraCount} eras)
           </p>
-          <button
-            onClick={ownerReset}
-            disabled={lifetimeTeamPoints < 500 || teamEraCount < 3}
-            style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Owner Reset
-          </button>
+          <p style={{ color: "var(--accent)" }} className="mb-3 font-mono text-sm font-semibold">
+            Award: +{ownerPointAward} OP · Total after reset: {ownerPoints + ownerPointAward} OP
+          </p>
+          {confirmingResponsibilityReset === "owner" ? (
+            <ResponsibilityResetConfirm
+              layerName="Owner"
+              award={`+${ownerPointAward} OP`}
+              resetText="Team, Legacy, and Scrap progress, vehicles, crew, fleet assignments, and station equipment"
+              keepText="Owner Points and facilities, discoveries, achievements, and lifetime history"
+              onConfirm={() => {
+                setConfirmingResponsibilityReset(null);
+                ownerReset();
+              }}
+              onCancel={() => setConfirmingResponsibilityReset(null)}
+            />
+          ) : (
+            <button
+              onClick={() => setConfirmingResponsibilityReset("owner")}
+              disabled={!canOwner}
+              style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Owner Reset
+            </button>
+          )}
         </div>
       )}
 
       {/* Track Reset */}
-      {lifetimeOwnerPoints >= 1000 && ownerEraCount >= 5 && (
+      {canTrack && (
         <div
           style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
           className="rounded-lg border p-4"
@@ -208,19 +259,36 @@ export default function PrestigeSubTab() {
           </div>
           <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
             Buy the track. Clears Owner and lower-layer progress.
-            Keeps Prestige Tokens, Track perks, circuit templates, discoveries, achievements, and lifetime history.
+            Keeps Prestige Tokens, Track perks, owned venue configuration, discoveries, achievements, and lifetime history.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-            Requires 1000 lifetime OP + 5 owner eras (you have {lifetimeOwnerPoints} OP, {ownerEraCount} eras)
+            Requires {RESPONSIBILITY_RESET_REQUIREMENTS.track.lifetimeOwnerPoints} lifetime OP + {RESPONSIBILITY_RESET_REQUIREMENTS.track.ownerEras} owner eras (you have {lifetimeOwnerPoints} OP, {ownerEraCount} eras)
           </p>
-          <button
-            onClick={trackReset}
-            disabled={lifetimeOwnerPoints < 1000 || ownerEraCount < 5}
-            style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Track Reset
-          </button>
+          <p style={{ color: "var(--accent)" }} className="mb-3 font-mono text-sm font-semibold">
+            Award: +{trackTokenAward} PT · Total after reset: {trackPrestigeTokens + trackTokenAward} PT
+          </p>
+          {confirmingResponsibilityReset === "track" ? (
+            <ResponsibilityResetConfirm
+              layerName="Track"
+              award={`+${trackTokenAward} PT`}
+              resetText="Owner, Team, Legacy, and Scrap progress, vehicles, crew, fleet assignments, and station equipment"
+              keepText="Prestige Tokens and Track perks, owned venue configuration, discoveries, achievements, and lifetime history"
+              onConfirm={() => {
+                setConfirmingResponsibilityReset(null);
+                trackReset();
+              }}
+              onCancel={() => setConfirmingResponsibilityReset(null)}
+            />
+          ) : (
+            <button
+              onClick={() => setConfirmingResponsibilityReset("track")}
+              disabled={!canTrack}
+              style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Track Reset
+            </button>
+          )}
         </div>
       )}
 
@@ -238,6 +306,60 @@ export default function PrestigeSubTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ResponsibilityResetConfirm({
+  layerName,
+  award,
+  resetText,
+  keepText,
+  onConfirm,
+  onCancel,
+}: {
+  layerName: "Team" | "Owner" | "Track";
+  award: string;
+  resetText: string;
+  keepText: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      role="alertdialog"
+      aria-labelledby={`${layerName.toLowerCase()}-reset-confirm-title`}
+      style={{ background: "var(--accent-bg)", borderColor: "var(--accent-border)" }}
+      className="rounded-lg border p-3"
+    >
+      <h3 id={`${layerName.toLowerCase()}-reset-confirm-title`} style={{ color: "var(--text-heading)" }} className="text-sm font-bold">
+        Confirm {layerName} Reset
+      </h3>
+      <p style={{ color: "var(--accent)" }} className="mt-1 font-mono text-sm font-semibold">
+        You will receive {award}.
+      </p>
+      <p style={{ color: "var(--text-secondary)" }} className="mt-2 text-xs">
+        <strong>Will reset:</strong> {resetText}.
+      </p>
+      <p style={{ color: "var(--text-secondary)" }} className="mt-1 text-xs">
+        <strong>Will keep:</strong> {keepText}.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={onConfirm}
+          style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
+          className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90"
+        >
+          Confirm {layerName} Reset ({award})
+        </button>
+        <button
+          onClick={onCancel}
+          style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
+          className="rounded-lg border px-4 py-2 text-sm transition-opacity hover:opacity-80"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

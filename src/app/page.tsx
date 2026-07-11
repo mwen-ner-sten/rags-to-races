@@ -14,14 +14,30 @@ import HelpActivityTab from "@/components/Help/HelpActivityTab";
 import ToastContainer from "@/components/effects/Toast";
 import TutorialOverlay, { getAdaptiveAllowedTabs } from "@/components/effects/TutorialOverlay";
 import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
-import { useGameStore } from "@/state/store";
-import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
+import { useGameStore, type GameState } from "@/state/store";
+import { computeOfflineTickSpeedMs, computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
+import type { RaceOutcome } from "@/engine/race";
+import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
 import { isFeatureAvailable } from "@/config/features";
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
+
+function circuitStreakAfterOutcome(
+  state: GameState,
+  outcome: RaceOutcome | null,
+): Record<string, number> {
+  if (!outcome || outcome.result !== "win") return {};
+
+  let priorWins = 0;
+  for (const race of state.raceHistory) {
+    if (race.result !== "win" || race.circuitId !== outcome.circuitId) break;
+    priorWins++;
+  }
+  return { [outcome.circuitId]: priorWins + 1 };
+}
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
@@ -60,17 +76,32 @@ export default function Home() {
     const state = useGameStore.getState();
     if (state.lastActiveTimestamp > 0) {
       const elapsed = Date.now() - state.lastActiveTimestamp;
-      const tickMs = computeTickSpeedMs(state);
+      const tickMs = computeOfflineTickSpeedMs(state);
       // Cap at 8 hours of offline ticks
-      const maxOfflineTicks = Math.floor((8 * 60 * 60 * 1000) / tickMs);
+      const maxOfflineTicks = Math.floor(MAX_OFFLINE_DURATION_MS / tickMs);
       const offlineTicks = Math.min(Math.floor(elapsed / tickMs), maxOfflineTicks);
 
       if (offlineTicks > 0) {
         advanceFleetAssignments(offlineTicks);
         const r = simulateOfflineTicks(state, offlineTicks);
 
-        if (r.partsFound.length > 0 || r.scrapsEarned !== 0 || r.repEarned !== 0 || r.vehicleWearTotal !== 0 || r.lootGearDrops.length > 0 || r.modDrops.length > 0) {
-          applyTickResult(
+        const hasOfflineProgress =
+          r.scavengesCompleted > 0 ||
+          r.racesCompleted > 0 ||
+          r.partsScavenged > 0 ||
+          r.scrapsEarned !== 0 ||
+          r.repEarned !== 0 ||
+          r.vehicleWearTotal !== 0 ||
+          r.vehicleRepairTotal !== 0 ||
+          r.forgeTokensFound + r.challengeForgeTokens > 0 ||
+          Object.values(r.challengeMaterials).some((amount) => (amount ?? 0) > 0) ||
+          r.completedChallengeIds.length > 0 ||
+          r.newAchievementIds.length > 0 ||
+          r.lootGearDrops.length > 0 ||
+          r.modDropsFound > 0 ||
+          r.stationEquipmentAutoSalvaged > 0 ||
+          r.reforgeShardsFound > 0;
+        applyTickResult(
             r.partsFound,
             r.scrapsEarned,
             r.repEarned,
@@ -79,9 +110,38 @@ export default function Home() {
             r.raceTickProgress,
             r.lootGearDrops.length > 0 ? r.lootGearDrops : undefined,
             r.modDrops.length > 0 ? r.modDrops : undefined,
-            r.racesCompleted,
-          );
-          const timeAway = Math.round(elapsed / 60_000);
+            {
+              partsScavenged: r.partsScavenged,
+              partsAutoSold: r.partsAutoSold,
+              scavengesCompleted: r.scavengesCompleted,
+              racesCompleted: r.racesCompleted,
+              winsCompleted: r.winsCompleted,
+              finalWinStreak: r.finalWinStreak,
+              bestWinStreak: r.bestWinStreak,
+              recentRaceOutcomes: r.recentRaceOutcomes,
+              winningCircuitIds: r.winningCircuitIds,
+              defeatedRivalIds: r.defeatedRivalIds,
+              circuitWinStreaks: r.circuitWinStreaks,
+              raceSalvageFound: r.raceSalvageFound,
+              forgeTokensFound: r.forgeTokensFound,
+              entryFeesPaid: r.entryFeesPaid,
+              challengesEvaluated: r.challengesEvaluated,
+              completedChallengeIds: r.completedChallengeIds,
+              challengeForgeTokens: r.challengeForgeTokens,
+              challengeMaterials: r.challengeMaterials,
+              ticksProcessed: r.ticksProcessed,
+              finalFatigue: r.finalFatigue,
+              finalVehicleCondition: r.finalVehicleCondition,
+              finalRacerSkills: r.finalRacerSkills,
+              finalCrewRoster: r.finalCrewRoster,
+              finalActiveMomentumTiers: r.finalActiveMomentumTiers,
+              newAchievementIds: r.newAchievementIds,
+              stationEquipmentAutoSalvaged: r.stationEquipmentAutoSalvaged,
+              reforgeShardsFound: r.reforgeShardsFound,
+            },
+        );
+        if (hasOfflineProgress) {
+          const timeAway = Math.round(Math.min(elapsed, MAX_OFFLINE_DURATION_MS) / 60_000);
           queueMicrotask(() => setOfflineResult({ result: r, timeAway }));
         }
       }
@@ -100,17 +160,7 @@ export default function Home() {
         lastTickTimeRef.current = Date.now();
         const result = computeTick(state);
         advanceFleetAssignments(1);
-        if (
-          result.partsFound.length > 0 ||
-          result.scrapsEarned !== 0 ||
-          result.repEarned !== 0 ||
-          result.vehicleWearAmount !== 0 ||
-          result.vehicleRepairAmount !== 0 ||
-          result.newRaceTickProgress !== state.raceTickProgress ||
-          result.lootGearDrops.length > 0 ||
-          result.modDrops.length > 0
-        ) {
-          applyTickResult(
+        applyTickResult(
             result.partsFound,
             result.scrapsEarned,
             result.repEarned,
@@ -119,8 +169,28 @@ export default function Home() {
             result.newRaceTickProgress,
             result.lootGearDrops.length > 0 ? result.lootGearDrops : undefined,
             result.modDrops.length > 0 ? result.modDrops : undefined,
-          );
-        }
+            {
+              partsScavenged: result.partsScavenged,
+              partsAutoSold: result.partsAutoSold,
+              scavengesCompleted: result.scavengesCompleted,
+              racesCompleted: result.raceOutcome ? 1 : 0,
+              winsCompleted: result.raceOutcome?.result === "win" ? 1 : 0,
+              finalWinStreak: result.raceOutcome ? (result.raceOutcome.result === "win" ? state.winStreak + 1 : 0) : state.winStreak,
+              bestWinStreak: result.raceOutcome?.result === "win" ? Math.max(state.bestWinStreak, state.winStreak + 1) : state.bestWinStreak,
+              recentRaceOutcomes: result.raceOutcome ? [result.raceOutcome] : [],
+              winningCircuitIds: result.raceOutcome?.result === "win" ? [result.raceOutcome.circuitId] : [],
+              defeatedRivalIds: result.raceOutcome?.result === "win" && result.raceOutcome.rivalId ? [result.raceOutcome.rivalId] : [],
+              circuitWinStreaks: circuitStreakAfterOutcome(state, result.raceOutcome),
+              raceSalvageFound: result.raceSalvageFound,
+              forgeTokensFound: result.forgeTokensFound,
+              entryFeesPaid: result.entryFeesPaid,
+              challengesEvaluated: false,
+              completedChallengeIds: [],
+              challengeForgeTokens: 0,
+              challengeMaterials: {},
+              ticksProcessed: 1,
+            },
+        );
       }
     }, 100);
 

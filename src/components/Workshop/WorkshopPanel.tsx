@@ -1,7 +1,7 @@
 "use client";
 
-import { useGameStore } from "@/state/store";
-import { UPGRADE_DEFINITIONS, UPGRADE_CATEGORIES, getUpgradeCost, type UpgradeCategory } from "@/data/upgrades";
+import { getWorkshopUpgradePurchaseCost, useGameStore } from "@/state/store";
+import { UPGRADE_DEFINITIONS, UPGRADE_CATEGORIES, type UpgradeCategory } from "@/data/upgrades";
 import { formatNumber } from "@/utils/format";
 
 function isUpgradeUnlocked(
@@ -25,9 +25,13 @@ function isUpgradeUnlocked(
 }
 
 export default function WorkshopPanel() {
+  const gameState = useGameStore.getState();
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
+  const upgradeCosts = Object.fromEntries(
+    UPGRADE_DEFINITIONS.map((upgrade) => [upgrade.id, getWorkshopUpgradePurchaseCost(gameState, upgrade.id) ?? 0]),
+  );
   const purchaseUpgrade = useGameStore((s) => s.purchaseUpgrade);
 
   return (
@@ -41,6 +45,7 @@ export default function WorkshopPanel() {
           scrapBucks={scrapBucks}
           repPoints={repPoints}
           workshopLevels={workshopLevels}
+          upgradeCosts={upgradeCosts}
           purchaseUpgrade={purchaseUpgrade}
         />
       ))}
@@ -55,6 +60,7 @@ function CategoryCard({
   scrapBucks,
   repPoints,
   workshopLevels,
+  upgradeCosts,
   purchaseUpgrade,
 }: {
   category: UpgradeCategory;
@@ -63,6 +69,7 @@ function CategoryCard({
   scrapBucks: number;
   repPoints: number;
   workshopLevels: Record<string, number>;
+  upgradeCosts: Record<string, number>;
   purchaseUpgrade: (id: string) => void;
 }) {
   const upgrades = UPGRADE_DEFINITIONS.filter((u) => u.category === category);
@@ -78,7 +85,7 @@ function CategoryCard({
           const level = workshopLevels[upgrade.id] ?? 0;
           const maxed = level >= upgrade.maxLevel;
           const unlocked = isUpgradeUnlocked(upgrade.id, repPoints, workshopLevels);
-          const cost = maxed ? 0 : getUpgradeCost(upgrade, level);
+          const cost = maxed ? 0 : upgradeCosts[upgrade.id];
           const canAfford = scrapBucks >= cost;
 
           return (
