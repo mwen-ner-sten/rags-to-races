@@ -25,10 +25,8 @@ export default function PrestigeMilestoneTrack() {
         style={{
           background: "var(--panel-bg)",
           borderColor: "var(--panel-border)",
-          maxHeight: "24rem",
-          overflowY: "auto",
         }}
-        className="rounded-lg border p-3"
+        className="mobile-natural-scroll rounded-lg border p-3"
       >
         <div className="flex flex-col">
           {PRESTIGE_MILESTONE_DEFINITIONS.map((milestone, idx) => {

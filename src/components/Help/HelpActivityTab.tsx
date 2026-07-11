@@ -42,7 +42,7 @@ function formatTimeAgo(ts: number): string {
   return `${hours}h`;
 }
 
-export default function HelpActivityTab() {
+export default function HelpActivityTab({ setActiveTab }: { setActiveTab?: (tab: "junkyard" | "race") => void }) {
   const [filter, setFilter] = useState<LogCategory | "all">("all");
   const [, setTick] = useState(0);
 
@@ -73,7 +73,7 @@ export default function HelpActivityTab() {
       overflow: "hidden",
     }}>
       {/* Header */}
-      <div style={{
+      <div className="mobile-natural-scroll" style={{
         padding: "12px 16px 8px",
         borderBottom: "1px solid rgba(255,255,255,.08)",
         display: "flex",
@@ -140,8 +140,12 @@ export default function HelpActivityTab() {
         maxHeight: "calc(100vh - 320px)",
       }}>
         {entries.length === 0 ? (
-          <div style={{ padding: "32px 16px", textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.25)" }}>
-            {emptyMessage}
+          <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.45)" }}>
+            <p>{emptyMessage}</p>
+            {setActiveTab && <div className="mt-3 flex justify-center gap-2">
+              <button onClick={() => setActiveTab("junkyard")} className="min-h-11 rounded-lg px-4 py-2 font-semibold" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}>Scavenge</button>
+              <button onClick={() => setActiveTab("race")} className="min-h-11 rounded-lg border px-4 py-2 font-semibold" style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}>Go Race</button>
+            </div>}
           </div>
         ) : (
           entries.map((entry) => (

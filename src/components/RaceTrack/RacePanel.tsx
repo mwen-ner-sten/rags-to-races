@@ -563,10 +563,10 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 Cond: {vehicleCondition}%
               </span>
             </div>
-            <div className={`mt-1.5 text-xs font-semibold ${vehicleCondition <= 0 ? "" : "invisible"}`} style={{ color: "var(--danger)" }}>
+            <div aria-hidden={vehicleCondition > 0} className={`mt-1.5 text-xs font-semibold ${vehicleCondition <= 0 ? "" : "hidden sm:block invisible"}`} style={{ color: "var(--danger)" }}>
               Vehicle is broken! Repair it in the Garage tab.
             </div>
-            <div className={`mt-1.5 text-xs ${vehicleCondition > 0 && vehicleCondition <= 30 ? "" : "invisible"}`} style={{ color: "var(--warning)" }}>
+            <div aria-hidden={!(vehicleCondition > 0 && vehicleCondition <= 30)} className={`mt-1.5 text-xs ${vehicleCondition > 0 && vehicleCondition <= 30 ? "" : "hidden sm:block invisible"}`} style={{ color: "var(--warning)" }}>
               Your vehicle is falling apart! Consider repairing.
             </div>
             {(() => {

@@ -90,7 +90,7 @@ export default function SaveLoadPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mobile-touch-controls flex flex-col gap-6">
 
       {/* Toast */}
       {toast && (

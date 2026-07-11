@@ -341,7 +341,7 @@ export default function HelpSystemsTab() {
         <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
           Free rewards earned at prestige count thresholds. Softwall milestones give large bonuses that shape your playstyle.
         </p>
-        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+        <div className="mobile-natural-scroll space-y-1 max-h-64 overflow-y-auto pr-1">
           {HELP_PRESTIGE_MILESTONES.map((m) => (
             <div key={m.name} className="rounded border p-2 text-xs" style={{ borderColor: m.rewardType === "softwall" ? "var(--accent-border)" : "var(--panel-border)" }}>
               <div className="flex justify-between">
@@ -359,7 +359,7 @@ export default function HelpSystemsTab() {
         <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
           Lifetime milestones that grant permanent bonuses. Persist through all resets.
         </p>
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+        <div className="mobile-natural-scroll space-y-3 max-h-80 overflow-y-auto pr-1">
           {HELP_ACHIEVEMENTS_BY_CATEGORY.map((group) => (
             <div key={group.category}>
               <div className="text-xs font-semibold uppercase mb-1" style={{ color: "var(--text-muted)" }}>

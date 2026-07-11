@@ -29,6 +29,7 @@ import ComposedEquipmentImage from "@/components/ComposedEquipmentImage";
 import SkillsSubTab from "@/components/Locker/SkillsSubTab";
 import PlaystyleSubTab from "@/components/Upgrades/PlaystyleSubTab";
 import WorkshopPanel from "./WorkshopPanel";
+import MobileSubNav from "@/components/MobileSubNav";
 import { formatNumber } from "@/utils/format";
 import { getPartSaleValue } from "@/engine/sale";
 import { getPrestigeMilestoneBonuses } from "@/data/prestigeMilestones";
@@ -109,7 +110,8 @@ export default function SalvageWorkshopPanel() {
         <h1 className="text-lg font-bold uppercase tracking-widest" style={{ color: "var(--text-heading)" }}>Salvage Workshop</h1>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>Inspect, improve, source, and equip everything your garage needs.</p>
       </div>
-      <div className="flex gap-1 overflow-x-auto rounded-lg border p-1" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} role="tablist" aria-label="Salvage Workshop sections">
+      <MobileSubNav tabs={TABS} activeTab={tab} setActiveTab={(id) => setTab(id as WorkshopTab)} tutorialTargetId="workshop-facilities-tab" />
+      <div className="hidden gap-1 overflow-x-auto rounded-lg border p-1 sm:flex" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} role="tablist" aria-label="Salvage Workshop sections">
         {TABS.map((item) => (
           <button key={item.id} role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}
             data-tutorial={item.id === "facilities" ? "workshop-facilities-tab" : undefined}
@@ -121,8 +123,8 @@ export default function SalvageWorkshopPanel() {
       </div>
       {tab === "inventory" && <InventoryWorkbench />}
       {tab === "fabrication" && <FabricationBench />}
-      {tab === "addons" && <AddonBench />}
-      {tab === "dealer" && <DealerBoard />}
+      {tab === "addons" && <AddonBench onOpenFacilities={() => setTab("facilities")} />}
+      {tab === "dealer" && <DealerBoard onOpenFacilities={() => setTab("facilities")} />}
       {tab === "stations" && <StationEquipment />}
       {tab === "philosophy" && <Philosophy />}
       {tab === "skills" && <SkillsSubTab />}
@@ -374,7 +376,7 @@ function FabricationBench() {
   </div>;
 }
 
-function AddonBench() {
+function AddonBench({ onOpenFacilities }: { onOpenFacilities: () => void }) {
   const inventory = useGameStore((s) => s.inventory);
   const garage = useGameStore((s) => s.garage);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
@@ -395,7 +397,7 @@ function AddonBench() {
         ? "Vehicle is currently racing"
         : undefined;
   return <div className="flex flex-col gap-3">
-    {(workshopLevels.addon_bench ?? 0) < 1 && <Notice text="Unlock Add-on Bench in Facilities to install add-ons." />}
+    {(workshopLevels.addon_bench ?? 0) < 1 && <LockedAction text="Unlock Add-on Bench in Facilities to install add-ons." action="Open Facilities" onClick={onOpenFacilities} />}
     {mutationLockReason && <Notice text={`${mutationLockReason}. Add-on changes are locked until it returns.`} />}
     {vehicle?.slots.map((slot) => {
       const installed = active.parts[slot.slot]; if (!installed) return null;
@@ -414,12 +416,12 @@ function AddonBench() {
   </div>;
 }
 
-function DealerBoard() {
+function DealerBoard({ onOpenFacilities }: { onOpenFacilities: () => void }) {
   const gameState = useGameStore.getState();
   const rep = useGameStore((s) => s.repPoints); const cash = useGameStore((s) => s.scrapBucks); const board = useGameStore((s) => s.dealerBoard);
   const buy = useGameStore((s) => s.buyFromDealer); const refresh = useGameStore((s) => s.refreshDealer);
   const refreshCost = getDealerRefreshCost(gameState);
-  if (rep < DEALER_UNLOCK_REP) return <Empty text={`Dealer sourcing unlocks at ${formatNumber(DEALER_UNLOCK_REP)} reputation.`} />;
+  if (rep < DEALER_UNLOCK_REP) return <LockedAction text={`Dealer sourcing unlocks at ${formatNumber(DEALER_UNLOCK_REP)} reputation. Upgrade sourcing facilities while you build Rep.`} action="Open Facilities" onClick={onOpenFacilities} />;
   return <div className="flex flex-col gap-3"><div className="flex items-center justify-between"><p className="text-xs" style={{ color: "var(--text-muted)" }}>A bounded alternative when scavenging will not provide a required part.</p><Action disabledReason={cash < refreshCost ? `Need $${formatNumber(refreshCost - cash)} more` : undefined} onClick={refresh}>Refresh ${formatNumber(refreshCost)}</Action></div>
     {board.length === 0 ? <Empty text="No listings remain. Refresh the board to source new stock." /> : <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{board.map((listing) => { const part = PART_DEFINITIONS.find((item) => item.id === listing.definitionId); const price = getDealerPurchasePrice(gameState, listing); return <article key={listing.id} className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}><GameAssetImage kind="part" id={listing.definitionId} width={64} /><strong className="block" style={{ color: "var(--text-white)" }}>{part?.name}</strong><p className="mb-2 text-xs uppercase" style={{ color: "var(--accent)" }}>{listing.condition}</p><Action disabledReason={cash < price ? `Need $${formatNumber(price - cash)} more` : undefined} onClick={() => buy(listing.id)}>Buy ${formatNumber(price)}</Action></article>; })}</div>}
   </div>;
@@ -564,6 +566,11 @@ function Action({ children, onClick, disabled = false, disabledReason }: { child
 }
 function Metric({ label, value }: { label: string; value: number }) { return <div className="rounded border px-2 py-1.5" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}><div className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</div><div className="font-mono text-sm" style={{ color: "var(--text-white)" }}>{formatNumber(value)}</div></div>; }
 function Empty({ text }: { text: string }) { return <div className="rounded-lg border p-6 text-center text-sm" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)", color: "var(--text-muted)" }}>{text}</div>; }
+function LockedAction({ text, action, onClick }: { text: string; action: string; onClick: () => void }) {
+  return <div className="rounded-lg border p-5 text-center text-sm" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)", color: "var(--text-muted)" }}>
+    <p>{text}</p><button onClick={onClick} className="mt-3 min-h-11 rounded-lg px-4 py-2 font-semibold" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}>{action}</button>
+  </div>;
+}
 function Notice({ text }: { text: string }) { return <div className="rounded border px-3 py-2 text-xs" style={{ borderColor: "var(--accent-border)", background: "var(--accent-bg)", color: "var(--text-secondary)" }}>{text}</div>; }
 function signed(value: number): string { const rounded = Math.round(value * 10) / 10; return `${rounded > 0 ? "+" : ""}${rounded}`; }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useGameStore } from "@/state/store";
 import { isFeatureAvailable } from "@/config/features";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
@@ -64,6 +65,41 @@ export const STEPS: TutorialStepDef[] = [
 ];
 
 const TOTAL_GUIDED_STEPS = STEPS.length - 1;
+
+function haloBounds(rect: DOMRect, padding: number): React.CSSProperties {
+  const viewW = typeof window === "undefined" ? rect.right + padding : window.innerWidth;
+  const viewH = typeof window === "undefined" ? rect.bottom + padding : window.innerHeight;
+  const edgeInset = 2;
+  const left = Math.max(edgeInset, rect.left - padding);
+  const top = Math.max(edgeInset, rect.top - padding);
+  const right = Math.min(viewW - edgeInset, rect.right + padding);
+  const bottom = Math.min(viewH - edgeInset, rect.bottom + padding);
+
+  return {
+    left,
+    top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
+}
+
+function tabHaloBounds(rect: DOMRect): React.CSSProperties {
+  const isBottomMobileTab = typeof window !== "undefined"
+    && window.innerWidth <= 640
+    && rect.bottom >= window.innerHeight - 8;
+
+  if (!isBottomMobileTab) return haloBounds(rect, 4);
+
+  const insetX = 3;
+  const insetTop = 3;
+  const insetBottom = 4;
+  return {
+    left: rect.left + insetX,
+    top: rect.top + insetTop,
+    width: Math.max(0, rect.width - insetX * 2),
+    height: Math.max(0, rect.height - insetTop - insetBottom),
+  };
+}
 
 export function getAllowedTabs(step: number): Set<TabId> | null {
   if (step < 0 || step >= STEPS.length) return null;
@@ -291,8 +327,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const [highlightRect, setHighlightRect] = useState<DOMRect[] | null>(null);
   const [blockerRects, setBlockerRects] = useState<{ rect: DOMRect; idx: number }[]>([]);
   const [hintRects, setHintRects] = useState<DOMRect[]>([]);
+  const [cardHeight, setCardHeight] = useState(0);
+  const [portalReady, setPortalReady] = useState(false);
   const [showHelpNudge, setShowHelpNudge] = useState(false);
   const rafRef = useRef<number>(0);
+  const cardRef = useRef<HTMLDivElement>(null);
   const helpNudgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepDef = tutorialStep >= 0 && tutorialStep < STEPS.length ? STEPS[tutorialStep] : null;
 
@@ -300,6 +339,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on step change
   useEffect(() => { setCardDismissed(false); setIntroSubStep(0); setShowHelpModal(false); }, [tutorialStep]);
+
+  // Portals keep tutorial UI above shell-specific stacking contexts and the
+  // fixed mobile navigation without creating a server/client mismatch.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client mount gate
+  useEffect(() => { setPortalReady(true); }, []);
 
   /* ── "Need help?" nudge — shows after idle period ───────────────────── */
   useEffect(() => {
@@ -537,6 +581,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
   /* Hide overlay during live race animation */
   if (stepDef.hideDuringRace && isRacing) return null;
 
+  const renderOverlay = (content: React.ReactNode) => portalReady
+    ? createPortal(content, document.body)
+    : null;
+
   /* Dynamic tip for step 12: react to race result */
   let effectiveTip = stepDef.tip;
   if (tutorialStep === 12) {
@@ -564,14 +612,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   /* Step 0: Intro card */
   if (tutorialStep === 0) {
-    return (
-      <div className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
+    return renderOverlay(
+      <div role="dialog" aria-modal="true" aria-labelledby="tutorial-intro-title" className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
         <div
           className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-6"
           style={CARD_BG}
         >
           <div className="mb-4 text-center text-5xl">{"\u{1F3CE}\uFE0F"}</div>
-          <h2 className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)" }}>Rags to Races</h2>
+          <h2 id="tutorial-intro-title" className="mb-1 text-center text-lg font-bold tracking-tight" style={{ color: "var(--text-heading)" }}>Rags to Races</h2>
           <div className="mx-auto mb-4 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
           <p className="mb-3 text-center text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             You&apos;ve got nothing but the clothes on your back and a curb full of someone else&apos;s trash.
@@ -623,15 +671,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
         })()
       : null;
 
-    return (
+    return renderOverlay(
       <>
         {highlightRect?.map((rect, i) => (
           <div
             key={`hl-d-${i}`}
-            className="tutorial-pulse fixed z-[9997] rounded"
+            data-testid="tutorial-tab-halo"
+            className="tutorial-tab-halo tutorial-pulse fixed z-[9997] rounded"
             style={{
-              left: rect.left - 4, top: rect.top - 4,
-              width: rect.width + 8, height: rect.height + 8,
+              ...tabHaloBounds(rect),
               pointerEvents: "none",
             }}
           />
@@ -640,8 +688,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <div
             className="tutorial-pulse fixed z-[9999] rounded-lg"
             style={{
-              left: targetRect.left - 5, top: targetRect.top - 5,
-              width: targetRect.width + 10, height: targetRect.height + 10,
+              ...haloBounds(targetRect, 5),
               pointerEvents: "none",
             }}
           />
@@ -650,8 +697,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <div
             className="tutorial-pulse fixed z-[9997] rounded"
             style={{
-              left: fallbackTabRect.left - 4, top: fallbackTabRect.top - 4,
-              width: fallbackTabRect.width + 8, height: fallbackTabRect.height + 8,
+              ...tabHaloBounds(fallbackTabRect),
               pointerEvents: "none",
             }}
           />
@@ -676,6 +722,15 @@ export default function TutorialOverlay({ activeTab }: Props) {
     (isGoalStep && cardDismissed)
   );
 
+  // Tutorial copy and footer controls wrap very differently on phones. Measure
+  // the rendered card instead of positioning from a desktop-oriented estimate.
+  const measureCard = (node: HTMLDivElement | null) => {
+    cardRef.current = node;
+    if (!node) return;
+    const nextHeight = node.getBoundingClientRect().height;
+    if (Math.abs(nextHeight - cardHeight) > 0.5) setCardHeight(nextHeight);
+  };
+
   // Pick an anchor rect — prefer target, fall back to first highlighted tab
   const anchorRect = targetRect ?? (highlightRect ? highlightRect[0] : null);
 
@@ -691,7 +746,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // Mobile cards can grow substantially when the step dots and actions wrap.
     // Reserve their real worst-case height so an anchored card never places its
     // primary action below the viewport.
-    const cardH = viewW < 640 ? 300 : showGoalIntro ? 160 : 100;
+    const estimatedCardH = viewW < 640 ? (showGoalIntro ? 190 : 150) : showGoalIntro ? 160 : 100;
+    const cardH = cardHeight || estimatedCardH;
     // Detect if anchor is in the sidebar (left edge < 220px on wide screens)
     const inSidebar = anchorRect.left < 220 && viewW >= 640;
     let left: number;
@@ -796,7 +852,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     }
   }
 
-  return (
+  return renderOverlay(
     <>
       {/* Blocked-tab overlays */}
       {blockerRects.map(({ rect, idx }) => (
@@ -822,10 +878,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {highlightRect?.map((rect, i) => (
         <div
           key={`hl-${i}`}
-          className="tutorial-pulse fixed z-[9997] rounded"
+          data-testid="tutorial-tab-halo"
+          className="tutorial-tab-halo tutorial-pulse fixed z-[9997] rounded"
           style={{
-            left: rect.left - 4, top: rect.top - 4,
-            width: rect.width + 8, height: rect.height + 8,
+            ...tabHaloBounds(rect),
             pointerEvents: "none",
           }}
         />
@@ -834,10 +890,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {/* Pulsing halo on target button (in-panel elements) */}
       {targetRect && (
         <div
+          data-testid="tutorial-target-halo"
           className="tutorial-pulse fixed z-[9998] rounded-lg"
           style={{
-            left: targetRect.left - 3, top: targetRect.top - 3,
-            width: targetRect.width + 6, height: targetRect.height + 6,
+            ...haloBounds(targetRect, 3),
             pointerEvents: "none",
           }}
         />
@@ -881,7 +937,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
       {/* Goal intro card — dismissible explanation before goal badge */}
       {showGoalIntro && (
-        <div style={cardStyle}>
+        <div ref={measureCard} data-testid="tutorial-card" style={cardStyle}>
           <div
             className={`animate-fade-up relative rounded-2xl p-3 ${arrowClass}`}
             style={{
@@ -947,7 +1003,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
       {/* Positioned tutorial card (non-goal steps) */}
       {showCard && (
-        <div style={cardStyle}>
+        <div ref={measureCard} data-testid="tutorial-card" style={cardStyle}>
           <div
             className={`animate-fade-up relative rounded-2xl p-3 ${arrowClass}`}
             style={{
@@ -1083,14 +1139,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
       {/* Help detail modal */}
       {showHelpModal && stepDef.helpDetail && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+        <div role="dialog" aria-modal="true" aria-labelledby="tutorial-help-title" className="fixed inset-0 z-[10001] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
           <div
             className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-5"
             style={CARD_BG}
           >
             <div className="mb-3 flex items-center gap-2">
               <span className="text-lg">{stepDef.icon}</span>
-              <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>More details</span>
+              <span id="tutorial-help-title" className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>More details</span>
             </div>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               {stepDef.helpDetail}

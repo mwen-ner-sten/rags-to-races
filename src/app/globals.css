@@ -36,6 +36,20 @@ html {
   background: var(--text-muted);
 }
 
+/* Let the Junkyard inventory use tall phone screens instead of stopping at a
+   desktop-oriented fixed height and leaving an empty lower half. */
+.junkyard-inventory-scroll {
+  max-height: none;
+  overflow-y: visible;
+}
+
+@media (min-width: 640px) {
+  .junkyard-inventory-scroll {
+    max-height: 24rem;
+    overflow-y: scroll;
+  }
+}
+
 /* ── Mobile responsive overrides for theme shells ────────────────────────── */
 /* All shells use semantic <header>, <nav>, <main>, <footer> with inline     */
 /* styles, so we need !important to override at mobile breakpoints.          */
@@ -57,12 +71,12 @@ html {
 
   /* Content: less padding on mobile */
   main {
-    padding: .75rem !important;
+    padding: .75rem .75rem calc(1.5rem + env(safe-area-inset-bottom)) !important;
   }
 
   /* Shell: reserve space for fixed bottom nav (56px) so no content is covered */
   .shell-content {
-    padding-bottom: 56px;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 
   /* Footer: center, compact */
@@ -73,14 +87,16 @@ html {
     padding: .5rem .75rem !important;
     color: rgba(255,255,255,.65) !important;
   }
-  footer button {
-    color: rgba(255,255,255,.8) !important;
-    opacity: 1 !important;
-  }
+  footer button { display: none !important; }
   /* Hide the long copyright text on small screens */
   footer > span:first-child {
     display: none !important;
   }
+  button, [role="button"], select, input[type="file"] { scroll-margin-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .mobile-natural-scroll { max-height: none !important; overflow-y: visible !important; }
+  .location-carousel { scrollbar-width: none; mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 22px), transparent 100%); }
+  .location-carousel::-webkit-scrollbar { display: none; }
+  .mobile-touch-controls button { min-height: 44px; }
 }
 
 /* ── Desktop bottom bar ─────────────────────────────────────────────────── */
@@ -226,6 +242,33 @@ html {
   --tp-dim: color-mix(in srgb, var(--accent-secondary, #ff0090) 30%, transparent);
   animation: tutorial-pulse 1.5s ease-in-out infinite;
   border: 1.5px solid color-mix(in srgb, var(--accent-secondary, #ff0090) 45%, transparent);
+}
+
+@keyframes tutorial-tab-pulse-mobile {
+  0%, 100% {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent, #00e5ff) 85%, white 15%),
+      inset 0 0 10px color-mix(in srgb, var(--accent-secondary, #ff0090) 28%, transparent),
+      0 0 12px color-mix(in srgb, var(--accent-secondary, #ff0090) 70%, transparent);
+  }
+  50% {
+    opacity: .72;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent, #00e5ff) 65%, transparent),
+      inset 0 0 6px color-mix(in srgb, var(--accent-secondary, #ff0090) 18%, transparent),
+      0 0 7px color-mix(in srgb, var(--accent-secondary, #ff0090) 45%, transparent);
+  }
+}
+
+@media (max-width: 640px) {
+  html { overflow-y: auto; }
+  .tutorial-tab-halo {
+    background: transparent !important;
+    animation: tutorial-tab-pulse-mobile 1.25s ease-in-out infinite;
+    border: 2px solid color-mix(in srgb, var(--accent-secondary, #ff0090) 90%, white 10%) !important;
+    border-radius: 10px !important;
+  }
 }
 
 /* Arrow pointing from tutorial card toward target */

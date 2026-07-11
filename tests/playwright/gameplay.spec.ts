@@ -46,6 +46,7 @@ async function openTab(page: Page, name: string) {
     await page.getByRole("button", { name: "More tabs" }).click();
   }
   await page.locator(`[data-tutorial-tab="${name}"]:visible`).first().click();
+  if (name === "gear") await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
 }
 
 async function openResetTab(page: Page) {
@@ -62,7 +63,13 @@ async function persistedNumber(page: Page, field: string) {
 }
 
 async function workshopTab(page: Page, name: string) {
-  await page.getByRole("tab", { name, exact: true }).click();
+  const desktopTab = page.getByRole("tab", { name, exact: true }).first();
+  if (await desktopTab.isVisible()) {
+    await desktopTab.click();
+    return;
+  }
+  await page.locator(".mobile-sub-nav").getByRole("button").first().click();
+  await page.locator(".mobile-sub-nav").getByRole("button", { name, exact: true }).click();
 }
 
 function parseDisplayedInteger(value: string): number {
@@ -333,6 +340,26 @@ test("tutorial result explanation survives reload without transient lastRaceOutc
   await expect(page.getByRole("button", { name: "Got it" })).toBeVisible();
 });
 
+test("tutorial tab halos stay fully inside the viewport", async ({ page }) => {
+  await loadFixture(page, "first_build_ready", {
+    tutorialStep: 3,
+    tutorialDismissed: false,
+  });
+
+  const halo = page.getByTestId("tutorial-tab-halo");
+  await expect(halo).toHaveCount(1);
+  expect(await halo.evaluate((element) => element.parentElement?.tagName)).toBe("BODY");
+  const bounds = await halo.boundingBox();
+  const viewport = page.viewportSize();
+
+  expect(bounds).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport!.height);
+});
+
 test("tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 14,
@@ -345,7 +372,7 @@ test("tutorial routes the first upgrade through Workshop Facilities", async ({ p
   await openTab(page, "gear");
   await expect(page.getByText(/Workshop > Facilities/i)).toBeVisible();
   await page.getByRole("button", { name: "Got it" }).click();
-  await page.locator('[data-tutorial="workshop-facilities-tab"]').click();
+  await workshopTab(page, "Facilities");
   await page.getByRole("button", { name: /\$75/ }).first().click();
   await expect(page.getByText(/Workshop tabs cover inventory, fabrication/i)).toBeVisible();
   await page.getByRole("button", { name: "Got it" }).click();
