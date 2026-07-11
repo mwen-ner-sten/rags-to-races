@@ -269,18 +269,29 @@ export default function ScavengePanel() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             data-tutorial="scavenge-btn"
-            onMouseDown={startHold}
-            onMouseUp={stopHold}
-            onMouseLeave={stopHold}
-            onTouchStart={(e) => { e.preventDefault(); startHold(); }}
-            onTouchEnd={stopHold}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              startHold();
+            }}
+            onPointerUp={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+              stopHold();
+            }}
+            onPointerCancel={stopHold}
+            onPointerLeave={(event) => {
+              if (event.pointerType === "mouse") stopHold();
+            }}
             onKeyDown={(event) => {
               if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
                 event.preventDefault();
                 fireScavenge();
               }
             }}
-            className={`min-h-11 rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none ${
+            className={`min-h-12 w-full rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none active:scale-[.98] sm:min-h-11 sm:w-auto sm:active:scale-95 ${
               isScavengeAnimating ? "scale-90" : "scale-100"
             } ${isHolding ? "ring-2 ring-offset-1" : ""} ${autoScavengeUnlocked ? "auto-scavenge-active" : ""}`}
             style={{
@@ -288,6 +299,7 @@ export default function ScavengePanel() {
               color: "var(--btn-primary-text)",
               ...(isHolding ? { ringColor: "var(--info)" } : {}),
               ...(orbitDuration ? { "--orbit-duration": orbitDuration } as React.CSSProperties : {}),
+              touchAction: "none",
             }}
           >
             {isHolding ? "Scavenging…" : "Scavenge!"}

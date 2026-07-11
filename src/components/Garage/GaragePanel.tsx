@@ -186,16 +186,6 @@ export default function GaragePanel() {
         {pendingDef && (
           <>
             <p className="text-xs sm:text-sm" style={{ color: "var(--text-secondary)" }}>{pendingDef.description}</p>
-            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Build cost:{" "}
-              <span style={{ color: scrapBucks >= actualBuildCost ? "var(--success)" : "var(--danger)" }}>
-                ${formatNumber(actualBuildCost)}
-              </span>
-              {actualBuildCost < pendingDef.buildCost && (
-                <span className="ml-1 line-through" style={{ color: "var(--text-muted)" }}>${formatNumber(pendingDef.buildCost)}</span>
-              )}
-            </div>
-
             <div className="flex flex-col gap-2" data-tutorial="part-slots">
               {pendingDef.slots.map((slotCfg) => {
                 const slot = slotCfg.slot;
@@ -247,7 +237,7 @@ export default function GaragePanel() {
                               }
                             >
                               <span style={{ color: CONDITION_COLORS[group.condition] ?? "var(--text-secondary)" }}>
-                                {def.name}
+                                {def.name} · {group.condition}
                               </span>
                               {group.parts.length > 1 && (
                                 <span className="ml-0.5" style={{ color: "var(--text-muted)" }}>
@@ -278,7 +268,7 @@ export default function GaragePanel() {
               className="rounded-lg px-5 py-2 sm:px-6 sm:py-2.5 font-semibold text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
             >
-              Build {pendingDef.name}
+              Build {pendingDef.name} · ${formatNumber(actualBuildCost)}
             </button>
             {buildBlockReason && (
               <p
@@ -507,7 +497,7 @@ function VehicleCard({
               onClick={() => repairVehicle(vehicle.id)}
               disabled={mutationLocked || (!isTutorialRepair && scrapBucks < repairCost)}
               title={mutationLocked ? lockMessage : undefined}
-              className="rounded border px-2 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 w-full rounded border px-4 py-2 text-sm font-semibold transition-colors active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:w-auto sm:px-2 sm:py-1 sm:text-xs sm:font-normal sm:active:scale-100"
               style={{ borderColor: "#16a34a", color: "var(--success)" }}
             >
               {isTutorialRepair ? "Repair to 100% — Free" : `Repair to 100% — $${formatNumber(repairCost)}`}
