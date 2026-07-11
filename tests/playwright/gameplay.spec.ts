@@ -336,7 +336,7 @@ test("tutorial result explanation survives reload without transient lastRaceOutc
     }],
   });
   await openTab(page, "race");
-  await expect(page.getByText(/exploded|broke down|repair it/i).first()).toBeVisible();
+  await expect(page.getByTestId("tutorial-card").getByText(/exploded|broke down|repair it/i)).toBeVisible();
   await expect(page.getByRole("button", { name: "Got it" })).toBeVisible();
 });
 
