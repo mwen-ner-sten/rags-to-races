@@ -28,7 +28,11 @@ const QUICK_REP = [5, 10, 50, 100];
 const PART_CATEGORIES = ["engine", "wheel", "frame", "fuel"] as const;
 const ASSET_REVIEW_SHEETS = ["parts", "addons", "stations", "rivals", "crew-roles", "crew-specializations", "equipment-rarity", "equipment-sets", "equipment-affixes", "locations", "circuits"];
 
-export default function AdminPanel() {
+interface AdminPanelProps {
+  onFullSaveReset?: () => void;
+}
+
+export default function AdminPanel({ onFullSaveReset }: AdminPanelProps) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
@@ -595,6 +599,7 @@ export default function AdminPanel() {
             onClick={() => {
               if (confirm("Full reset? This clears all progress including prestige.")) {
                 devResetSave();
+                onFullSaveReset?.();
                 log("\ud83d\udd34 Full save reset");
               }
             }}

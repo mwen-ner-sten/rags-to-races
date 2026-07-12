@@ -160,8 +160,20 @@ async function expectNoSeriousStructuralAccessibilityViolations(page: Page) {
 test("@smoke fresh save exposes the first engineering loop", async ({ page }) => {
   await loadFixture(page, "fresh");
   await expect(page.getByRole("heading", { name: "Rags to Races" })).toBeVisible();
+  await expect(page.getByTestId("tutorial-intro-card")).toHaveCSS("--accent", "#00e5ff");
   await expect(page.getByRole("button", { name: "Scavenge!" })).toBeVisible();
   await expectNoSeriousStructuralAccessibilityViolations(page);
+});
+
+test("@smoke full Dev save reset stays on the starting Salvage flow", async ({ page }) => {
+  await loadFixture(page, "maxed", { tutorialStep: 22, tutorialDismissed: true });
+  await openTab(page, "dev");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Full Save Reset" }).click();
+  await expect(page.getByRole("heading", { name: "Rags to Races" })).toBeVisible();
+  await page.getByRole("button", { name: "Guide me" }).click();
+  await expect(page.getByRole("button", { name: "Scavenge!" })).toBeVisible();
+  await expect(page.getByText("Dev Tools", { exact: true })).toHaveCount(0);
 });
 
 test("@smoke core Scavenge action works from the keyboard without duplicate input", async ({ page }) => {

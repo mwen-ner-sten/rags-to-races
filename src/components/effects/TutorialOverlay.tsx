@@ -194,13 +194,13 @@ function isStepConditionMet(
 const CARD_BG: React.CSSProperties = {
   background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
   boxShadow:
-    "0 0 48px color-mix(in srgb, var(--accent, #eab308) 22%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
+    "0 0 48px color-mix(in srgb, var(--accent, #00e5ff) 22%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 20px 40px -8px rgba(0,0,0,0.5)",
 };
 
 const BADGE_BG: React.CSSProperties = {
   background: "linear-gradient(180deg, #222 0%, #1a1a1a 100%)",
   boxShadow:
-    "0 0 32px color-mix(in srgb, var(--accent, #eab308) 18%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px -4px rgba(0,0,0,0.4)",
+    "0 0 32px color-mix(in srgb, var(--accent, #00e5ff) 18%, transparent), 0 0 0 1px rgba(255,255,255,0.06), 0 8px 24px -4px rgba(0,0,0,0.4)",
 };
 
 function renderTip(tip: string) {
@@ -623,6 +623,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     return renderOverlay(
       <div role="dialog" aria-modal="true" aria-labelledby="tutorial-intro-title" className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
         <div
+          data-testid="tutorial-intro-card"
           className="animate-fade-up mx-4 w-full max-w-sm rounded-2xl p-6"
           style={CARD_BG}
         >
@@ -636,7 +637,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <p className="mb-5 text-center text-xs italic" style={{ color: "var(--text-muted)" }}>Scavenge parts. Build a ride. Race your way to the top.</p>
           <div className="flex items-center justify-between gap-3">
             <button onClick={skipTutorial} className="shrink-0 cursor-pointer rounded-md border px-3 py-2 text-xs font-semibold opacity-80 transition-opacity hover:opacity-100" style={{ color: "var(--text-secondary)", borderColor: "rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)" }}>Jump in</button>
-            <button onClick={advanceTutorial} className="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}>Guide me &rarr;</button>
+            <button onClick={advanceTutorial} className="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px color-mix(in srgb, var(--accent, #00e5ff) 30%, transparent)" }}>Guide me &rarr;</button>
           </div>
           {SHOW_DEV && (
             <button
