@@ -217,7 +217,9 @@ export default function Home() {
         {displayedTab === "help"     && <HelpPanel />}
         {displayedTab === "log"      && <HelpActivityTab setActiveTab={guardedSetActiveTab} />}
         {displayedTab === "settings" && <SettingsPanel />}
-        {SHOW_DEV_TAB && displayedTab === "dev" && <AdminPanel />}
+        {SHOW_DEV_TAB && displayedTab === "dev" && (
+          <AdminPanel onFullSaveReset={() => setActiveTab("junkyard")} />
+        )}
       </ThemeShell>
     </>
   );
