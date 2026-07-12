@@ -20,4 +20,19 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Run focused E2E smoke suite
+        if: github.base_ref == 'dev'
+        run: npm run test:e2e:smoke
+      - name: Run full desktop and mobile E2E suite
+        if: github.base_ref == 'uat' || github.base_ref == 'main'
+        run: npm run test:e2e:full
+      - name: Upload E2E failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pr-e2e-${{ github.run_id }}
+          path: |
+            test-results/playwright
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

@@ -106,6 +106,20 @@ async function installDeterministicMathRandom(page: Page, seed = 0x5eed1234) {
 const runtimeIssues = new WeakMap<Page, { errors: string[]; warnings: string[] }>();
 
 test.beforeEach(async ({ page }) => {
+  // Seeded campaign fixtures can legitimately trigger first-time system guides.
+  // A real player must acknowledge them, so let Playwright do the same before
+  // attempting the next gameplay action instead of clicking through the modal.
+  await page.addLocatorHandler(
+    page.getByRole("button", { name: "Okay, got it" }),
+    async (button) => {
+      // Multiple first-time guides may be queued from one seeded state change.
+      // Drain the queue so the handler's locator actually becomes hidden.
+      for (let remaining = 20; remaining > 0 && await button.isVisible(); remaining -= 1) {
+        await button.click();
+        await page.waitForTimeout(300);
+      }
+    },
+  );
   const issues = { errors: [] as string[], warnings: [] as string[] };
   runtimeIssues.set(page, issues);
   page.on("pageerror", (error) => issues.errors.push(error.message));
@@ -143,14 +157,14 @@ async function expectNoSeriousStructuralAccessibilityViolations(page: Page) {
   expect(blocking, blocking.map((violation) => `${violation.id}: ${violation.help}`).join("\n")).toEqual([]);
 }
 
-test("fresh save exposes the first engineering loop", async ({ page }) => {
+test("@smoke fresh save exposes the first engineering loop", async ({ page }) => {
   await loadFixture(page, "fresh");
   await expect(page.getByRole("heading", { name: "Rags to Races" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Scavenge!" })).toBeVisible();
   await expectNoSeriousStructuralAccessibilityViolations(page);
 });
 
-test("core Scavenge action works from the keyboard without duplicate input", async ({ page }) => {
+test("@smoke core Scavenge action works from the keyboard without duplicate input", async ({ page }) => {
   await loadFixture(page, "fresh", { tutorialStep: -1, tutorialDismissed: true });
   const scavenge = page.getByRole("button", { name: "Scavenge!" });
   await scavenge.focus();
@@ -178,7 +192,7 @@ test("current-version saves strip injected action names and keep Scavenge callab
   expect(after.prestige).toBeUndefined();
 });
 
-test("Auto-Scavenge unlocks on the exact final manual action", async ({ page }) => {
+test("@smoke Auto-Scavenge unlocks on the exact final manual action", async ({ page }) => {
   await loadFixture(page, "auto_scavenge_boundary");
   await expect(page.getByText(`${AUTO_SCAVENGE_MANUAL_TARGET - 1}/${AUTO_SCAVENGE_MANUAL_TARGET} for Auto`, { exact: true })).toBeVisible();
 
@@ -194,7 +208,7 @@ test("Auto-Scavenge unlocks on the exact final manual action", async ({ page }) 
   await expect(page.getByText(/for Auto$/)).toHaveCount(0);
 });
 
-test("first Scrap Reset uses the shared exact gate and awards the previewed LP with both automations", async ({ page }) => {
+test("@smoke first Scrap Reset uses the shared exact gate and awards the previewed LP with both automations", async ({ page }) => {
   const exactGate = {
     repPoints: SCRAP_RESET_REQUIREMENTS.reputation,
     lifetimeScrapBucks: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks,
@@ -285,7 +299,7 @@ test("tutorial race forecast remains accurate through the forced-DNF explanation
   await expect(odds).toContainText(/DNF|0%/i);
 });
 
-test("tutorial first race cannot contradict its forced-DNF forecast before Got it", async ({ page }) => {
+test("@smoke tutorial first race cannot contradict its forced-DNF forecast before Got it", async ({ page }) => {
   test.setTimeout(30_000);
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 9,
@@ -360,7 +374,7 @@ test("tutorial tab halos stay fully inside the viewport", async ({ page }) => {
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport!.height);
 });
 
-test("tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
+test("@smoke tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 14,
     tutorialDismissed: false,
@@ -374,12 +388,12 @@ test("tutorial routes the first upgrade through Workshop Facilities", async ({ p
   await page.getByRole("button", { name: "Got it" }).click();
   await workshopTab(page, "Facilities");
   await page.getByRole("button", { name: /\$75/ }).first().click();
-  await expect(page.getByText(/Workshop tabs cover inventory, fabrication/i)).toBeVisible();
+  await expect(page.getByText(/Use Inventory to manage parts, Fabrication to make parts/i)).toBeVisible();
   await page.getByRole("button", { name: "Got it" }).click();
   await expect(page.getByText(/\$500 and 100 Rep/i)).toBeVisible();
 });
 
-test("build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
+test("@smoke build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
   const errors = captureErrors(page);
   await loadFixture(page, "first_build_ready", { scrapBucks: 1_000, lifetimeScrapBucks: 1_000 });
   await openTab(page, "garage");
@@ -402,7 +416,7 @@ test("build to populated Garage, activate, repair, and reload stays stable", asy
   expect(errors.filter((error) => /Maximum update depth|getSnapshot|uncaught/i.test(error))).toEqual([]);
 });
 
-test("reloading a paid race refunds its escrow exactly once without inventing history", async ({ page }) => {
+test("@smoke reloading a paid race refunds its escrow exactly once without inventing history", async ({ page }) => {
   await loadFixture(page, "workshop_ready", {
     autoScavengeUnlocked: false,
     autoRaceUnlocked: false,
@@ -886,7 +900,7 @@ test("Track configuration, perks, hosting, acceleration, and collection use the 
   expect(afterCollect.hostedEvents).toEqual([]);
 });
 
-test("save export/import round-trip preserves the campaign checksum fields", async ({ page }) => {
+test("@smoke save export/import round-trip preserves the campaign checksum fields", async ({ page }) => {
   await loadFixture(page, "workshop_ready");
   const before = await persistedState(page);
   await openTab(page, "settings");
@@ -933,7 +947,7 @@ test("malformed current-version save import is rejected without mutating the cam
   }
 });
 
-test("maxed state visits every primary screen without crashes or viewport overflow", async ({ page }) => {
+test("@smoke maxed state visits every primary screen without crashes or viewport overflow", async ({ page }) => {
   const errors = captureErrors(page);
   const warnings = captureWarnings(page);
   await loadFixture(page, "maxed");
@@ -1045,7 +1059,7 @@ test("all supported themes survive reload without hydration errors or horizontal
   }
 });
 
-test("desktop and mobile primary navigation keeps every critical action reachable", async ({ page }) => {
+test("@smoke desktop and mobile primary navigation keeps every critical action reachable", async ({ page }) => {
   await loadFixture(page, "workshop_ready");
   for (const [tab, text] of [["junkyard", "Scavenge!"], ["garage", "Your Garage"], ["race", "Enter Race"], ["gear", "Salvage Workshop"], ["upgrades", "Legacy"]] as const) {
     if (tab !== "junkyard") await openTab(page, tab);
@@ -1056,7 +1070,7 @@ test("desktop and mobile primary navigation keeps every critical action reachabl
   await expectNoSeriousStructuralAccessibilityViolations(page);
 });
 
-test("default semantic text palette preserves readable contrast", async ({ page }) => {
+test("@smoke default semantic text palette preserves readable contrast", async ({ page }) => {
   await loadFixture(page, "workshop_ready");
   const ratios = await page.evaluate(() => {
     const shell = document.querySelector<HTMLElement>(".shell-content > div");

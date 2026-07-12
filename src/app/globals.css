@@ -55,6 +55,20 @@ html {
 /* styles, so we need !important to override at mobile breakpoints.          */
 
 @media (max-width: 640px) {
+  /* The condensed display face becomes difficult to scan below 12px on real
+     phone screens. Keep helper copy readable while preserving hierarchy. */
+  [class~="text-xs"] {
+    font-size: .8125rem !important;
+    line-height: 1.2rem !important;
+  }
+  [class~="text-[10px]"],
+  [class~="text-[11px]"],
+  [class~="text-[.6rem]"],
+  [class~="text-[.65rem]"] {
+    font-size: .75rem !important;
+    line-height: 1rem !important;
+  }
+
   /* Header: wrap stats below title, reduce padding */
   header {
     flex-wrap: wrap !important;

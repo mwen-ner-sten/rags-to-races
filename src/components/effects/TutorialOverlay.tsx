@@ -48,23 +48,21 @@ export const STEPS: TutorialStepDef[] = [
   /* 6  */ { icon: "\u{1F528}", tip: "Hit **Build**!", allowedTabs: ["garage", "junkyard"], target: "build-btn" },
   /* 7  */ { icon: "\u2B50", tip: "**Activate** your mower to race.", allowedTabs: ["garage"], target: "activate-btn" },
   /* 8  */ { icon: "\u{1F4CD}", tip: "Head to the **Race** tab.", allowedTabs: ["garage", "race"], highlightTab: "race" },
-  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your **Win** chance and **DNF Risk**. **DNF** = your vehicle broke down mid-race.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF (Did Not Finish) means your vehicle broke down mid-race \u2014 higher reliability reduces this risk. Every result earns Rep; wins and stronger finishes also pay Scrap Bucks." },
-  /* 10 */ { icon: "\u{1F3C1}", tip: "Hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
+  /* 9  */ { icon: "\u{1F3CE}\uFE0F", tip: "Check your **Win** chance and **DNF Risk**. **DNF** stands for **Did Not Finish** \u2014 in this game, that usually means your vehicle broke down before the finish.", allowedTabs: ["race"], target: "odds-display", dismissable: true, helpDetail: "Your win chance depends on your vehicle\u2019s performance vs. the circuit difficulty. DNF stands for Did Not Finish. In this game, it usually means your vehicle broke down before completing the race; higher reliability reduces this risk. Every result earns Rep; wins and stronger finishes also pay Scrap Bucks." },
+  /* 10 */ { icon: "\u{1F3C1}", tip: "The race controls are **below**. Scroll down and hit **Enter Race**!", allowedTabs: ["race"], target: "race-btn" },
   /* 11 */ { icon: "\u{1F3C1}", tip: "The race was interrupted. Hit **Enter Race** to try again.", allowedTabs: ["race"], target: "race-btn", hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Your ride took damage. First **Repair** is free \u2014 head to the **Garage**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
   // ── Post-first-race: teach systems during the early grind ──────────────
   /* 14 */ { icon: "\u{1F527}", tip: "Head to the **Workshop** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "**Facilities** upgrades boost your current run. Try **Keen Eye** ($75) for better scavenge luck or **Budget Repairs** for cheaper fixes.", helpDetail: "Open Workshop > Facilities for Scavenging, Building, Racing, and Maintenance upgrades. They reset on Scrap Reset, but their bonuses help you earn more each run." },
   /* 15 */ { icon: "\u2B06\uFE0F", tip: "Open **Facilities**, then **buy** a run upgrade.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], target: "workshop-facilities-tab", hasGoal: true, goalIntro: "Open **Workshop > Facilities**. **Keen Eye** costs **$75**. If you can\u2019t afford it yet, **race** or **scavenge then sell parts** to earn more **Scrap Bucks**." },
-  /* 16 */ { icon: "\u{1F9F0}", tip: "The **Workshop** tabs cover inventory, fabrication, equipment, skills, philosophy, and facilities.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], dismissable: true },
+  /* 16 */ { icon: "\u{1F9F0}", tip: "Use **Inventory** to manage parts, **Fabrication** to make parts, and **Add-ons** to modify vehicles. The **Dealer** sells parts; **Stations** equip workshop gear; **Skills** grow as you play; **Philosophy** spends LP on lasting bonuses; and **Facilities** improve the current run.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], dismissable: true },
   /* 17 */ { icon: "\u{1F3CE}\uFE0F", tip: "Race and scavenge to earn **$500** and **100 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, helpDetail: "Keep racing and selling spare parts. Rep unlocks new scavenging locations and circuits. Once you hit these targets, you\u2019ll be ready for the next step." },
   /* 18 */ { icon: "\u{1F528}", tip: "Build **three vehicles total** to prove your garage is ready for a reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "garage", goalIntro: "Scrap Reset requires **three vehicles**. Scavenge for compatible parts and try better blueprints as they unlock." },
   /* 19 */ { icon: "\u{1F680}", tip: `Earn **$${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks** and **${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep**.`, allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019re getting the hang of it. Keep racing, building, and upgrading.", "**Fatigue** builds each race and cuts performance. When progress stalls, it\u2019s time to **Scrap Reset**."], helpDetail: `Lifetime Scrap Bucks is the total currency you\u2019ve ever earned (not your current balance). Scrap Reset requires ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} vehicles, $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks, and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep.` },
   /* 20 */ { icon: "\u{1F4CD}", tip: "Head to **Upgrades** \u2014 it\u2019s time to reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
   /* 21 */ { icon: "\u{1F510}", tip: "Open **Scrap Reset**, review what resets, then confirm to earn **Legacy Points**.", allowedTabs: ["upgrades"], target: "prestige-subtab-btn" },
 ];
-
-const TOTAL_GUIDED_STEPS = STEPS.length - 1;
 
 function haloBounds(rect: DOMRect, padding: number): React.CSSProperties {
   const viewW = typeof window === "undefined" ? rect.right + padding : window.innerWidth;
@@ -212,29 +210,6 @@ function renderTip(tip: string) {
     }
     return <span key={i}>{part}</span>;
   });
-}
-
-function StepDots({ current, total }: { current: number; total: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: total }, (_, i) => {
-        const active = i + 1 === current;
-        const past = i + 1 < current;
-        return (
-          <div
-            key={i}
-            className="rounded-full transition-colors"
-            style={{
-              width: active ? 10 : 5,
-              height: 5,
-              borderRadius: active ? 3 : "50%",
-              background: active ? "#fff" : past ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.12)",
-            }}
-          />
-        );
-      })}
-    </div>
-  );
 }
 
 /**
@@ -436,6 +411,32 @@ export default function TutorialOverlay({ activeTab }: Props) {
     ? (tutorialStep === 2 && step2SellReady ? "sell-area" : stepDef.target)
     : undefined;
 
+  // On phones, long screens can place the requested action below the fold.
+  // Bring it into the usable viewport once when the step/tab changes rather
+  // than leaving the card pointing toward an invisible control.
+  useEffect(() => {
+    if (!effectiveTarget || typeof window === "undefined" || window.innerWidth >= 640) return;
+    const timer = window.setTimeout(() => {
+      const targetName = tutorialStep === 15 && document.querySelector('[data-tutorial="workshop-upgrade-btn"]')
+        ? "workshop-upgrade-btn"
+        : effectiveTarget;
+      const currentPartSlot = pendingBuildParts.engine ? "wheel" : "engine";
+      const element = tutorialStep === 5
+        ? document.querySelector(`[data-tutorial-slot="${currentPartSlot}"]`)
+        : document.querySelector(`[data-tutorial="${targetName}"]`);
+      if (!element) return;
+      const rect = element.getBoundingClientRect();
+      const usableBottom = window.innerHeight - 72;
+      if (rect.top < 12 || rect.bottom > usableBottom) {
+        element.scrollIntoView({
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+          block: "center",
+        });
+      }
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, effectiveTarget, pendingBuildParts.engine, tutorialStep]);
+
   // Dynamic tab highlight overrides. On step 15, once the player can afford
   // Keen Eye but they're off Workshop, pulse Workshop to pull them back in.
   // Within Facilities, the first purchase button becomes the target halo.
@@ -457,7 +458,10 @@ export default function TutorialOverlay({ activeTab }: Props) {
       const targetName = tutorialStep === 15 && document.querySelector('[data-tutorial="workshop-upgrade-btn"]')
         ? "workshop-upgrade-btn"
         : effectiveTarget;
-      const el = document.querySelector(`[data-tutorial="${targetName}"]`);
+      const currentPartSlot = pendingBuildParts.engine ? "wheel" : "engine";
+      const el = tutorialStep === 5
+        ? document.querySelector(`[data-tutorial-slot="${currentPartSlot}"]`)
+        : document.querySelector(`[data-tutorial="${targetName}"]`);
       const r = el ? el.getBoundingClientRect() : null;
       // Skip zero-size rects (element hidden or off-screen)
       setTargetRect(r && r.width > 0 && r.height > 0 ? r : null);
@@ -465,14 +469,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
       setTargetRect(null);
     }
 
-    // Per-element hint highlights (e.g. individual part buttons on step 5)
-    // Only glow parts in unfilled slots — once a slot has a part, stop pulsing all buttons in that slot
+    // Guide one decision at a time: Engine first, then Wheel.
     if (tutorialStep === 5) {
-      const unfilledSlots = document.querySelectorAll('[data-tutorial-slot]:not([data-tutorial-slot-filled])');
-      const btns: Element[] = [];
-      unfilledSlots.forEach((slot) => {
-        btns.push(...Array.from(slot.querySelectorAll('[data-tutorial="part-btn"]')));
-      });
+      const currentPartSlot = pendingBuildParts.engine ? "wheel" : "engine";
+      const slot = document.querySelector(`[data-tutorial-slot="${currentPartSlot}"]`);
+      const btns = slot ? Array.from(slot.querySelectorAll('[data-tutorial="part-btn"]')) : [];
       setHintRects(btns.map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0));
     } else {
       setHintRects([]);
@@ -506,7 +507,9 @@ export default function TutorialOverlay({ activeTab }: Props) {
       return tabLabels.some((l) => text.includes(l));
     });
 
-    const allowedSet = stepDef.allowedTabs ? new Set(stepDef.allowedTabs) : null;
+    // Use the same expanded set as the navigation guard. Utility destinations
+    // (Help, Activity, Settings, and Dev) should never look locked.
+    const allowedSet = getAllowedTabs(tutorialStep);
 
     if (effectiveHighlightTab) {
       // Prefer exact matching via data-tutorial-tab attribute (robust to abbreviated labels)
@@ -566,7 +569,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     } else {
       setBlockerRects([]);
     }
-  }, [stepDef, effectiveTarget, effectiveHighlightTab, step2SellReady, tutorialStep]);
+  }, [stepDef, effectiveTarget, effectiveHighlightTab, step2SellReady, tutorialStep, pendingBuildParts]);
 
   useEffect(() => {
     if (tutorialStep < 0) return;
@@ -587,6 +590,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
   /* Dynamic tip for step 12: react to race result */
   let effectiveTip = stepDef.tip;
+  if (tutorialStep === 5) {
+    effectiveTip = pendingBuildParts.engine
+      ? "Now choose the **best-quality wheel**. Higher-condition parts give the vehicle better stats."
+      : "Start with an **engine**. Choose the **best quality** available — higher-condition parts give better stats.";
+  }
   if (tutorialStep === 12) {
     // Race animation state is intentionally transient, while tutorialStep and
     // raceHistory persist. Recover the explanation from the latest history
@@ -626,9 +634,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
             Time to turn that garbage into glory.
           </p>
           <p className="mb-5 text-center text-xs italic" style={{ color: "var(--text-muted)" }}>Scavenge parts. Build a ride. Race your way to the top.</p>
-          <div className="mb-4 flex justify-center">
-            <StepDots current={0} total={TOTAL_GUIDED_STEPS} />
-          </div>
           <div className="flex items-center justify-between gap-3">
             <button onClick={skipTutorial} className="shrink-0 cursor-pointer rounded-md border px-3 py-2 text-xs font-semibold opacity-80 transition-opacity hover:opacity-100" style={{ color: "var(--text-secondary)", borderColor: "rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)" }}>Jump in</button>
             <button onClick={advanceTutorial} className="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-bold tracking-wide transition-colors" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 16px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}>Guide me &rarr;</button>
@@ -686,7 +691,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
         ))}
         {targetRect && (
           <div
-            className="tutorial-pulse fixed z-[9999] rounded-lg"
+            className="tutorial-pulse fixed z-[999] rounded-lg"
             style={{
               ...haloBounds(targetRect, 5),
               pointerEvents: "none",
@@ -888,10 +893,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
       ))}
 
       {/* Pulsing halo on target button (in-panel elements) */}
+      {/* Keep content highlights below MobileNav's z-index 1000 so scrolled
+          targets are occluded by the fixed bar. Tab halos stay above it. */}
       {targetRect && (
         <div
           data-testid="tutorial-target-halo"
-          className="tutorial-pulse fixed z-[9998] rounded-lg"
+          className="tutorial-pulse fixed z-[999] rounded-lg"
           style={{
             ...haloBounds(targetRect, 3),
             pointerEvents: "none",
@@ -904,7 +911,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           pulse on top. Gives the "this is THE button" cue. */}
       {sellBtnRect && (
         <div
-          className="fixed z-[9999] rounded-md"
+          className="fixed z-[999] rounded-md"
           style={{
             left: sellBtnRect.left - 2, top: sellBtnRect.top - 2,
             width: sellBtnRect.width + 4, height: sellBtnRect.height + 4,
@@ -923,7 +930,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {hintRects.map((rect, i) => (
         <div
           key={`hint-${i}`}
-          className="fixed z-[9998] rounded-md"
+          className="fixed z-[999] rounded-md"
           style={{
             left: rect.left - 2, top: rect.top - 2,
             width: rect.width + 4, height: rect.height + 4,
@@ -971,10 +978,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 {renderTip(currentIntroText!)}
               </p>
             </div>
-            {/* Footer — step dots on their own row, actions below. Full card width so
-                buttons like "Got it →" don't overflow when the dot strip is long. */}
+            {/* Footer actions */}
             <div className="mt-2.5 flex flex-col gap-2">
-              <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
               <div className="flex flex-wrap items-center justify-end gap-3">
                 {introSequence && (
                   <span className="mr-auto text-xs" style={{ color: "var(--text-muted)" }}>
@@ -1037,10 +1042,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
                 {renderTip(effectiveTip)}
               </p>
             </div>
-            {/* Footer — uses full card width so long step-dot strings and the
-                "Got it" button don't overflow when pr-16 would otherwise squeeze them. */}
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
+            {/* Footer actions */}
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
               <div className="flex items-center gap-3">
                 <SkipWithConfirm onSkip={skipTutorial} />
                 {stepDef.dismissable && (
@@ -1052,17 +1055,27 @@ export default function TutorialOverlay({ activeTab }: Props) {
                     Got it &rarr;
                   </button>
                 )}
+                {isGoalStep && !hasIntro && (
+                  <button
+                    onClick={() => setCardDismissed(true)}
+                    className="shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-bold tracking-wide transition-colors"
+                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)", boxShadow: "0 0 12px color-mix(in srgb, var(--accent, #eab308) 30%, transparent)" }}
+                  >
+                    Got it
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Goal badge — centered in the content area (offset for sidebar on desktop) */}
+      {/* Keep the mobile goal tracker compact and above the bottom navigation;
+          placing a multi-line tracker at the top hides the page header. */}
       {showGoal && goalContent && (
-        <div className="fixed top-2 left-1/2 z-[10000] -translate-x-1/2 sm:left-[calc(50%+100px)] sm:top-2">
+        <div className="fixed right-3 bottom-[72px] left-3 z-[10000] sm:top-2 sm:right-auto sm:bottom-auto sm:left-[calc(50%+100px)] sm:-translate-x-1/2">
           <div
-            className="animate-fade-up flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium"
+            className="animate-fade-up flex flex-wrap items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-medium sm:flex-nowrap sm:justify-start sm:py-1.5"
             style={{
               ...BADGE_BG,
               color: "var(--text-primary)",
@@ -1070,14 +1083,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
           >
             <span className="text-sm">{stepDef.icon}</span>
             {goalContent}
-            <div className="ml-1">
-              <StepDots current={tutorialStep} total={TOTAL_GUIDED_STEPS} />
-            </div>
             <button
               onClick={toggleTutorialMinimized}
               aria-label="Minimize tutorial"
               title="Minimize"
-              className="ml-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-50 transition-opacity hover:opacity-100"
+              className="ml-1 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-xs opacity-60 transition-opacity hover:opacity-100"
               style={{ color: "#888", background: "#333", fontSize: 12, lineHeight: 1 }}
             >
               {"\u2013"}
