@@ -384,6 +384,17 @@ test("tutorial tab halos stay fully inside the viewport", async ({ page }) => {
   expect(bounds!.y).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width);
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport!.height);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileHalo = page.getByTestId("tutorial-tab-halo");
+  const mobileNav = page.getByTestId("mobile-nav");
+  await expect(mobileHalo).toBeVisible();
+  expect(Number(await mobileHalo.evaluate((element) => getComputedStyle(element).zIndex)))
+    .toBeGreaterThan(Number(await mobileNav.evaluate((element) => getComputedStyle(element).zIndex)));
+
+  await page.getByRole("button", { name: "More tabs" }).click();
+  expect(Number(await mobileNav.evaluate((element) => getComputedStyle(element).zIndex)))
+    .toBeGreaterThan(Number(await mobileHalo.evaluate((element) => getComputedStyle(element).zIndex)));
 });
 
 test("@smoke tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
@@ -1080,6 +1091,16 @@ test("@smoke desktop and mobile primary navigation keeps every critical action r
     expect(overflow, `${tab} horizontal overflow`).toBeLessThanOrEqual(1);
   }
   await expectNoSeriousStructuralAccessibilityViolations(page);
+});
+
+test("@smoke mobile Workshop dropdown uses an opaque raised surface", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "gear");
+  await page.locator(".mobile-sub-nav").getByRole("button").first().click();
+  const menu = page.getByTestId("mobile-sub-nav-menu");
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveCSS("background-color", "rgb(4, 24, 32)");
 });
 
 test("@smoke default semantic text palette preserves readable contrast", async ({ page }) => {

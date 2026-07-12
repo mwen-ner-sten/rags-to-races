@@ -51,7 +51,7 @@ export default function MobileSubNav({ tabs, activeTab, setActiveTab, tutorialTa
         className="flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors w-full"
         style={{
           borderColor: "var(--panel-border, #3a2510)",
-          background: "var(--panel-bg, #181008)",
+          background: "var(--modal-bg, #041820)",
           color: "var(--accent, #c83e0c)",
         }}
       >
@@ -70,13 +70,14 @@ export default function MobileSubNav({ tabs, activeTab, setActiveTab, tutorialTa
       {/* Dropdown menu */}
       {open && (
         <div
+          data-testid="mobile-sub-nav-menu"
           style={{
             position: "absolute",
             top: "calc(100% + 4px)",
             left: 0,
             right: 0,
             zIndex: 50,
-            background: "var(--panel-bg, #181008)",
+            background: "var(--modal-bg, #041820)",
             border: "1px solid var(--panel-border, #3a2510)",
             borderRadius: "0.5rem",
             overflow: "hidden",

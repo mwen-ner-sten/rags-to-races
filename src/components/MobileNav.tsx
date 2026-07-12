@@ -81,7 +81,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
           right: 0,
           // Navigation must remain usable above tutorial and first-unlock
           // acknowledgement layers.
-          zIndex: 11000,
+          zIndex: moreOpen ? 11003 : 11000,
           height: 56,
           display: "flex",
           alignItems: "stretch",

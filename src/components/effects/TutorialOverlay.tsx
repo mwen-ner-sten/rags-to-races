@@ -683,7 +683,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <div
             key={`hl-d-${i}`}
             data-testid="tutorial-tab-halo"
-            className="tutorial-tab-halo tutorial-pulse fixed z-[9997] rounded"
+            className="tutorial-tab-halo tutorial-pulse fixed z-[11002] rounded"
             style={{
               ...tabHaloBounds(rect),
               pointerEvents: "none",
@@ -885,7 +885,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
         <div
           key={`hl-${i}`}
           data-testid="tutorial-tab-halo"
-          className="tutorial-tab-halo tutorial-pulse fixed z-[9997] rounded"
+              className="tutorial-tab-halo tutorial-pulse fixed z-[11002] rounded"
           style={{
             ...tabHaloBounds(rect),
             pointerEvents: "none",
