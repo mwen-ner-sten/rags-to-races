@@ -23,13 +23,9 @@ jobs:
       - name: Run focused E2E smoke suite
         if: github.base_ref == 'dev'
         run: npm run test:e2e:smoke
-        env:
-          PLAYWRIGHT_USE_PRODUCTION_SERVER: "1"
       - name: Run full desktop and mobile E2E suite
         if: github.base_ref == 'uat' || github.base_ref == 'main'
         run: npm run test:e2e:full
-        env:
-          PLAYWRIGHT_USE_PRODUCTION_SERVER: "1"
       - name: Upload E2E failure evidence
         if: failure()
         uses: actions/upload-artifact@v6

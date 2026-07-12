@@ -22,8 +22,6 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:full
-        env:
-          PLAYWRIGHT_USE_PRODUCTION_SERVER: "1"
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v6
