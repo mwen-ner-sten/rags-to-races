@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const fullMatrix = process.env.PLAYWRIGHT_FULL_MATRIX === "1";
 const existingBaseURL = process.env.PLAYWRIGHT_BASE_URL;
+const useProductionServer = process.env.PLAYWRIGHT_USE_PRODUCTION_SERVER === "1";
 
 export default defineConfig({
   testDir: "./tests/playwright",
@@ -25,7 +26,9 @@ export default defineConfig({
       : []),
   ],
   webServer: existingBaseURL ? undefined : {
-    command: "npm run dev -- --hostname 127.0.0.1 --port 3101",
+    command: useProductionServer
+      ? "npm run start -- --hostname 127.0.0.1 --port 3101"
+      : "npm run dev -- --hostname 127.0.0.1 --port 3101",
     url: "http://127.0.0.1:3101",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
