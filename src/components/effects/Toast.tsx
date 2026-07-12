@@ -165,7 +165,7 @@ export default function ToastContainer() {
       <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" aria-labelledby="unlock-guide-title">
         <section
           className={`w-full max-w-md rounded-2xl border p-5 ${active.exiting ? "animate-slide-out" : "animate-slide-in"}`}
-          style={{ borderColor: "var(--accent-border)", background: "var(--panel-bg)", boxShadow: "0 0 42px color-mix(in srgb, var(--accent) 28%, transparent), 0 24px 60px rgba(0,0,0,.7)" }}
+          style={{ borderColor: "var(--accent-border)", background: "var(--modal-bg, #041820)", boxShadow: "0 0 42px color-mix(in srgb, var(--accent) 28%, transparent), 0 24px 60px rgba(0,0,0,.7)" }}
         >
           <div className="mb-4 flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-2xl" style={{ borderColor: "var(--accent-border)", background: "var(--accent-bg)" }}>{presentation.icon}</div>
@@ -191,7 +191,7 @@ export default function ToastContainer() {
 
   return (
     <div className="pointer-events-none fixed top-20 left-1/2 z-[9998] w-[min(420px,calc(100%-2rem))] -translate-x-1/2 sm:top-24">
-      <div role="status" className={`pointer-events-auto overflow-hidden rounded-xl border p-4 backdrop-blur-sm ${active.exiting ? "animate-slide-out" : "animate-slide-in"}`} style={{ borderColor: "var(--accent-border)", background: "var(--panel-bg)", boxShadow: "0 0 36px color-mix(in srgb, var(--accent) 24%, transparent), 0 18px 40px rgba(0,0,0,.55)" }}>
+      <div role="status" className={`pointer-events-auto overflow-hidden rounded-xl border p-4 ${active.exiting ? "animate-slide-out" : "animate-slide-in"}`} style={{ borderColor: "var(--accent-border)", background: "var(--modal-bg, #041820)", boxShadow: "0 0 36px color-mix(in srgb, var(--accent) 24%, transparent), 0 18px 40px rgba(0,0,0,.55)" }}>
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-xl" style={{ borderColor: "var(--accent-border)", background: "var(--accent-bg)" }}>{presentation.icon}</div>
           <div className="min-w-0 flex-1">
