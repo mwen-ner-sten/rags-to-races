@@ -457,6 +457,105 @@ test("@smoke tutorial releases navigation after the first repair", async ({ page
   await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
 });
 
+test("part toggle controls the shared expanded panel when only the add-on bench is unlocked", async ({ page }) => {
+  await loadFixture(page, "workshop_ready", {
+    workshopLevels: {
+      ...fixtures.workshop_ready.payload.state.workshopLevels,
+      toolkit: 0,
+      addon_bench: 1,
+    },
+  });
+  await openTab(page, "garage");
+
+  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const controlledId = await toggle.getAttribute("aria-controls");
+  expect(controlledId).toBeTruthy();
+  const controlledPanel = page.locator(`#${controlledId}`);
+  await expect(controlledPanel).toHaveCount(1);
+  await expect(controlledPanel).toBeVisible();
+});
+
+test("installed-part candidates expose textual condition and signed named stat deltas", async ({ page }) => {
+  const garage = structuredClone(fixtures.workshop_ready.payload.state.garage);
+  const inventory = structuredClone(fixtures.workshop_ready.payload.state.inventory);
+  const installedAddons = inventory.filter((part) =>
+    part.definitionId === "addon_air_filter" || part.definitionId === "addon_turbo_snail",
+  );
+  const candidateId = "e2e_comparison_candidate_engine_v4";
+  const candidatePart = {
+    ...inventory.find((part) => part.definitionId === "engine_v4" && part.condition === "decent")!,
+    id: candidateId,
+    condition: "decent" as const,
+  };
+  const firstVehicle = garage[0] as unknown as {
+    parts: { engine: { part: { id: string }; addons: typeof installedAddons } };
+  };
+  firstVehicle.parts.engine.addons = installedAddons;
+  await loadFixture(page, "workshop_ready", {
+    garage,
+    inventory: [
+      ...inventory.filter((part) => part.type === "addon" && !installedAddons.some((addon) => addon.id === part.id)),
+      candidatePart,
+    ],
+  });
+  await openTab(page, "garage");
+
+  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const pickerId = await toggle.getAttribute("aria-controls");
+  expect(pickerId).toBeTruthy();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const picker = page.locator(`#${pickerId}`);
+  await expect(picker).toBeVisible();
+  const candidate = picker.locator(`[data-candidate-instance-id="${candidateId}"]`);
+  await expect(candidate).toBeVisible();
+  await expect(candidate).toContainText("Condition: Decent");
+  await expect(candidate).toContainText(/Spd [+-]\d/);
+  await expect(candidate).toContainText(/Hnd [+-]\d/);
+  await expect(candidate).toContainText(/Rel [+-]\d/);
+  await expect(candidate).toContainText(/Perf [+-]\d/);
+  await expect(candidate).toContainText(/Wgt [+-]\d/);
+  await expect(candidate).toContainText("Warning: 1 add-on will return to inventory.");
+  await expect(candidate).toHaveAccessibleName(/Warning: 1 add-on will return to inventory/);
+
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    const toggleBox = await toggle.boundingBox();
+    const candidateBox = await candidate.boundingBox();
+    expect(toggleBox?.height).toBeGreaterThanOrEqual(44);
+    expect(candidateBox?.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+
+  const originalPartId = firstVehicle.parts.engine.part.id;
+  const returnedAddonId = installedAddons[1].id;
+  await candidate.click();
+
+  await expect.poll(async () => {
+    const state = await persistedState(page) as unknown as {
+      garage: Array<{ id: string; parts: { engine: { part: { id: string } } } }>;
+      inventory: Array<{ id: string }>;
+    };
+    const persistedVehicle = state.garage.find((item) => item.id === garage[0].id)!;
+    const persistedInventoryIds = state.inventory.map((part) => part.id);
+    return {
+      installedPartId: persistedVehicle.parts.engine.part.id,
+      candidateWasRemoved: !persistedInventoryIds.includes(candidateId),
+      oldPartWasReturned: persistedInventoryIds.includes(originalPartId),
+      displacedAddonWasReturned: persistedInventoryIds.includes(returnedAddonId),
+    };
+  }).toEqual({
+    installedPartId: candidateId,
+    candidateWasRemoved: true,
+    oldPartWasReturned: true,
+    displacedAddonWasReturned: true,
+  });
+});
+
 test("@smoke build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
   const errors = captureErrors(page);
   await loadFixture(page, "first_build_ready", { scrapBucks: 1_000, lifetimeScrapBucks: 1_000 });
