@@ -464,9 +464,10 @@ export default function RacePanel({
   const resultCircuit = lastRaceOutcome
     ? CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === lastRaceOutcome.circuitId)
     : undefined;
-  const engineeringReport = resultVehicle && resultCircuit && lastRaceOutcome
-    ? buildEngineeringReport(resultVehicle, resultCircuit, lastRaceOutcome)
-    : null;
+  const engineeringReport = lastRaceOutcome?.engineeringReport
+    ?? (resultVehicle && resultCircuit && lastRaceOutcome
+      ? buildEngineeringReport(resultVehicle, resultCircuit, lastRaceOutcome)
+      : null);
   const sb = getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0);
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const raceIneligibilityReason = getRaceIneligibilityReason({

@@ -388,12 +388,19 @@ function VehicleCard({
   );
   const diagnosedInstalled = diagnosisSlot ? vehicle.parts[diagnosisSlot] : undefined;
   const diagnosedPart = diagnosedInstalled ? getPartById(diagnosedInstalled.part.definitionId) : undefined;
+  const diagnosisTargetKey = diagnosisSlot ? `${vehicle.id}:${diagnosisSlot}` : null;
+  const focusedDiagnosisTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!diagnosisSlot || !diagnosedInstalled) return;
+    if (!diagnosisTargetKey) {
+      focusedDiagnosisTargetRef.current = null;
+      return;
+    }
+    if (focusedDiagnosisTargetRef.current === diagnosisTargetKey) return;
+    focusedDiagnosisTargetRef.current = diagnosisTargetKey;
     diagnosisRef.current?.focus();
     diagnosisRef.current?.scrollIntoView({ block: "nearest" });
-  }, [diagnosisSlot, diagnosedInstalled]);
+  }, [diagnosisTargetKey]);
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
   if (!def) return null;

@@ -7,6 +7,7 @@ import type { ScavengedPart } from "./scavenge";
 import type { BuiltVehicle } from "./build";
 import { DEFAULT_RACE_PLAN, evaluateRacePlan, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
 import { RIVAL_DEFINITIONS } from "@/data/rivals";
+import { buildEngineeringReport, type EngineeringReport } from "./engineeringDiagnostics";
 
 export type RaceResult = "win" | "loss" | "dnf";
 
@@ -28,6 +29,8 @@ export interface RaceOutcome {
   /** Garage vehicle that produced this result, used for stable diagnostics. */
   vehicleId?: string;
   circuitId: string;
+  /** Immutable diagnosis of the build as it entered this race. */
+  engineeringReport?: EngineeringReport;
 }
 
 const RACE_FLAVOR: Record<RaceResult, string[]> = {
@@ -54,6 +57,17 @@ const RACE_FLAVOR: Record<RaceResult, string[]> = {
 function pickFlavor(result: RaceResult): string {
   const arr = RACE_FLAVOR[result];
   return arr[Math.floor(random() * arr.length)];
+}
+
+function finalizeOutcome(
+  outcome: RaceOutcome,
+  vehicle: BuiltVehicle,
+  circuit: CircuitDefinition,
+): RaceOutcome {
+  return {
+    ...outcome,
+    engineeringReport: buildEngineeringReport(vehicle, circuit, outcome),
+  };
 }
 
 /** Calculate pre-race odds for display. */
@@ -169,7 +183,7 @@ export function simulateRace(
 
   // Explicit forced-result path retained for deterministic simulations and tooling.
   if (forceDNF) {
-    return {
+    return finalizeOutcome({
       result: "dnf",
       position: totalRacers,
       totalRacers,
@@ -180,7 +194,7 @@ export function simulateRace(
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
-    };
+    }, vehicle, circuit);
   }
 
   const odds = calculateOdds(
@@ -200,7 +214,7 @@ export function simulateRace(
   );
   const dnfChance = odds.dnfChance;
   if (random() < dnfChance) {
-    return {
+    return finalizeOutcome({
       result: "dnf",
       position: totalRacers,
       totalRacers,
@@ -211,7 +225,7 @@ export function simulateRace(
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
-    };
+    }, vehicle, circuit);
   }
 
   const won = random() < odds.winChance;
@@ -244,7 +258,7 @@ export function simulateRace(
     forgeTokenDrop ? `Found a Forge Token in the debris!` : "",
   ].filter(Boolean);
 
-  return {
+  return finalizeOutcome({
     result, position, totalRacers, scrapsEarned, repEarned, log,
     salvageDrop: salvageDrop ?? undefined,
     forgeTokenDrop: forgeTokenDrop || undefined,
@@ -252,7 +266,7 @@ export function simulateRace(
     rivalId: rival?.id,
     vehicleId: vehicle.id,
     circuitId: circuit.id,
-  };
+  }, vehicle, circuit);
 }
 
 /**
