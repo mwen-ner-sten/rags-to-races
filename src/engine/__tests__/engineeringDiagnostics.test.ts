@@ -39,6 +39,7 @@ describe("buildEngineeringReport", () => {
 
     expect(report.focus).toBe("grip");
     expect(report.component).toBe("Busted Wheel");
+    expect(report.slot).toBe("wheel");
     expect(report.observation).toMatch(/grip|corner/i);
     expect(report.action).toMatch(/wheel|tire|refurbish|replace/i);
   });
@@ -48,6 +49,8 @@ describe("buildEngineeringReport", () => {
 
     expect(report.priority).toBe("repair");
     expect(report.focus).toBe("reliability");
+    expect(report.component).toBe("Busted Wheel");
+    expect(report.slot).toBe("wheel");
     expect(report.action).toMatch(/repair/i);
   });
 

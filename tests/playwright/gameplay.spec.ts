@@ -338,8 +338,58 @@ test("@smoke tutorial first race uses the displayed simulation", async ({ page }
   expect(["win", "loss", "dnf"]).toContain(outcome?.result);
   expect(outcome?.repEarned).toBeGreaterThan(0);
   await expect(page.getByRole("heading", { name: "Engineering Debrief" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Inspect Build" })).toBeVisible();
+  const inspectBuild = page.getByRole("button", { name: "Inspect Build" });
+  await expect(inspectBuild).toBeVisible();
   await expect(page.getByTestId("tutorial-card").getByText(/won|exploded|not first/i)).toBeVisible();
+  await inspectBuild.click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", "fixture_vehicle_10_push_mower");
+  await expect(diagnosis).toHaveAttribute("data-slot", "wheel");
+  await expect(diagnosis).toHaveAccessibleName(/race diagnosis for push mower wheel/i);
+  await expect(diagnosis).toContainText("Basic Tire");
+  await expect(diagnosis).toContainText(/Toolkit.*40 Rep/i);
+  await expect(diagnosis).toBeFocused();
+  await expect(page.getByRole("button", { name: /^Compare wheel installed part/ })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+  const dismissDiagnosis = diagnosis.getByRole("button", { name: "Dismiss" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    expect((await dismissDiagnosis.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+  await dismissDiagnosis.click();
+  await expect(page.getByTestId("garage-diagnosis")).toHaveCount(0);
+});
+
+test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unlocked", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  const duplicate = structuredClone(garage[0]);
+  duplicate.id = "duplicate_vehicle_with_same_parts";
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 9,
+    tutorialDismissed: false,
+    garage: [duplicate, garage[0]],
+    raceHistory: [],
+    repPoints: 0,
+    lifetimeRacesAllTime: 0,
+    workshopLevels: { toolkit: 1 },
+  });
+  await openTab(page, "race");
+  await page.getByRole("button", { name: "Got it" }).click();
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", garage[0].id);
+  await expect(page.getByTestId("garage-diagnosis")).toHaveCount(1);
+  const comparisonId = `part-comparison-${garage[0].id}-wheel`;
+  const diagnosedToggle = page.locator(`[aria-controls="${comparisonId}"]`);
+  await expect(diagnosedToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(`#${comparisonId}`)).toBeVisible();
 });
 
 test("tutorial interrupted first race recovers to a retry instead of an empty step", async ({ page }) => {

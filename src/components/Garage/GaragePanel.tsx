@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getEffectiveVehicleHandlingBonus, getVehicleBuildCost, getVehicleRepairCost, getVehicleSaleValue, resolveVehicleLoadout, useGameStore } from "@/state/store";
 import { formatVehicleUnlockRequirement, VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
-import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_LABELS } from "@/data/parts";
+import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_LABELS, type CoreSlot } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { BuiltVehicle, VehicleStats } from "@/engine/build";
 import { compareInstalledPart, validateBuildSelection } from "@/engine/build";
@@ -54,7 +54,18 @@ function groupParts(parts: ScavengedPart[]): PartGroup[] {
   });
 }
 
-export default function GaragePanel() {
+interface GarageInspectionTarget {
+  vehicleId: string;
+  slot: CoreSlot;
+}
+
+export default function GaragePanel({
+  inspectionTarget = null,
+  onClearInspection,
+}: {
+  inspectionTarget?: GarageInspectionTarget | null;
+  onClearInspection?: () => void;
+}) {
   const garage = useGameStore((s) => s.garage);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const inventory = useGameStore((s) => s.inventory);
@@ -314,6 +325,8 @@ export default function GaragePanel() {
                 sellVehicle={sellVehicle}
                 repairVehicle={repairVehicle}
                 swapPart={swapPart}
+                diagnosisSlot={inspectionTarget?.vehicleId === vehicle.id ? inspectionTarget.slot : null}
+                onClearDiagnosis={onClearInspection}
               />
             ))}
           </div>
@@ -336,6 +349,8 @@ function VehicleCard({
   sellVehicle,
   repairVehicle,
   swapPart,
+  diagnosisSlot,
+  onClearDiagnosis,
 }: {
   vehicle: BuiltVehicle;
   isActive: boolean;
@@ -347,8 +362,11 @@ function VehicleCard({
   sellVehicle: (id: string) => void;
   repairVehicle: (id: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
+  diagnosisSlot: CoreSlot | null;
+  onClearDiagnosis?: () => void;
 }) {
-  const [swapSlot, setSwapSlot] = useState<string | null>(null);
+  const [swapSlot, setSwapSlot] = useState<string | null>(() => toolkitUnlocked ? diagnosisSlot : null);
+  const diagnosisRef = useRef<HTMLDivElement>(null);
   const [loadoutName, setLoadoutName] = useState("");
   const installAddon = useGameStore((s) => s.installAddon);
   const removeAddon = useGameStore((s) => s.removeAddon);
@@ -368,6 +386,14 @@ function VehicleCard({
   const fleetAssignmentStatus = useGameStore((state) =>
     state.fleetAssignments.find((assignment) => assignment.vehicleId === vehicle.id)?.status ?? null,
   );
+  const diagnosedInstalled = diagnosisSlot ? vehicle.parts[diagnosisSlot] : undefined;
+  const diagnosedPart = diagnosedInstalled ? getPartById(diagnosedInstalled.part.definitionId) : undefined;
+
+  useEffect(() => {
+    if (!diagnosisSlot || !diagnosedInstalled) return;
+    diagnosisRef.current?.focus();
+    diagnosisRef.current?.scrollIntoView({ block: "nearest" });
+  }, [diagnosisSlot, diagnosedInstalled]);
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
   if (!def) return null;
@@ -391,11 +417,48 @@ function VehicleCard({
     <div
       className="rounded-lg border p-2.5 sm:p-4 transition-colors"
       style={
-        isActive
+        diagnosisSlot
+          ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", boxShadow: "0 0 0 1px var(--panel-border-active)" }
+          : isActive
           ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)" }
           : { borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
       }
     >
+      {diagnosisSlot && diagnosedInstalled && (
+        <div
+          ref={diagnosisRef}
+          tabIndex={-1}
+          role="region"
+          aria-label={`Race diagnosis for ${def.name} ${diagnosisSlot}`}
+          data-testid="garage-diagnosis"
+          data-vehicle-id={vehicle.id}
+          data-slot={diagnosisSlot}
+          className="mb-3 rounded-md border p-2 outline-none focus-visible:ring-2"
+          style={{ borderColor: "var(--panel-border-active)", background: "var(--panel-bg)" }}
+        >
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0 text-xs" style={{ color: "var(--text-heading)" }}>
+              <strong className="block uppercase tracking-wide" style={{ color: "var(--accent)" }}>Race diagnosis</strong>
+              <span className="break-words">{diagnosisSlot}: {diagnosedPart?.name ?? "Installed part"} · {CONDITION_LABELS[diagnosedInstalled.part.condition]}</span>
+              {!toolkitUnlocked && (
+                <span className="mt-1 block" style={{ color: "var(--warning)" }}>
+                  Comparing and replacing parts unlocks with Toolkit at 40 Rep.
+                </span>
+              )}
+            </div>
+            {onClearDiagnosis && (
+              <button
+                type="button"
+                onClick={onClearDiagnosis}
+                className="min-h-11 min-w-11 shrink-0 rounded border px-2 text-xs sm:min-h-0 sm:min-w-0 sm:py-1"
+                style={{ borderColor: "var(--panel-border)", color: "var(--text-secondary)" }}
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
