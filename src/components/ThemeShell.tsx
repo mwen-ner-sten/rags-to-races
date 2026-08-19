@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useGameStore } from "@/state/store";
 import { getVehicleById } from "@/data/vehicles";
 import { useTheme, type Theme } from "@/hooks/useTheme";
@@ -469,6 +470,15 @@ export const THEME_VARS: Record<Theme, Record<string, string>> = {
     "--divider": "rgba(59,130,246,.15)",
   },
 };
+
+function resolvedThemeVars(theme: Theme): Record<string, string> {
+  const vars = THEME_VARS[theme] ?? THEME_VARS.grease;
+  if (vars["--modal-bg"]) return vars;
+  const surface = vars["--input-bg"] ?? vars["--panel-bg"] ?? "#181008";
+  const rgba = surface.match(/^rgba\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*[^)]+\)$/);
+  const opaqueSurface = rgba ? `rgb(${rgba[1]}, ${rgba[2]}, ${rgba[3]})` : surface;
+  return { ...vars, "--modal-bg": opaqueSurface };
+}
 
 // ─── Shared store hook ─────────────────────────────────────────────────────────
 // Currency values are rendered inside <CurrencyBar>, so the shells only need
@@ -1988,7 +1998,17 @@ export default function ThemeShell(props: Props) {
     tactical:   <TacticalShell   {...props} />,
   };
 
-  const vars = THEME_VARS[theme] ?? THEME_VARS.grease;
+  const vars = resolvedThemeVars(theme);
+
+  // Portaled overlays mount under document.body rather than the themed shell.
+  // Mirror the active palette onto :root after hydration and live switching so
+  // those overlays inherit the same tokens as the rest of the application.
+  useEffect(() => {
+    const root = document.documentElement;
+    for (const [property, value] of Object.entries(resolvedThemeVars(theme))) {
+      root.style.setProperty(property, value);
+    }
+  }, [theme]);
 
   return (
     <>

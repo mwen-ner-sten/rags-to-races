@@ -22,6 +22,7 @@ import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { TALENT_NODES } from "@/data/talentNodes";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
+import { buildEngineeringReport, findDiagnosticVehicle } from "@/engine/engineeringDiagnostics";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -221,7 +222,6 @@ function OddsDisplay({
   skillPerformanceMult,
   skillDnfReduction,
   momentumWinBonus,
-  forceDNF,
   profile,
   plan,
   diagnosticsLevel,
@@ -237,7 +237,6 @@ function OddsDisplay({
   skillPerformanceMult: number;
   skillDnfReduction: number;
   momentumWinBonus: number;
-  forceDNF: boolean;
   profile: CircuitProfile;
   plan: RacePlan;
   diagnosticsLevel: number;
@@ -245,8 +244,8 @@ function OddsDisplay({
 }) {
   const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation, dnfChanceMultiplier),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, forceDNF, evaluation, dnfChanceMultiplier],
+    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, false, evaluation, dnfChanceMultiplier),
+    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, evaluation, dnfChanceMultiplier],
   );
   const forecast = useMemo(() => buildRaceForecast(odds.winChance, odds.dnfChance, 5, evaluation, diagnosticsLevel), [odds, evaluation, diagnosticsLevel]);
 
@@ -362,8 +361,6 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const crewRoster = useGameStore((s) => s.crewRoster);
   const teamUpgradeLevels = useGameStore((s) => s.teamUpgradeLevels);
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
-  const lifetimeRacesAllTime = useGameStore((s) => s.lifetimeRacesAllTime);
-  const tutorialStep = useGameStore((s) => s.tutorialStep);
   const fatigue = useGameStore((s) => s.fatigue);
   const equippedGear = useGameStore((s) => s.equippedGear);
   const equippedLootGear = useGameStore((s) => s.equippedLootGear);
@@ -410,6 +407,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   }, []);
 
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
+  const resultVehicle = lastRaceOutcome
+    ? findDiagnosticVehicle(garage, lastRaceOutcome.vehicleId)
+    : undefined;
   const activeVehicleDef = activeVehicle
     ? VEHICLE_DEFINITIONS.find((v) => v.id === activeVehicle.definitionId)
     : null;
@@ -454,6 +454,12 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   );
 
   const selectedCircuit = availableCircuits.find((c) => c.id === selectedCircuitId);
+  const resultCircuit = lastRaceOutcome
+    ? CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === lastRaceOutcome.circuitId)
+    : undefined;
+  const engineeringReport = resultVehicle && resultCircuit && lastRaceOutcome
+    ? buildEngineeringReport(resultVehicle, resultCircuit, lastRaceOutcome)
+    : null;
   const sb = getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0);
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const raceIneligibilityReason = getRaceIneligibilityReason({
@@ -641,7 +647,6 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
             momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
-            forceDNF={lifetimeRacesAllTime === 0 && tutorialStep >= 9 && tutorialStep <= 11}
             profile={selectedCircuit.profile}
             plan={currentRacePlan}
             diagnosticsLevel={diagnosticsLevel}
@@ -760,6 +765,51 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
               </div>
             ))}
             {lastRaceOutcome.planEvaluation && <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">{lastRaceOutcome.planEvaluation.factors.map((factor) => <div key={factor.label} className="text-xs" style={{ color: factor.impact === "positive" ? "var(--success)" : factor.impact === "negative" ? "var(--warning)" : "var(--text-muted)" }}>{factor.label}: {factor.detail}</div>)}</div>}
+            {engineeringReport && (
+              <section
+                className="mt-4 rounded-lg p-3"
+                style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--accent-border)", background: "var(--panel-bg)" }}
+                aria-labelledby="engineering-debrief-heading"
+                aria-live="polite"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3
+                      id="engineering-debrief-heading"
+                      className="text-xs font-bold uppercase tracking-widest"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      Engineering Debrief
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold" style={{ color: "var(--text-white)" }}>
+                      {engineeringReport.headline}
+                    </p>
+                  </div>
+                  <span
+                    className="rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide"
+                    style={{ background: "var(--divider)", color: "var(--accent)" }}
+                  >
+                    {engineeringReport.focus}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm" style={{ color: "var(--text-heading)" }}>
+                  {engineeringReport.observation}
+                </p>
+                <div className="mt-3 flex flex-col gap-2 rounded-md p-2 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--divider)" }}>
+                  <p className="text-sm" style={{ color: "var(--text-white)" }}>
+                    <strong>Next change:</strong> {engineeringReport.action}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab?.("garage")}
+                    className="min-h-11 shrink-0 self-start rounded px-3 py-2 text-xs font-bold transition active:scale-95 sm:self-center"
+                    style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+                  >
+                    {engineeringReport.priority === "repair" ? "Open Garage" : "Inspect Build"}
+                  </button>
+                </div>
+              </section>
+            )}
             {lastRaceOutcome.scrapsEarned > 0 && (
               <div
                 className="mt-2 inline-block animate-number-pop font-mono text-sm font-bold"

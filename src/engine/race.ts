@@ -25,6 +25,8 @@ export interface RaceOutcome {
   rivalId?: string;
   /** True only when this result granted the rival's one-time reward. */
   rivalRewardClaimed?: boolean;
+  /** Garage vehicle that produced this result, used for stable diagnostics. */
+  vehicleId?: string;
   circuitId: string;
 }
 
@@ -176,6 +178,7 @@ export function simulateRace(
       log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
       planEvaluation,
       rivalId: rival?.id,
+      vehicleId: vehicle.id,
       circuitId: circuit.id,
     };
   }
@@ -206,6 +209,7 @@ export function simulateRace(
       log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
       planEvaluation,
       rivalId: rival?.id,
+      vehicleId: vehicle.id,
       circuitId: circuit.id,
     };
   }
@@ -246,6 +250,7 @@ export function simulateRace(
     forgeTokenDrop: forgeTokenDrop || undefined,
     planEvaluation,
     rivalId: rival?.id,
+    vehicleId: vehicle.id,
     circuitId: circuit.id,
   };
 }
