@@ -1,4 +1,4 @@
-import { getPartById, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition } from "@/data/parts";
+import { getPartById, CONDITION_ADDON_SLOTS, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { VehicleDefinition } from "@/data/vehicles";
 import { CONDITION_PENALTY_THRESHOLD, REPAIR_COST_BASE, REPAIR_COST_PER_POINT_PER_TIER } from "@/data/vehicles";
@@ -33,6 +33,13 @@ export interface BuildSelectionValidation {
   reason: string | null;
   /** Canonical inventory objects to install, keyed by vehicle slot. */
   parts: Record<string, ScavengedPart>;
+}
+
+export interface InstalledPartComparison {
+  currentStats: VehicleStats;
+  projectedStats: VehicleStats;
+  deltas: VehicleStats;
+  displacedAddonCount: number;
 }
 
 /**
@@ -142,6 +149,53 @@ export function calculateStats(
   const performance = speed * 0.5 + handling * 0.3 + reliability * 0.2;
 
   return { speed, handling, reliability, weight, performance };
+}
+
+/** Preview the stat result of replacing one installed core part. */
+export function compareInstalledPart(
+  vehicleDef: VehicleDefinition,
+  vehicle: BuiltVehicle,
+  slot: string,
+  candidate: ScavengedPart,
+  handlingBonusPct: number = 0,
+): InstalledPartComparison | null {
+  const slotConfig = vehicleDef.slots.find((config) => config.slot === slot);
+  const installed = vehicle.parts[slot];
+  if (
+    vehicle.definitionId !== vehicleDef.id
+    || !slotConfig
+    || !installed
+    || candidate.type === "addon"
+    || !slotConfig.acceptableParts.includes(candidate.definitionId)
+    || !getPartById(candidate.definitionId)
+  ) {
+    return null;
+  }
+
+  if (!CONDITIONS.includes(candidate.condition)) return null;
+
+  const capacity = CONDITION_ADDON_SLOTS[candidate.condition];
+  if (capacity === undefined) return null;
+
+  const projectedParts: BuiltVehicle["parts"] = {
+    ...vehicle.parts,
+    [slot]: { part: candidate, addons: installed.addons.slice(0, capacity) },
+  };
+  const currentStats = calculateStats(vehicleDef, vehicle.parts, vehicle.condition ?? 100, handlingBonusPct);
+  const projectedStats = calculateStats(vehicleDef, projectedParts, vehicle.condition ?? 100, handlingBonusPct);
+
+  return {
+    currentStats,
+    projectedStats,
+    deltas: {
+      speed: projectedStats.speed - currentStats.speed,
+      handling: projectedStats.handling - currentStats.handling,
+      reliability: projectedStats.reliability - currentStats.reliability,
+      weight: projectedStats.weight - currentStats.weight,
+      performance: projectedStats.performance - currentStats.performance,
+    },
+    displacedAddonCount: Math.max(0, installed.addons.length - capacity),
+  };
 }
 
 export function buildVehicle(

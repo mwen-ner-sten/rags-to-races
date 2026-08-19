@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getVehicleBuildCost, getVehicleRepairCost, getVehicleSaleValue, resolveVehicleLoadout, useGameStore } from "@/state/store";
+import { getEffectiveVehicleHandlingBonus, getVehicleBuildCost, getVehicleRepairCost, getVehicleSaleValue, resolveVehicleLoadout, useGameStore } from "@/state/store";
 import { formatVehicleUnlockRequirement, VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
-import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
+import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_LABELS } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
-import type { BuiltVehicle } from "@/engine/build";
-import { validateBuildSelection } from "@/engine/build";
+import type { BuiltVehicle, VehicleStats } from "@/engine/build";
+import { compareInstalledPart, validateBuildSelection } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
@@ -559,11 +559,15 @@ function VehicleCard({
               const installed = vehicle.parts[slot];
               if (!installed) return null;
               const partDef = getPartById(installed.part.definitionId);
+              const pickerId = `part-comparison-${vehicle.id}-${slot}`;
               return (
                 <button
                   key={slot}
                   onClick={() => setSwapSlot(swapSlot === slot ? null : slot)}
-                  className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[.65rem] transition-colors"
+                  aria-label={`Compare ${slot} installed part: ${partDef?.name ?? "unknown part"}`}
+                  aria-expanded={swapSlot === slot}
+                  aria-controls={pickerId}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded border px-2 py-1 text-[.65rem] transition-colors sm:min-h-0 sm:min-w-0 sm:px-1.5 sm:py-0.5"
                   style={
                     swapSlot === slot
                       ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--accent)" }
@@ -580,13 +584,12 @@ function VehicleCard({
             })}
           </div>
           {swapSlot && vehicle.parts[swapSlot] && (
-            <div className="flex flex-col gap-2">
+            <div id={`part-comparison-${vehicle.id}-${swapSlot}`} className="flex flex-col gap-2">
               {toolkitUnlocked && (
                 <SwapPartPicker
-                  vehicleId={vehicle.id}
+                  vehicle={vehicle}
                   vehicleDef={def}
                   slot={swapSlot}
-                  currentPart={vehicle.parts[swapSlot].part}
                   inventory={inventory}
                   swapPart={swapPart}
                   onDone={() => setSwapSlot(null)}
@@ -686,28 +689,28 @@ function AddonManager({
 // ── Swap Part Picker ─────────────────────────────────────────────────────────
 
 function SwapPartPicker({
-  vehicleId,
+  vehicle,
   vehicleDef,
   slot,
-  currentPart,
   inventory,
   swapPart,
   onDone,
 }: {
-  vehicleId: string;
+  vehicle: BuiltVehicle;
   vehicleDef: VehicleDefinition;
   slot: string;
-  currentPart: ScavengedPart;
   inventory: ScavengedPart[];
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   onDone: () => void;
 }) {
+  const handlingBonus = useGameStore(getEffectiveVehicleHandlingBonus);
   const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
   if (!slotCfg) return null;
   const eligible = inventory.filter((p) =>
     p.type !== "addon" && slotCfg.acceptableParts.includes(p.definitionId),
   );
   const groups = groupParts(eligible);
+  const currentPart = vehicle.parts[slot].part;
 
   if (groups.length === 0) {
     return (
@@ -728,31 +731,65 @@ function SwapPartPicker({
       <div className="mb-1 text-xs" style={{ color: "var(--text-muted)" }}>
         Swap {slot} (current: <span style={{ color: CONDITION_COLORS[currentPart.condition] ?? undefined }}>{getPartById(currentPart.definitionId)?.name}</span>)
       </div>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
         {groups.map((group) => {
           const partDef = getPartById(group.definitionId);
           if (!partDef) return null;
+          const candidate = group.parts[0];
+          const comparison = compareInstalledPart(vehicleDef, vehicle, slot, candidate, handlingBonus);
+          if (!comparison) return null;
+          const deltas: Array<[string, keyof VehicleStats]> = [
+            ["Spd", "speed"],
+            ["Hnd", "handling"],
+            ["Rel", "reliability"],
+            ["Perf", "performance"],
+            ["Wgt", "weight"],
+          ];
+          const deltaText = deltas.map(([label, stat]) => `${label} ${formatSignedDelta(comparison.deltas[stat])}`);
+          const displacementWarning = comparison.displacedAddonCount > 0
+            ? ` Warning: ${comparison.displacedAddonCount} add-on${comparison.displacedAddonCount === 1 ? "" : "s"} will return to inventory.`
+            : "";
           return (
             <button
               key={group.key}
+              data-candidate-instance-id={candidate.id}
+              aria-label={`Install ${partDef.name}, ${CONDITION_LABELS[candidate.condition]} condition; projected changes: ${deltaText.join(", ")}.${displacementWarning}`}
               onClick={() => {
-                swapPart(vehicleId, slot, group.parts[0]);
+                swapPart(vehicle.id, slot, candidate);
                 onDone();
               }}
-              className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs transition-colors"
+              className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded border px-2 py-1.5 text-left text-xs transition-colors sm:min-h-0 sm:w-auto sm:max-w-full sm:py-1"
               style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
             >
               <GameAssetImage kind="part" id={group.definitionId} width={24} height={24} />
-              <span style={{ color: CONDITION_COLORS[group.condition] ?? undefined }}>
-                {partDef.name}
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-baseline gap-x-1">
+                  <span style={{ color: CONDITION_COLORS[group.condition] ?? undefined }}>{partDef.name}</span>
+                  {group.parts.length > 1 && <span style={{ color: "var(--text-muted)" }}>x{group.parts.length}</span>}
+                </span>
+                <span className="block text-[.65rem]" style={{ color: "var(--text-secondary)" }}>
+                  Condition: {CONDITION_LABELS[candidate.condition]}
+                </span>
+                <span className="flex flex-wrap gap-x-2 text-[.65rem] font-mono" style={{ color: "var(--text-secondary)" }}>
+                  {deltaText.map((text) => <span key={text}>{text}</span>)}
+                </span>
+                {comparison.displacedAddonCount > 0 && (
+                  <span className="block text-[.65rem] font-semibold" style={{ color: "var(--warning)" }}>
+                    Warning: {comparison.displacedAddonCount} add-on{comparison.displacedAddonCount === 1 ? "" : "s"} will return to inventory.
+                  </span>
+                )}
               </span>
-              {group.parts.length > 1 && <span className="ml-0.5" style={{ color: "var(--text-muted)" }}>x{group.parts.length}</span>}
             </button>
           );
         })}
       </div>
     </div>
   );
+}
+
+function formatSignedDelta(value: number): string {
+  const rounded = Math.abs(value) < 0.05 ? 0 : value;
+  return `${rounded >= 0 ? "+" : ""}${rounded.toFixed(1)}`;
 }
 
 function StatBadge({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {

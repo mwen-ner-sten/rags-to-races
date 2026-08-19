@@ -623,6 +623,20 @@ export function _getUpgradeEffectValue(state: GameState, upgradeId: string): num
   return def.effect.valuePerLevel * level * (1 + philosophyEffectBonus);
 }
 
+/** Exact handling bonus applied when vehicle stats are recalculated at runtime. */
+export function getEffectiveVehicleHandlingBonus(state: GameState): number {
+  const gear = getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+    state.equippedStationEquipment,
+    state.stationEquipmentInventory,
+  );
+  return _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
+}
+
 function recalculateGarageStatsForStationEquipment(
   state: GameState,
   equippedStationEquipment: Record<GarageStationSlot, string | null>,
@@ -1955,14 +1969,22 @@ function createActions(set: SetState, get: GetState) {
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
       const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
-      if (!slotCfg || !slotCfg.acceptableParts.includes(newPart.definitionId)) return;
+      const candidate = state.inventory.find((part) => part.id === newPart.id);
+      if (
+        !slotCfg
+        || !candidate
+        || candidate.type === "addon"
+        || !CONDITIONS.includes(candidate.condition)
+        || CONDITION_ADDON_SLOTS[candidate.condition] === undefined
+        || !getPartById(candidate.definitionId)
+        || !slotCfg.acceptableParts.includes(candidate.definitionId)
+      ) return;
 
-      const capacity = CONDITION_ADDON_SLOTS[newPart.condition] ?? 0;
+      const capacity = CONDITION_ADDON_SLOTS[candidate.condition];
       const retainedAddons = installed.addons.slice(0, capacity);
       const returnedAddons = installed.addons.slice(capacity);
-      const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: retainedAddons } };
-      const gbSwap = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
-      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gbSwap.race_handling_pct;
+      const newParts = { ...vehicle.parts, [slot]: { part: candidate, addons: retainedAddons } };
+      const handlingBonus = getEffectiveVehicleHandlingBonus(state);
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 
       set((s: GameState) => ({
@@ -1972,7 +1994,7 @@ function createActions(set: SetState, get: GetState) {
           stats: newStats,
         }),
         inventory: [
-          ...s.inventory.filter((p) => p.id !== newPart.id),
+          ...s.inventory.filter((p) => p.id !== candidate.id),
           returnedPart,
           ...returnedAddons,
         ],
