@@ -8,7 +8,7 @@ import { ensureAcademyRoster } from "@/engine/crew";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
 import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
-import { CONDITIONS } from "@/data/parts";
+import { CONDITIONS, CORE_SLOTS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
 import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 
@@ -75,6 +75,20 @@ const vehicleLoadoutSchema = z.object({
   }).passthrough()),
 }).passthrough();
 
+const engineeringReportTextSchema = z.string().min(1).max(2_000);
+const engineeringReportSchema = z.object({
+  headline: engineeringReportTextSchema,
+  focus: z.enum(["power", "grip", "aero", "reliability", "fuel"]),
+  priority: z.enum(["repair", "component", "setup"]),
+  component: engineeringReportTextSchema.optional(),
+  slot: z.enum(CORE_SLOTS as [
+    (typeof CORE_SLOTS)[number],
+    ...(typeof CORE_SLOTS)[number][],
+  ]).optional(),
+  observation: engineeringReportTextSchema,
+  action: engineeringReportTextSchema,
+});
+
 const raceOutcomeSchema = z.object({
   result: z.enum(["win", "loss", "dnf"]),
   position: finiteNonNegative,
@@ -87,6 +101,7 @@ const raceOutcomeSchema = z.object({
   rivalId: z.string().optional(),
   rivalRewardClaimed: z.boolean().optional(),
   circuitId: nonEmptyString,
+  engineeringReport: engineeringReportSchema.optional(),
 }).passthrough();
 
 const dealerListingSchema = z.object({

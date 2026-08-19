@@ -47,6 +47,15 @@ describe("save envelope", () => {
         log: ["Saved result"],
         vehicleId: "persisted-race-vehicle",
         circuitId: "backyard_derby",
+        engineeringReport: {
+          headline: "Stored diagnosis",
+          focus: "grip" as const,
+          priority: "component" as const,
+          component: "Basic Tire",
+          slot: "wheel" as const,
+          observation: "Stored observation",
+          action: "Stored action",
+        },
       }],
     });
 
@@ -54,6 +63,7 @@ describe("save envelope", () => {
 
     expect(decoded.envelope.state).toEqual(envelope.state);
     expect(decoded.envelope.state.raceHistory?.[0]?.vehicleId).toBe("persisted-race-vehicle");
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.slot).toBe("wheel");
     expect(decoded.envelope.state).toEqual(
       getPersistedGameState({
         ...state,
@@ -70,10 +80,49 @@ describe("save envelope", () => {
           log: ["Saved result"],
           vehicleId: "persisted-race-vehicle",
           circuitId: "backyard_derby",
+          engineeringReport: {
+            headline: "Stored diagnosis",
+            focus: "grip" as const,
+            priority: "component" as const,
+            component: "Basic Tire",
+            slot: "wheel" as const,
+            observation: "Stored observation",
+            action: "Stored action",
+          },
         }],
       } as GameState),
     );
   });
+
+  it.each(["__proto__", "constructor", "unknown"])(
+    "rejects a persisted engineering report with unsafe slot %s",
+    (slot) => {
+      const state = createInitialState();
+      const envelope = createSaveEnvelope("Unsafe diagnosis", {
+        ...state,
+        raceHistory: [{
+          result: "loss" as const,
+          position: 4,
+          totalRacers: 8,
+          scrapsEarned: 12,
+          repEarned: 2,
+          log: ["Saved result"],
+          vehicleId: "persisted-race-vehicle",
+          circuitId: "backyard_derby",
+          engineeringReport: {
+            headline: "Stored diagnosis",
+            focus: "grip" as const,
+            priority: "component" as const,
+            slot: slot as "wheel",
+            observation: "Stored observation",
+            action: "Stored action",
+          },
+        }],
+      });
+
+      expect(() => decodeSavePayload(JSON.stringify(envelope))).toThrow("Invalid persisted game state");
+    },
+  );
 
   it("migrates a legacy manual export without inventing missing run state", () => {
     const decoded = decodeSavePayload(
