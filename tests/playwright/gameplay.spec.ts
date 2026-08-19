@@ -888,8 +888,8 @@ test("named loadouts cannot restore more add-ons than a degraded part can hold",
   const streetRacer = loadoutName.locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
   await loadoutName.fill("Two Boosters");
   await streetRacer.getByRole("button", { name: "Save build" }).click();
-  await streetRacer.getByRole("button", { name: /engine:/i }).click();
-  const goodReplacement = streetRacer.getByRole("button", { name: /V8 Engine.*x2/ }).first();
+  await streetRacer.getByRole("button", { name: /^Compare engine installed part/ }).click();
+  const goodReplacement = streetRacer.getByRole("button", { name: /^Install V8 Engine, Good condition/ }).first();
   await goodReplacement.click();
 
   const stateAfterSwap = await persistedState(page);
