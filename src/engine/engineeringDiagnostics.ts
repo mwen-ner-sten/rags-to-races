@@ -84,13 +84,16 @@ export function buildEngineeringReport(
   const condition = installed ? CONDITION_LABELS[installed.part.condition] : undefined;
 
   if (vehicle.condition < 50 || outcome.result === "dnf") {
+    const conditionObservation = outcome.result === "dnf"
+      ? "The DNF adds breakdown wear, so inspect the vehicle's current condition before entering again."
+      : `The vehicle is at ${Math.round(vehicle.condition)}% condition.`;
     return {
       headline: resultHeadline(outcome),
       focus,
       priority: "repair",
       component,
       slot: diagnosed?.slot,
-      observation: `${OBSERVATIONS[focus]} The vehicle is at ${Math.round(vehicle.condition)}% condition.`,
+      observation: `${OBSERVATIONS[focus]} ${conditionObservation}`,
       action: "Repair the vehicle before the next entry, then reassess the highlighted component instead of risking another avoidable breakdown.",
     };
   }
