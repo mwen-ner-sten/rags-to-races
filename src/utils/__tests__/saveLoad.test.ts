@@ -38,11 +38,22 @@ describe("save envelope", () => {
       legacyPoints: 9,
       teamPoints: 4,
       unlockedFeatures: ["team"],
+      raceHistory: [{
+        result: "loss" as const,
+        position: 4,
+        totalRacers: 8,
+        scrapsEarned: 12,
+        repEarned: 2,
+        log: ["Saved result"],
+        vehicleId: "persisted-race-vehicle",
+        circuitId: "backyard_derby",
+      }],
     });
 
     const decoded = decodeSavePayload(JSON.stringify(envelope));
 
     expect(decoded.envelope.state).toEqual(envelope.state);
+    expect(decoded.envelope.state.raceHistory?.[0]?.vehicleId).toBe("persisted-race-vehicle");
     expect(decoded.envelope.state).toEqual(
       getPersistedGameState({
         ...state,
@@ -50,6 +61,16 @@ describe("save envelope", () => {
         legacyPoints: 9,
         teamPoints: 4,
         unlockedFeatures: ["team"],
+        raceHistory: [{
+          result: "loss" as const,
+          position: 4,
+          totalRacers: 8,
+          scrapsEarned: 12,
+          repEarned: 2,
+          log: ["Saved result"],
+          vehicleId: "persisted-race-vehicle",
+          circuitId: "backyard_derby",
+        }],
       } as GameState),
     );
   });

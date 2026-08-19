@@ -1067,6 +1067,15 @@ test("all supported themes survive reload without hydration errors or horizontal
   for (const theme of THEMES) {
     await page.getByRole("button", { name: theme.label, exact: true }).click();
     expect(await page.evaluate(() => localStorage.getItem("rags-to-races-theme"))).toBe(theme.id);
+    await expect.poll(async () => page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>(".shell-content > div");
+      if (!shell) return false;
+      const shellAccent = getComputedStyle(shell).getPropertyValue("--accent").trim();
+      const root = getComputedStyle(document.documentElement);
+      const rootAccent = root.getPropertyValue("--accent").trim();
+      const modalBackground = root.getPropertyValue("--modal-bg").trim();
+      return rootAccent === shellAccent && modalBackground !== "" && !modalBackground.startsWith("rgba(");
+    }), `${theme.id} live theme variables did not propagate`).toBe(true);
   }
 
   for (const theme of [...THEMES, ...HIDDEN_THEMES]) {
