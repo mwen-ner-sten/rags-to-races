@@ -54,6 +54,13 @@ describe("buildEngineeringReport", () => {
     expect(report.action).toMatch(/repair/i);
   });
 
+  it("does not describe race-entry condition as the post-DNF repair state", () => {
+    const report = buildEngineeringReport(vehicle, getCircuitById("backyard_derby")!, { ...loss, result: "dnf" });
+
+    expect(report.observation).not.toContain("100% condition");
+    expect(report.observation).toMatch(/dnf|breakdown|wear/i);
+  });
+
   it("still identifies an improvement after a win without calling it a failure", () => {
     const report = buildEngineeringReport(vehicle, getCircuitById("backyard_derby")!, { ...loss, result: "win", position: 1 });
 

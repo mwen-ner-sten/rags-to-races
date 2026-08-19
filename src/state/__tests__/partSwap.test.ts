@@ -101,4 +101,14 @@ describe("part swapping", () => {
     expect(installed.definitionId).toBe("engine_small");
     expect(installed.condition).toBe("pristine");
   });
+
+  it("does not mutate when inventory contains duplicate candidate ids", () => {
+    const duplicate = { ...replacement, definitionId: "engine_lawn", condition: "rusted" as const };
+    setSwapState([replacement, duplicate]);
+    const before = mutableStateSnapshot();
+
+    useGameStore.getState().swapPart("vehicle-1", "engine", replacement);
+
+    expect(mutableStateSnapshot()).toEqual(before);
+  });
 });

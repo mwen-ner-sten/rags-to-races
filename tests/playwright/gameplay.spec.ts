@@ -359,6 +359,7 @@ test("@smoke tutorial first race uses the displayed simulation", async ({ page }
   }
   await dismissDiagnosis.click();
   await expect(page.getByTestId("garage-diagnosis")).toHaveCount(0);
+  await expect(page.locator('[data-vehicle-card-id="fixture_vehicle_10_push_mower"]')).toBeFocused();
 });
 
 test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unlocked", async ({ page }) => {
@@ -596,6 +597,8 @@ test("installed-part candidates expose textual condition and signed named stat d
   await expect(candidate).toContainText(/Wgt [+-]\d/);
   await expect(candidate).toContainText("Warning: 1 add-on will return to inventory.");
   await expect(candidate).toHaveAccessibleName(/Warning: 1 add-on will return to inventory/);
+  await expect(candidate).toContainText(/Without Gentle Swap.*condition/i);
+  await expect(candidate).toHaveAccessibleName(/speed [+-]\d.*handling [+-]\d.*reliability [+-]\d.*performance [+-]\d.*weight [+-]\d/i);
 
   if ((page.viewportSize()?.width ?? 0) < 640) {
     const toggleBox = await toggle.boundingBox();

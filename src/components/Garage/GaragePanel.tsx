@@ -7,7 +7,7 @@ import type { VehicleDefinition } from "@/data/vehicles";
 import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_LABELS, type CoreSlot } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { BuiltVehicle, VehicleStats } from "@/engine/build";
-import { compareInstalledPart, validateBuildSelection } from "@/engine/build";
+import { compareInstalledPart, degradeCondition, validateBuildSelection } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
@@ -367,6 +367,7 @@ function VehicleCard({
 }) {
   const [swapSlot, setSwapSlot] = useState<string | null>(() => toolkitUnlocked ? diagnosisSlot : null);
   const diagnosisRef = useRef<HTMLDivElement>(null);
+  const vehicleCardRef = useRef<HTMLDivElement>(null);
   const [loadoutName, setLoadoutName] = useState("");
   const installAddon = useGameStore((s) => s.installAddon);
   const removeAddon = useGameStore((s) => s.removeAddon);
@@ -422,6 +423,9 @@ function VehicleCard({
 
   return (
     <div
+      ref={vehicleCardRef}
+      tabIndex={-1}
+      data-vehicle-card-id={vehicle.id}
       className="rounded-lg border p-2.5 sm:p-4 transition-colors"
       style={
         diagnosisSlot
@@ -446,7 +450,7 @@ function VehicleCard({
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0 text-xs" style={{ color: "var(--text-heading)" }}>
               <strong className="block uppercase tracking-wide" style={{ color: "var(--accent)" }}>Race diagnosis</strong>
-              <span className="break-words">{diagnosisSlot}: {diagnosedPart?.name ?? "Installed part"} · {CONDITION_LABELS[diagnosedInstalled.part.condition]}</span>
+              <span className="break-words">Current {diagnosisSlot}: {diagnosedPart?.name ?? "Installed part"} · {CONDITION_LABELS[diagnosedInstalled.part.condition]}</span>
               {!toolkitUnlocked && (
                 <span className="mt-1 block" style={{ color: "var(--warning)" }}>
                   Comparing and replacing parts unlocks with Toolkit at 40 Rep.
@@ -456,7 +460,10 @@ function VehicleCard({
             {onClearDiagnosis && (
               <button
                 type="button"
-                onClick={onClearDiagnosis}
+                onClick={() => {
+                  onClearDiagnosis();
+                  requestAnimationFrame(() => vehicleCardRef.current?.focus());
+                }}
                 className="min-h-11 min-w-11 shrink-0 rounded border px-2 text-xs sm:min-h-0 sm:min-w-0 sm:py-1"
                 style={{ borderColor: "var(--panel-border)", color: "var(--text-secondary)" }}
               >
@@ -774,6 +781,7 @@ function SwapPartPicker({
   onDone: () => void;
 }) {
   const handlingBonus = useGameStore(getEffectiveVehicleHandlingBonus);
+  const gentleSwapUnlocked = useGameStore((state) => (state.workshopLevels.gentle_swap ?? 0) >= 1);
   const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
   if (!slotCfg) return null;
   const eligible = inventory.filter((p) =>
@@ -781,6 +789,10 @@ function SwapPartPicker({
   );
   const groups = groupParts(eligible);
   const currentPart = vehicle.parts[slot].part;
+  const returnedCondition = gentleSwapUnlocked ? currentPart.condition : degradeCondition(currentPart.condition);
+  const swapCostText = gentleSwapUnlocked
+    ? `Gentle Swap returns the current part at ${CONDITION_LABELS[returnedCondition]} condition.`
+    : `Without Gentle Swap, the current part returns at ${CONDITION_LABELS[returnedCondition]} condition.`;
 
   if (groups.length === 0) {
     return (
@@ -808,14 +820,15 @@ function SwapPartPicker({
           const candidate = group.parts[0];
           const comparison = compareInstalledPart(vehicleDef, vehicle, slot, candidate, handlingBonus);
           if (!comparison) return null;
-          const deltas: Array<[string, keyof VehicleStats]> = [
-            ["Spd", "speed"],
-            ["Hnd", "handling"],
-            ["Rel", "reliability"],
-            ["Perf", "performance"],
-            ["Wgt", "weight"],
+          const deltas: Array<{ short: string; accessible: string; stat: keyof VehicleStats }> = [
+            { short: "Spd", accessible: "speed", stat: "speed" },
+            { short: "Hnd", accessible: "handling", stat: "handling" },
+            { short: "Rel", accessible: "reliability", stat: "reliability" },
+            { short: "Perf", accessible: "performance", stat: "performance" },
+            { short: "Wgt", accessible: "weight", stat: "weight" },
           ];
-          const deltaText = deltas.map(([label, stat]) => `${label} ${formatSignedDelta(comparison.deltas[stat])}`);
+          const deltaText = deltas.map(({ short, stat }) => `${short} ${formatSignedDelta(comparison.deltas[stat])}`);
+          const accessibleDeltaText = deltas.map(({ accessible, stat }) => `${accessible} ${formatSignedDelta(comparison.deltas[stat])}`);
           const displacementWarning = comparison.displacedAddonCount > 0
             ? ` Warning: ${comparison.displacedAddonCount} add-on${comparison.displacedAddonCount === 1 ? "" : "s"} will return to inventory.`
             : "";
@@ -823,7 +836,7 @@ function SwapPartPicker({
             <button
               key={group.key}
               data-candidate-instance-id={candidate.id}
-              aria-label={`Install ${partDef.name}, ${CONDITION_LABELS[candidate.condition]} condition; projected changes: ${deltaText.join(", ")}.${displacementWarning}`}
+              aria-label={`Install ${partDef.name}, ${CONDITION_LABELS[candidate.condition]} condition; projected changes: ${accessibleDeltaText.join(", ")}. ${swapCostText}${displacementWarning}`}
               onClick={() => {
                 swapPart(vehicle.id, slot, candidate);
                 onDone();
@@ -842,6 +855,9 @@ function SwapPartPicker({
                 </span>
                 <span className="flex flex-wrap gap-x-2 text-[.65rem] font-mono" style={{ color: "var(--text-secondary)" }}>
                   {deltaText.map((text) => <span key={text}>{text}</span>)}
+                </span>
+                <span className="block text-[.65rem] font-semibold" style={{ color: gentleSwapUnlocked ? "var(--text-secondary)" : "var(--warning)" }}>
+                  {swapCostText}
                 </span>
                 {comparison.displacedAddonCount > 0 && (
                   <span className="block text-[.65rem] font-semibold" style={{ color: "var(--warning)" }}>

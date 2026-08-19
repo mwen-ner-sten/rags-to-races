@@ -1969,7 +1969,8 @@ function createActions(set: SetState, get: GetState) {
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
       const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
-      const candidate = state.inventory.find((part) => part.id === newPart.id);
+      const matchingCandidates = state.inventory.filter((part) => part.id === newPart.id);
+      const candidate = matchingCandidates.length === 1 ? matchingCandidates[0] : undefined;
       if (
         !slotCfg
         || !candidate
