@@ -5,7 +5,6 @@ import { useGameStore } from "@/state/store";
 import { formatNumber, formatRep } from "@/utils/format";
 import { getVehicleById } from "@/data/vehicles";
 import { touchLastSaved } from "@/utils/saveLoad";
-import { REP_PROGRESSION, SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 
 function useAutoSaveIndicator() {
   const [label, setLabel] = useState<string | null>(null);
@@ -42,13 +41,10 @@ export default function HUD() {
   const trackEraCount = useGameStore((s) => s.trackEraCount);
   const saveLabel = useAutoSaveIndicator();
 
-  const tutorialStep = useGameStore((s) => s.tutorialStep);
-  const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
   const activeVehicle = garage.find((v) => v.id === activeVehicleId);
   const vehicleDef = activeVehicle ? getVehicleById(activeVehicle.definitionId) : null;
 
-  // Show fatigue during the tutorial grind steps that teach about it
-  const showFatigue = fatigue > 0 || tutorialStep === 17 || tutorialStep === 19;
+  const showFatigue = fatigue > 0;
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
@@ -67,30 +63,6 @@ export default function HUD() {
             <span className="text-xs text-zinc-600 transition-opacity">
               ✓ {saveLabel}
             </span>
-          )}
-          {tutorialStep === 17 && (
-            <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
-              <span className="text-sm">🚀</span>
-              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= 500 ? "text-green-400" : "text-zinc-300"}`}>
-                ${formatNumber(lifetimeScrapBucks)}/$500
-              </span>
-              <span className="text-zinc-600">·</span>
-              <span className={`font-mono text-xs font-semibold ${repPoints >= REP_PROGRESSION.tutorial.systemsTour ? "text-green-400" : "text-zinc-300"}`}>
-                {formatRep(repPoints)}/{formatRep(REP_PROGRESSION.tutorial.systemsTour)} Rep
-              </span>
-            </div>
-          )}
-          {tutorialStep === 19 && (
-            <div className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1">
-              <span className="text-sm">🚀</span>
-              <span className={`font-mono text-xs font-semibold ${lifetimeScrapBucks >= SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks ? "text-green-400" : "text-zinc-300"}`}>
-                ${formatNumber(lifetimeScrapBucks)}/$${formatNumber(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks)}
-              </span>
-              <span className="text-zinc-600">·</span>
-              <span className={`font-mono text-xs font-semibold ${repPoints >= SCRAP_RESET_REQUIREMENTS.reputation ? "text-green-400" : "text-zinc-300"}`}>
-                {formatRep(repPoints)}/{formatRep(SCRAP_RESET_REQUIREMENTS.reputation)} Rep
-              </span>
-            </div>
           )}
           <Stat label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} color="text-green-400" />
           <Stat label="Rep" value={formatRep(repPoints)} color="text-blue-400" />
