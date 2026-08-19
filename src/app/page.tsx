@@ -20,6 +20,7 @@ import type { OfflineResult } from "@/engine/tick";
 import type { RaceOutcome } from "@/engine/race";
 import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
 import { isFeatureAvailable } from "@/config/features";
+import type { CoreSlot } from "@/data/parts";
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
@@ -41,6 +42,7 @@ function circuitStreakAfterOutcome(
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
+  const [garageInspection, setGarageInspection] = useState<{ vehicleId: string; slot: CoreSlot } | null>(null);
   const [offlineResult, setOfflineResult] = useState<{ result: OfflineResult; timeAway: number } | null>(null);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
@@ -55,7 +57,15 @@ export default function Home() {
   const guardedSetActiveTab = useCallback((tab: TabId) => {
     const allowed = getAdaptiveAllowedTabs(tutorialStep, { garage, raceHistory, workshopLevels });
     if (allowed && !allowed.has(tab)) return;
+    setGarageInspection(null);
     setActiveTab(tab);
+  }, [tutorialStep, garage, raceHistory, workshopLevels]);
+
+  const inspectRaceBuild = useCallback((vehicleId: string, slot: CoreSlot) => {
+    const allowed = getAdaptiveAllowedTabs(tutorialStep, { garage, raceHistory, workshopLevels });
+    if (allowed && !allowed.has("garage")) return;
+    setGarageInspection({ vehicleId, slot });
+    setActiveTab("garage");
   }, [tutorialStep, garage, raceHistory, workshopLevels]);
 
   // Keep storeRef in sync without triggering re-renders
@@ -210,8 +220,8 @@ export default function Home() {
       <ThemeShell activeTab={displayedTab} setActiveTab={guardedSetActiveTab}>
         <TutorialOverlay activeTab={displayedTab} />
         {displayedTab === "junkyard" && <ScavengePanel />}
-        {displayedTab === "garage"   && <GaragePanel />}
-        {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}
+        {displayedTab === "garage"   && <GaragePanel inspectionTarget={garageInspection} onClearInspection={() => setGarageInspection(null)} />}
+        {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} onInspectBuild={inspectRaceBuild} />}
         {displayedTab === "gear"     && <SalvageWorkshopPanel />}
         {displayedTab === "upgrades" && <UpgradesPanel />}
         {displayedTab === "help"     && <HelpPanel />}

@@ -11,6 +11,7 @@ export interface EngineeringReport {
   focus: EngineeringFocus;
   priority: EngineeringPriority;
   component?: string;
+  slot?: CoreSlot;
   observation: string;
   action: string;
 }
@@ -48,12 +49,20 @@ function conditionRank(installed: InstalledPart): number {
   return CONDITIONS.indexOf(installed.part.condition);
 }
 
-function relevantComponent(vehicle: BuiltVehicle, focus: EngineeringFocus): InstalledPart | undefined {
+interface DiagnosedComponent {
+  slot: CoreSlot;
+  installed: InstalledPart;
+}
+
+function relevantComponent(vehicle: BuiltVehicle, focus: EngineeringFocus): DiagnosedComponent | undefined {
   const relevant = FOCUS_SLOTS[focus]
-    .map((slot) => vehicle.parts[slot])
-    .filter((part): part is InstalledPart => Boolean(part));
-  const candidates = relevant.length > 0 ? relevant : Object.values(vehicle.parts);
-  return candidates.sort((left, right) => conditionRank(left) - conditionRank(right))[0];
+    .map((slot) => ({ slot, installed: vehicle.parts[slot] }))
+    .filter((candidate): candidate is DiagnosedComponent => Boolean(candidate.installed));
+  const candidates = relevant.length > 0
+    ? relevant
+    : (Object.entries(vehicle.parts) as [CoreSlot, InstalledPart][])
+        .map(([slot, installed]) => ({ slot, installed }));
+  return candidates.sort((left, right) => conditionRank(left.installed) - conditionRank(right.installed))[0];
 }
 
 function resultHeadline(outcome: RaceOutcome): string {
@@ -68,7 +77,8 @@ export function buildEngineeringReport(
   outcome: RaceOutcome,
 ): EngineeringReport {
   const focus = outcome.result === "dnf" ? "reliability" : dominantDemand(circuit);
-  const installed = relevantComponent(vehicle, focus);
+  const diagnosed = relevantComponent(vehicle, focus);
+  const installed = diagnosed?.installed;
   const definition = installed ? getPartById(installed.part.definitionId) : undefined;
   const component = definition?.name;
   const condition = installed ? CONDITION_LABELS[installed.part.condition] : undefined;
@@ -79,6 +89,7 @@ export function buildEngineeringReport(
       focus,
       priority: "repair",
       component,
+      slot: diagnosed?.slot,
       observation: `${OBSERVATIONS[focus]} The vehicle is at ${Math.round(vehicle.condition)}% condition.`,
       action: "Repair the vehicle before the next entry, then reassess the highlighted component instead of risking another avoidable breakdown.",
     };
@@ -100,6 +111,7 @@ export function buildEngineeringReport(
     focus,
     priority: "component",
     component,
+    slot: diagnosed.slot,
     observation: `${OBSERVATIONS[focus]} The relevant ${component} is ${condition.toLowerCase()}.`,
     action: lowCondition
       ? `Refurbish or replace the ${component} before the rematch; a better ${definition.category} part should make the improvement visible.`
