@@ -392,6 +392,65 @@ test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unl
   await expect(page.locator(`#${comparisonId}`)).toBeVisible();
 });
 
+test("race debrief preserves its stored report after the garage build changes", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const vehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  vehicle.stats.reliability = 100;
+  const replacementWheel = structuredClone(fixtures.maxed.payload.state.inventory.find((item) => item.definitionId === "wheel_busted")!);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [vehicle],
+    inventory: [replacementWheel],
+    workshopLevels: { toolkit: 1 },
+  });
+
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await expect(page.getByText(/relevant Basic Tire/i)).toBeVisible();
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  await page.getByRole("button", { name: /^Install Busted Wheel/ }).click();
+
+  await openTab(page, "race");
+  await expect(page.getByText(/relevant Basic Tire/i)).toBeVisible();
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  await expect(page.getByTestId("garage-diagnosis")).toHaveAttribute("data-slot", "wheel");
+});
+
+test("garage diagnosis does not steal focus after an add-on mutation", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const vehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  vehicle.stats.reliability = 100;
+  const wheelAddon = structuredClone(fixtures.maxed.payload.state.inventory.find((item) => item.definitionId === "addon_wheel_spacers")!);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [vehicle],
+    inventory: [wheelAddon],
+    workshopLevels: { toolkit: 1, addon_bench: 1 },
+  });
+
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  const comparison = page.getByRole("button", { name: /^Compare wheel installed part/ });
+  const installAddon = page.getByRole("button", { name: /Install Wheel Spacers/ });
+  await expect(diagnosis).toBeFocused();
+  await comparison.focus();
+  await expect(comparison).toBeFocused();
+  await installAddon.evaluate((button: HTMLButtonElement) => button.click());
+
+  await expect(comparison).toBeFocused();
+  await expect(diagnosis).not.toBeFocused();
+});
+
 test("tutorial interrupted first race recovers to a retry instead of an empty step", async ({ page }) => {
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 11,
