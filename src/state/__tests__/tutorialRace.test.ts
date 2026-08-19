@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInitialState, useGameStore } from "../store";
+import { resetRandomSource, SeededRandomSource, setRandomSource } from "@/utils/random";
 
 describe("tutorial first-race contract", () => {
   beforeEach(() => {
@@ -11,26 +12,36 @@ describe("tutorial first-race contract", () => {
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
+    resetRandomSource();
     useGameStore.setState(createInitialState());
   });
 
-  for (const tutorialStep of [9, 10, 11]) {
-    it(`keeps the displayed forced DNF when Enter Race is used at step ${tutorialStep}`, () => {
-      useGameStore.setState({ tutorialStep, lifetimeRacesAllTime: 0 });
+  it("uses the real simulation for the first guided race", () => {
+    const results = new Set<string>();
 
-      const before = useGameStore.getState();
-      const vehicleId = before.activeVehicleId!;
-      const conditionBefore = before.garage.find((vehicle) => vehicle.id === vehicleId)!.condition;
+    for (let seed = 0; seed < 24; seed += 1) {
+      useGameStore.setState(createInitialState());
+      useGameStore.getState().devQuickStart();
+      useGameStore.setState({ tutorialStep: 10, lifetimeRacesAllTime: 0 });
+      setRandomSource(new SeededRandomSource(`first-race-${seed}`));
 
-      before.enterRace();
-      expect(useGameStore.getState().isRacing).toBe(true);
-      vi.runAllTimers();
+      useGameStore.getState().enterRace();
+      const outcome = useGameStore.getState().precomputedOutcome;
+      expect(outcome).not.toBeNull();
+      results.add(outcome!.result);
+    }
 
-      const after = useGameStore.getState();
-      expect(after.lastRaceOutcome?.result).toBe("dnf");
-      expect(after.raceHistory[0]?.result).toBe("dnf");
-      expect(after.lifetimeRacesAllTime).toBe(1);
-      expect(after.garage.find((vehicle) => vehicle.id === vehicleId)!.condition).toBeLessThan(conditionBefore);
-    });
-  }
+    expect(results.size).toBeGreaterThan(1);
+    expect(results).not.toEqual(new Set(["dnf"]));
+  });
+
+  it("ends at the repair step and normalizes saves parked on removed steps", () => {
+    useGameStore.setState({ tutorialStep: 13 });
+    useGameStore.getState().advanceTutorial();
+    expect(useGameStore.getState().tutorialStep).toBe(-1);
+
+    useGameStore.setState({ tutorialStep: 18 });
+    useGameStore.getState().advanceTutorial();
+    expect(useGameStore.getState().tutorialStep).toBe(-1);
+  });
 });

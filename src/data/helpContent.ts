@@ -46,7 +46,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Activate", description: "Set your new vehicle as the active racer so you can enter races." },
   { step: "Head to Race", description: "Switch to the Race tab to enter your first race." },
   { step: "Check odds", description: "Review your win chance and DNF risk. DNF means your ride breaks down mid-race." },
-  { step: "Enter Race", description: "Hit Enter Race to compete. On a brand-new save, the guided first race is a forced DNF so the repair flow can be taught; later races use the displayed odds." },
+  { step: "Enter Race", description: "Hit Enter Race to compete. The first race uses the same displayed odds and simulation as every later race." },
   { step: "Race result", description: "Every result earns Rep. Wins and stronger finishes earn Scrap Bucks; a low finish can pay no prize money." },
   { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up; the first guided repair is free." },
   { step: "Upgrade your run", description: "Open Workshop > Facilities and buy a run upgrade such as Keen Eye or Budget Repairs." },

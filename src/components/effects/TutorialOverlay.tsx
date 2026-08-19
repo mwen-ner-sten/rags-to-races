@@ -5,8 +5,7 @@ import { createPortal } from "react-dom";
 import { useGameStore } from "@/state/store";
 import { isFeatureAvailable } from "@/config/features";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
-import { formatNumber, formatRep } from "@/utils/format";
-import { REP_PROGRESSION, SCRAP_RESET_REQUIREMENTS, canScrapReset } from "@/config/progression";
+import { formatNumber } from "@/utils/format";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -53,15 +52,6 @@ export const STEPS: TutorialStepDef[] = [
   /* 11 */ { icon: "\u{1F3C1}", tip: "The race was interrupted. Hit **Enter Race** to try again.", allowedTabs: ["race"], target: "race-btn", hideDuringRace: true },
   /* 12 */ { icon: "\u{1F3C6}", tip: "", allowedTabs: ["race"], dismissable: true },
   /* 13 */ { icon: "\u{1F527}", tip: "Your ride took damage. First **Repair** is free \u2014 head to the **Garage**.", allowedTabs: ["race", "junkyard", "garage"], target: "repair-btn", highlightTab: "garage" },
-  // ── Post-first-race: teach systems during the early grind ──────────────
-  /* 14 */ { icon: "\u{1F527}", tip: "Head to the **Workshop** tab.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "gear", goalIntro: "**Facilities** upgrades boost your current run. Try **Keen Eye** ($75) for better scavenge luck or **Budget Repairs** for cheaper fixes.", helpDetail: "Open Workshop > Facilities for Scavenging, Building, Racing, and Maintenance upgrades. They reset on Scrap Reset, but their bonuses help you earn more each run." },
-  /* 15 */ { icon: "\u2B06\uFE0F", tip: "Open **Facilities**, then **buy** a run upgrade.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], target: "workshop-facilities-tab", hasGoal: true, goalIntro: "Open **Workshop > Facilities**. **Keen Eye** costs **$75**. If you can\u2019t afford it yet, **race** or **scavenge then sell parts** to earn more **Scrap Bucks**." },
-  /* 16 */ { icon: "\u{1F9F0}", tip: "Use **Inventory** to manage parts, **Fabrication** to make parts, and **Add-ons** to modify vehicles. The **Dealer** sells parts; **Stations** equip workshop gear; **Skills** grow as you play; **Philosophy** spends LP on lasting bonuses; and **Facilities** improve the current run.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], dismissable: true },
-  /* 17 */ { icon: "\u{1F3CE}\uFE0F", tip: "Race and scavenge to earn **$500** and **100 Rep**.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, helpDetail: "Keep racing and selling spare parts. Rep unlocks new scavenging locations and circuits. Once you hit these targets, you\u2019ll be ready for the next step." },
-  /* 18 */ { icon: "\u{1F528}", tip: "Build **three vehicles total** to prove your garage is ready for a reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "garage", goalIntro: "Scrap Reset requires **three vehicles**. Scavenge for compatible parts and try better blueprints as they unlock." },
-  /* 19 */ { icon: "\u{1F680}", tip: `Earn **$${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks** and **${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep**.`, allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], hasGoal: true, goalIntroSequence: ["You\u2019re getting the hang of it. Keep racing, building, and upgrading.", "**Fatigue** builds each race and cuts performance. When progress stalls, it\u2019s time to **Scrap Reset**."], helpDetail: `Lifetime Scrap Bucks is the total currency you\u2019ve ever earned (not your current balance). Scrap Reset requires ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} vehicles, $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks, and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep.` },
-  /* 20 */ { icon: "\u{1F4CD}", tip: "Head to **Upgrades** \u2014 it\u2019s time to reset.", allowedTabs: ["race", "junkyard", "garage", "gear", "upgrades"], highlightTab: "upgrades" },
-  /* 21 */ { icon: "\u{1F510}", tip: "Open **Scrap Reset**, review what resets, then confirm to earn **Legacy Points**.", allowedTabs: ["upgrades"], target: "prestige-subtab-btn" },
 ];
 
 function haloBounds(rect: DOMRect, padding: number): React.CSSProperties {
@@ -141,15 +131,11 @@ function isStepConditionMet(
     garage: { id: string; condition?: number }[];
     activeVehicleId: string | null;
     raceHistory: unknown[];
-    repPoints: number;
-    lifetimeScrapBucks: number;
     scrapBucks: number;
-    prestigeCount: number;
     activeTab: string;
     pendingBuildVehicleId: string | null;
     pendingBuildParts: Record<string, unknown>;
     isRacing: boolean;
-    workshopLevels: Record<string, number>;
   },
 ): boolean {
   switch (step) {
@@ -172,18 +158,6 @@ function isStepConditionMet(
       const active = state.garage.find((v) => v.id === state.activeVehicleId);
       return active ? (active.condition ?? 100) >= 100 : state.garage.length > 1;
     }
-    // Post-first-race: teach systems during the early grind
-    case 14: return state.activeTab === "gear";
-    case 15: return Object.values(state.workshopLevels).some((v) => v > 0);
-    // Step 16 is an acknowledgement card. It must remain visible after the
-    // facility purchase instead of being batch-skipped because the player is
-    // necessarily already on the Workshop tab.
-    case 16: return false;
-    case 17: return state.repPoints >= REP_PROGRESSION.tutorial.systemsTour && state.lifetimeScrapBucks >= 500;
-    case 18: return state.garage.length >= 3;
-    case 19: return canScrapReset({ vehiclesBuilt: state.garage.length, reputation: state.repPoints, lifetimeScrapBucks: state.lifetimeScrapBucks });
-    case 20: return state.activeTab === "upgrades";
-    case 21: return state.prestigeCount > 0;
     default: return false; // step 0, 12 (dismissable) — never auto-skip
   }
 }
@@ -283,15 +257,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
   const garage = useGameStore((s) => s.garage);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const raceHistory = useGameStore((s) => s.raceHistory);
-  const repPoints = useGameStore((s) => s.repPoints);
-  const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
-  const prestigeCount = useGameStore((s) => s.prestigeCount);
   const pendingBuildVehicleId = useGameStore((s) => s.pendingBuildVehicleId);
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
   const isRacing = useGameStore((s) => s.isRacing);
   const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
-  const workshopLevels = useGameStore((s) => s.workshopLevels);
 
   const tutorialLastAdvanceTime = useGameStore((s) => s.tutorialLastAdvanceTime);
 
@@ -326,12 +296,11 @@ export default function TutorialOverlay({ activeTab }: Props) {
     if (helpNudgeTimerRef.current) clearTimeout(helpNudgeTimerRef.current);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hide on step change
     setShowHelpNudge(false);
-    const nudgeDelay = (tutorialStep === 17 || tutorialStep === 19) ? 30000 : 60000;
     helpNudgeTimerRef.current = setTimeout(() => {
       setShowHelpNudge(true);
       // Auto-hide after 8 seconds
       setTimeout(() => setShowHelpNudge(false), 8000);
-    }, nudgeDelay);
+    }, 60000);
     return () => { if (helpNudgeTimerRef.current) clearTimeout(helpNudgeTimerRef.current); };
   }, [tutorialStep, tutorialLastAdvanceTime]);
 
@@ -339,9 +308,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
   useEffect(() => {
     if (tutorialStep < 0) return;
     const stateSnapshot = {
-      inventory, garage, activeVehicleId, raceHistory, repPoints,
-      lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab,
-      pendingBuildVehicleId, pendingBuildParts, isRacing, workshopLevels,
+      inventory, garage, activeVehicleId, raceHistory, scrapBucks, activeTab,
+      pendingBuildVehicleId, pendingBuildParts, isRacing,
     };
     if (!isStepConditionMet(tutorialStep, stateSnapshot)) return;
 
@@ -370,7 +338,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       tutorialStep: targetStep >= STEPS.length ? -1 : targetStep,
       tutorialLastAdvanceTime: Date.now(),
     });
-  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, repPoints, lifetimeScrapBucks, scrapBucks, prestigeCount, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing, workshopLevels]);
+  }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, scrapBucks, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing]);
 
   useEffect(() => {
     if (tutorialStep >= STEPS.length) {
@@ -417,9 +385,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
   useEffect(() => {
     if (!effectiveTarget || typeof window === "undefined" || window.innerWidth >= 640) return;
     const timer = window.setTimeout(() => {
-      const targetName = tutorialStep === 15 && document.querySelector('[data-tutorial="workshop-upgrade-btn"]')
-        ? "workshop-upgrade-btn"
-        : effectiveTarget;
+      const targetName = effectiveTarget;
       const currentPartSlot = pendingBuildParts.engine ? "wheel" : "engine";
       const element = tutorialStep === 5
         ? document.querySelector(`[data-tutorial-slot="${currentPartSlot}"]`)
@@ -437,27 +403,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
     return () => window.clearTimeout(timer);
   }, [activeTab, effectiveTarget, pendingBuildParts.engine, tutorialStep]);
 
-  // Dynamic tab highlight overrides. On step 15, once the player can afford
-  // Keen Eye but they're off Workshop, pulse Workshop to pull them back in.
-  // Within Facilities, the first purchase button becomes the target halo.
-  const effectiveHighlightTab = (() => {
-    if (tutorialStep === 15 && scrapBucks >= 75 && activeTab !== "gear") {
-      return "gear";
-    }
-    return stepDef?.highlightTab;
-  })();
+  const effectiveHighlightTab = stepDef?.highlightTab;
 
   const updatePositions = useCallback(() => {
     if (!stepDef) { setTargetRect(null); setSellBtnRect(null); setHighlightRect(null); setBlockerRects([]); setHintRects([]); return; }
 
     // Always track target for halo (even during goal badge mode)
     if (effectiveTarget) {
-      // Once Facilities is open, move the step-15 halo from the subtab to the
-      // first real purchase rather than continuing to point at an action the
-      // player has already completed.
-      const targetName = tutorialStep === 15 && document.querySelector('[data-tutorial="workshop-upgrade-btn"]')
-        ? "workshop-upgrade-btn"
-        : effectiveTarget;
+      const targetName = effectiveTarget;
       const currentPartSlot = pendingBuildParts.engine ? "wheel" : "engine";
       const el = tutorialStep === 5
         ? document.querySelector(`[data-tutorial-slot="${currentPartSlot}"]`)
@@ -613,9 +566,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
       effectiveTip = "The race ended before its result could be restored. Continue to the **Garage**; repair any damage, then keep racing for Scrap Bucks and Rep.";
     }
   }
-  /* Step 15 uses hasGoal + goalIntro — the affordability context is in the
-     intro card, and the goal badge (below) tracks Scrap Bucks toward $75. */
-  const WORKSHOP_AFFORD_THRESHOLD = 75;
   /* Step 11 has no tip (hidden during race) — skip to avoid empty card */
 
   /* Step 0: Intro card */
@@ -811,47 +761,6 @@ export default function TutorialOverlay({ activeTab }: Props) {
           <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
           <span style={{ color: scrapBucks >= 10 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
             ${formatNumber(scrapBucks)} / $10
-          </span>
-        </>
-      );
-    }
-    if (tutorialStep === 15) {
-      const canAfford = scrapBucks >= WORKSHOP_AFFORD_THRESHOLD;
-      goalContent = canAfford ? (
-        <span style={{ color: "var(--success, #4ade80)" }}>
-          Ready! Buy Keen Eye {"\u2192"}
-        </span>
-      ) : (
-        <>
-          <span style={{ color: "var(--text-muted)" }}>Keen Eye:</span>
-          <span style={{ color: scrapBucks >= WORKSHOP_AFFORD_THRESHOLD ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            ${formatNumber(scrapBucks)} / ${WORKSHOP_AFFORD_THRESHOLD}
-          </span>
-        </>
-      );
-    }
-    if (tutorialStep === 17) {
-      goalContent = (
-        <>
-          <span style={{ color: lifetimeScrapBucks >= 500 ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            ${formatNumber(lifetimeScrapBucks)} / $500
-          </span>
-          <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
-          <span style={{ color: repPoints >= REP_PROGRESSION.tutorial.systemsTour ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            {formatRep(repPoints)} / {formatRep(REP_PROGRESSION.tutorial.systemsTour)} Rep
-          </span>
-        </>
-      );
-    }
-    if (tutorialStep === 19) {
-      goalContent = (
-        <>
-          <span style={{ color: lifetimeScrapBucks >= SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            ${formatNumber(lifetimeScrapBucks)} / ${formatNumber(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks)}
-          </span>
-          <span style={{ color: "var(--text-muted)" }}>{"\u00B7"}</span>
-          <span style={{ color: repPoints >= SCRAP_RESET_REQUIREMENTS.reputation ? "var(--success, #4ade80)" : "var(--text-primary)" }}>
-            {formatRep(repPoints)} / {formatRep(SCRAP_RESET_REQUIREMENTS.reputation)} Rep
           </span>
         </>
       );

@@ -1466,13 +1466,6 @@ function createActions(set: SetState, get: GetState) {
       const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
       const sb = getSkillBonuses(state.racerSkills, circuit.tier);
       const permanentBonuses = getPermanentRuntimeBonuses(state);
-      // Force DNF on the very first race of a new save so the tutorial
-      // reliably reaches the repair step. Steps 9 and 10 both expose the race
-      // button, while step 11 is the safe retry state after an interrupted
-      // animation; all three must match the forced-DNF forecast.
-      const isFirstEverRace = state.lifetimeRacesAllTime === 0
-        && state.tutorialStep >= 9
-        && state.tutorialStep <= 11;
       const outcome = simulateRace(
         vehicle, circuit,
         1,
@@ -1485,7 +1478,7 @@ function createActions(set: SetState, get: GetState) {
         gb.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"),
         sb.drivingPerformanceMult,
         sb.drivingDnfReduction,
-        isFirstEverRace,
+        false,
         state.currentRacePlan,
         permanentBonuses.raceDnfChanceMultiplier,
       );
@@ -1892,7 +1885,7 @@ function createActions(set: SetState, get: GetState) {
     advanceTutorial: () => {
       const step = (get() as GameState).tutorialStep;
       // Each new step starts fully visible — minimized state is per-step, not persistent
-      set({ tutorialStep: step >= 21 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now(), tutorialMinimized: false });
+      set({ tutorialStep: step >= 13 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now(), tutorialMinimized: false });
     },
 
     skipTutorial: () => {

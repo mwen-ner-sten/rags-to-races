@@ -56,10 +56,10 @@ export default function HelpBasicsTab() {
         </ol>
       </SectionCard>
 
-      {/* Tutorial Walkthrough */}
-      <SectionCard title="Tutorial Walkthrough">
+      {/* Opening loop and optional campaign reference */}
+      <SectionCard title="Opening Loop & Next Steps">
         <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
-          Step-by-step reference for the guided tutorial. Follow the highlighted hints in-game.
+          The guided opening ends after your first repair. The remaining steps are an optional route toward the first Scrap Reset.
         </p>
         <ol className="list-decimal space-y-1.5 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
           {HELP_TUTORIAL_WALKTHROUGH.map((item) => (

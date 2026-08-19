@@ -13,17 +13,18 @@ import fixtures from "./fixtures/gameplay.generated.json";
 
 type FixtureName = keyof typeof fixtures;
 
-async function loadFixture(page: Page, name: FixtureName, statePatch: Record<string, unknown> = {}) {
+async function loadFixture(page: Page, name: FixtureName, statePatch: Record<string, unknown> = {}, theme?: string) {
   const fixture = fixtures[name];
   const payload = structuredClone(fixture.payload);
   Object.assign(payload.state, { lastActiveTimestamp: 0, ...statePatch });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.addInitScript(({ key, value }) => {
+  await page.addInitScript(({ key, value, selectedTheme }) => {
     if (sessionStorage.getItem("playwright-fixture-loaded") === "true") return;
     localStorage.clear();
     localStorage.setItem(key, JSON.stringify(value));
+    if (selectedTheme) localStorage.setItem("rags-to-races-theme", selectedTheme);
     sessionStorage.setItem("playwright-fixture-loaded", "true");
-  }, { key: fixture.storageKey, value: payload });
+  }, { key: fixture.storageKey, value: payload, selectedTheme: theme });
   await page.goto("/");
   await expect(page).toHaveTitle("Rags to Races");
 }
@@ -165,6 +166,13 @@ test("@smoke fresh save exposes the first engineering loop", async ({ page }) =>
   await expectNoSeriousStructuralAccessibilityViolations(page);
 });
 
+test("portaled tutorial follows a persisted non-default theme", async ({ page }) => {
+  await loadFixture(page, "fresh", {}, "outlaw");
+  const tutorial = page.getByTestId("tutorial-intro-card");
+  await expect(tutorial).toHaveCSS("--accent", "#c88830");
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim())).toBe("#c88830");
+});
+
 test("@smoke full Dev save reset stays on the starting Salvage flow", async ({ page }) => {
   await loadFixture(page, "maxed", { tutorialStep: 22, tutorialDismissed: true });
   await openTab(page, "dev");
@@ -295,7 +303,7 @@ test("offline catch-up honors the eight-hour cap and settles every part exactly 
   expect((reloaded.inventory as unknown[]).length).toBe((settled.inventory as unknown[]).length);
 });
 
-test("tutorial race forecast remains accurate through the forced-DNF explanation", async ({ page }) => {
+test("tutorial race forecast remains stable after its explanation", async ({ page }) => {
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 9,
     tutorialDismissed: false,
@@ -308,11 +316,12 @@ test("tutorial race forecast remains accurate through the forced-DNF explanation
   await page.getByRole("button", { name: "Got it" }).click();
   const afterRanges = (await odds.innerText()).match(/\d+[–-]\d+%/g);
   expect(afterRanges).toEqual(beforeRanges);
-  await expect(odds).toContainText(/DNF|0%/i);
+  expect(before).not.toMatch(/100[–-]100% DNF/i);
 });
 
-test("@smoke tutorial first race cannot contradict its forced-DNF forecast before Got it", async ({ page }) => {
+test("@smoke tutorial first race uses the displayed simulation", async ({ page }) => {
   test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
   await loadFixture(page, "first_race_ready", {
     tutorialStep: 9,
     tutorialDismissed: false,
@@ -321,16 +330,16 @@ test("@smoke tutorial first race cannot contradict its forced-DNF forecast befor
     raceHistory: [],
   });
   await openTab(page, "race");
+  await page.getByRole("button", { name: "Got it" }).click();
   const enterRace = page.getByRole("button", { name: "Enter Race" });
-  if (await enterRace.isEnabled()) {
-    await enterRace.click();
-    await expect(enterRace).toBeEnabled({ timeout: 12_000 });
-    const outcome = ((await persistedState(page)).raceHistory as Array<{ result: string }>)[0];
-    expect(outcome?.result).toBe("dnf");
-    await expect(page.getByText("Rep Points: 0.1", { exact: false })).toBeVisible();
-  } else {
-    await expect(page.getByRole("button", { name: "Got it" })).toBeVisible();
-  }
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  const outcome = ((await persistedState(page)).raceHistory as Array<{ result: string; repEarned: number }>)[0];
+  expect(["win", "loss", "dnf"]).toContain(outcome?.result);
+  expect(outcome?.repEarned).toBeGreaterThan(0);
+  await expect(page.getByRole("heading", { name: "Engineering Debrief" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Inspect Build" })).toBeVisible();
+  await expect(page.getByTestId("tutorial-card").getByText(/won|exploded|not first/i)).toBeVisible();
 });
 
 test("tutorial interrupted first race recovers to a retry instead of an empty step", async ({ page }) => {
@@ -397,23 +406,20 @@ test("tutorial tab halos stay fully inside the viewport", async ({ page }) => {
     .toBeGreaterThan(Number(await mobileHalo.evaluate((element) => getComputedStyle(element).zIndex)));
 });
 
-test("@smoke tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
+test("@smoke tutorial releases navigation after the first repair", async ({ page }) => {
+  const damagedGarage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  damagedGarage[0].condition = 70;
   await loadFixture(page, "first_race_ready", {
-    tutorialStep: 14,
+    tutorialStep: 13,
     tutorialDismissed: false,
-    scrapBucks: 100,
-    lifetimeScrapBucks: 100,
-    workshopLevels: {},
+    garage: damagedGarage,
   });
-  await page.getByRole("button", { name: "Got it" }).click();
+  await openTab(page, "garage");
+  await page.getByRole("button", { name: /Repair to 100%/ }).click();
+  await expect(page.getByTestId("tutorial-card")).toHaveCount(0);
+  expect((await persistedState(page)).tutorialStep).toBe(-1);
   await openTab(page, "gear");
-  await expect(page.getByText(/Workshop > Facilities/i)).toBeVisible();
-  await page.getByRole("button", { name: "Got it" }).click();
-  await workshopTab(page, "Facilities");
-  await page.getByRole("button", { name: /\$75/ }).first().click();
-  await expect(page.getByText(/Use Inventory to manage parts, Fabrication to make parts/i)).toBeVisible();
-  await page.getByRole("button", { name: "Got it" }).click();
-  await expect(page.getByText(/\$500 and 100 Rep/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
 });
 
 test("@smoke build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
@@ -1069,11 +1075,17 @@ test("all supported themes survive reload without hydration errors or horizontal
     await openTab(page, "settings");
     await expect(page.getByRole("heading", { name: "Theme", exact: true })).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem("rags-to-races-theme"))).toBe(theme.id);
-    const shellTheme = await page.evaluate(() => {
+    const appliedTheme = await page.evaluate(() => {
       const shell = document.querySelector<HTMLElement>(".shell-content > div");
-      return shell ? getComputedStyle(shell).getPropertyValue("--accent").trim() : "";
+      return {
+        shellAccent: shell ? getComputedStyle(shell).getPropertyValue("--accent").trim() : "",
+        rootAccent: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
+        modalBackground: getComputedStyle(document.documentElement).getPropertyValue("--modal-bg").trim(),
+      };
     });
-    expect(shellTheme, `${theme.id} did not apply theme variables`).not.toBe("");
+    expect(appliedTheme.shellAccent, `${theme.id} did not apply theme variables`).not.toBe("");
+    expect(appliedTheme.rootAccent, `${theme.id} portal variables diverged`).toBe(appliedTheme.shellAccent);
+    expect(appliedTheme.modalBackground, `${theme.id} modal surface is translucent`).not.toMatch(/^rgba\(/);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${theme.id} horizontal overflow`).toBeLessThanOrEqual(1);
     if (theme.id === "outlaw") {
@@ -1101,6 +1113,14 @@ test("@smoke mobile Workshop dropdown uses an opaque raised surface", async ({ p
   const menu = page.getByTestId("mobile-sub-nav-menu");
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS("background-color", "rgb(4, 24, 32)");
+});
+
+test("mobile Workshop dropdown follows a persisted non-default theme", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loadFixture(page, "workshop_ready", {}, "outlaw");
+  await openTab(page, "gear");
+  await page.locator(".mobile-sub-nav").getByRole("button").first().click();
+  await expect(page.getByTestId("mobile-sub-nav-menu")).toHaveCSS("background-color", "rgb(14, 10, 6)");
 });
 
 test("@smoke default semantic text palette preserves readable contrast", async ({ page }) => {

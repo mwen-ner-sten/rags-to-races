@@ -58,6 +58,7 @@ describe("1,000-seed campaign simulation guardrails", () => {
             () => simulateRace(vehicleFor(strategy, circuit.difficulty), circuit, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, false, plan),
           );
           expect(outcome.circuitId).toBe(circuit.id);
+          expect(outcome.vehicleId).toBe(`sim-${strategy}`);
           expect(outcome.position).toBeGreaterThanOrEqual(1);
           expect(outcome.position).toBeLessThanOrEqual(8);
           expect(Number.isFinite(outcome.scrapsEarned)).toBe(true);
