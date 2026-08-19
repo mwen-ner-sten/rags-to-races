@@ -167,7 +167,7 @@ export function simulateRace(
   // Keeps the economy consistent: DNF is never more rewarding than finishing last.
   const dnfRep = circuit.repReward * 0.05;
 
-  // Forced DNF (used to guarantee the first tutorial race teaches repairs)
+  // Explicit forced-result path retained for deterministic simulations and tooling.
   if (forceDNF) {
     return {
       result: "dnf",
