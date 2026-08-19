@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Portaled UI can render before ThemeShell's client effect copies its palette
+   onto the document root. Match the only player-facing theme during that first
+   paint so tutorial glows never flash the legacy amber fallback. */
+:root {
+  --accent: #00e5ff;
+  --accent-secondary: #ff0090;
+}
+
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -252,10 +260,10 @@ html {
   50% { box-shadow: 0 0 0 8px transparent, 0 0 20px 0 transparent; }
 }
 .tutorial-pulse {
-  --tp-glow: color-mix(in srgb, var(--accent-secondary, #ff0090) 55%, transparent);
-  --tp-dim: color-mix(in srgb, var(--accent-secondary, #ff0090) 30%, transparent);
+  --tp-glow: color-mix(in srgb, var(--accent, #00e5ff) 55%, transparent);
+  --tp-dim: color-mix(in srgb, var(--accent, #00e5ff) 30%, transparent);
   animation: tutorial-pulse 1.5s ease-in-out infinite;
-  border: 1.5px solid color-mix(in srgb, var(--accent-secondary, #ff0090) 45%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--accent, #00e5ff) 45%, transparent);
 }
 
 @keyframes tutorial-tab-pulse-mobile {

@@ -160,8 +160,20 @@ async function expectNoSeriousStructuralAccessibilityViolations(page: Page) {
 test("@smoke fresh save exposes the first engineering loop", async ({ page }) => {
   await loadFixture(page, "fresh");
   await expect(page.getByRole("heading", { name: "Rags to Races" })).toBeVisible();
+  await expect(page.getByTestId("tutorial-intro-card")).toHaveCSS("--accent", "#00e5ff");
   await expect(page.getByRole("button", { name: "Scavenge!" })).toBeVisible();
   await expectNoSeriousStructuralAccessibilityViolations(page);
+});
+
+test("@smoke full Dev save reset stays on the starting Salvage flow", async ({ page }) => {
+  await loadFixture(page, "maxed", { tutorialStep: 22, tutorialDismissed: true });
+  await openTab(page, "dev");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Full Save Reset" }).click();
+  await expect(page.getByRole("heading", { name: "Rags to Races" })).toBeVisible();
+  await page.getByRole("button", { name: "Guide me" }).click();
+  await expect(page.getByRole("button", { name: "Scavenge!" })).toBeVisible();
+  await expect(page.getByText("Dev Tools", { exact: true })).toHaveCount(0);
 });
 
 test("@smoke core Scavenge action works from the keyboard without duplicate input", async ({ page }) => {
@@ -372,6 +384,17 @@ test("tutorial tab halos stay fully inside the viewport", async ({ page }) => {
   expect(bounds!.y).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width);
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport!.height);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileHalo = page.getByTestId("tutorial-tab-halo");
+  const mobileNav = page.getByTestId("mobile-nav");
+  await expect(mobileHalo).toBeVisible();
+  expect(Number(await mobileHalo.evaluate((element) => getComputedStyle(element).zIndex)))
+    .toBeGreaterThan(Number(await mobileNav.evaluate((element) => getComputedStyle(element).zIndex)));
+
+  await page.getByRole("button", { name: "More tabs" }).click();
+  expect(Number(await mobileNav.evaluate((element) => getComputedStyle(element).zIndex)))
+    .toBeGreaterThan(Number(await mobileHalo.evaluate((element) => getComputedStyle(element).zIndex)));
 });
 
 test("@smoke tutorial routes the first upgrade through Workshop Facilities", async ({ page }) => {
@@ -1068,6 +1091,16 @@ test("@smoke desktop and mobile primary navigation keeps every critical action r
     expect(overflow, `${tab} horizontal overflow`).toBeLessThanOrEqual(1);
   }
   await expectNoSeriousStructuralAccessibilityViolations(page);
+});
+
+test("@smoke mobile Workshop dropdown uses an opaque raised surface", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "gear");
+  await page.locator(".mobile-sub-nav").getByRole("button").first().click();
+  const menu = page.getByTestId("mobile-sub-nav-menu");
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveCSS("background-color", "rgb(4, 24, 32)");
 });
 
 test("@smoke default semantic text palette preserves readable contrast", async ({ page }) => {
