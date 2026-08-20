@@ -84,7 +84,8 @@ describe("contextual coaching state", () => {
       dismissedContextualCoachIds: ["toolkit", "automation"],
     });
 
-    useGameStore.getState()[action]();
+    if (action === "teamReset") useGameStore.getState().teamReset("junkyard_works");
+    else useGameStore.getState()[action]();
 
     expect(RESET_PRESERVE_FIELDS[layer].has("dismissedContextualCoachIds")).toBe(true);
     expect(useGameStore.getState().dismissedContextualCoachIds).toEqual(["toolkit", "automation"]);
