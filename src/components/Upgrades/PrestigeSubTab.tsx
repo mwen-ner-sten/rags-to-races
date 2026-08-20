@@ -54,6 +54,39 @@ export default function PrestigeSubTab() {
   const teamPointAward = calculateTeamPoints({ lifetimeLPThisTeamEra, teamEraCount, unspentLP: legacyPoints });
   const ownerPointAward = calculateOwnerPoints({ lifetimeTPThisOwnerEra, ownerEraCount, unspentTP: teamPoints });
   const trackTokenAward = calculateTrackTokens({ lifetimeOPThisTrackEra, trackEraCount, unspentOP: ownerPoints });
+  const nextResponsibility = trackEraCount > 0
+    ? null
+    : ownerEraCount > 0
+      ? canTrack
+        ? null
+        : {
+            layer: "Track",
+            description: "The next step is organizing the racing environment itself. Build the Owner-era record needed to buy the track.",
+            progress: [
+              `Lifetime OP ${lifetimeOwnerPoints} / ${RESPONSIBILITY_RESET_REQUIREMENTS.track.lifetimeOwnerPoints}`,
+              `Owner eras ${ownerEraCount} / ${RESPONSIBILITY_RESET_REQUIREMENTS.track.ownerEras}`,
+            ],
+          }
+      : teamEraCount > 0
+        ? canOwner
+          ? null
+          : {
+              layer: "Owner",
+              description: "The next step is leading the whole organization. Grow Team-era experience before stepping into the owner's box.",
+              progress: [
+                `Lifetime TP ${lifetimeTeamPoints} / ${RESPONSIBILITY_RESET_REQUIREMENTS.owner.lifetimeTeamPoints}`,
+                `Team eras ${teamEraCount} / ${RESPONSIBILITY_RESET_REQUIREMENTS.owner.teamEras}`,
+              ],
+            }
+        : lifetimeScrapResets > 0 && !canTeam
+          ? {
+              layer: "Team",
+              description: "The next step is turning personal garage work into a race team. Keep earning Legacy Points across Scrap runs.",
+              progress: [
+                `Lifetime LP ${lifetimeLPAllTime} / ${RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints}`,
+              ],
+            }
+          : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -162,6 +195,35 @@ export default function PrestigeSubTab() {
             Scrap Reset
           </button>
         </div>
+      )}
+
+      {nextResponsibility && (
+        <section
+          aria-labelledby="next-responsibility-heading"
+          style={{ background: "var(--accent-bg)", borderColor: "var(--accent-border)" }}
+          className="rounded-lg border p-4"
+        >
+          <h2 id="next-responsibility-heading" style={{ color: "var(--text-heading)" }} className="text-sm font-semibold uppercase tracking-widest">
+            Next Responsibility
+          </h2>
+          <h3 style={{ color: "var(--text-white)" }} className="mt-2 text-base font-bold">
+            Next: {nextResponsibility.layer}
+          </h3>
+          <p style={{ color: "var(--text-secondary)" }} className="mt-1 text-sm leading-relaxed">
+            {nextResponsibility.description}
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {nextResponsibility.progress.map((progress) => (
+              <div
+                key={progress}
+                style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)", color: "var(--text-primary)" }}
+                className="rounded-md border px-3 py-2 font-mono text-xs"
+              >
+                {progress}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Team Reset */}

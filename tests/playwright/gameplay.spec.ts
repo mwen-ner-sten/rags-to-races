@@ -6,7 +6,7 @@ import {
   RACE_CONTROL_RACES_PER_OPPORTUNITY,
   STATION_EQUIPMENT_INVENTORY_LIMIT,
 } from "../../src/config/gameplayLimits";
-import { SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
+import { RESPONSIBILITY_RESET_REQUIREMENTS, SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
 import { HIDDEN_THEMES, THEMES } from "../../src/data/themes";
 import { FATIGUE_DRINK_COST, FATIGUE_DRINK_RECOVERY } from "../../src/data/workshopActions";
 import { formatNumber } from "../../src/utils/format";
@@ -1271,6 +1271,69 @@ test("Team Reset requires an accessible operating philosophy choice", async ({ p
   await openResetTab(page);
   await page.getByRole("button", { name: "Team Reset", exact: true }).click();
   await expect(page.getByRole("alertdialog", { name: "Confirm Team Reset" }).getByRole("button", { name: /^Confirm Team Reset/ })).toBeDisabled();
+});
+
+test("next responsibility roadmap reveals only the immediate ineligible reset on desktop and mobile", async ({ page }) => {
+  await loadFixture(page, "fresh", { tutorialStep: -1, tutorialDismissed: true });
+  await openResetTab(page);
+  await expect(page.getByRole("region", { name: "Next Responsibility" })).toHaveCount(0);
+
+  const cases = [
+    {
+      fixture: "post_scrap_reset" as const,
+      layer: "Team",
+      progress: `Lifetime LP ${fixtures.post_scrap_reset.payload.state.lifetimeLPAllTime} / ${RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints}`,
+      eras: null,
+    },
+    {
+      fixture: "post_team_reset" as const,
+      layer: "Owner",
+      progress: `Lifetime TP ${fixtures.post_team_reset.payload.state.lifetimeTeamPoints} / ${RESPONSIBILITY_RESET_REQUIREMENTS.owner.lifetimeTeamPoints}`,
+      eras: `Team eras ${fixtures.post_team_reset.payload.state.teamEraCount} / ${RESPONSIBILITY_RESET_REQUIREMENTS.owner.teamEras}`,
+    },
+    {
+      fixture: "post_owner_reset" as const,
+      layer: "Track",
+      progress: `Lifetime OP ${fixtures.post_owner_reset.payload.state.lifetimeOwnerPoints} / ${RESPONSIBILITY_RESET_REQUIREMENTS.track.lifetimeOwnerPoints}`,
+      eras: `Owner eras ${fixtures.post_owner_reset.payload.state.ownerEraCount} / ${RESPONSIBILITY_RESET_REQUIREMENTS.track.ownerEras}`,
+    },
+  ];
+
+  for (const entry of cases) {
+    await replaceFixtureState(page, entry.fixture);
+    await openResetTab(page);
+    const roadmap = page.getByRole("region", { name: "Next Responsibility" });
+    await expect(roadmap.getByRole("heading", { name: `Next: ${entry.layer}` })).toBeVisible();
+    await expect(roadmap).toContainText(entry.progress);
+    if (entry.eras) await expect(roadmap).toContainText(entry.eras);
+    for (const hiddenLayer of ["Team", "Owner", "Track"].filter((layer) => layer !== entry.layer)) {
+      await expect(roadmap.getByText(new RegExp(`Next: ${hiddenLayer}`))).toHaveCount(0);
+    }
+    await expectNoSeriousStructuralAccessibilityViolations(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await openTab(page, "race");
+    await expect(page.getByRole("button", { name: "Enter Race" })).toBeVisible();
+  }
+
+  for (const entry of [
+    {
+      fixture: "post_scrap_reset" as const,
+      patch: { lifetimeLPAllTime: RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints, lifetimeLPThisTeamEra: 1 },
+    },
+    {
+      fixture: "post_team_reset" as const,
+      patch: { lifetimeTeamPoints: RESPONSIBILITY_RESET_REQUIREMENTS.owner.lifetimeTeamPoints, teamEraCount: RESPONSIBILITY_RESET_REQUIREMENTS.owner.teamEras, lifetimeTPThisOwnerEra: 1 },
+    },
+    {
+      fixture: "post_owner_reset" as const,
+      patch: { lifetimeOwnerPoints: RESPONSIBILITY_RESET_REQUIREMENTS.track.lifetimeOwnerPoints, ownerEraCount: RESPONSIBILITY_RESET_REQUIREMENTS.track.ownerEras, lifetimeOPThisTrackEra: 1 },
+    },
+    { fixture: "post_track_reset" as const, patch: {} },
+  ]) {
+    await replaceFixtureState(page, entry.fixture, entry.patch);
+    await openResetTab(page);
+    await expect(page.getByRole("region", { name: "Next Responsibility" })).toHaveCount(0);
+  }
 });
 
 test("current Team Operating Philosophy is summarized above Fleet Programs", async ({ page }) => {
