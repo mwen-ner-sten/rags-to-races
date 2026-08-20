@@ -5,6 +5,7 @@ import {
   type EngineeringHistoryEntry,
 } from "@/engine/engineeringHistory";
 import type { RaceOutcome } from "@/engine/race";
+import type { EngineeringPriority } from "@/engine/engineeringDiagnostics";
 
 const RESULT_LABELS: Record<RaceOutcome["result"], string> = {
   win: "Win",
@@ -72,7 +73,7 @@ export default function EngineeringNotebook({
 }: {
   raceHistory: readonly RaceOutcome[];
   garage: readonly BuiltVehicle[];
-  onInspectBuild?: (vehicleId: string, slot: CoreSlot) => void;
+  onInspectBuild?: (vehicleId: string, slot: CoreSlot, priority: EngineeringPriority, action: string) => void;
 }) {
   const entries = selectEngineeringHistory(raceHistory, garage);
 
@@ -123,7 +124,7 @@ export default function EngineeringNotebook({
               {entry.vehicleAvailability === "available" && entry.vehicleId && entry.report?.slot && onInspectBuild && (
                 <button
                   type="button"
-                  onClick={() => onInspectBuild(entry.vehicleId!, entry.report!.slot!)}
+                  onClick={() => onInspectBuild(entry.vehicleId!, entry.report!.slot!, entry.report!.priority, entry.report!.action)}
                   aria-label={`Inspect ${entry.vehicleId} ${entry.report.slot} in Garage`}
                   className="mt-3 min-h-11 rounded-lg border px-4 py-2 text-sm font-semibold"
                   style={{ borderColor: "var(--accent-border)", color: "var(--accent)" }}

@@ -78,6 +78,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Reforge Shards", meaning: "Earned by salvaging unequipped station items. Spent to reroll secondary attributes while preserving the primary." },
   { term: "Auto-Scavenge", meaning: `Unlocks after ${AUTO_SCAVENGE_MANUAL_TARGET} manual scavenges or the first Scrap Reset, then stays unlocked. Runs automatically each tick.` },
   { term: "Auto-Race", meaning: "Unlocks after the first Scrap Reset. Fires on a timer (improved by the Pit Crew facility upgrade)." },
+  { term: "Race Control", meaning: "After the first Scrap Reset, every 10 settled races stocks at most one optional call for a manual race. Auto and offline races never pause for or consume it." },
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} one-time gameplay goals rewarding Scrap Bucks, materials, and Forge Tokens.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
   { term: "Team Points (TP)", meaning: "Layer 2 currency earned from Team Reset. Spent on crew, fleet capacity, and team infrastructure." },
@@ -167,6 +168,16 @@ export const HELP_STRATEGY: StrategyCard[] = [
       "Redline Special, Cornering Rig, and Finish-First labels describe a clear pace, handling, or reliability lead; the label itself grants no bonus.",
       "Circuit fit continuously compares those three real build indices with circuit power, handling, and reliability demands, adjusting performance by at most 5%.",
       "Fuel, tires, gearing, aero, suspension, aggression, and pits remain race-plan setup decisions. Reliability and setup still determine DNF risk and wear.",
+    ],
+  },
+  {
+    id: "race_control_calls",
+    title: "When should I use Race Control?",
+    advice: [
+      "A call is earned after 10 settled races following the first Scrap Reset, and only one can be stored.",
+      "Attack adds up to 4% pace but raises DNF risk and wear; Protect lowers DNF risk and wear but gives up pace.",
+      "Review the contextual forecast before confirming. Follow standing order is the neutral choice, and Save call for later keeps the opportunity.",
+      "Calls affect one manual race only. They never multiply rewards, entry fees, salvage, rival rewards, Forge Tokens, or auto/offline racing.",
     ],
   },
   {

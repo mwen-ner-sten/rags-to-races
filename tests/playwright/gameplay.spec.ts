@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   AUTO_SCAVENGE_MANUAL_TARGET,
   MAX_OFFLINE_DURATION_MS,
+  RACE_CONTROL_RACES_PER_OPPORTUNITY,
   STATION_EQUIPMENT_INVENTORY_LIMIT,
 } from "../../src/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
@@ -397,6 +398,69 @@ test("@smoke tutorial first race uses the displayed simulation", async ({ page }
   const focusedVehicle = page.locator('[data-vehicle-card-id="fixture_vehicle_10_push_mower"]');
   await expect(focusedVehicle).toBeFocused();
   await expect(focusedVehicle).toHaveAccessibleName(/Push Mower/i);
+});
+
+test("Race Control is an untimed keyboard-accessible optional manual call", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x51a7c011);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    prestigeCount: 1,
+    autoRaceUnlocked: true,
+    raceControlRaceProgress: RACE_CONTROL_RACES_PER_OPPORTUNITY,
+    raceControlOpportunityReady: true,
+    raceControlCallEscrowed: false,
+  });
+  await openTab(page, "race");
+  const cashBeforeBriefing = (await persistedState(page)).scrapBucks;
+
+  const useRaceControl = page.getByRole("button", { name: "Use Race Control" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    expect((await useRaceControl.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+  await useRaceControl.focus();
+  await page.keyboard.press("Enter");
+  const briefing = page.getByRole("region", { name: "Race Control briefing" });
+  await expect(briefing).toBeVisible();
+  await expect(briefing.getByText(/Changing weather|Mechanical warning|Pace window/)).toBeVisible();
+  await expect(briefing.getByText(/reaction|timer|seconds/i)).toHaveCount(0);
+  expect((await persistedState(page)).scrapBucks).toBe(cashBeforeBriefing);
+
+  const protect = briefing.getByRole("radio", { name: /Protect/ });
+  await protect.focus();
+  await page.keyboard.press("Space");
+  await expect(protect).toBeChecked();
+  await expect(briefing.getByText(/-3% pace/i)).toBeVisible();
+  await expect(briefing.getByText(/-2.5 points DNF/i)).toBeVisible();
+  await expect(briefing.getByText(/-12% wear/i)).toBeVisible();
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+
+  const confirm = briefing.getByRole("button", { name: "Confirm Protect" });
+  const saveForLater = briefing.getByRole("button", { name: "Save call for later" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    for (const radio of await briefing.getByRole("radio").all()) {
+      const label = radio.locator("xpath=ancestor::label");
+      expect((await label.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    }
+    expect((await confirm.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    expect((await saveForLater.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await saveForLater.scrollIntoViewIfNeeded();
+    const navBox = await page.getByTestId("mobile-nav").boundingBox();
+    const saveBox = await saveForLater.boundingBox();
+    expect((saveBox?.y ?? 0) + (saveBox?.height ?? 0)).toBeLessThanOrEqual(navBox?.y ?? Number.POSITIVE_INFINITY);
+  }
+  await confirm.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Enter Race" })).toBeEnabled({ timeout: 12_000 });
+
+  const state = await persistedState(page);
+  const calledOutcome = (state.raceHistory as Array<{ raceControlCall?: { id: string } }>)[0];
+  expect(calledOutcome.raceControlCall?.id).toBe("protect");
+  expect(state.raceControlOpportunityReady).toBe(false);
+  expect(state.raceControlCallEscrowed).toBe(false);
+  await expect(page.getByText(/Race Control: Protect/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unlocked", async ({ page }) => {

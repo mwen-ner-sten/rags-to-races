@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { CoreSlot } from "@/data/parts";
+import type { EngineeringPriority } from "@/engine/engineeringDiagnostics";
 import { useGameStore, type LogCategory } from "@/state/store";
 import EngineeringNotebook from "./EngineeringNotebook";
 
@@ -49,7 +50,7 @@ export default function HelpActivityTab({
   onInspectBuild,
 }: {
   setActiveTab?: (tab: "junkyard" | "race") => void;
-  onInspectBuild?: (vehicleId: string, slot: CoreSlot) => void;
+  onInspectBuild?: (vehicleId: string, slot: CoreSlot, priority: EngineeringPriority, action: string) => void;
 }) {
   const [filter, setFilter] = useState<LogCategory | "all">("all");
   const [, setTick] = useState(0);

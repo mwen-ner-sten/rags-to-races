@@ -37,6 +37,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -256,6 +259,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -520,6 +526,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -1925,6 +1934,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -2238,6 +2250,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -2771,6 +2786,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [
           "push_mower",
@@ -3050,6 +3068,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [
           "push_mower",
@@ -4126,6 +4147,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [
           "push_mower",
@@ -4391,6 +4415,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -5463,6 +5490,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [
           "push_mower",
@@ -5705,6 +5735,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -6777,6 +6810,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [
           "push_mower",
@@ -7019,6 +7055,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [],
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -10538,6 +10577,9 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
+        "raceControlRaceProgress": 0,
+        "raceControlOpportunityReady": false,
+        "raceControlCallEscrowed": false,
         "defeatedRivalIds": [
           "rival_greasy_pete",
           "rival_redline_rosa",

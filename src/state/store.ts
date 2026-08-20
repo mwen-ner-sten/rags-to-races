@@ -13,6 +13,7 @@ import {
 import type { ScavengedPart } from "@/engine/scavenge";
 import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
+import type { RaceControlSelection } from "@/engine/raceControl";
 import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus, RunStats } from "@/engine/prestige";
 import { LEGACY_UPGRADES_BY_ID, legacyUpgradeCost } from "@/data/legacyUpgrades";
@@ -81,7 +82,7 @@ import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "
 import { getEffectiveVehicleHandlingBonus, recalculateGarageStats } from "@/engine/vehicleStats";
 
 export { getEffectiveVehicleHandlingBonus } from "@/engine/vehicleStats";
-import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, RACE_CONTROL_RACES_PER_OPPORTUNITY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
 import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "@/engine/progressionUnlocks";
@@ -204,6 +205,12 @@ export interface GameState {
   raceStartTime: number | null;
   precomputedOutcome: RaceOutcome | null;
   currentRacePlan: RacePlan;
+  /** Settled races toward the next stored Race Control call. */
+  raceControlRaceProgress: number;
+  /** At most one optional manual-only Race Control call can be stored. */
+  raceControlOpportunityReady: boolean;
+  /** Persisted escrow restored if a called manual race is interrupted. */
+  raceControlCallEscrowed: boolean;
   defeatedRivalIds: string[];
   discoveredBlueprintIds: string[];
   fleetAssignments: FleetAssignment[];
@@ -369,7 +376,7 @@ export interface GameState {
   setScoutingOrder: (order: PartCategory | null) => void;
   setSelectedCircuit: (circuitId: string) => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
-  enterRace: () => void;
+  enterRace: (raceControlSelection?: RaceControlSelection) => void;
   setRacePlan: (plan: RacePlan) => void;
   applyRacePlanPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => void;
   startFleetAssignment: (vehicleId: string, circuitId: string, crewId?: string) => void;
@@ -493,6 +500,9 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     raceStartTime: null,
     precomputedOutcome: null,
     currentRacePlan: { ...DEFAULT_RACE_PLAN },
+    raceControlRaceProgress: 0,
+    raceControlOpportunityReady: false,
+    raceControlCallEscrowed: false,
     defeatedRivalIds: [],
     discoveredBlueprintIds: [],
     fleetAssignments: [],
@@ -1471,9 +1481,16 @@ function createActions(set: SetState, get: GetState) {
       set({ selectedSellBelowQuality: threshold });
     },
 
-    enterRace: () => {
+    enterRace: (raceControlSelection?: RaceControlSelection) => {
       const state = get() as GameState;
       if (!canEnterSelectedRace(state)) return;
+
+      const raceControlCallId = state.raceControlOpportunityReady
+        && raceControlSelection?.vehicleId === state.activeVehicleId
+        && raceControlSelection.circuitId === state.selectedCircuitId
+        ? raceControlSelection.callId
+        : undefined;
+      if (raceControlSelection && !raceControlCallId) return;
 
       const vehicle = state.garage.find((v) => v.id === state.activeVehicleId);
       const circuit = getCircuitById(state.selectedCircuitId);
@@ -1503,6 +1520,7 @@ function createActions(set: SetState, get: GetState) {
         false,
         state.currentRacePlan,
         permanentBonuses.raceDnfChanceMultiplier,
+        raceControlCallId,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -1519,6 +1537,9 @@ function createActions(set: SetState, get: GetState) {
         raceEvents: events,
         raceStartTime: Date.now(),
         precomputedOutcome: outcome,
+        raceControlOpportunityReady: raceControlCallId ? false : state.raceControlOpportunityReady,
+        raceControlRaceProgress: raceControlCallId ? 0 : state.raceControlRaceProgress,
+        raceControlCallEscrowed: Boolean(raceControlCallId),
       });
 
       setTimeout(() => {
@@ -1541,6 +1562,11 @@ function createActions(set: SetState, get: GetState) {
               raceEvents: [],
               raceStartTime: null,
               precomputedOutcome: null,
+              raceControlOpportunityReady: s.raceControlCallEscrowed || s.raceControlOpportunityReady,
+              raceControlRaceProgress: s.raceControlCallEscrowed
+                ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+                : s.raceControlRaceProgress,
+              raceControlCallEscrowed: false,
             };
           }
           settledCurrentSession = true;
@@ -1622,6 +1648,9 @@ function createActions(set: SetState, get: GetState) {
           let settledOutcome: RaceOutcome = { ...outcome, scrapsEarned: finalScraps, repEarned: effectiveRepEarned };
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
+          const raceControlRaceProgress = s.prestigeCount >= 1 && s.autoRaceUnlocked && !s.raceControlOpportunityReady
+            ? Math.min(RACE_CONTROL_RACES_PER_OPPORTUNITY, s.raceControlRaceProgress + 1)
+            : s.raceControlRaceProgress;
           const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + sb.enduranceFatigueOffset;
           const rawFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
           const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
@@ -1727,6 +1756,10 @@ function createActions(set: SetState, get: GetState) {
             unlockEvents: newUnlockEvents,
             garage: updatedGarage,
             lifetimeRaces: newLifetimeRaces,
+            raceControlRaceProgress,
+            raceControlOpportunityReady: s.raceControlOpportunityReady
+              || raceControlRaceProgress >= RACE_CONTROL_RACES_PER_OPPORTUNITY,
+            raceControlCallEscrowed: false,
             fatigue: newFatigue,
             racerSkills: updatedSkills,
             crewRoster: grantCrewRoleXp(s.crewRoster, "driver", 10, getCrewXpMultiplier(s)),
@@ -2708,6 +2741,12 @@ function createActions(set: SetState, get: GetState) {
       set((s: GameState) => {
         const raced = settlement.racesCompleted > 0;
         const newLifetimeRaces = s.lifetimeRaces + settlement.racesCompleted;
+        const raceControlRaceProgress = s.prestigeCount >= 1 && s.autoRaceUnlocked && !s.raceControlOpportunityReady
+          ? Math.min(
+              RACE_CONTROL_RACES_PER_OPPORTUNITY,
+              s.raceControlRaceProgress + settlement.racesCompleted,
+            )
+          : s.raceControlRaceProgress;
         const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
         const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
         const updatedGarage = s.garage.map((vehicle) => {
@@ -2860,6 +2899,9 @@ function createActions(set: SetState, get: GetState) {
           repPoints: newRep,
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
+          raceControlRaceProgress,
+          raceControlOpportunityReady: s.raceControlOpportunityReady
+            || raceControlRaceProgress >= RACE_CONTROL_RACES_PER_OPPORTUNITY,
           fatigue: newFatigue,
           racerSkills: settlement.finalRacerSkills ?? tickSkills,
           crewRoster: settlement.finalCrewRoster ?? updatedCrew,
@@ -3396,6 +3438,12 @@ function createActions(set: SetState, get: GetState) {
         raceEvents: [],
         raceStartTime: null,
         precomputedOutcome: null,
+        raceControlOpportunityReady: state.raceControlCallEscrowed
+          || state.raceControlOpportunityReady,
+        raceControlRaceProgress: state.raceControlCallEscrowed
+          ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+          : state.raceControlRaceProgress,
+        raceControlCallEscrowed: false,
       });
     },
 

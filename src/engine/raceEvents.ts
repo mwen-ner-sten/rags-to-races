@@ -6,7 +6,7 @@ export interface RaceEvent {
   timeOffset: number;    // ms from race start
   position: number;      // player's current position (1-8)
   commentary: string;    // dramatic text
-  type: "start" | "position_change" | "close_call" | "mechanical" | "final_lap" | "finish";
+  type: "start" | "race_control" | "position_change" | "close_call" | "mechanical" | "final_lap" | "finish";
 }
 
 const WIN_COMMENTARY = {
@@ -157,6 +157,15 @@ export function generateRaceEvents(
     events.push({ timeOffset: 0, position: startPos, commentary: pick(DNF_COMMENTARY.start), type: "start" });
     events.push({ timeOffset: breakdownTime * 0.6, position: startPos - 1, commentary: pick(DNF_COMMENTARY.warning), type: "mechanical" });
     events.push({ timeOffset: breakdownTime, position: totalRacers, commentary: pick(DNF_COMMENTARY.breakdown), type: "finish" });
+  }
+
+  if (outcome.raceControlCall) {
+    events.push({
+      timeOffset: durationMs * 0.2,
+      position: events[0]?.position ?? outcome.position,
+      commentary: `Race Control: ${outcome.raceControlCall.label} confirmed.`,
+      type: "race_control",
+    });
   }
 
   return events.sort((a, b) => a.timeOffset - b.timeOffset);

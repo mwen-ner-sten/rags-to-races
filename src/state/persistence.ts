@@ -10,7 +10,7 @@ import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
 import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { CONDITIONS, CORE_SLOTS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
-import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
+import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY, RACE_CONTROL_RACES_PER_OPPORTUNITY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 import { recalculateGarageStats } from "@/engine/vehicleStats";
 
@@ -98,6 +98,18 @@ const engineeringReportSchema = z.object({
   action: engineeringReportTextSchema,
 });
 
+const raceControlEffectSchema = z.object({
+  performanceMultiplier: z.number().finite().min(0.95).max(1.05),
+  dnfDelta: z.number().finite().min(-0.03).max(0.03),
+  wearMultiplier: z.number().finite().min(0.85).max(1.15),
+});
+const raceControlCallSchema = z.object({
+  id: z.enum(["standing", "attack", "protect"]),
+  label: z.string().min(1).max(100),
+  context: z.string().min(1).max(200),
+  effect: raceControlEffectSchema,
+});
+
 const raceOutcomeSchema = z.object({
   result: z.enum(["win", "loss", "dnf"]),
   position: finiteNonNegative,
@@ -112,6 +124,7 @@ const raceOutcomeSchema = z.object({
   vehicleId: boundedNonEmptyString.optional(),
   circuitId: nonEmptyString,
   engineeringReport: engineeringReportSchema.optional(),
+  raceControlCall: raceControlCallSchema.optional(),
 }).passthrough();
 
 const dealerListingSchema = z.object({
@@ -279,6 +292,9 @@ const currentStateSafetySchema = z.object({
   manualScavengeClicks: finiteNonNegative.optional(),
   scoutingOrder: z.unknown().optional(),
   raceTickProgress: finiteNonNegative.optional(),
+  raceControlRaceProgress: z.number().finite().min(0).max(RACE_CONTROL_RACES_PER_OPPORTUNITY).optional(),
+  raceControlOpportunityReady: z.boolean().optional(),
+  raceControlCallEscrowed: z.boolean().optional(),
   winStreak: finiteNonNegative.optional(),
   bestWinStreak: finiteNonNegative.optional(),
   lifetimeRaces: finiteNonNegative.optional(),
@@ -427,6 +443,9 @@ export function getPersistedGameState(state: GameState) {
     selectedSellBelowQuality: state.selectedSellBelowQuality,
     selectedCircuitId: state.selectedCircuitId,
     currentRacePlan: state.currentRacePlan,
+    raceControlRaceProgress: state.raceControlRaceProgress,
+    raceControlOpportunityReady: state.raceControlOpportunityReady,
+    raceControlCallEscrowed: state.raceControlCallEscrowed,
     defeatedRivalIds: state.defeatedRivalIds,
     discoveredBlueprintIds: state.discoveredBlueprintIds,
     fleetAssignments: state.fleetAssignments,
@@ -599,10 +618,18 @@ export function migratePersistedState(
   // mid-race, refund its persisted entry-fee escrow exactly once so reload
   // cannot consume cash without producing a result.
   const interruptedRaceEntryFee = state.challengeProgress?.[PENDING_MANUAL_RACE_ENTRY_FEE_KEY] ?? 0;
-  if (interruptedRaceEntryFee > 0) {
+  const interruptedRaceControlCall = state.raceControlCallEscrowed === true;
+  if (interruptedRaceEntryFee > 0 || interruptedRaceControlCall) {
     state = {
       ...state,
       scrapBucks: (state.scrapBucks ?? 0) + interruptedRaceEntryFee,
+      raceControlOpportunityReady: interruptedRaceControlCall
+        ? true
+        : state.raceControlOpportunityReady,
+      raceControlRaceProgress: interruptedRaceControlCall
+        ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+        : state.raceControlRaceProgress,
+      raceControlCallEscrowed: false,
       challengeProgress: {
         ...(state.challengeProgress ?? {}),
         [PENDING_MANUAL_RACE_ENTRY_FEE_KEY]: 0,
@@ -688,6 +715,15 @@ export function migratePersistedState(
     : state.crewRoster ?? [];
   const autoEverything = (ownerUpgradeLevels.owner_auto_all ?? 0) > 0;
   const autoScavengeUnlocked = Boolean(state.autoScavengeUnlocked || autoEverything);
+  const raceControlEligible = (state.prestigeCount ?? 0) >= 1
+    && (state.autoRaceUnlocked === true || autoEverything);
+  const raceControlRaceProgress = raceControlEligible
+    ? Math.min(RACE_CONTROL_RACES_PER_OPPORTUNITY, state.raceControlRaceProgress ?? 0)
+    : 0;
+  const raceControlOpportunityReady = raceControlEligible && Boolean(
+    state.raceControlOpportunityReady
+    || raceControlRaceProgress >= RACE_CONTROL_RACES_PER_OPPORTUNITY,
+  );
 
   const reconciled = {
     ...state,
@@ -709,6 +745,11 @@ export function migratePersistedState(
       autoScavengeUnlocked,
     ),
     autoRaceUnlocked: Boolean(state.autoRaceUnlocked || autoEverything),
+    raceControlRaceProgress: raceControlOpportunityReady
+      ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+      : raceControlRaceProgress,
+    raceControlOpportunityReady,
+    raceControlCallEscrowed: false,
   };
 
   const safe = currentStateSafetySchema.safeParse(reconciled);

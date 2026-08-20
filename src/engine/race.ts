@@ -10,6 +10,7 @@ import { DEFAULT_RACE_PLAN, evaluateRacePlan, type RacePlan, type RacePlanEvalua
 import { RIVAL_DEFINITIONS } from "@/data/rivals";
 import { buildEngineeringReport, type EngineeringReport } from "./engineeringDiagnostics";
 import { calculateBuildCircuitEvaluation, type BuildCircuitEvaluation } from "./buildIdentity";
+import { applyRaceControlEffect, buildRaceControlBriefing, type RaceControlCallId, type RaceControlEffect } from "./raceControl";
 
 export type RaceResult = "win" | "loss" | "dnf";
 
@@ -33,6 +34,13 @@ export interface RaceOutcome {
   circuitId: string;
   /** Immutable diagnosis of the build as it entered this race. */
   engineeringReport?: EngineeringReport;
+  /** Optional manual-only intervention applied to this race. */
+  raceControlCall?: {
+    id: RaceControlCallId;
+    label: string;
+    context: string;
+    effect: RaceControlEffect;
+  };
 }
 
 const RACE_FLAVOR: Record<RaceResult, string[]> = {
@@ -126,6 +134,7 @@ export interface CalculateVehicleOddsOptions {
   forceDNF?: boolean;
   racePlan?: RacePlan;
   dnfChanceMultiplier?: number;
+  raceControlCallId?: RaceControlCallId;
 }
 
 export interface VehicleOdds {
@@ -149,6 +158,7 @@ export function calculateVehicleOdds({
   forceDNF = false,
   racePlan = DEFAULT_RACE_PLAN,
   dnfChanceMultiplier = 1,
+  raceControlCallId,
 }: CalculateVehicleOddsOptions): VehicleOdds {
   const definition = getVehicleById(vehicle.definitionId);
   const buildEvaluation = definition
@@ -164,7 +174,10 @@ export function calculateVehicleOdds({
         buildCost: 0,
         sellValue: 0,
       }, vehicle, circuit.profile);
-  const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
+  const standingEvaluation = evaluateRacePlan(circuit.profile, racePlan);
+  const planEvaluation = raceControlCallId
+    ? applyRaceControlEffect(standingEvaluation, raceControlCallId)
+    : standingEvaluation;
   const odds = calculateOdds(
     vehicle.stats.performance * buildEvaluation.performanceMultiplier,
     vehicle.stats.reliability,
@@ -241,6 +254,7 @@ export function simulateRace(
   forceDNF: boolean = false,
   racePlan: RacePlan = DEFAULT_RACE_PLAN,
   dnfChanceMultiplier: number = 1,
+  raceControlCallId?: RaceControlCallId,
 ): RaceOutcome {
   const totalRacers = 8;
   const odds = calculateVehicleOdds({
@@ -256,8 +270,20 @@ export function simulateRace(
     forceDNF,
     racePlan,
     dnfChanceMultiplier,
+    raceControlCallId,
   });
   const { planEvaluation } = odds;
+  const briefing = raceControlCallId ? buildRaceControlBriefing(circuit.profile) : undefined;
+  const selectedCall = briefing?.calls.find((call) => call.id === raceControlCallId);
+  const raceControlCall = selectedCall && briefing ? {
+    id: selectedCall.id,
+    label: selectedCall.label,
+    context: briefing.context,
+    effect: selectedCall.effect,
+  } : undefined;
+  const raceControlLog = raceControlCall
+    ? `Race Control: ${raceControlCall.label} — pace ${Math.round((raceControlCall.effect.performanceMultiplier - 1) * 100)}%, DNF ${raceControlCall.effect.dnfDelta >= 0 ? "+" : ""}${(raceControlCall.effect.dnfDelta * 100).toFixed(1)} pts, wear ${Math.round((raceControlCall.effect.wearMultiplier - 1) * 100)}%.`
+    : undefined;
   const eligibleRivals = RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier);
   const rival = eligibleRivals.length > 0 && chance(0.35) ? eligibleRivals[randInt(0, eligibleRivals.length - 1)] : undefined;
 
@@ -274,8 +300,9 @@ export function simulateRace(
       totalRacers,
       scrapsEarned: 0,
       repEarned: dnfRep,
-      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`, raceControlLog].filter((line): line is string => Boolean(line)),
       planEvaluation,
+      raceControlCall,
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
@@ -290,8 +317,9 @@ export function simulateRace(
       totalRacers,
       scrapsEarned: 0,
       repEarned: dnfRep,
-      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`, raceControlLog].filter((line): line is string => Boolean(line)),
       planEvaluation,
+      raceControlCall,
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
@@ -326,6 +354,7 @@ export function simulateRace(
     repEarned > 0 ? `+${parseFloat(repEarned.toFixed(1))} Rep` : "",
     salvageDrop ? `Salvaged a part from the wreckage!` : "",
     forgeTokenDrop ? `Found a Forge Token in the debris!` : "",
+    raceControlLog ?? "",
   ].filter(Boolean);
 
   return finalizeOutcome({
@@ -333,6 +362,7 @@ export function simulateRace(
     salvageDrop: salvageDrop ?? undefined,
     forgeTokenDrop: forgeTokenDrop || undefined,
     planEvaluation,
+    raceControlCall,
     rivalId: rival?.id,
     vehicleId: vehicle.id,
     circuitId: circuit.id,

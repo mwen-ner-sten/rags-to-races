@@ -1,6 +1,9 @@
 /** Manual scavenges required before Auto-Scavenge becomes available. */
 export const AUTO_SCAVENGE_MANUAL_TARGET = 100;
 
+/** Settled races required to stock one post-reset Race Control call. */
+export const RACE_CONTROL_RACES_PER_OPPORTUNITY = 10;
+
 /**
  * Maximum number of loose parts automation may retain. Overflow is converted
  * to Scrap Bucks so accelerated live play and offline catch-up cannot create
