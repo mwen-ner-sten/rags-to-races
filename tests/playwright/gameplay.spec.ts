@@ -508,6 +508,79 @@ test("race debrief preserves its stored report after the garage build changes", 
   await expect(page.getByTestId("garage-diagnosis")).toHaveAttribute("data-slot", "wheel");
 });
 
+test("Engineering Notebook keeps race-time evidence honest on desktop and mobile", async ({ page }) => {
+  const racedVehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  const storedReport = {
+    headline: "Stored race-time diagnosis",
+    focus: "grip",
+    priority: "component",
+    component: "Basic Tire",
+    componentCondition: "rusted",
+    vehicleCondition: 77,
+    slot: "wheel",
+    observation: "Stored evidence from the raced build.",
+    action: "Replace the recorded tire before the rematch.",
+  };
+  const baseOutcome = {
+    result: "loss",
+    position: 4,
+    totalRacers: 8,
+    scrapsEarned: 4,
+    repEarned: 1,
+    log: ["Fixture race"],
+    circuitId: "backyard_derby",
+  };
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [racedVehicle],
+    activeVehicleId: racedVehicle.id,
+    raceHistory: [
+      { ...baseOutcome, vehicleId: racedVehicle.id, engineeringReport: storedReport },
+      { ...baseOutcome, result: "dnf", position: 8, vehicleId: "sold-race-car", engineeringReport: { ...storedReport, focus: "reliability", headline: "Stored sold-car diagnosis" } },
+      { ...baseOutcome, result: "win", position: 1 },
+    ],
+  });
+
+  await openTab(page, "log");
+  const notebook = page.getByTestId("engineering-notebook");
+  await expect(notebook.getByRole("heading", { name: "Engineering Notebook" })).toBeVisible();
+  await expect(notebook.getByTestId("engineering-history-entry")).toHaveCount(3);
+  await expect(notebook).toContainText("Push Mower");
+  await expect(notebook).toContainText(racedVehicle.id);
+  await expect(notebook).toContainText("Component condition");
+  await expect(notebook).toContainText("Rusted");
+  await expect(notebook).toContainText("Vehicle condition");
+  await expect(notebook).toContainText("77%");
+  await expect(notebook).toContainText("Stored evidence from the raced build.");
+  await expect(notebook).toContainText("Replace the recorded tire before the rematch.");
+  await expect(notebook).toContainText("Vehicle no longer in garage");
+  await expect(notebook).toContainText("Vehicle not recorded");
+  await expect(notebook).toContainText("No engineering report was recorded for this race.");
+  const inspectRacedBuild = notebook.getByRole("button", { name: `Inspect ${racedVehicle.id} wheel in Garage` });
+  await expect(inspectRacedBuild).toHaveCount(1);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(notebook).toBeVisible();
+  expect(await notebook.evaluate((element) => element.scrollHeight <= element.clientHeight || getComputedStyle(element).overflowY === "visible")).toBe(true);
+  const mobileNav = page.getByTestId("mobile-nav");
+  const lastEntry = notebook.getByTestId("engineering-history-entry").last();
+  await lastEntry.scrollIntoViewIfNeeded();
+  const [lastBox, navBox] = await Promise.all([lastEntry.boundingBox(), mobileNav.boundingBox()]);
+  expect(lastBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(lastBox!.y + lastBox!.height).toBeLessThanOrEqual(navBox!.y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+
+  await inspectRacedBuild.click();
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", racedVehicle.id);
+  await expect(diagnosis).toHaveAttribute("data-slot", "wheel");
+});
+
 test("garage diagnosis does not steal focus after an add-on mutation", async ({ page }) => {
   test.setTimeout(30_000);
   await installDeterministicMathRandom(page, 0x1234abcd);

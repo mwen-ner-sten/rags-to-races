@@ -84,6 +84,8 @@ const engineeringReportSchema = z.object({
   focus: z.enum(["power", "grip", "aero", "reliability", "fuel"]),
   priority: z.enum(["repair", "component", "setup"]),
   component: engineeringReportTextSchema.optional(),
+  componentCondition: partConditionSchema.optional(),
+  vehicleCondition: finitePercentage.optional(),
   slot: z.enum(CORE_SLOTS as [
     (typeof CORE_SLOTS)[number],
     ...(typeof CORE_SLOTS)[number][],

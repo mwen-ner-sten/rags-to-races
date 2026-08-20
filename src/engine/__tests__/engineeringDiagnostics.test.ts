@@ -44,6 +44,17 @@ describe("buildEngineeringReport", () => {
     expect(report.action).toMatch(/wheel|tire|refurbish|replace/i);
   });
 
+  it("records component and vehicle condition in the immutable race-time report", () => {
+    const report = buildEngineeringReport(
+      { ...vehicle, condition: 77 },
+      getCircuitById("backyard_derby")!,
+      loss,
+    );
+
+    expect(report.componentCondition).toBe("rusted");
+    expect(report.vehicleCondition).toBe(77);
+  });
+
   it("prioritizes repairing a damaged vehicle after a DNF", () => {
     const report = buildEngineeringReport({ ...vehicle, condition: 77 }, getCircuitById("backyard_derby")!, { ...loss, result: "dnf" });
 

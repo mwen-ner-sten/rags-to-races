@@ -1,5 +1,5 @@
 import type { CircuitDefinition } from "@/data/circuits";
-import { CONDITION_LABELS, CONDITIONS, getPartById, type CoreSlot } from "@/data/parts";
+import { CONDITION_LABELS, CONDITIONS, getPartById, type CoreSlot, type PartCondition } from "@/data/parts";
 import type { BuiltVehicle, InstalledPart } from "./build";
 import type { RaceOutcome } from "./race";
 
@@ -11,6 +11,8 @@ export interface EngineeringReport {
   focus: EngineeringFocus;
   priority: EngineeringPriority;
   component?: string;
+  componentCondition?: PartCondition;
+  vehicleCondition?: number;
   slot?: CoreSlot;
   observation: string;
   action: string;
@@ -92,6 +94,8 @@ export function buildEngineeringReport(
       focus,
       priority: "repair",
       component,
+      componentCondition: installed?.part.condition,
+      vehicleCondition: vehicle.condition,
       slot: diagnosed?.slot,
       observation: `${OBSERVATIONS[focus]} ${conditionObservation}`,
       action: "Repair the vehicle before the next entry, then reassess the highlighted component instead of risking another avoidable breakdown.",
@@ -103,6 +107,7 @@ export function buildEngineeringReport(
       headline: resultHeadline(outcome),
       focus,
       priority: "setup",
+      vehicleCondition: vehicle.condition,
       observation: OBSERVATIONS[focus],
       action: `Look for a compatible ${FOCUS_SLOTS[focus][0]} upgrade or choose a circuit that better matches the current chassis.`,
     };
@@ -114,6 +119,8 @@ export function buildEngineeringReport(
     focus,
     priority: "component",
     component,
+    componentCondition: installed.part.condition,
+    vehicleCondition: vehicle.condition,
     slot: diagnosed.slot,
     observation: `${OBSERVATIONS[focus]} The relevant ${component} is ${condition.toLowerCase()}.`,
     action: lowCondition

@@ -56,6 +56,8 @@ describe("save envelope", () => {
           focus: "grip" as const,
           priority: "component" as const,
           component: "Basic Tire",
+          componentCondition: "rusted" as const,
+          vehicleCondition: 77,
           slot: "wheel" as const,
           observation: "Stored observation",
           action: "Stored action",
@@ -68,6 +70,8 @@ describe("save envelope", () => {
     expect(decoded.envelope.state).toEqual(envelope.state);
     expect(decoded.envelope.state.raceHistory?.[0]?.vehicleId).toBe("persisted-race-vehicle");
     expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.slot).toBe("wheel");
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.componentCondition).toBe("rusted");
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.vehicleCondition).toBe(77);
     expect(decoded.envelope.state).toEqual(
       getPersistedGameState({
         ...state,
@@ -91,6 +95,8 @@ describe("save envelope", () => {
             focus: "grip" as const,
             priority: "component" as const,
             component: "Basic Tire",
+            componentCondition: "rusted" as const,
+            vehicleCondition: 77,
             slot: "wheel" as const,
             observation: "Stored observation",
             action: "Stored action",

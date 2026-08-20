@@ -236,7 +236,7 @@ export default function Home() {
         {displayedTab === "gear"     && <SalvageWorkshopPanel />}
         {displayedTab === "upgrades" && <UpgradesPanel />}
         {displayedTab === "help"     && <HelpPanel />}
-        {displayedTab === "log"      && <HelpActivityTab setActiveTab={guardedSetActiveTab} />}
+        {displayedTab === "log"      && <HelpActivityTab setActiveTab={guardedSetActiveTab} onInspectBuild={inspectRaceBuild} />}
         {displayedTab === "settings" && <SettingsPanel />}
         {SHOW_DEV_TAB && displayedTab === "dev" && (
           <AdminPanel onFullSaveReset={() => setActiveTab("junkyard")} />
