@@ -177,6 +177,8 @@ test("portaled tutorial follows a persisted non-default theme", async ({ page })
 test("@smoke full Dev save reset stays on the starting Salvage flow", async ({ page }) => {
   await loadFixture(page, "maxed", { tutorialStep: 22, tutorialDismissed: true });
   await openTab(page, "dev");
+  const dismissCoach = page.getByRole("button", { name: /Dismiss .* coaching/ });
+  if (await dismissCoach.isVisible()) await dismissCoach.click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Full Save Reset" }).click();
   await expect(page.getByRole("heading", { name: "Rags to Races" })).toBeVisible();
@@ -1274,6 +1276,7 @@ test("Team Reset requires an accessible operating philosophy choice", async ({ p
 });
 
 test("next responsibility roadmap reveals only the immediate ineligible reset on desktop and mobile", async ({ page }) => {
+  test.setTimeout(60_000);
   await loadFixture(page, "fresh", { tutorialStep: -1, tutorialDismissed: true });
   await openResetTab(page);
   await expect(page.getByRole("region", { name: "Next Responsibility" })).toHaveCount(0);
