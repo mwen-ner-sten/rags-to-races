@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   calculateLegacyPoints,
+  calculateOwnerPoints,
+  calculateTeamPoints,
+  calculateTrackTokens,
   applyMomentumLpBonus,
   deriveHighestCircuitTier,
   type RunStats,
@@ -90,6 +93,25 @@ describe("applyMomentumLpBonus", () => {
   it("ignores non-lp_multiplier momentum tiers", () => {
     // "momentum_warmed_up" has effect type "scrap_multiplier", not "lp_multiplier"
     expect(applyMomentumLpBonus(100, ["momentum_warmed_up"])).toBe(100);
+  });
+});
+
+describe("responsibility reset awards", () => {
+  it("does not punish spending currency earned during the current era", () => {
+    const teamBanked = calculateTeamPoints({ lifetimeLPThisTeamEra: 250, teamEraCount: 1, unspentLP: 250 });
+    const teamSpent = calculateTeamPoints({ lifetimeLPThisTeamEra: 250, teamEraCount: 1, unspentLP: 0 });
+    expect(teamSpent).toBe(teamBanked);
+    expect(teamBanked).toBe(15);
+
+    const ownerBanked = calculateOwnerPoints({ lifetimeTPThisOwnerEra: 600, ownerEraCount: 1, unspentTP: 600 });
+    const ownerSpent = calculateOwnerPoints({ lifetimeTPThisOwnerEra: 600, ownerEraCount: 1, unspentTP: 0 });
+    expect(ownerSpent).toBe(ownerBanked);
+    expect(ownerBanked).toBe(50);
+
+    const trackBanked = calculateTrackTokens({ lifetimeOPThisTrackEra: 1_000, trackEraCount: 1, unspentOP: 1_000 });
+    const trackSpent = calculateTrackTokens({ lifetimeOPThisTrackEra: 1_000, trackEraCount: 1, unspentOP: 0 });
+    expect(trackSpent).toBe(trackBanked);
+    expect(trackBanked).toBe(118);
   });
 });
 
