@@ -12,8 +12,12 @@ import { isFeatureAvailable } from "@/config/features";
 
 type UpgradeSubTab = "legacy" | "prestige" | "trophies" | "team" | "owner" | "track";
 
-export default function UpgradesPanel() {
-  const [activeTab, setActiveTab] = useState<UpgradeSubTab>("legacy");
+interface UpgradesPanelProps {
+  initialTab?: UpgradeSubTab;
+}
+
+export default function UpgradesPanel({ initialTab = "legacy" }: UpgradesPanelProps) {
+  const [activeTab, setActiveTab] = useState<UpgradeSubTab>(initialTab);
   const unlockedFeatures = useGameStore((s) => s.unlockedFeatures);
   const teamEraCount = useGameStore((s) => s.teamEraCount);
   const ownerEraCount = useGameStore((s) => s.ownerEraCount);

@@ -141,7 +141,8 @@ describe("actual four-layer reset retention", () => {
       load(testCase.fixture);
       const before = getPersistedGameState(useGameStore.getState());
       const awardBefore = { scrap: before.legacyPoints, team: before.teamPoints, owner: before.ownerPoints, track: before.trackPrestigeTokens }[testCase.layer];
-      useGameStore.getState()[testCase.action]();
+      if (testCase.action === "teamReset") useGameStore.getState().teamReset("engineering_works");
+      else useGameStore.getState()[testCase.action]();
       const after = getPersistedGameState(useGameStore.getState());
       const awardAfter = { scrap: after.legacyPoints, team: after.teamPoints, owner: after.ownerPoints, track: after.trackPrestigeTokens }[testCase.layer];
       expect(awardAfter).toBeGreaterThan(awardBefore);

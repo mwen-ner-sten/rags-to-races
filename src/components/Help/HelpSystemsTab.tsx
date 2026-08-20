@@ -258,7 +258,8 @@ export default function HelpSystemsTab() {
           {/* Team Reset (Layer 2) */}
           <SystemSection icon="🏢" title="Team Reset (Layer 2)">
             <div className="space-y-3">
-              <p>Second prestige layer. Unlocks at 200 lifetime LP. Costs accumulated LP, grants Team Points (TP). Resets LP, legacy upgrades, and everything below.</p>
+              <p>Second prestige layer. Unlocks at 200 lifetime LP and grants Team Points (TP). Every Team Reset requires a no-cost Team Operating Philosophy: Junkyard Works retains a Scout lead, Engineering Works a Mechanic lead, and Driver-Led Team a Driver lead. The choice changes only at the next Team Reset.</p>
+              <p>This operating identity is separate from the LP-funded Garage Philosophy. Auto-Scavenge and Auto-Race remain unlocked, the highest-XP matching lead keeps their identity and specialization, and other crew expertise is cleared.</p>
               {HELP_TEAM_UPGRADES_BY_CATEGORY.map((group) => (
                 <div key={group.category}>
                   <div className="text-xs font-semibold uppercase" style={{ color: "var(--text-muted)" }}>{group.label}</div>
@@ -294,7 +295,7 @@ export default function HelpSystemsTab() {
                   </div>
                 );
               })}
-              <p>Crew persist through Scrap Resets and reset on Team Reset. Team Points and discovered blueprints remain for the next team era.</p>
+              <p>Crew persist through Scrap Resets. Team Reset retains the department head selected by your Team Operating Philosophy and clears the rest; Talent Academy fills missing roles without replacing that lead. Team Points and discovered blueprints remain for the next team era.</p>
             </div>
           </SystemSection>
 

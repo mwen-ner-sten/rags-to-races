@@ -84,7 +84,8 @@ describe("vehicle blueprint state transitions", () => {
         unlockedVehicleIds: ["push_mower", "hypercar", "prototype_x"],
       });
 
-      useGameStore.getState()[action]();
+      if (action === "teamReset") useGameStore.getState().teamReset("engineering_works");
+      else useGameStore.getState()[action]();
 
       expect(useGameStore.getState().unlockedVehicleIds, action).toEqual(
         expect.arrayContaining(["push_mower", "hypercar", "prototype_x"]),

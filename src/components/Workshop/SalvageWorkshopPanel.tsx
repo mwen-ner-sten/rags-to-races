@@ -50,6 +50,10 @@ import {
 
 type WorkshopTab = "inventory" | "fabrication" | "addons" | "dealer" | "stations" | "philosophy" | "skills" | "facilities";
 
+interface SalvageWorkshopPanelProps {
+  initialTab?: WorkshopTab;
+}
+
 const TABS: { id: WorkshopTab; label: string }[] = [
   { id: "inventory", label: "Inventory" },
   { id: "fabrication", label: "Fabrication" },
@@ -102,8 +106,8 @@ const STATION_REDUCTION_BONUSES = new Set<Extract<StationEquipmentEffect, { type
   "fatigue_rate_reduction",
 ]);
 
-export default function SalvageWorkshopPanel() {
-  const [tab, setTab] = useState<WorkshopTab>("inventory");
+export default function SalvageWorkshopPanel({ initialTab = "inventory" }: SalvageWorkshopPanelProps) {
+  const [tab, setTab] = useState<WorkshopTab>(initialTab);
   return (
     <div className="flex flex-col gap-4">
       <div>

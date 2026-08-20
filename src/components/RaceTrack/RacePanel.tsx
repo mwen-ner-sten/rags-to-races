@@ -1,10 +1,11 @@
 "use client";
 
 import { useGameStore } from "@/state/store";
-import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
+import { CIRCUIT_DEFINITIONS, type CircuitDefinition } from "@/data/circuits";
 import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { calculateOdds } from "@/engine/race";
+import { calculateVehicleOdds, calculateVehicleRaceForecast } from "@/engine/race";
+import type { BuiltVehicle } from "@/engine/build";
 import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
 import { getRaceTicksNeeded } from "@/engine/tick";
@@ -22,7 +23,11 @@ import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { TALENT_NODES } from "@/data/talentNodes";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
-import { buildEngineeringReport, findDiagnosticVehicle } from "@/engine/engineeringDiagnostics";
+import { buildEngineeringReport, findDiagnosticVehicle, type EngineeringPriority } from "@/engine/engineeringDiagnostics";
+import type { CoreSlot } from "@/data/parts";
+import { BUILD_IDENTITIES } from "@/data/buildIdentities";
+import { buildRaceControlBriefing, type RaceControlCallId } from "@/engine/raceControl";
+import { RACE_CONTROL_RACES_PER_OPPORTUNITY } from "@/config/gameplayLimits";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -36,6 +41,13 @@ function EventIcon({ type }: { type: RaceEvent["type"] }) {
         <svg {...common} aria-hidden="true">
           <circle cx="8" cy="8" r="6" fill="none" stroke="var(--success)" strokeWidth="1.5" />
           <polygon points="6,5 12,8 6,11" fill="var(--success)" />
+        </svg>
+      );
+    case "race_control":
+      return (
+        <svg {...common} aria-hidden="true">
+          <circle cx="8" cy="8" r="5" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
+          <path d="M5,8 L7,10 L11,5" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     case "position_change":
@@ -212,9 +224,8 @@ function LiveRaceView({
 // ── Odds Display ────────────────────────────────────────────────────────
 
 function OddsDisplay({
-  performance,
-  reliability,
-  difficulty,
+  vehicle,
+  circuit,
   prestigeBonus,
   fatigue,
   gearPerformanceBonus,
@@ -222,14 +233,13 @@ function OddsDisplay({
   skillPerformanceMult,
   skillDnfReduction,
   momentumWinBonus,
-  profile,
   plan,
   diagnosticsLevel,
   dnfChanceMultiplier,
+  showBuildDirection,
 }: {
-  performance: number;
-  reliability: number;
-  difficulty: number;
+  vehicle: BuiltVehicle;
+  circuit: CircuitDefinition;
   prestigeBonus: number;
   fatigue: number;
   gearPerformanceBonus: number;
@@ -237,16 +247,16 @@ function OddsDisplay({
   skillPerformanceMult: number;
   skillDnfReduction: number;
   momentumWinBonus: number;
-  profile: CircuitProfile;
   plan: RacePlan;
   diagnosticsLevel: number;
   dnfChanceMultiplier: number;
+  showBuildDirection: boolean;
 }) {
-  const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, false, evaluation, dnfChanceMultiplier),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, evaluation, dnfChanceMultiplier],
+    () => calculateVehicleOdds({ vehicle, circuit, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, racePlan: plan, dnfChanceMultiplier }),
+    [vehicle, circuit, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, plan, dnfChanceMultiplier],
   );
+  const evaluation = odds.planEvaluation;
   const forecast = useMemo(() => buildRaceForecast(odds.winChance, odds.dnfChance, 5, evaluation, diagnosticsLevel), [odds, evaluation, diagnosticsLevel]);
 
   const winStyle: React.CSSProperties = odds.winChance >= 0.5
@@ -282,7 +292,141 @@ function OddsDisplay({
       )}
       <span style={{ color: "var(--text-muted)" }}>· Wear {Math.round(forecast.wear.min)}–{Math.round(forecast.wear.max)}</span>
       <span style={{ color: forecast.fuelRisk.max > 0.15 ? "var(--warning)" : "var(--text-muted)" }}>· Fuel risk {Math.round(forecast.fuelRisk.min * 100)}–{Math.round(forecast.fuelRisk.max * 100)}%</span>
+      {showBuildDirection && (
+        <span className="basis-full" data-testid="circuit-fit" style={{ color: "var(--text-secondary)" }}>
+          <strong style={{ color: "var(--accent)" }}>
+            {odds.buildEvaluation.profile.identity
+              ? BUILD_IDENTITIES[odds.buildEvaluation.profile.identity].label
+              : "No clear build direction yet"} · {circuit.name}
+          </strong>{" "}
+          Circuit-adjusted performance {vehicle.stats.performance.toFixed(1)} → {(vehicle.stats.performance * odds.buildEvaluation.performanceMultiplier).toFixed(1)} ({odds.buildEvaluation.performanceMultiplier >= 1 ? "+" : ""}{((odds.buildEvaluation.performanceMultiplier - 1) * 100).toFixed(1)}%). Race-plan effects are shown below.
+        </span>
+      )}
     </div>
+  );
+}
+
+function signedPercent(value: number): string {
+  const rounded = Math.round(value * 100);
+  return `${rounded > 0 ? "+" : ""}${rounded}%`;
+}
+
+function signedPoints(value: number): string {
+  const points = value * 100;
+  return `${points > 0 ? "+" : ""}${points.toFixed(1)} points`;
+}
+
+function RaceControlBriefing({
+  vehicle,
+  circuit,
+  prestigeBonus,
+  fatigue,
+  gearPerformanceBonus,
+  gearDnfReduction,
+  skillPerformanceMult,
+  skillDnfReduction,
+  momentumWinBonus,
+  plan,
+  diagnosticsLevel,
+  dnfChanceMultiplier,
+  selectedCall,
+  onSelect,
+  onConfirm,
+  onCancel,
+}: {
+  vehicle: BuiltVehicle;
+  circuit: CircuitDefinition;
+  prestigeBonus: number;
+  fatigue: number;
+  gearPerformanceBonus: number;
+  gearDnfReduction: number;
+  skillPerformanceMult: number;
+  skillDnfReduction: number;
+  momentumWinBonus: number;
+  plan: RacePlan;
+  diagnosticsLevel: number;
+  dnfChanceMultiplier: number;
+  selectedCall: RaceControlCallId;
+  onSelect: (call: RaceControlCallId) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const briefing = useMemo(() => buildRaceControlBriefing(circuit.profile), [circuit.profile]);
+  const forecasts = useMemo(() => Object.fromEntries(briefing.calls.map((call) => {
+    const { forecast } = calculateVehicleRaceForecast({
+      vehicle,
+      circuit,
+      prestigeBonus,
+      fatigue,
+      gearPerformanceBonus,
+      gearDnfReduction,
+      skillPerformanceMult,
+      skillDnfReduction,
+      momentumWinBonus,
+      racePlan: plan,
+      dnfChanceMultiplier,
+      raceControlCallId: call.id,
+    }, diagnosticsLevel);
+    return [call.id, forecast];
+  })), [briefing.calls, vehicle, circuit, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, plan, dnfChanceMultiplier, diagnosticsLevel]);
+
+  const selected = briefing.calls.find((call) => call.id === selectedCall)!;
+  return (
+    <section
+      className="rounded-lg border p-3 sm:p-4"
+      style={{ borderColor: "var(--accent-border)", background: "var(--accent-bg)" }}
+      role="region"
+      aria-labelledby="race-control-briefing-heading"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 id="race-control-briefing-heading" className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+            Race Control briefing
+          </h3>
+          <p className="mt-1 text-sm font-semibold" style={{ color: "var(--text-white)" }}>{briefing.context}</p>
+          <p className="mt-1 text-xs" style={{ color: "var(--text-heading)" }}>{briefing.detail}</p>
+        </div>
+        <span className="rounded px-2 py-1 text-xs font-semibold" style={{ background: "var(--divider)", color: "var(--text-heading)" }}>
+          1 call available
+        </span>
+      </div>
+      <fieldset className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+        <legend className="sr-only">Choose a Race Control call</legend>
+        {briefing.calls.map((call) => {
+          const forecast = forecasts[call.id];
+          return (
+            <label
+              key={call.id}
+              className="flex min-h-11 cursor-pointer gap-2 rounded border p-3"
+              style={{ borderColor: selectedCall === call.id ? "var(--panel-border-active)" : "var(--panel-border)", background: "var(--panel-bg)" }}
+            >
+              <input type="radio" name="race-control-call" value={call.id} checked={selectedCall === call.id} onChange={() => onSelect(call.id)} />
+              <span className="min-w-0">
+                <strong className="text-sm" style={{ color: "var(--text-white)" }}>{call.label}</strong>
+                <span className="mt-1 block text-xs" style={{ color: "var(--text-secondary)" }}>{call.description}</span>
+                <span className="mt-2 block text-xs font-semibold" style={{ color: "var(--text-heading)" }}>
+                  {signedPercent(call.effect.performanceMultiplier - 1)} pace · {signedPoints(call.effect.dnfDelta)} DNF · {signedPercent(call.effect.wearMultiplier - 1)} wear
+                </span>
+                <span className="mt-1 block text-xs" style={{ color: "var(--text-muted)" }}>
+                  Forecast: {Math.round(forecast.winChance.min * 100)}–{Math.round(forecast.winChance.max * 100)}% win · {Math.round(forecast.dnfRisk.min * 100)}–{Math.round(forecast.dnfRisk.max * 100)}% DNF · wear {Math.round(forecast.wear.min)}–{Math.round(forecast.wear.max)}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
+      <p className="mt-3 text-xs" style={{ color: "var(--text-muted)" }}>
+        This optional call affects only this manual race. Auto and offline races continue under the standing Race Plan.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" onClick={onConfirm} className="min-h-11 rounded px-4 py-2 text-sm font-bold" style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}>
+          Confirm {selected.label}
+        </button>
+        <button type="button" onClick={onCancel} className="min-h-11 rounded border px-4 py-2 text-sm font-semibold" style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}>
+          Save call for later
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -338,7 +482,13 @@ function StreakDisplay({ streak, best }: { streak: number; best: number }) {
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
-export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId) => void }) {
+export default function RacePanel({
+  setActiveTab,
+  onInspectBuild,
+}: {
+  setActiveTab?: (tab: TabId) => void;
+  onInspectBuild?: (vehicleId: string, slot: CoreSlot, priority: EngineeringPriority, action: string) => void;
+}) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
   const garage = useGameStore((s) => s.garage);
@@ -369,8 +519,13 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
   const currentRacePlan = useGameStore((s) => s.currentRacePlan);
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const lifetimeScrapResets = useGameStore((s) => s.lifetimeScrapResets);
+  const toolkitLevel = useGameStore((s) => s.workshopLevels.toolkit ?? 0);
   const setRacePlan = useGameStore((s) => s.setRacePlan);
   const applyRacePlanPreset = useGameStore((s) => s.applyRacePlanPreset);
+  const raceControlRaceProgress = useGameStore((s) => s.raceControlRaceProgress);
+  const raceControlOpportunityReady = useGameStore((s) => s.raceControlOpportunityReady);
 
   // Compute how many ticks are needed between auto-races
   const raceTicksNeeded = useGameStore(getRaceTicksNeeded);
@@ -378,6 +533,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   // Track when result changes to trigger confetti/shake via Zustand subscription
   const [confettiKey, setConfettiKey] = useState<number | null>(null);
   const [resultAnimClass, setResultAnimClass] = useState("");
+  const [showRaceControl, setShowRaceControl] = useState(false);
+  const [selectedRaceControlCall, setSelectedRaceControlCall] = useState<RaceControlCallId>("standing");
   const confettiCounterRef = useRef(0);
 
   useEffect(() => {
@@ -457,9 +614,10 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const resultCircuit = lastRaceOutcome
     ? CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === lastRaceOutcome.circuitId)
     : undefined;
-  const engineeringReport = resultVehicle && resultCircuit && lastRaceOutcome
-    ? buildEngineeringReport(resultVehicle, resultCircuit, lastRaceOutcome)
-    : null;
+  const engineeringReport = lastRaceOutcome?.engineeringReport
+    ?? (resultVehicle && resultCircuit && lastRaceOutcome
+      ? buildEngineeringReport(resultVehicle, resultCircuit, lastRaceOutcome)
+      : null);
   const sb = getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0);
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const raceIneligibilityReason = getRaceIneligibilityReason({
@@ -637,9 +795,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         {activeVehicle && selectedCircuit && (
           <div data-tutorial="odds-display">
           <OddsDisplay
-            performance={activeVehicle.stats.performance}
-            reliability={activeVehicle.stats.reliability}
-            difficulty={selectedCircuit.difficulty}
+            vehicle={activeVehicle}
+            circuit={selectedCircuit}
             prestigeBonus={1}
             fatigue={fatigue}
             gearPerformanceBonus={gb.race_performance_pct + teamRacePerformance + permanentRaceBonuses.racePerformanceBonus}
@@ -647,25 +804,64 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
             momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
-            profile={selectedCircuit.profile}
             plan={currentRacePlan}
             diagnosticsLevel={diagnosticsLevel}
             dnfChanceMultiplier={permanentRaceBonuses.raceDnfChanceMultiplier}
+            showBuildDirection={tutorialStep === -1 && (toolkitLevel >= 1 || lifetimeScrapResets > 0)}
           />
           </div>
+        )}
+
+        {showRaceControl && raceControlOpportunityReady && activeVehicle && selectedCircuit && (
+          <RaceControlBriefing
+            vehicle={activeVehicle}
+            circuit={selectedCircuit}
+            prestigeBonus={1}
+            fatigue={fatigue}
+            gearPerformanceBonus={gb.race_performance_pct + teamRacePerformance + permanentRaceBonuses.racePerformanceBonus}
+            gearDnfReduction={gb.race_dnf_reduction + permanentRaceBonuses.raceDnfFlatReduction}
+            skillPerformanceMult={sb.drivingPerformanceMult}
+            skillDnfReduction={sb.drivingDnfReduction}
+            momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
+            plan={currentRacePlan}
+            diagnosticsLevel={diagnosticsLevel}
+            dnfChanceMultiplier={permanentRaceBonuses.raceDnfChanceMultiplier}
+            selectedCall={selectedRaceControlCall}
+            onSelect={setSelectedRaceControlCall}
+            onConfirm={() => {
+              enterRace({
+                callId: selectedRaceControlCall,
+                vehicleId: activeVehicle.id,
+                circuitId: selectedCircuit.id,
+              });
+              setShowRaceControl(false);
+            }}
+            onCancel={() => setShowRaceControl(false)}
+          />
         )}
 
         {/* Race button + streak */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <button
             data-tutorial="race-btn"
-            onClick={enterRace}
+            onClick={() => enterRace()}
             disabled={!canEnter}
             className="rounded-lg px-6 py-2.5 font-bold text-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
             style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
           >
             {isRacing ? "Racing..." : "Enter Race"}
           </button>
+          {raceControlOpportunityReady && (
+            <button
+              type="button"
+              onClick={() => setShowRaceControl(true)}
+              disabled={!canEnter}
+              className="min-h-11 rounded-lg border px-4 py-2 text-sm font-bold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ borderColor: "var(--accent-border)", color: "var(--accent)", background: "var(--accent-bg)" }}
+            >
+              Use Race Control
+            </button>
+          )}
           {!autoRaceUnlocked && prestigeCount === 0 && (
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>
               Auto-Race unlocks after the first Scrap Reset
@@ -699,6 +895,11 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 </div>
               )}
             </div>
+          )}
+          {prestigeCount >= 1 && !raceControlOpportunityReady && (
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Race Control {raceControlRaceProgress}/{RACE_CONTROL_RACES_PER_OPPORTUNITY}
+            </span>
           )}
           <StreakDisplay streak={winStreak} best={bestWinStreak} />
           <span className={`text-xs ${selectedCircuit && !canEnter && !isRacing ? "" : "invisible"}`} style={{ color: "var(--text-muted)" }}>
@@ -801,7 +1002,18 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                   </p>
                   <button
                     type="button"
-                    onClick={() => setActiveTab?.("garage")}
+                    onClick={() => {
+                      if (resultVehicle && engineeringReport.slot && onInspectBuild) {
+                        onInspectBuild(
+                          resultVehicle.id,
+                          engineeringReport.slot,
+                          engineeringReport.priority,
+                          engineeringReport.action,
+                        );
+                      } else {
+                        setActiveTab?.("garage");
+                      }
+                    }}
                     className="min-h-11 shrink-0 self-start rounded px-3 py-2 text-xs font-bold transition active:scale-95 sm:self-center"
                     style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
                   >

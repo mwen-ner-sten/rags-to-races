@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { CoreSlot } from "@/data/parts";
+import type { EngineeringPriority } from "@/engine/engineeringDiagnostics";
 import { useGameStore, type LogCategory } from "@/state/store";
+import EngineeringNotebook from "./EngineeringNotebook";
 
 const CATEGORIES: { id: LogCategory | "all"; label: string }[] = [
   { id: "all", label: "All" },
@@ -42,11 +45,19 @@ function formatTimeAgo(ts: number): string {
   return `${hours}h`;
 }
 
-export default function HelpActivityTab({ setActiveTab }: { setActiveTab?: (tab: "junkyard" | "race") => void }) {
+export default function HelpActivityTab({
+  setActiveTab,
+  onInspectBuild,
+}: {
+  setActiveTab?: (tab: "junkyard" | "race") => void;
+  onInspectBuild?: (vehicleId: string, slot: CoreSlot, priority: EngineeringPriority, action: string) => void;
+}) {
   const [filter, setFilter] = useState<LogCategory | "all">("all");
   const [, setTick] = useState(0);
 
   const activityLog = useGameStore((s) => s.activityLog);
+  const raceHistory = useGameStore((s) => s.raceHistory);
+  const garage = useGameStore((s) => s.garage);
   const clearActivityLog = useGameStore((s) => s.clearActivityLog);
 
   // Update relative timestamps every 10s
@@ -72,17 +83,20 @@ export default function HelpActivityTab({ setActiveTab }: { setActiveTab?: (tab:
       flexDirection: "column",
       overflow: "hidden",
     }}>
+      <EngineeringNotebook raceHistory={raceHistory} garage={garage} onInspectBuild={onInspectBuild} />
+
       {/* Header */}
-      <div className="mobile-natural-scroll" style={{
+      <div style={{
         padding: "12px 16px 8px",
+        borderTop: "1px solid rgba(255,255,255,.08)",
         borderBottom: "1px solid rgba(255,255,255,.08)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.7)" }}>
+        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.7)" }}>
           Activity Log
-        </span>
+        </h2>
         <button
           onClick={clearActivityLog}
           style={{
@@ -134,7 +148,7 @@ export default function HelpActivityTab({ setActiveTab }: { setActiveTab?: (tab:
       </div>
 
       {/* Log entries */}
-      <div style={{
+      <div className="mobile-natural-scroll" style={{
         overflowY: "auto",
         minHeight: 0,
         maxHeight: "calc(100vh - 320px)",

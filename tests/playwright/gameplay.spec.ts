@@ -3,9 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   AUTO_SCAVENGE_MANUAL_TARGET,
   MAX_OFFLINE_DURATION_MS,
+  RACE_CONTROL_RACES_PER_OPPORTUNITY,
   STATION_EQUIPMENT_INVENTORY_LIMIT,
 } from "../../src/config/gameplayLimits";
-import { SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
+import { RESPONSIBILITY_RESET_REQUIREMENTS, SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
 import { HIDDEN_THEMES, THEMES } from "../../src/data/themes";
 import { FATIGUE_DRINK_COST, FATIGUE_DRINK_RECOVERY } from "../../src/data/workshopActions";
 import { formatNumber } from "../../src/utils/format";
@@ -176,6 +177,8 @@ test("portaled tutorial follows a persisted non-default theme", async ({ page })
 test("@smoke full Dev save reset stays on the starting Salvage flow", async ({ page }) => {
   await loadFixture(page, "maxed", { tutorialStep: 22, tutorialDismissed: true });
   await openTab(page, "dev");
+  const dismissCoach = page.getByRole("button", { name: /Dismiss .* coaching/ });
+  if (await dismissCoach.isVisible()) await dismissCoach.click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Full Save Reset" }).click();
   await expect(page.getByRole("heading", { name: "Rags to Races" })).toBeVisible();
@@ -373,8 +376,332 @@ test("@smoke tutorial first race uses the displayed simulation", async ({ page }
   expect(["win", "loss", "dnf"]).toContain(outcome?.result);
   expect(outcome?.repEarned).toBeGreaterThan(0);
   await expect(page.getByRole("heading", { name: "Engineering Debrief" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Inspect Build" })).toBeVisible();
+  const inspectBuild = page.getByRole("button", { name: "Inspect Build" });
+  await expect(inspectBuild).toBeVisible();
   await expect(page.getByTestId("tutorial-card").getByText(/won|exploded|not first/i)).toBeVisible();
+  await inspectBuild.click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", "fixture_vehicle_10_push_mower");
+  await expect(diagnosis).toHaveAttribute("data-slot", "wheel");
+  await expect(diagnosis).toHaveAccessibleName(/race diagnosis for push mower wheel/i);
+  await expect(diagnosis).toContainText("Basic Tire");
+  await expect(diagnosis).toContainText(/Toolkit.*40 Rep/i);
+  await expect(diagnosis).toBeFocused();
+  await expect(page.getByRole("button", { name: /^Compare wheel installed part/ })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+  const dismissDiagnosis = diagnosis.getByRole("button", { name: "Dismiss" });
+  if ((page.viewportSize()?.width ?? 0) <= 640) {
+    expect((await dismissDiagnosis.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+  await dismissDiagnosis.click();
+  await expect(page.getByTestId("garage-diagnosis")).toHaveCount(0);
+  const focusedVehicle = page.locator('[data-vehicle-card-id="fixture_vehicle_10_push_mower"]');
+  await expect(focusedVehicle).toBeFocused();
+  await expect(focusedVehicle).toHaveAccessibleName(/Push Mower/i);
+});
+
+test("Race Control is an untimed keyboard-accessible optional manual call", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x51a7c011);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    prestigeCount: 1,
+    autoRaceUnlocked: true,
+    raceControlRaceProgress: RACE_CONTROL_RACES_PER_OPPORTUNITY,
+    raceControlOpportunityReady: true,
+    raceControlCallEscrowed: false,
+  });
+  await openTab(page, "race");
+  const cashBeforeBriefing = (await persistedState(page)).scrapBucks;
+
+  const useRaceControl = page.getByRole("button", { name: "Use Race Control" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    expect((await useRaceControl.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+  await useRaceControl.focus();
+  await page.keyboard.press("Enter");
+  const briefing = page.getByRole("region", { name: "Race Control briefing" });
+  await expect(briefing).toBeVisible();
+  await expect(briefing.getByText(/Changing weather|Mechanical warning|Pace window/)).toBeVisible();
+  await expect(briefing.getByText(/reaction|timer|seconds/i)).toHaveCount(0);
+  expect((await persistedState(page)).scrapBucks).toBe(cashBeforeBriefing);
+
+  const protect = briefing.getByRole("radio", { name: /Protect/ });
+  await protect.focus();
+  await page.keyboard.press("Space");
+  await expect(protect).toBeChecked();
+  await expect(briefing.getByText(/-3% pace/i)).toBeVisible();
+  await expect(briefing.getByText(/-2.5 points DNF/i)).toBeVisible();
+  await expect(briefing.getByText(/-12% wear/i)).toBeVisible();
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+
+  const confirm = briefing.getByRole("button", { name: "Confirm Protect" });
+  const saveForLater = briefing.getByRole("button", { name: "Save call for later" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    for (const radio of await briefing.getByRole("radio").all()) {
+      const label = radio.locator("xpath=ancestor::label");
+      expect((await label.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    }
+    expect((await confirm.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    expect((await saveForLater.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await saveForLater.scrollIntoViewIfNeeded();
+    const navBox = await page.getByTestId("mobile-nav").boundingBox();
+    const saveBox = await saveForLater.boundingBox();
+    expect((saveBox?.y ?? 0) + (saveBox?.height ?? 0)).toBeLessThanOrEqual(navBox?.y ?? Number.POSITIVE_INFINITY);
+  }
+  await confirm.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Enter Race" })).toBeEnabled({ timeout: 12_000 });
+
+  const state = await persistedState(page);
+  const calledOutcome = (state.raceHistory as Array<{ raceControlCall?: { id: string } }>)[0];
+  expect(calledOutcome.raceControlCall?.id).toBe("protect");
+  expect(state.raceControlOpportunityReady).toBe(false);
+  expect(state.raceControlCallEscrowed).toBe(false);
+  await expect(page.getByText(/Race Control: Protect/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unlocked", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  const duplicate = structuredClone(garage[0]);
+  duplicate.id = "duplicate_vehicle_with_same_parts";
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 9,
+    tutorialDismissed: false,
+    garage: [duplicate, garage[0]],
+    raceHistory: [],
+    repPoints: 0,
+    lifetimeRacesAllTime: 0,
+    workshopLevels: { toolkit: 1 },
+  });
+  await openTab(page, "race");
+  await page.getByRole("button", { name: "Got it" }).click();
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", garage[0].id);
+  await expect(page.getByTestId("garage-diagnosis")).toHaveCount(1);
+  const comparisonId = `part-comparison-${garage[0].id}-wheel`;
+  const diagnosedToggle = page.locator(`[aria-controls="${comparisonId}"]`);
+  await expect(diagnosedToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(`#${comparisonId}`)).toBeVisible();
+});
+
+test("repair-priority diagnosis keeps repair intent and comparison collapsed", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 7);
+  const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  garage[0].condition = 33;
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage,
+    workshopLevels: { toolkit: 1 },
+    raceHistory: [],
+  });
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await expect(page.getByRole("button", { name: "Open Garage" })).toBeVisible();
+  await page.getByRole("button", { name: "Open Garage" }).click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toContainText("Repair first");
+  const diagnosedToggle = page.locator(`[aria-controls="part-comparison-${garage[0].id}-wheel"]`);
+  await expect(diagnosedToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("button", { name: /Repair to 100%/ })).toBeFocused();
+});
+
+test("repair-priority diagnosis focuses its named region when repair is unavailable", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 7);
+  const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  garage[0].condition = 33;
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    scrapBucks: 0,
+    garage,
+    workshopLevels: { toolkit: 1 },
+    raceHistory: [],
+  });
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Open Garage" }).click();
+
+  const diagnosis = page.getByRole("region", { name: /Race diagnosis for Push Mower wheel/ });
+  await expect(diagnosis).toBeFocused();
+  await expect(page.getByRole("button", { name: /Repair to 100%/ })).toBeDisabled();
+});
+
+test("race debrief preserves its stored report after the garage build changes", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const vehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  vehicle.stats.reliability = 100;
+  const replacementWheel = structuredClone(fixtures.maxed.payload.state.inventory.find((item) => item.definitionId === "wheel_busted")!);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [vehicle],
+    inventory: [replacementWheel],
+    workshopLevels: { toolkit: 1 },
+  });
+
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await expect(page.getByText(/relevant Basic Tire/i)).toBeVisible();
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  await page.getByRole("button", { name: /^Install Busted Wheel/ }).click();
+
+  await openTab(page, "race");
+  await expect(page.getByText(/relevant Basic Tire/i)).toBeVisible();
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  await expect(page.getByTestId("garage-diagnosis")).toHaveAttribute("data-slot", "wheel");
+});
+
+test("Engineering Notebook keeps race-time evidence honest on desktop and mobile", async ({ page }) => {
+  const racedVehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  const storedReport = {
+    headline: "Stored race-time diagnosis",
+    focus: "grip",
+    priority: "component",
+    component: "Basic Tire",
+    componentCondition: "rusted",
+    vehicleCondition: 77,
+    slot: "wheel",
+    observation: "Stored evidence from the raced build.",
+    action: "Replace the recorded tire before the rematch.",
+  };
+  const baseOutcome = {
+    result: "loss",
+    position: 4,
+    totalRacers: 8,
+    scrapsEarned: 4,
+    repEarned: 1,
+    log: ["Fixture race"],
+    circuitId: "backyard_derby",
+  };
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [racedVehicle],
+    activeVehicleId: racedVehicle.id,
+    raceHistory: [
+      { ...baseOutcome, vehicleId: racedVehicle.id, engineeringReport: storedReport },
+      { ...baseOutcome, result: "dnf", position: 8, vehicleId: "sold-race-car", engineeringReport: { ...storedReport, focus: "reliability", headline: "Stored sold-car diagnosis" } },
+      { ...baseOutcome, result: "win", position: 1 },
+    ],
+  });
+
+  await openTab(page, "log");
+  const notebook = page.getByTestId("engineering-notebook");
+  await expect(notebook.getByRole("heading", { name: "Engineering Notebook" })).toBeVisible();
+  await expect(notebook.getByTestId("engineering-history-entry")).toHaveCount(3);
+  await expect(notebook).toContainText("Push Mower");
+  await expect(notebook).toContainText(racedVehicle.id);
+  await expect(notebook).toContainText("Component condition");
+  await expect(notebook).toContainText("Rusted");
+  await expect(notebook).toContainText("Vehicle condition");
+  await expect(notebook).toContainText("77%");
+  await expect(notebook).toContainText("Stored evidence from the raced build.");
+  await expect(notebook).toContainText("Replace the recorded tire before the rematch.");
+  await expect(notebook).toContainText("Vehicle no longer in garage");
+  await expect(notebook).toContainText("Vehicle not recorded");
+  await expect(notebook).toContainText("No engineering report was recorded for this race.");
+  const inspectRacedBuild = notebook.getByRole("button", { name: `Inspect ${racedVehicle.id} wheel in Garage` });
+  await expect(inspectRacedBuild).toHaveCount(1);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(notebook).toBeVisible();
+  expect(await notebook.evaluate((element) => element.scrollHeight <= element.clientHeight || getComputedStyle(element).overflowY === "visible")).toBe(true);
+  const mobileNav = page.getByTestId("mobile-nav");
+  const lastEntry = notebook.getByTestId("engineering-history-entry").last();
+  await lastEntry.scrollIntoViewIfNeeded();
+  const [lastBox, navBox] = await Promise.all([lastEntry.boundingBox(), mobileNav.boundingBox()]);
+  expect(lastBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(lastBox!.y + lastBox!.height).toBeLessThanOrEqual(navBox!.y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+
+  await inspectRacedBuild.click();
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", racedVehicle.id);
+  await expect(diagnosis).toHaveAttribute("data-slot", "wheel");
+});
+
+test("build direction and circuit fit disclose after the tutorial on desktop and mobile", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 9,
+    tutorialDismissed: false,
+    workshopLevels: { toolkit: 1 },
+  });
+  await expect(page.locator('[data-testid^="build-direction-"]')).toHaveCount(0);
+
+  await replaceFixtureState(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    workshopLevels: { toolkit: 1 },
+    lifetimeScrapResets: 1,
+  });
+  await openTab(page, "garage");
+  await expect(page.locator('[data-testid^="build-direction-"]').first()).toContainText(/Redline Special|Cornering Rig|Finish-First Build|No clear build direction yet/);
+
+  await openTab(page, "race");
+  await expect(page.getByTestId("circuit-fit")).toContainText(/circuit-adjusted performance/i);
+  const viewport = page.viewportSize()!;
+  const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(documentWidth).toBeLessThanOrEqual(viewport.width);
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical")).toEqual([]);
+});
+
+test("garage diagnosis does not steal focus after an add-on mutation", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const vehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  vehicle.stats.reliability = 100;
+  const wheelAddon = structuredClone(fixtures.maxed.payload.state.inventory.find((item) => item.definitionId === "addon_wheel_spacers")!);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [vehicle],
+    inventory: [wheelAddon],
+    workshopLevels: { toolkit: 1, addon_bench: 1 },
+  });
+
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  const comparison = page.getByRole("button", { name: /^Compare wheel installed part/ });
+  const installAddon = page.getByRole("button", { name: /Install Wheel Spacers/ });
+  await expect(diagnosis).toBeFocused();
+  await comparison.focus();
+  await expect(comparison).toBeFocused();
+  await installAddon.evaluate((button: HTMLButtonElement) => button.click());
+
+  await expect(comparison).toBeFocused();
+  await expect(diagnosis).not.toBeFocused();
 });
 
 test("tutorial interrupted first race recovers to a retry instead of an empty step", async ({ page }) => {
@@ -455,6 +782,170 @@ test("@smoke tutorial releases navigation after the first repair", async ({ page
   expect((await persistedState(page)).tutorialStep).toBe(-1);
   await openTab(page, "gear");
   await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
+});
+
+test("part toggle names the add-on manager when only the add-on bench is unlocked", async ({ page }) => {
+  await loadFixture(page, "workshop_ready", {
+    workshopLevels: {
+      ...fixtures.workshop_ready.payload.state.workshopLevels,
+      toolkit: 0,
+      addon_bench: 1,
+    },
+  });
+  await openTab(page, "garage");
+
+  const toggle = page.getByRole("button", { name: /^Manage engine add-ons/ }).first();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const controlledId = await toggle.getAttribute("aria-controls");
+  expect(controlledId).toBeTruthy();
+  const controlledPanel = page.locator(`#${controlledId}`);
+  await expect(controlledPanel).toHaveCount(1);
+  await expect(controlledPanel).toBeVisible();
+});
+
+test("installed-part candidates expose textual condition and signed named stat deltas", async ({ page }) => {
+  const garage = structuredClone(fixtures.workshop_ready.payload.state.garage);
+  const inventory = structuredClone(fixtures.workshop_ready.payload.state.inventory);
+  const installedAddons = inventory.filter((part) =>
+    part.definitionId === "addon_air_filter" || part.definitionId === "addon_turbo_snail",
+  );
+  const candidateId = "e2e_comparison_candidate_engine_v4";
+  const candidatePart = {
+    ...inventory.find((part) => part.definitionId === "engine_v4" && part.condition === "decent")!,
+    id: candidateId,
+    condition: "decent" as const,
+  };
+  const firstVehicle = garage[0] as unknown as {
+    parts: { engine: { part: { id: string }; addons: typeof installedAddons } };
+  };
+  firstVehicle.parts.engine.addons = installedAddons;
+  await loadFixture(page, "workshop_ready", {
+    garage,
+    inventory: [
+      ...inventory.filter((part) => part.type === "addon" && !installedAddons.some((addon) => addon.id === part.id)),
+      candidatePart,
+    ],
+  });
+  await openTab(page, "garage");
+
+  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const pickerId = await toggle.getAttribute("aria-controls");
+  expect(pickerId).toBeTruthy();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const picker = page.locator(`#${pickerId}`);
+  await expect(picker).toBeVisible();
+  const candidate = picker.locator(`[data-candidate-instance-id="${candidateId}"]`);
+  await expect(candidate).toBeVisible();
+  await expect(candidate).toContainText("Condition: Decent");
+  await expect(candidate).toContainText(/Spd [+-]\d/);
+  await expect(candidate).toContainText(/Hnd [+-]\d/);
+  await expect(candidate).toContainText(/Rel [+-]\d/);
+  await expect(candidate).toContainText(/Perf [+-]\d/);
+  await expect(candidate).toContainText(/Wgt [+-]\d/);
+  await expect(candidate).toContainText("Warning: 1 add-on will return to inventory.");
+  await expect(candidate).toHaveAccessibleName(/Warning: 1 add-on will return to inventory/);
+  await expect(candidate).toContainText(/Without Gentle Swap.*condition/i);
+  await expect(candidate).toHaveAccessibleName(/speed [+-]\d.*handling [+-]\d.*reliability [+-]\d.*performance [+-]\d.*weight [+-]\d/i);
+
+  if ((page.viewportSize()?.width ?? 0) <= 640) {
+    const toggleBox = await toggle.boundingBox();
+    const candidateBox = await candidate.boundingBox();
+    expect(toggleBox?.height).toBeGreaterThanOrEqual(44);
+    expect(candidateBox?.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+
+  const originalPartId = firstVehicle.parts.engine.part.id;
+  const returnedAddonId = installedAddons[1].id;
+  await candidate.click();
+
+  await expect.poll(async () => {
+    const state = await persistedState(page) as unknown as {
+      garage: Array<{ id: string; parts: { engine: { part: { id: string } } } }>;
+      inventory: Array<{ id: string }>;
+    };
+    const persistedVehicle = state.garage.find((item) => item.id === garage[0].id)!;
+    const persistedInventoryIds = state.inventory.map((part) => part.id);
+    return {
+      installedPartId: persistedVehicle.parts.engine.part.id,
+      candidateWasRemoved: !persistedInventoryIds.includes(candidateId),
+      oldPartWasReturned: persistedInventoryIds.includes(originalPartId),
+      displacedAddonWasReturned: persistedInventoryIds.includes(returnedAddonId),
+    };
+  }).toEqual({
+    installedPartId: candidateId,
+    candidateWasRemoved: true,
+    oldPartWasReturned: true,
+    displacedAddonWasReturned: true,
+  });
+});
+
+test("diagnosis controls retain 44px targets at the inclusive 640px mobile boundary", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 844 });
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "garage");
+  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  await toggle.click();
+  const candidate = page.locator('[data-candidate-instance-id]').first();
+  await expect(candidate).toBeVisible();
+  for (const control of [toggle, candidate]) {
+    expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
+test("optional coaching navigates without progress mutation, never locks navigation, and stays dismissed after reload", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialCompleted: true,
+    tutorialDismissed: true,
+    raceHistory: [structuredClone(fixtures.first_scrap_reset_ready.payload.state.raceHistory[0])],
+    repPoints: 25,
+    workshopLevels: {},
+    dismissedContextualCoachIds: [],
+  });
+
+  const coach = page.getByRole("status", { name: "Next step: compare your parts" });
+  await expect(coach).toBeVisible();
+  const coachBox = await coach.boundingBox();
+  const viewport = page.viewportSize();
+  expect(coachBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(coachBox!.x).toBeGreaterThanOrEqual(0);
+  expect(coachBox!.x + coachBox!.width).toBeLessThanOrEqual(viewport!.width);
+  const mobileNav = page.getByTestId("mobile-nav");
+  if (await mobileNav.isVisible()) {
+    const mobileNavBox = await mobileNav.boundingBox();
+    expect(mobileNavBox).not.toBeNull();
+    expect(coachBox!.y + coachBox!.height).toBeLessThanOrEqual(mobileNavBox!.y);
+  }
+  const before = await persistedState(page);
+
+  await coach.getByRole("button", { name: "Open Workshop Facilities" }).click();
+  await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Scavenging/ })).toBeVisible();
+
+  const afterNavigation = await persistedState(page);
+  for (const field of ["scrapBucks", "repPoints", "lifetimeScrapBucks", "garage", "inventory", "raceHistory"] as const) {
+    expect(afterNavigation[field], `${field} changed from coaching CTA`).toEqual(before[field]);
+  }
+
+  await openTab(page, "race");
+  await expect(page.getByRole("button", { name: "Enter Race" })).toBeVisible();
+  await openTab(page, "gear");
+  await expect(page.locator('[role="tab"]').filter({ hasText: /^Inventory$/ }).first()).toHaveAttribute("aria-selected", "true");
+  await coach.getByRole("button", { name: "Dismiss compare your parts coaching" }).click();
+  await expect(coach).toHaveCount(0);
+  await expect.poll(async () => (await persistedState(page)).dismissedContextualCoachIds).toEqual(["toolkit"]);
+
+  await page.reload();
+  await expect(page.getByRole("status", { name: "Next step: compare your parts" })).toHaveCount(0);
+  await openTab(page, "garage");
+  await expect(page.getByText(/Your Garage/).first()).toBeVisible();
 });
 
 test("@smoke build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
@@ -680,8 +1171,8 @@ test("named loadouts cannot restore more add-ons than a degraded part can hold",
   const streetRacer = loadoutName.locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
   await loadoutName.fill("Two Boosters");
   await streetRacer.getByRole("button", { name: "Save build" }).click();
-  await streetRacer.getByRole("button", { name: /engine:/i }).click();
-  const goodReplacement = streetRacer.getByRole("button", { name: /V8 Engine.*x2/ }).first();
+  await streetRacer.getByRole("button", { name: /^Compare engine installed part/ }).click();
+  const goodReplacement = streetRacer.getByRole("button", { name: /^Install V8 Engine, Good condition/ }).first();
   await goodReplacement.click();
 
   const stateAfterSwap = await persistedState(page);
@@ -756,6 +1247,116 @@ test("Junkyard refurbishment quote matches the executable discounted store cost"
   expect((after.inventory as Array<{ id: string; condition: string }>).find((candidate) => candidate.id === part.id)?.condition).toBe("decent");
 });
 
+test("Team Reset requires an accessible operating philosophy choice", async ({ page }, testInfo) => {
+  await loadFixture(page, "team_reset_ready", {
+    crewRoster: [{ id: "scout_lead", name: "Jess Prime", role: "scout", level: 6, xp: 900, specialization: "treasure_hunter" }],
+  });
+  await openResetTab(page);
+  await page.getByRole("button", { name: "Team Reset", exact: true }).click();
+
+  const dialog = page.getByRole("alertdialog", { name: "Confirm Team Reset" });
+  const choices = dialog.getByRole("group", { name: "Team Operating Philosophy" });
+  const confirm = dialog.getByRole("button", { name: /^Confirm Team Reset/ });
+  await expect(choices).toBeVisible();
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+  await expect(confirm).toBeDisabled();
+  await expect(choices.getByRole("radio")).toHaveCount(3);
+  const gridColumns = await page.getByTestId("team-philosophy-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(gridColumns).toBe(testInfo.project.name.startsWith("mobile") ? 1 : 3);
+  await expect(choices.getByText("Treasure Hunter or Bulk Hauler", { exact: true })).toBeVisible();
+  await expect(choices.getByText("Retains Jess Prime · Scout Lv.6", { exact: true })).toBeVisible();
+
+  await choices.getByRole("radio", { name: /Junkyard Works/ }).check();
+  await expect(confirm).toBeEnabled();
+  await page.reload();
+  expect((await persistedState(page)).teamOperatingPhilosophy).toBeNull();
+  await openResetTab(page);
+  await page.getByRole("button", { name: "Team Reset", exact: true }).click();
+  await expect(page.getByRole("alertdialog", { name: "Confirm Team Reset" }).getByRole("button", { name: /^Confirm Team Reset/ })).toBeDisabled();
+});
+
+test("next responsibility roadmap reveals only the immediate ineligible reset on desktop and mobile", async ({ page }) => {
+  test.setTimeout(60_000);
+  await loadFixture(page, "fresh", { tutorialStep: -1, tutorialDismissed: true });
+  await openResetTab(page);
+  await expect(page.getByRole("region", { name: "Next Responsibility" })).toHaveCount(0);
+
+  const cases = [
+    {
+      fixture: "post_scrap_reset" as const,
+      layer: "Team",
+      progress: `Lifetime LP ${fixtures.post_scrap_reset.payload.state.lifetimeLPAllTime} / ${RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints}`,
+      eras: null,
+    },
+    {
+      fixture: "post_team_reset" as const,
+      layer: "Owner",
+      progress: `Lifetime TP ${fixtures.post_team_reset.payload.state.lifetimeTeamPoints} / ${RESPONSIBILITY_RESET_REQUIREMENTS.owner.lifetimeTeamPoints}`,
+      eras: `Team eras ${fixtures.post_team_reset.payload.state.teamEraCount} / ${RESPONSIBILITY_RESET_REQUIREMENTS.owner.teamEras}`,
+    },
+    {
+      fixture: "post_owner_reset" as const,
+      layer: "Track",
+      progress: `Lifetime OP ${fixtures.post_owner_reset.payload.state.lifetimeOwnerPoints} / ${RESPONSIBILITY_RESET_REQUIREMENTS.track.lifetimeOwnerPoints}`,
+      eras: `Owner eras ${fixtures.post_owner_reset.payload.state.ownerEraCount} / ${RESPONSIBILITY_RESET_REQUIREMENTS.track.ownerEras}`,
+    },
+  ];
+
+  for (const entry of cases) {
+    await replaceFixtureState(page, entry.fixture);
+    await openResetTab(page);
+    const roadmap = page.getByRole("region", { name: "Next Responsibility" });
+    await expect(roadmap.getByRole("heading", { name: `Next: ${entry.layer}` })).toBeVisible();
+    await expect(roadmap).toContainText(entry.progress);
+    if (entry.eras) await expect(roadmap).toContainText(entry.eras);
+    for (const hiddenLayer of ["Team", "Owner", "Track"].filter((layer) => layer !== entry.layer)) {
+      await expect(roadmap.getByText(new RegExp(`Next: ${hiddenLayer}`))).toHaveCount(0);
+    }
+    await expectNoSeriousStructuralAccessibilityViolations(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await openTab(page, "race");
+    await expect(page.getByRole("button", { name: "Enter Race" })).toBeVisible();
+  }
+
+  for (const entry of [
+    {
+      fixture: "post_scrap_reset" as const,
+      patch: { lifetimeLPAllTime: RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints, lifetimeLPThisTeamEra: 1 },
+    },
+    {
+      fixture: "post_team_reset" as const,
+      patch: { lifetimeTeamPoints: RESPONSIBILITY_RESET_REQUIREMENTS.owner.lifetimeTeamPoints, teamEraCount: RESPONSIBILITY_RESET_REQUIREMENTS.owner.teamEras, lifetimeTPThisOwnerEra: 1 },
+    },
+    {
+      fixture: "post_owner_reset" as const,
+      patch: { lifetimeOwnerPoints: RESPONSIBILITY_RESET_REQUIREMENTS.track.lifetimeOwnerPoints, ownerEraCount: RESPONSIBILITY_RESET_REQUIREMENTS.track.ownerEras, lifetimeOPThisTrackEra: 1 },
+    },
+    { fixture: "post_track_reset" as const, patch: {} },
+  ]) {
+    await replaceFixtureState(page, entry.fixture, entry.patch);
+    await openResetTab(page);
+    await expect(page.getByRole("region", { name: "Next Responsibility" })).toHaveCount(0);
+  }
+});
+
+test("current Team Operating Philosophy is summarized above Fleet Programs", async ({ page }) => {
+  await loadFixture(page, "team_reset_ready", {
+    teamOperatingPhilosophy: "driver_led",
+    crewRoster: [{ id: "driver_lead", name: "Rico Prime", role: "driver", level: 7, xp: 1_200, specialization: "safety_first" }],
+  });
+  await openTab(page, "upgrades");
+  await page.getByRole("button", { name: "Team", exact: true }).click();
+
+  const summary = page.getByRole("region", { name: "Team Operating Philosophy" });
+  await expect(summary.getByRole("heading", { name: "Driver-Led Team" })).toBeVisible();
+  await expect(summary.getByText("Change at next Team Reset", { exact: true })).toBeVisible();
+  await expect(summary).toHaveText(/Rico Prime.*Driver.*Lv\.7/);
+  await expect(page.getByText("Department Head", { exact: true })).toBeVisible();
+  const summaryBox = await summary.boundingBox();
+  const fleetBox = await page.getByRole("heading", { name: "Fleet Programs" }).boundingBox();
+  expect(summaryBox!.y + summaryBox!.height).toBeLessThanOrEqual(fleetBox!.y);
+});
+
 for (const [fixtureName, buttonName, awardField, clearedField] of [
   ["first_scrap_reset_ready", "Scrap Reset", "legacyPoints", "garage"],
   ["team_reset_ready", "Team Reset", "teamPoints", "garage"],
@@ -778,6 +1379,7 @@ for (const [fixtureName, buttonName, awardField, clearedField] of [
         await expect(page.getByRole("alertdialog", { name: `Confirm ${buttonName}` })).toHaveCount(0);
         expect((await persistedState(page))[awardField]).toBe(before[awardField]);
         await page.getByRole("button", { name: buttonName, exact: true }).click();
+        await page.getByRole("radio", { name: /Engineering Works/ }).check();
       }
       await page.getByRole("button", { name: new RegExp(`^Confirm ${buttonName} \\(\\+\\d+ (?:TP|OP|PT)\\)$`) }).click();
     }
@@ -785,8 +1387,15 @@ for (const [fixtureName, buttonName, awardField, clearedField] of [
     expect(after[awardField] as number).toBeGreaterThan(before[awardField] as number);
     if (clearedField === "garage") expect(after.garage).toEqual([]);
     else expect(after[clearedField]).toBe(0);
+    if (buttonName === "Team Reset") {
+      expect(after.teamOperatingPhilosophy).toBe("engineering_works");
+      expect(after.autoScavengeUnlocked).toBe(true);
+      expect(after.autoRaceUnlocked).toBe(true);
+      expect(after.crewRoster).toEqual([expect.objectContaining({ role: "mechanic" })]);
+    }
     await page.reload();
     expect((await persistedState(page))[awardField]).toBe(after[awardField]);
+    if (buttonName === "Team Reset") expect((await persistedState(page)).teamOperatingPhilosophy).toBe("engineering_works");
   });
 }
 
@@ -800,6 +1409,7 @@ test("Team, Owner, and Track resets cannot repeat at zero progress", async ({ pa
     else await replaceFixtureState(page, fixtureName);
     await openResetTab(page);
     await page.getByRole("button", { name: buttonName, exact: true }).click();
+    if (buttonName === "Team Reset") await page.getByRole("radio", { name: /Driver-Led Team/ }).check();
     await page.getByRole("button", { name: new RegExp(`^Confirm ${buttonName} \\(\\+\\d+ (?:TP|OP|PT)\\)$`) }).click();
     const afterReset = await persistedState(page);
     expect(afterReset[currencyField] as number).toBeGreaterThan(0);
@@ -827,6 +1437,53 @@ for (const [fixtureName, layerName, heading] of [
     await page.screenshot({ path: testInfo.outputPath(`${fixtureName}-${testInfo.project.name}.png`), fullPage: true });
   });
 }
+
+test("available responsibility purchases use semantic AA text in every released theme", async ({ page }) => {
+  test.setTimeout(240_000);
+  await loadFixture(page, "track_reset_ready", {
+    teamPoints: 1_000_000,
+    ownerPoints: 1_000_000,
+    trackPrestigeTokens: 1_000_000,
+    teamUpgradeLevels: {},
+    ownerUpgradeLevels: {},
+    trackPerkLevels: {},
+  });
+
+  for (const theme of THEMES) {
+    await page.evaluate((themeId) => localStorage.setItem("rags-to-races-theme", themeId), theme.id);
+    await page.reload();
+    await openTab(page, "upgrades");
+    for (const layer of ["Team", "Owner", "Track"] as const) {
+      await page.getByRole("button", { name: layer, exact: true }).evaluate((button) =>
+        (button as HTMLButtonElement).click(),
+      );
+      const purchases = page.locator('button[data-responsibility-purchase]:enabled');
+      await expect(purchases.first(), `${theme.id} ${layer} has an available purchase`).toBeVisible();
+      const colors = await purchases.first().evaluate((button) => {
+        const style = getComputedStyle(button);
+        const shell = button.closest<HTMLElement>(".shell-content > div");
+        return {
+          foreground: style.color,
+          semanticForeground: shell ? getComputedStyle(shell).getPropertyValue("--btn-primary-text").trim() : "",
+        };
+      });
+      const semanticColor = await page.evaluate((value) => {
+        const probe = document.createElement("span");
+        probe.style.color = value;
+        document.body.appendChild(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      }, colors.semanticForeground);
+      expect(colors.foreground, `${theme.id} ${layer} purchase text token`).toBe(semanticColor);
+      const results = await new AxeBuilder({ page })
+        .include('button[data-responsibility-purchase]:enabled')
+        .withRules(["color-contrast"])
+        .analyze();
+      expect(results.violations, `${theme.id} ${layer} purchase contrast`).toEqual([]);
+    }
+  }
+});
 
 test("Team crew lifecycle and Fleet program use selected crew and settle rewards", async ({ page }) => {
   const crew = {
@@ -1095,7 +1752,9 @@ test("maxed upgrade and facility surfaces expose no enabled over-max purchase", 
 });
 
 test("all supported themes survive reload without hydration errors or horizontal overflow", async ({ page }) => {
-  test.setTimeout(90_000);
+  // This intentionally performs a full reload for every visible and hidden
+  // theme. Mobile emulation can exceed the default budget on a cold dev server.
+  test.setTimeout(180_000);
   await loadFixture(page, "workshop_ready");
   await openTab(page, "settings");
 

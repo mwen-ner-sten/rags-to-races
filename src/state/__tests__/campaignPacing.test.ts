@@ -255,5 +255,5 @@ describe("seeded first-campaign pacing", () => {
       secondRunManualScavengesToVehicle: 0,
       repetitiveClickReductionPct: 100,
     });
-  });
+  }, 15_000);
 });

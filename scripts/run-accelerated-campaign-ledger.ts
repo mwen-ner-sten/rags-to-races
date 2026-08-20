@@ -26,6 +26,8 @@ function snapshot() {
     garage: state.garage.length,
     stations: state.stationEquipmentInventory.length,
     equippedStations: Object.values(state.equippedStationEquipment).filter(Boolean).length,
+    philosophy: state.teamOperatingPhilosophy,
+    crew: state.crewRoster.map((member) => `${member.id}:${member.role}:L${member.level}:XP${member.xp}:${member.specialization ?? "none"}`),
     materials: Object.values(state.materials).reduce((sum, amount) => sum + amount, 0),
     forgeTokens: state.forgeTokens,
     reforgeShards: state.reforgeShards,
@@ -77,7 +79,7 @@ const scrapBefore = snapshot();
 useGameStore.getState().prestige();
 layers.push({ layer: "scrap", choices: ["reset now", "continue momentum"], beforePurchases: scrapBefore, afterPurchases: scrapBefore, afterReset: snapshot() });
 for (const layer of [
-  { fixture: "team_reset_ready" as const, currency: "tp", definitions: TEAM_UPGRADE_DEFINITIONS, purchase: (id: string) => useGameStore.getState().purchaseTeamUpgrade(id), reset: () => useGameStore.getState().teamReset() },
+  { fixture: "team_reset_ready" as const, currency: "tp", definitions: TEAM_UPGRADE_DEFINITIONS, purchase: (id: string) => useGameStore.getState().purchaseTeamUpgrade(id), reset: () => useGameStore.getState().teamReset("engineering_works") },
   { fixture: "owner_reset_ready" as const, currency: "op", definitions: OWNER_UPGRADE_DEFINITIONS, purchase: (id: string) => useGameStore.getState().purchaseOwnerUpgrade(id), reset: () => useGameStore.getState().ownerReset() },
   { fixture: "track_reset_ready" as const, currency: "pt", definitions: TRACK_PERK_DEFINITIONS, purchase: (id: string) => useGameStore.getState().purchaseTrackPerk(id), reset: () => useGameStore.getState().trackReset() },
 ]) {
@@ -88,7 +90,14 @@ for (const layer of [
   const afterPurchases = snapshot();
   layer.reset();
   const afterReset = snapshot();
-  layers.push({ layer: layer.fixture.replace("_reset_ready", ""), choices: [layer.definitions[0].name, layer.definitions[1].name], beforePurchases, afterPurchases, afterReset });
+  layers.push({ layer: layer.fixture.replace("_reset_ready", ""), choices: layer.fixture === "team_reset_ready" ? ["Junkyard Works", "Engineering Works", "Driver-Led Team"] : [layer.definitions[0].name, layer.definitions[1].name], beforePurchases, afterPurchases, afterReset });
 }
 
-console.log(JSON.stringify({ workshop, layers }, null, 2));
+const output = { workshop, layers };
+console.log(JSON.stringify(
+  process.argv.includes("--team-only")
+    ? layers.find((layer) => layer.layer === "team")
+    : output,
+  null,
+  2,
+));

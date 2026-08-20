@@ -1,12 +1,16 @@
 import type { CircuitDefinition } from "@/data/circuits";
+import { getVehicleById } from "@/data/vehicles";
 import { BASE_WEAR_PER_RACE, DNF_WEAR_BONUS, RELIABILITY_WEAR_THRESHOLD } from "@/data/vehicles";
 import { PART_DEFINITIONS, type PartCategory } from "@/data/parts";
 import { makePartId } from "./scavenge";
 import { chance, randInt, random, weightedPick } from "@/utils/random";
 import type { ScavengedPart } from "./scavenge";
 import type { BuiltVehicle } from "./build";
-import { DEFAULT_RACE_PLAN, evaluateRacePlan, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
+import { buildRaceForecast, DEFAULT_RACE_PLAN, evaluateRacePlan, type RaceForecast, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
 import { RIVAL_DEFINITIONS } from "@/data/rivals";
+import { buildEngineeringReport, type EngineeringReport } from "./engineeringDiagnostics";
+import { calculateBuildCircuitEvaluation, type BuildCircuitEvaluation } from "./buildIdentity";
+import { applyRaceControlEffect, buildRaceControlBriefing, type RaceControlCallId, type RaceControlEffect } from "./raceControl";
 
 export type RaceResult = "win" | "loss" | "dnf";
 
@@ -28,6 +32,15 @@ export interface RaceOutcome {
   /** Garage vehicle that produced this result, used for stable diagnostics. */
   vehicleId?: string;
   circuitId: string;
+  /** Immutable diagnosis of the build as it entered this race. */
+  engineeringReport?: EngineeringReport;
+  /** Optional manual-only intervention applied to this race. */
+  raceControlCall?: {
+    id: RaceControlCallId;
+    label: string;
+    context: string;
+    effect: RaceControlEffect;
+  };
 }
 
 const RACE_FLAVOR: Record<RaceResult, string[]> = {
@@ -54,6 +67,17 @@ const RACE_FLAVOR: Record<RaceResult, string[]> = {
 function pickFlavor(result: RaceResult): string {
   const arr = RACE_FLAVOR[result];
   return arr[Math.floor(random() * arr.length)];
+}
+
+function finalizeOutcome(
+  outcome: RaceOutcome,
+  vehicle: BuiltVehicle,
+  circuit: CircuitDefinition,
+): RaceOutcome {
+  return {
+    ...outcome,
+    engineeringReport: buildEngineeringReport(vehicle, circuit, outcome),
+  };
 }
 
 /** Calculate pre-race odds for display. */
@@ -95,6 +119,105 @@ export function calculateOdds(
   else oddsLabel = "Long Shot";
 
   return { winChance, dnfChance, oddsLabel };
+}
+
+export interface CalculateVehicleOddsOptions {
+  vehicle: BuiltVehicle;
+  circuit: CircuitDefinition;
+  prestigeBonus?: number;
+  fatigue?: number;
+  gearPerformanceBonus?: number;
+  gearDnfReduction?: number;
+  skillPerformanceMult?: number;
+  skillDnfReduction?: number;
+  momentumWinBonus?: number;
+  forceDNF?: boolean;
+  racePlan?: RacePlan;
+  dnfChanceMultiplier?: number;
+  raceControlCallId?: RaceControlCallId;
+}
+
+export interface VehicleOdds {
+  winChance: number;
+  dnfChance: number;
+  oddsLabel: string;
+  planEvaluation: RacePlanEvaluation;
+  buildEvaluation: BuildCircuitEvaluation;
+}
+
+export function calculateVehicleOdds({
+  vehicle,
+  circuit,
+  prestigeBonus = 1,
+  fatigue = 0,
+  gearPerformanceBonus = 0,
+  gearDnfReduction = 0,
+  skillPerformanceMult = 0,
+  skillDnfReduction = 0,
+  momentumWinBonus = 0,
+  forceDNF = false,
+  racePlan = DEFAULT_RACE_PLAN,
+  dnfChanceMultiplier = 1,
+  raceControlCallId,
+}: CalculateVehicleOddsOptions): VehicleOdds {
+  const definition = getVehicleById(vehicle.definitionId);
+  const buildEvaluation = definition
+    ? calculateBuildCircuitEvaluation(definition, vehicle, circuit.profile)
+    : calculateBuildCircuitEvaluation({
+        id: "unknown",
+        name: "Unknown",
+        tier: 0,
+        description: "",
+        slots: [],
+        baseStats: { speed: 1, handling: 1, reliability: 1, weight: 0 },
+        unlockRequirement: { type: "start" },
+        buildCost: 0,
+        sellValue: 0,
+      }, vehicle, circuit.profile);
+  const standingEvaluation = evaluateRacePlan(circuit.profile, racePlan);
+  const planEvaluation = raceControlCallId
+    ? applyRaceControlEffect(standingEvaluation, raceControlCallId)
+    : standingEvaluation;
+  const odds = calculateOdds(
+    vehicle.stats.performance * buildEvaluation.performanceMultiplier,
+    vehicle.stats.reliability,
+    circuit.difficulty,
+    prestigeBonus,
+    fatigue,
+    gearPerformanceBonus,
+    gearDnfReduction,
+    skillPerformanceMult,
+    skillDnfReduction,
+    momentumWinBonus,
+    forceDNF,
+    planEvaluation,
+    dnfChanceMultiplier,
+  );
+  return { ...odds, planEvaluation, buildEvaluation };
+}
+
+export interface VehicleRaceForecast {
+  odds: VehicleOdds;
+  forecast: RaceForecast;
+}
+
+/** Build a player-facing forecast from the exact canonical odds used by settlement. */
+export function calculateVehicleRaceForecast(
+  options: CalculateVehicleOddsOptions,
+  diagnosticsLevel: number,
+  baseWear: number = 5,
+): VehicleRaceForecast {
+  const odds = calculateVehicleOdds(options);
+  return {
+    odds,
+    forecast: buildRaceForecast(
+      odds.winChance,
+      odds.dnfChance,
+      baseWear,
+      odds.planEvaluation,
+      diagnosticsLevel,
+    ),
+  };
 }
 
 /**
@@ -155,10 +278,36 @@ export function simulateRace(
   forceDNF: boolean = false,
   racePlan: RacePlan = DEFAULT_RACE_PLAN,
   dnfChanceMultiplier: number = 1,
+  raceControlCallId?: RaceControlCallId,
 ): RaceOutcome {
   const totalRacers = 8;
-  const { performance } = vehicle.stats;
-  const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
+  const odds = calculateVehicleOdds({
+    vehicle,
+    circuit,
+    prestigeBonus,
+    fatigue,
+    gearPerformanceBonus,
+    gearDnfReduction,
+    skillPerformanceMult,
+    skillDnfReduction,
+    momentumWinBonus,
+    forceDNF,
+    racePlan,
+    dnfChanceMultiplier,
+    raceControlCallId,
+  });
+  const { planEvaluation } = odds;
+  const briefing = raceControlCallId ? buildRaceControlBriefing(circuit.profile) : undefined;
+  const selectedCall = briefing?.calls.find((call) => call.id === raceControlCallId);
+  const raceControlCall = selectedCall && briefing ? {
+    id: selectedCall.id,
+    label: selectedCall.label,
+    context: briefing.context,
+    effect: selectedCall.effect,
+  } : undefined;
+  const raceControlLog = raceControlCall
+    ? `Race Control: ${raceControlCall.label} — pace ${Math.round((raceControlCall.effect.performanceMultiplier - 1) * 100)}%, DNF ${raceControlCall.effect.dnfDelta >= 0 ? "+" : ""}${(raceControlCall.effect.dnfDelta * 100).toFixed(1)} pts, wear ${Math.round((raceControlCall.effect.wearMultiplier - 1) * 100)}%.`
+    : undefined;
   const eligibleRivals = RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier);
   const rival = eligibleRivals.length > 0 && chance(0.35) ? eligibleRivals[randInt(0, eligibleRivals.length - 1)] : undefined;
 
@@ -169,49 +318,36 @@ export function simulateRace(
 
   // Explicit forced-result path retained for deterministic simulations and tooling.
   if (forceDNF) {
-    return {
+    return finalizeOutcome({
       result: "dnf",
       position: totalRacers,
       totalRacers,
       scrapsEarned: 0,
       repEarned: dnfRep,
-      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`, raceControlLog].filter((line): line is string => Boolean(line)),
       planEvaluation,
+      raceControlCall,
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
-    };
+    }, vehicle, circuit);
   }
 
-  const odds = calculateOdds(
-    performance,
-    vehicle.stats.reliability,
-    circuit.difficulty,
-    prestigeBonus,
-    fatigue,
-    gearPerformanceBonus,
-    gearDnfReduction,
-    skillPerformanceMult,
-    skillDnfReduction,
-    momentumWinBonus,
-    forceDNF,
-    planEvaluation,
-    dnfChanceMultiplier,
-  );
   const dnfChance = odds.dnfChance;
   if (random() < dnfChance) {
-    return {
+    return finalizeOutcome({
       result: "dnf",
       position: totalRacers,
       totalRacers,
       scrapsEarned: 0,
       repEarned: dnfRep,
-      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`],
+      log: [pickFlavor("dnf"), `+${parseFloat(dnfRep.toFixed(1))} Rep (consolation)`, raceControlLog].filter((line): line is string => Boolean(line)),
       planEvaluation,
+      raceControlCall,
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
-    };
+    }, vehicle, circuit);
   }
 
   const won = random() < odds.winChance;
@@ -242,17 +378,19 @@ export function simulateRace(
     repEarned > 0 ? `+${parseFloat(repEarned.toFixed(1))} Rep` : "",
     salvageDrop ? `Salvaged a part from the wreckage!` : "",
     forgeTokenDrop ? `Found a Forge Token in the debris!` : "",
+    raceControlLog ?? "",
   ].filter(Boolean);
 
-  return {
+  return finalizeOutcome({
     result, position, totalRacers, scrapsEarned, repEarned, log,
     salvageDrop: salvageDrop ?? undefined,
     forgeTokenDrop: forgeTokenDrop || undefined,
     planEvaluation,
+    raceControlCall,
     rivalId: rival?.id,
     vehicleId: vehicle.id,
     circuitId: circuit.id,
-  };
+  }, vehicle, circuit);
 }
 
 /**

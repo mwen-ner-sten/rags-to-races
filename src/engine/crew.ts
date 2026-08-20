@@ -153,6 +153,32 @@ export function createCrewAtLevel(
   };
 }
 
+const DEPARTMENT_HEAD_NAMES: Record<Extract<CrewRole, "scout" | "mechanic" | "driver">, string> = {
+  scout: "Jess",
+  mechanic: "Dave",
+  driver: "Rico",
+};
+
+/** Retain the most experienced matching lead, or hire the standard role lead. */
+export function selectDepartmentHead(
+  roster: CrewMember[],
+  role: Extract<CrewRole, "scout" | "mechanic" | "driver">,
+  startingLevel: number = 1,
+): CrewMember {
+  const experienced = roster
+    .filter((member) => member.role === role)
+    .reduce<CrewMember | null>(
+      (best, member) => best === null || member.xp > best.xp ? member : best,
+      null,
+    );
+  return experienced ?? createCrewAtLevel(
+    `philosophy_${role}`,
+    DEPARTMENT_HEAD_NAMES[role],
+    role,
+    startingLevel,
+  );
+}
+
 /** Stable four-role roster used whenever Talent Academy re-recruits a team. */
 export function createAcademyRoster(startingLevel: number = 1): CrewMember[] {
   const names = ["Mara", "Rook", "Ace", "Ledger"];

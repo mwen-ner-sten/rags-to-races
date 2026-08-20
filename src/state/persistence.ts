@@ -8,10 +8,12 @@ import { ensureAcademyRoster } from "@/engine/crew";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
 import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
-import { CONDITIONS } from "@/data/parts";
+import { CONDITIONS, CORE_SLOTS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
-import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
+import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY, RACE_CONTROL_RACES_PER_OPPORTUNITY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
+import { recalculateGarageStats } from "@/engine/vehicleStats";
+import { TEAM_OPERATING_PHILOSOPHY_IDS } from "@/data/teamPhilosophies";
 
 export const PERSISTENCE_VERSION = 3;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
@@ -20,6 +22,7 @@ export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 const finiteNonNegative = z.number().finite().min(0);
 const finitePercentage = z.number().finite().min(0).max(100);
 const nonEmptyString = z.string().min(1);
+const boundedNonEmptyString = z.string().min(1).max(200);
 
 const partConditionSchema = z.enum(CONDITIONS as [
   (typeof CONDITIONS)[number],
@@ -76,6 +79,38 @@ const vehicleLoadoutSchema = z.object({
   }).passthrough()),
 }).passthrough();
 
+const engineeringReportTextSchema = z.string().min(1).max(2_000);
+const engineeringReportSchema = z.object({
+  headline: engineeringReportTextSchema,
+  focus: z.enum(["power", "grip", "aero", "reliability", "fuel"]),
+  priority: z.enum(["repair", "component", "setup"]),
+  component: engineeringReportTextSchema.optional(),
+  componentCondition: partConditionSchema.optional(),
+  vehicleCondition: finitePercentage.optional(),
+  slot: z.enum(CORE_SLOTS as [
+    (typeof CORE_SLOTS)[number],
+    ...(typeof CORE_SLOTS)[number][],
+  ]).optional(),
+  buildIdentity: z.enum(["redline_special", "cornering_rig", "finish_first"]).optional(),
+  buildIdentityModelVersion: z.literal(1).optional(),
+  circuitFitMultiplier: z.number().finite().min(0.95).max(1.05).optional(),
+  limitingAxis: z.enum(["pace", "handling", "reliability"]).optional(),
+  observation: engineeringReportTextSchema,
+  action: engineeringReportTextSchema,
+});
+
+const raceControlEffectSchema = z.object({
+  performanceMultiplier: z.number().finite().min(0.95).max(1.05),
+  dnfDelta: z.number().finite().min(-0.03).max(0.03),
+  wearMultiplier: z.number().finite().min(0.85).max(1.15),
+});
+const raceControlCallSchema = z.object({
+  id: z.enum(["standing", "attack", "protect"]),
+  label: z.string().min(1).max(100),
+  context: z.string().min(1).max(200),
+  effect: raceControlEffectSchema,
+});
+
 const raceOutcomeSchema = z.object({
   result: z.enum(["win", "loss", "dnf"]),
   position: finiteNonNegative,
@@ -87,7 +122,10 @@ const raceOutcomeSchema = z.object({
   forgeTokenDrop: z.boolean().optional(),
   rivalId: z.string().optional(),
   rivalRewardClaimed: z.boolean().optional(),
+  vehicleId: boundedNonEmptyString.optional(),
   circuitId: nonEmptyString,
+  engineeringReport: engineeringReportSchema.optional(),
+  raceControlCall: raceControlCallSchema.optional(),
 }).passthrough();
 
 const dealerListingSchema = z.object({
@@ -255,6 +293,9 @@ const currentStateSafetySchema = z.object({
   manualScavengeClicks: finiteNonNegative.optional(),
   scoutingOrder: z.unknown().optional(),
   raceTickProgress: finiteNonNegative.optional(),
+  raceControlRaceProgress: z.number().finite().min(0).max(RACE_CONTROL_RACES_PER_OPPORTUNITY).optional(),
+  raceControlOpportunityReady: z.boolean().optional(),
+  raceControlCallEscrowed: z.boolean().optional(),
   winStreak: finiteNonNegative.optional(),
   bestWinStreak: finiteNonNegative.optional(),
   lifetimeRaces: finiteNonNegative.optional(),
@@ -268,6 +309,7 @@ const currentStateSafetySchema = z.object({
   lifetimeTeamPoints: finiteNonNegative.optional(),
   teamEraCount: finiteNonNegative.optional(),
   lifetimeLPThisTeamEra: finiteNonNegative.optional(),
+  teamOperatingPhilosophy: z.enum(TEAM_OPERATING_PHILOSOPHY_IDS).nullable().default(null),
   ownerPoints: finiteNonNegative.optional(),
   lifetimeOwnerPoints: finiteNonNegative.optional(),
   ownerEraCount: finiteNonNegative.optional(),
@@ -299,10 +341,12 @@ const currentStateSafetySchema = z.object({
   selectedSellBelowQuality: partConditionSchema.optional(),
   selectedCircuitId: z.string().optional(),
   tutorialStep: z.number().finite().min(-1).optional(),
+  tutorialCompleted: z.boolean().optional(),
   tutorialDismissed: z.boolean().optional(),
   tutorialMinimized: z.boolean().optional(),
   tutorialSkippedSteps: z.array(finiteNonNegative).optional(),
   tutorialLastAdvanceTime: finiteNonNegative.optional(),
+  dismissedContextualCoachIds: z.array(z.enum(["toolkit", "automation", "scrap-reset"])).optional(),
   activeMomentumTiers: z.array(nonEmptyString).optional(),
   unlockedLocationIds: z.array(nonEmptyString).optional(),
   unlockedCircuitIds: z.array(nonEmptyString).optional(),
@@ -403,6 +447,9 @@ export function getPersistedGameState(state: GameState) {
     selectedSellBelowQuality: state.selectedSellBelowQuality,
     selectedCircuitId: state.selectedCircuitId,
     currentRacePlan: state.currentRacePlan,
+    raceControlRaceProgress: state.raceControlRaceProgress,
+    raceControlOpportunityReady: state.raceControlOpportunityReady,
+    raceControlCallEscrowed: state.raceControlCallEscrowed,
     defeatedRivalIds: state.defeatedRivalIds,
     discoveredBlueprintIds: state.discoveredBlueprintIds,
     fleetAssignments: state.fleetAssignments,
@@ -447,10 +494,12 @@ export function getPersistedGameState(state: GameState) {
     lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
     highestConditionReached: state.highestConditionReached,
     tutorialStep: state.tutorialStep,
+    tutorialCompleted: state.tutorialCompleted,
     tutorialDismissed: state.tutorialDismissed,
     tutorialMinimized: state.tutorialMinimized,
     tutorialSkippedSteps: state.tutorialSkippedSteps,
     tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+    dismissedContextualCoachIds: state.dismissedContextualCoachIds,
     activityLog: state.activityLog,
     _logIdCounter: state._logIdCounter,
     racerSkills: state.racerSkills,
@@ -459,6 +508,7 @@ export function getPersistedGameState(state: GameState) {
     teamUpgradeLevels: state.teamUpgradeLevels,
     teamEraCount: state.teamEraCount,
     lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
+    teamOperatingPhilosophy: state.teamOperatingPhilosophy,
     ownerPoints: state.ownerPoints,
     lifetimeOwnerPoints: state.lifetimeOwnerPoints,
     ownerUpgradeLevels: state.ownerUpgradeLevels,
@@ -575,10 +625,18 @@ export function migratePersistedState(
   // mid-race, refund its persisted entry-fee escrow exactly once so reload
   // cannot consume cash without producing a result.
   const interruptedRaceEntryFee = state.challengeProgress?.[PENDING_MANUAL_RACE_ENTRY_FEE_KEY] ?? 0;
-  if (interruptedRaceEntryFee > 0) {
+  const interruptedRaceControlCall = state.raceControlCallEscrowed === true;
+  if (interruptedRaceEntryFee > 0 || interruptedRaceControlCall) {
     state = {
       ...state,
       scrapBucks: (state.scrapBucks ?? 0) + interruptedRaceEntryFee,
+      raceControlOpportunityReady: interruptedRaceControlCall
+        ? true
+        : state.raceControlOpportunityReady,
+      raceControlRaceProgress: interruptedRaceControlCall
+        ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+        : state.raceControlRaceProgress,
+      raceControlCallEscrowed: false,
       challengeProgress: {
         ...(state.challengeProgress ?? {}),
         [PENDING_MANUAL_RACE_ENTRY_FEE_KEY]: 0,
@@ -664,6 +722,18 @@ export function migratePersistedState(
     : state.crewRoster ?? [];
   const autoEverything = (ownerUpgradeLevels.owner_auto_all ?? 0) > 0;
   const autoScavengeUnlocked = Boolean(state.autoScavengeUnlocked || autoEverything);
+  const raceControlEligible = (state.prestigeCount ?? 0) >= 1
+    && (state.autoRaceUnlocked === true || autoEverything);
+  const raceControlRaceProgress = raceControlEligible
+    ? Math.min(RACE_CONTROL_RACES_PER_OPPORTUNITY, state.raceControlRaceProgress ?? 0)
+    : 0;
+  const raceControlOpportunityReady = raceControlEligible && Boolean(
+    state.raceControlOpportunityReady
+    || raceControlRaceProgress >= RACE_CONTROL_RACES_PER_OPPORTUNITY,
+  );
+  const legacyTutorialRepairRecorded = (state.activityLog ?? []).some((entry) =>
+    entry.category === "build" && entry.message.startsWith("Repaired "),
+  );
 
   const reconciled = {
     ...state,
@@ -673,6 +743,8 @@ export function migratePersistedState(
     lifetimeLPThisTeamEra: Math.max(state.lifetimeLPThisTeamEra ?? 0, state.legacyPoints ?? 0),
     lifetimeTPThisOwnerEra: Math.max(state.lifetimeTPThisOwnerEra ?? 0, state.teamPoints ?? 0),
     lifetimeOPThisTrackEra: Math.max(state.lifetimeOPThisTrackEra ?? 0, state.ownerPoints ?? 0),
+    tutorialCompleted: state.tutorialCompleted
+      ?? (state.tutorialStep === -1 && raceHistory.length > 0 && legacyTutorialRepairRecorded),
     unlockedFeatures: [...unlockedFeatures],
     unlockedCircuitIds: [...unlockedCircuitIds],
     unlockedVehicleIds: [...unlockedVehicleIds],
@@ -685,6 +757,11 @@ export function migratePersistedState(
       autoScavengeUnlocked,
     ),
     autoRaceUnlocked: Boolean(state.autoRaceUnlocked || autoEverything),
+    raceControlRaceProgress: raceControlOpportunityReady
+      ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+      : raceControlRaceProgress,
+    raceControlOpportunityReady,
+    raceControlCallEscrowed: false,
   };
 
   const safe = currentStateSafetySchema.safeParse(reconciled);
@@ -712,10 +789,11 @@ export function mergePersistedGameState(
   currentState: GameState,
 ): GameState {
   try {
-    return {
+    const hydrated = {
       ...currentState,
       ...migratePersistedState(persistedState, PERSISTENCE_VERSION),
     } as GameState;
+    return { ...hydrated, garage: recalculateGarageStats(hydrated) };
   } catch {
     // A corrupt browser payload should not poison the live Zustand state. File
     // imports and raw-save decoding still surface the validation error to the

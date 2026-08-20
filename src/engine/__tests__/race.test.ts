@@ -1,5 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { calculateOdds } from "../race";
+import { getCircuitById } from "@/data/circuits";
+import type { BuiltVehicle } from "../build";
+import { calculateOdds, calculateVehicleOdds, simulateRace } from "../race";
+
+const diagnosticVehicle: BuiltVehicle = {
+  id: "race-time-build",
+  definitionId: "push_mower",
+  builtAt: 0,
+  condition: 100,
+  totalRaces: 0,
+  stats: { speed: 18, handling: 8, reliability: 100, weight: 60, performance: 14 },
+  parts: {
+    engine: {
+      part: { id: "engine", definitionId: "engine_small", condition: "good", foundAt: "test", type: "part" },
+      addons: [],
+    },
+    wheel: {
+      part: { id: "wheel", definitionId: "wheel_busted", condition: "rusted", foundAt: "test", type: "part" },
+      addons: [],
+    },
+  },
+};
 
 describe("calculateOdds", () => {
   it("clamps win chance to minimum 0.05", () => {
@@ -59,5 +80,50 @@ describe("calculateOdds", () => {
     expect(calculateOdds(50, 100, 50).oddsLabel).toBe("Favored");
     // Long Shot: winChance < 0.2
     expect(calculateOdds(10, 100, 50).oddsLabel).toBe("Long Shot");
+  });
+});
+
+describe("calculateVehicleOdds", () => {
+  it("applies circuit fit exactly once without changing DNF risk", () => {
+    const circuit = getCircuitById("backyard_derby")!;
+    const base = calculateOdds(
+      diagnosticVehicle.stats.performance,
+      diagnosticVehicle.stats.reliability,
+      circuit.difficulty,
+    );
+
+    const odds = calculateVehicleOdds({ vehicle: diagnosticVehicle, circuit });
+
+    expect(odds.winChance).toBeCloseTo(
+      base.winChance
+        * odds.buildEvaluation.performanceMultiplier
+        * odds.planEvaluation.performanceMultiplier,
+    );
+    expect(odds.dnfChance).toBe(base.dnfChance);
+  });
+});
+
+describe("simulateRace engineering provenance", () => {
+  it.each([
+    ["finish", false],
+    ["forced DNF", true],
+  ])("captures an immutable race-time report for a %s", (_branch, forceDNF) => {
+    const vehicle = structuredClone(diagnosticVehicle);
+    const outcome = simulateRace(
+      vehicle,
+      getCircuitById("backyard_derby")!,
+      1, 0, 0, 0, 0, 1, 0, 0, 0, 0, forceDNF,
+    );
+    const reportAtRaceTime = structuredClone(outcome.engineeringReport);
+
+    vehicle.parts.wheel!.part.definitionId = "wheel_racing";
+    vehicle.parts.wheel!.part.condition = "pristine";
+
+    expect(reportAtRaceTime?.slot).toBe("wheel");
+    expect(reportAtRaceTime?.component).toBe("Busted Wheel");
+    expect(reportAtRaceTime?.buildIdentityModelVersion).toBe(1);
+    expect(reportAtRaceTime?.circuitFitMultiplier).toBeGreaterThanOrEqual(0.95);
+    expect(reportAtRaceTime?.circuitFitMultiplier).toBeLessThanOrEqual(1.05);
+    expect(outcome.engineeringReport).toEqual(reportAtRaceTime);
   });
 });

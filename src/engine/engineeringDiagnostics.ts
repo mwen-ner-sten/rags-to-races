@@ -1,7 +1,10 @@
 import type { CircuitDefinition } from "@/data/circuits";
-import { CONDITION_LABELS, CONDITIONS, getPartById, type CoreSlot } from "@/data/parts";
+import { CONDITION_LABELS, CONDITIONS, getPartById, type CoreSlot, type PartCondition } from "@/data/parts";
 import type { BuiltVehicle, InstalledPart } from "./build";
 import type { RaceOutcome } from "./race";
+import type { BuildAxis, BuildIdentityId } from "@/data/buildIdentities";
+import { calculateBuildCircuitEvaluation } from "./buildIdentity";
+import { getVehicleById } from "@/data/vehicles";
 
 export type EngineeringFocus = "power" | "grip" | "aero" | "reliability" | "fuel";
 export type EngineeringPriority = "repair" | "component" | "setup";
@@ -11,8 +14,15 @@ export interface EngineeringReport {
   focus: EngineeringFocus;
   priority: EngineeringPriority;
   component?: string;
+  componentCondition?: PartCondition;
+  vehicleCondition?: number;
+  slot?: CoreSlot;
   observation: string;
   action: string;
+  buildIdentity?: BuildIdentityId;
+  buildIdentityModelVersion?: 1;
+  circuitFitMultiplier?: number;
+  limitingAxis?: BuildAxis;
 }
 
 export function findDiagnosticVehicle(
@@ -48,12 +58,20 @@ function conditionRank(installed: InstalledPart): number {
   return CONDITIONS.indexOf(installed.part.condition);
 }
 
-function relevantComponent(vehicle: BuiltVehicle, focus: EngineeringFocus): InstalledPart | undefined {
+interface DiagnosedComponent {
+  slot: CoreSlot;
+  installed: InstalledPart;
+}
+
+function relevantComponent(vehicle: BuiltVehicle, focus: EngineeringFocus): DiagnosedComponent | undefined {
   const relevant = FOCUS_SLOTS[focus]
-    .map((slot) => vehicle.parts[slot])
-    .filter((part): part is InstalledPart => Boolean(part));
-  const candidates = relevant.length > 0 ? relevant : Object.values(vehicle.parts);
-  return candidates.sort((left, right) => conditionRank(left) - conditionRank(right))[0];
+    .map((slot) => ({ slot, installed: vehicle.parts[slot] }))
+    .filter((candidate): candidate is DiagnosedComponent => Boolean(candidate.installed));
+  const candidates = relevant.length > 0
+    ? relevant
+    : (Object.entries(vehicle.parts) as [CoreSlot, InstalledPart][])
+        .map(([slot, installed]) => ({ slot, installed }));
+  return candidates.sort((left, right) => conditionRank(left.installed) - conditionRank(right.installed))[0];
 }
 
 function resultHeadline(outcome: RaceOutcome): string {
@@ -67,28 +85,55 @@ export function buildEngineeringReport(
   circuit: CircuitDefinition,
   outcome: RaceOutcome,
 ): EngineeringReport {
-  const focus = outcome.result === "dnf" ? "reliability" : dominantDemand(circuit);
-  const installed = relevantComponent(vehicle, focus);
+  const vehicleDefinition = getVehicleById(vehicle.definitionId);
+  const buildEvaluation = vehicleDefinition
+    ? calculateBuildCircuitEvaluation(vehicleDefinition, vehicle, circuit.profile)
+    : undefined;
+  const buildSnapshot = buildEvaluation ? {
+    ...(buildEvaluation.profile.identity ? { buildIdentity: buildEvaluation.profile.identity } : {}),
+    buildIdentityModelVersion: 1 as const,
+    circuitFitMultiplier: buildEvaluation.performanceMultiplier,
+    limitingAxis: buildEvaluation.limitingAxis,
+  } : {};
+  const fitFocus: EngineeringFocus | undefined = buildEvaluation && buildEvaluation.performanceMultiplier < 1
+    ? buildEvaluation.limitingAxis === "pace"
+      ? "power"
+      : buildEvaluation.limitingAxis === "handling"
+        ? (circuit.profile.demands.grip >= circuit.profile.demands.aero ? "grip" : "aero")
+        : "reliability"
+    : undefined;
+  const focus = outcome.result === "dnf" ? "reliability" : fitFocus ?? dominantDemand(circuit);
+  const diagnosed = relevantComponent(vehicle, focus);
+  const installed = diagnosed?.installed;
   const definition = installed ? getPartById(installed.part.definitionId) : undefined;
   const component = definition?.name;
   const condition = installed ? CONDITION_LABELS[installed.part.condition] : undefined;
 
   if (vehicle.condition < 50 || outcome.result === "dnf") {
+    const conditionObservation = outcome.result === "dnf"
+      ? "The DNF adds breakdown wear, so inspect the vehicle's current condition before entering again."
+      : `The vehicle is at ${Math.round(vehicle.condition)}% condition.`;
     return {
+      ...buildSnapshot,
       headline: resultHeadline(outcome),
       focus,
       priority: "repair",
       component,
-      observation: `${OBSERVATIONS[focus]} The vehicle is at ${Math.round(vehicle.condition)}% condition.`,
+      componentCondition: installed?.part.condition,
+      vehicleCondition: vehicle.condition,
+      slot: diagnosed?.slot,
+      observation: `${OBSERVATIONS[focus]} ${conditionObservation}`,
       action: "Repair the vehicle before the next entry, then reassess the highlighted component instead of risking another avoidable breakdown.",
     };
   }
 
   if (!installed || !component || !condition) {
     return {
+      ...buildSnapshot,
       headline: resultHeadline(outcome),
       focus,
       priority: "setup",
+      vehicleCondition: vehicle.condition,
       observation: OBSERVATIONS[focus],
       action: `Look for a compatible ${FOCUS_SLOTS[focus][0]} upgrade or choose a circuit that better matches the current chassis.`,
     };
@@ -96,10 +141,14 @@ export function buildEngineeringReport(
 
   const lowCondition = conditionRank(installed) <= CONDITIONS.indexOf("decent");
   return {
+    ...buildSnapshot,
     headline: resultHeadline(outcome),
     focus,
     priority: "component",
     component,
+    componentCondition: installed.part.condition,
+    vehicleCondition: vehicle.condition,
+    slot: diagnosed.slot,
     observation: `${OBSERVATIONS[focus]} The relevant ${component} is ${condition.toLowerCase()}.`,
     action: lowCondition
       ? `Refurbish or replace the ${component} before the rematch; a better ${definition.category} part should make the improvement visible.`

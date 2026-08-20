@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "campaign:oracle": "tsx scripts/run-connected-campaign-oracle.ts",
     "fixtures:generate": "tsx scripts/generate-gameplay-fixtures.ts",
     "test:e2e": "npm run fixtures:generate && playwright test",
     "test:e2e:smoke": "npm run fixtures:generate && playwright test --grep @smoke",

@@ -334,16 +334,18 @@ export default function TutorialOverlay({ activeTab }: Props) {
 
     // Advance to the target step (skipping intermediate ones)
     const targetStep = tutorialStep + 1 + skips;
-    useGameStore.setState({
+    useGameStore.setState((state) => ({
       tutorialStep: targetStep >= STEPS.length ? -1 : targetStep,
+      tutorialCompleted: targetStep >= STEPS.length ? true : state.tutorialCompleted,
       tutorialLastAdvanceTime: Date.now(),
-    });
+    }));
   }, [tutorialStep, inventory, garage, activeVehicleId, raceHistory, scrapBucks, activeTab, advanceTutorial, pendingBuildVehicleId, pendingBuildParts, isRacing]);
 
   useEffect(() => {
     if (tutorialStep >= STEPS.length) {
       useGameStore.setState((s) => ({
         tutorialStep: -1,
+        tutorialCompleted: true,
         unlockEvents: [...s.unlockEvents, "Tutorial complete! The world is yours now."],
       }));
     }

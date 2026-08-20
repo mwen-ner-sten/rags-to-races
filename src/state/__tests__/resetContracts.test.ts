@@ -27,13 +27,24 @@ describe("four-layer reset contracts", () => {
     expect(matrix.scrap.lootGearInventory).toBe("preserve");
     expect(matrix.team.lootGearInventory).toBe("reset");
     expect(matrix.track.unlockedFeatures).toBe("conditional");
+    expect(matrix.scrap.teamOperatingPhilosophy).toBe("preserve");
+    expect(matrix.team.teamOperatingPhilosophy).toBe("conditional");
+    expect(matrix.team.crewRoster).toBe("conditional");
+    expect(matrix.owner.teamOperatingPhilosophy).toBe("reset");
+    expect(matrix.track.teamOperatingPhilosophy).toBe("reset");
   });
 
-  it("Team clears station equipment, crew, vehicles, and Philosophy but preserves discoveries", () => {
-    useGameStore.setState({ ...createInitialState(), lifetimeLPAllTime: RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints, lifetimeLPThisTeamEra: 100, garage: [{ id: "v", definitionId: "push_mower", parts: {}, stats: { speed: 1, handling: 1, reliability: 1, weight: 1, performance: 1 }, builtAt: 1, condition: 100, totalRaces: 0 }], crewRoster: [{ id: "c", name: "Crew", role: "driver", level: 1, xp: 0, specialization: null }], unlockedPlaystyleNodes: ["ps_scrap_t1"], discoveredBlueprintIds: ["known"], stationEquipmentInventory: [{ id: "e", slot: "workbench", rarity: "common", name: "Kit", effects: [], enhancementLevel: 0, source: "test" }] });
-    useGameStore.getState().teamReset();
+  it("Team clears station equipment, non-lead crew, vehicles, and Garage Philosophy but preserves discoveries and mastered automation", () => {
+    const matrix = buildResetRetentionMatrix(["autoScavengeUnlocked", "autoRaceUnlocked"]);
+    expect(matrix.team).toEqual({
+      autoScavengeUnlocked: "preserve",
+      autoRaceUnlocked: "preserve",
+    });
+
+    useGameStore.setState({ ...createInitialState(), lifetimeLPAllTime: RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints, lifetimeLPThisTeamEra: 100, autoScavengeUnlocked: true, autoRaceUnlocked: true, garage: [{ id: "v", definitionId: "push_mower", parts: {}, stats: { speed: 1, handling: 1, reliability: 1, weight: 1, performance: 1 }, builtAt: 1, condition: 100, totalRaces: 0 }], crewRoster: [{ id: "c", name: "Crew", role: "driver", level: 1, xp: 0, specialization: null }], unlockedPlaystyleNodes: ["ps_scrap_t1"], discoveredBlueprintIds: ["known"], stationEquipmentInventory: [{ id: "e", slot: "workbench", rarity: "common", name: "Kit", effects: [], enhancementLevel: 0, source: "test" }] });
+    useGameStore.getState().teamReset("driver_led");
     const state = useGameStore.getState();
-    expect(state.garage).toEqual([]); expect(state.crewRoster).toEqual([]); expect(state.unlockedPlaystyleNodes).toEqual([]); expect(state.stationEquipmentInventory).toEqual([]); expect(state.discoveredBlueprintIds).toEqual(["known"]);
+    expect(state.garage).toEqual([]); expect(state.crewRoster).toEqual([expect.objectContaining({ id: "c", role: "driver" })]); expect(state.unlockedPlaystyleNodes).toEqual([]); expect(state.stationEquipmentInventory).toEqual([]); expect(state.discoveredBlueprintIds).toEqual(["known"]); expect(state.autoScavengeUnlocked).toBe(true); expect(state.autoRaceUnlocked).toBe(true);
   });
 
   it("preserves attributes only through Scrap Reset and clears them at every higher layer", () => {
@@ -78,7 +89,8 @@ describe("four-layer reset contracts", () => {
     };
     for (const reset of ["teamReset", "ownerReset", "trackReset"] as const) {
       useGameStore.setState({ ...createInitialState(), ...eligibleStates[reset], racerAttributes: allocated });
-      useGameStore.getState()[reset]();
+      if (reset === "teamReset") useGameStore.getState().teamReset("engineering_works");
+      else useGameStore.getState()[reset]();
       expect(useGameStore.getState().racerAttributes, reset).toEqual(createDefaultAttributes());
     }
   });

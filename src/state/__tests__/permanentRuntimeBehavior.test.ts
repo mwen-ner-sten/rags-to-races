@@ -374,7 +374,7 @@ describe("released Team, Owner, and Track effects", () => {
       teamUpgradeLevels: { team_quick_start: 2, team_crew_slots: 2, team_mat_resonance: 2 },
       unlockedFeatures: ["advanced_circuits"],
     });
-    useGameStore.getState().teamReset();
+    useGameStore.getState().teamReset("engineering_works");
     let reset = useGameStore.getState();
     expect(reset.teamPoints).toBe(calculateTeamPoints(teamStats) * 2);
     expect(reset.scrapBucks).toBe(11_800);

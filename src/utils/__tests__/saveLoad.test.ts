@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createInitialState, useGameStore } from "@/state/store";
+import { createInitialState, getEffectiveVehicleHandlingBonus, useGameStore } from "@/state/store";
 import type { GameState } from "@/state/store";
 import { getPersistedGameState, mergePersistedGameState } from "@/state/persistence";
+import { calculateStats } from "@/engine/build";
+import { getVehicleById } from "@/data/vehicles";
 import {
   SAVE_FORMAT,
   SAVE_VERSION,
@@ -49,6 +51,21 @@ describe("save envelope", () => {
         log: ["Saved result"],
         vehicleId: "persisted-race-vehicle",
         circuitId: "backyard_derby",
+        engineeringReport: {
+          headline: "Stored diagnosis",
+          focus: "grip" as const,
+          priority: "component" as const,
+          component: "Basic Tire",
+          componentCondition: "rusted" as const,
+          vehicleCondition: 77,
+          slot: "wheel" as const,
+          buildIdentity: "cornering_rig" as const,
+          buildIdentityModelVersion: 1 as const,
+          circuitFitMultiplier: 1.04,
+          limitingAxis: "pace" as const,
+          observation: "Stored observation",
+          action: "Stored action",
+        },
       }],
     });
 
@@ -56,6 +73,10 @@ describe("save envelope", () => {
 
     expect(decoded.envelope.state).toEqual(envelope.state);
     expect(decoded.envelope.state.raceHistory?.[0]?.vehicleId).toBe("persisted-race-vehicle");
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.slot).toBe("wheel");
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.componentCondition).toBe("rusted");
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.vehicleCondition).toBe(77);
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.buildIdentity).toBe("cornering_rig");
     expect(decoded.envelope.state).toEqual(
       getPersistedGameState({
         ...state,
@@ -74,9 +95,79 @@ describe("save envelope", () => {
           log: ["Saved result"],
           vehicleId: "persisted-race-vehicle",
           circuitId: "backyard_derby",
+          engineeringReport: {
+            headline: "Stored diagnosis",
+            focus: "grip" as const,
+            priority: "component" as const,
+            component: "Basic Tire",
+            componentCondition: "rusted" as const,
+            vehicleCondition: 77,
+            slot: "wheel" as const,
+            buildIdentity: "cornering_rig" as const,
+            buildIdentityModelVersion: 1 as const,
+            circuitFitMultiplier: 1.04,
+            limitingAxis: "pace" as const,
+            observation: "Stored observation",
+            action: "Stored action",
+          },
         }],
       } as GameState),
     );
+  });
+
+  it.each(["__proto__", "constructor", "unknown"])(
+    "rejects a persisted engineering report with unsafe slot %s",
+    (slot) => {
+      const state = createInitialState();
+      const envelope = createSaveEnvelope("Unsafe diagnosis", {
+        ...state,
+        raceHistory: [{
+          result: "loss" as const,
+          position: 4,
+          totalRacers: 8,
+          scrapsEarned: 12,
+          repEarned: 2,
+          log: ["Saved result"],
+          vehicleId: "persisted-race-vehicle",
+          circuitId: "backyard_derby",
+          engineeringReport: {
+            headline: "Stored diagnosis",
+            focus: "grip" as const,
+            priority: "component" as const,
+            slot: slot as "wheel",
+            observation: "Stored observation",
+            action: "Stored action",
+          },
+        }],
+      });
+
+      expect(() => decodeSavePayload(JSON.stringify(envelope))).toThrow("Invalid persisted game state");
+    },
+  );
+
+  it.each([
+    ["an empty vehicle ID", ""],
+    ["an object vehicle ID", { malformed: true }],
+    ["an overlong vehicle ID", "v".repeat(201)],
+  ])("rejects %s while legacy race outcomes may omit vehicleId", (_label, vehicleId) => {
+    const state = createInitialState();
+    const outcome = {
+      result: "loss" as const,
+      position: 4,
+      totalRacers: 8,
+      scrapsEarned: 12,
+      repEarned: 2,
+      log: ["Saved result"],
+      circuitId: "backyard_derby",
+    };
+    const legacyEnvelope = createSaveEnvelope("Legacy outcome", { ...state, raceHistory: [outcome] });
+    expect(() => decodeSavePayload(JSON.stringify(legacyEnvelope))).not.toThrow();
+
+    const malformedEnvelope = createSaveEnvelope("Malformed provenance", {
+      ...state,
+      raceHistory: [{ ...outcome, vehicleId: vehicleId as never }],
+    });
+    expect(() => decodeSavePayload(JSON.stringify(malformedEnvelope))).toThrow("Invalid persisted game state");
   });
 
   it("migrates a legacy manual export without inventing missing run state", () => {
@@ -285,6 +376,16 @@ describe("save envelope", () => {
         materials: { metalScrap: -10 },
         fatigue: "broken",
         vehicleLoadouts: [null],
+        raceHistory: [{
+          result: "loss",
+          position: 4,
+          totalRacers: 8,
+          scrapsEarned: 12,
+          repEarned: 2,
+          log: ["Malformed provenance"],
+          circuitId: "backyard_derby",
+          vehicleId: { malformed: true },
+        }],
       },
       initial,
     );
@@ -293,6 +394,31 @@ describe("save envelope", () => {
     expect(hydrated.garage).toEqual([]);
     expect(hydrated.materials.metalScrap).toBe(0);
     expect(hydrated.fatigue).toBe(0);
+  });
+
+  it("hydrates vehicle stats from parts and active handling modifiers instead of stale persisted stats", () => {
+    const initial = createInitialState() as GameState;
+    const mower = getVehicleById("push_mower")!;
+    const parts = {
+      engine: { part: { id: "engine", definitionId: "engine_small", condition: "good" as const, foundAt: "test", type: "part" as const }, addons: [] },
+      wheel: { part: { id: "wheel", definitionId: "wheel_basic", condition: "good" as const, foundAt: "test", type: "part" as const }, addons: [] },
+    };
+    const hydrated = mergePersistedGameState({
+      workshopLevels: { tuned_suspension: 2 },
+      garage: [{
+        id: "hydrated-mower",
+        definitionId: mower.id,
+        parts,
+        stats: { speed: 0, handling: 0, reliability: 0, weight: 0, performance: 0 },
+        builtAt: 1,
+        condition: 100,
+        totalRaces: 0,
+      }],
+    }, initial);
+
+    expect(hydrated.garage[0].stats).toEqual(
+      calculateStats(mower, parts, 100, getEffectiveVehicleHandlingBonus(hydrated)),
+    );
   });
 
   it("strips action-name injection before an import or browser merge can replace live actions", () => {
@@ -354,6 +480,25 @@ describe("save envelope", () => {
       carbonDust: 0,
       greaseSludge: 0,
     });
+  });
+
+  it("persists a nullable Team Operating Philosophy and defaults missing saves to null", () => {
+    const initial = createInitialState() as GameState;
+    expect(getPersistedGameState({ ...initial, teamOperatingPhilosophy: "driver_led" })).toMatchObject({
+      teamOperatingPhilosophy: "driver_led",
+    });
+    expect(mergePersistedGameState({}, initial).teamOperatingPhilosophy).toBeNull();
+  });
+
+  it("rejects an invalid Team Operating Philosophy enum", () => {
+    expect(() => decodeSavePayload(JSON.stringify({
+      format: SAVE_FORMAT,
+      version: SAVE_VERSION,
+      build: "test",
+      exportedAt: Date.now(),
+      label: "Invalid philosophy",
+      state: { teamOperatingPhilosophy: "free_money" },
+    }))).toThrow("Invalid persisted game state");
   });
 
   it("refuses saves from a newer schema", () => {

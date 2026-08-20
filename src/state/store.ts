@@ -13,6 +13,7 @@ import {
 import type { ScavengedPart } from "@/engine/scavenge";
 import type { BuiltVehicle } from "@/engine/build";
 import type { RaceOutcome } from "@/engine/race";
+import type { RaceControlSelection } from "@/engine/raceControl";
 import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus, RunStats } from "@/engine/prestige";
 import { LEGACY_UPGRADES_BY_ID, legacyUpgradeCost } from "@/data/legacyUpgrades";
@@ -33,7 +34,7 @@ import { rollGearDrops } from "@/engine/gearDrop";
 import { calculatePrestigeBonus, calculatePrestigeBonusLegacy, calculateScrapResetAward, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
-import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, validateBuildSelection } from "@/engine/build";
+import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, projectInstalledPartSwap, validateBuildSelection } from "@/engine/build";
 import { simulateRace, calculateWear, compactRaceHistory } from "@/engine/race";
 import { decomposePart, decomposeMany } from "@/engine/decompose";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
@@ -59,7 +60,7 @@ import { TRACK_PERK_DEFINITIONS, TRACK_PERKS_BY_ID, trackPerkCost } from "@/data
 import { calculateTeamPoints, calculateOwnerPoints, calculateTrackTokens } from "@/engine/prestige";
 import { FEATURE_UNLOCK_DEFINITIONS, checkFeatureUnlock } from "@/data/featureUnlocks";
 import { getSpecializationsForRole, type CrewMember, type CrewRole } from "@/data/crew";
-import { createCrewAtLevel, ensureAcademyRoster, grantCrewRoleXp, grantCrewXp } from "@/engine/crew";
+import { createCrewAtLevel, ensureAcademyRoster, grantCrewRoleXp, grantCrewXp, selectDepartmentHead } from "@/engine/crew";
 import { getPrestigeMilestoneBonuses, getNewlyUnlockedMilestones } from "@/data/prestigeMilestones";
 import { checkAchievements } from "@/engine/achievements";
 import { ACHIEVEMENTS_BY_ID, type AchievementStats } from "@/data/achievements";
@@ -78,9 +79,14 @@ import { calculateHostedEventTerms, DEFAULT_TRACK_CONFIG, normalizeHostedEventCo
 import { getPartSaleValue } from "@/engine/sale";
 import { autoSellRustedParts } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
-import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { getEffectiveVehicleHandlingBonus, recalculateGarageStats } from "@/engine/vehicleStats";
+
+export { getEffectiveVehicleHandlingBonus } from "@/engine/vehicleStats";
+import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, RACE_CONTROL_RACES_PER_OPPORTUNITY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
+import { isTeamOperatingPhilosophy, TEAM_PHILOSOPHIES_BY_ID, type TeamOperatingPhilosophy } from "@/data/teamPhilosophies";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
+import type { ContextualCoachId } from "@/engine/contextualCoaching";
 import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "@/engine/progressionUnlocks";
 import {
   BULK_DECOMPOSE_COST,
@@ -201,6 +207,12 @@ export interface GameState {
   raceStartTime: number | null;
   precomputedOutcome: RaceOutcome | null;
   currentRacePlan: RacePlan;
+  /** Settled races toward the next stored Race Control call. */
+  raceControlRaceProgress: number;
+  /** At most one optional manual-only Race Control call can be stored. */
+  raceControlOpportunityReady: boolean;
+  /** Persisted escrow restored if a called manual race is interrupted. */
+  raceControlCallEscrowed: boolean;
   defeatedRivalIds: string[];
   discoveredBlueprintIds: string[];
   fleetAssignments: FleetAssignment[];
@@ -275,6 +287,8 @@ export interface GameState {
 
   /** Guided tutorial step (-1 = complete/skipped, 0+ = active step) */
   tutorialStep: number;
+  /** True only after completing the mandatory first engineering loop. */
+  tutorialCompleted: boolean;
   /** Cards hidden but highlights/auto-advance still active */
   tutorialDismissed: boolean;
   /** Temporarily hidden — shows a restore chip instead of card/badge. Auto-resets on step advance. */
@@ -283,6 +297,8 @@ export interface GameState {
   tutorialSkippedSteps: number[];
   /** Timestamp of last tutorial step advance (for help nudge) */
   tutorialLastAdvanceTime: number;
+  /** Optional post-tutorial coach cards the player has dismissed. */
+  dismissedContextualCoachIds: ContextualCoachId[];
 
   // Lifetime stats (for challenge tracking, persist through prestige)
   lifetimeTotalDecomposed: number;
@@ -302,6 +318,7 @@ export interface GameState {
   teamUpgradeLevels: Record<string, number>;
   teamEraCount: number;
   lifetimeLPThisTeamEra: number;
+  teamOperatingPhilosophy: TeamOperatingPhilosophy | null;
 
   // Layer 3: Owner Reset
   ownerPoints: number;
@@ -366,7 +383,7 @@ export interface GameState {
   setScoutingOrder: (order: PartCategory | null) => void;
   setSelectedCircuit: (circuitId: string) => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
-  enterRace: () => void;
+  enterRace: (raceControlSelection?: RaceControlSelection) => void;
   setRacePlan: (plan: RacePlan) => void;
   applyRacePlanPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => void;
   startFleetAssignment: (vehicleId: string, circuitId: string, crewId?: string) => void;
@@ -380,6 +397,7 @@ export interface GameState {
   skipTutorial: () => void;
   dismissTutorial: () => void;
   toggleTutorialMinimized: () => void;
+  dismissContextualCoach: (coachId: ContextualCoachId) => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   installAddon: (vehicleId: string, slot: string, addonId: string) => void;
@@ -424,7 +442,7 @@ export interface GameState {
   clearActivityLog: () => void;
 
   // ── Multi-layer prestige actions ─────────────────────────────────────────────
-  teamReset: () => void;
+  teamReset: (philosophy: TeamOperatingPhilosophy) => void;
   purchaseTeamUpgrade: (upgradeId: string) => void;
   ownerReset: () => void;
   purchaseOwnerUpgrade: (upgradeId: string) => void;
@@ -490,6 +508,9 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     raceStartTime: null,
     precomputedOutcome: null,
     currentRacePlan: { ...DEFAULT_RACE_PLAN },
+    raceControlRaceProgress: 0,
+    raceControlOpportunityReady: false,
+    raceControlCallEscrowed: false,
     defeatedRivalIds: [],
     discoveredBlueprintIds: [],
     fleetAssignments: [],
@@ -533,10 +554,12 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     lifetimeTotalRaceSalvage: 0,
     highestConditionReached: 0,
     tutorialStep: 0,
+    tutorialCompleted: false,
     tutorialDismissed: false,
     tutorialMinimized: false,
     tutorialSkippedSteps: [],
     tutorialLastAdvanceTime: Date.now(),
+    dismissedContextualCoachIds: [],
     racerSkills: createDefaultSkills(),
     // Multi-layer prestige defaults
     teamPoints: 0,
@@ -544,6 +567,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     teamUpgradeLevels: {},
     teamEraCount: 0,
     lifetimeLPThisTeamEra: 0,
+    teamOperatingPhilosophy: null,
     ownerPoints: 0,
     lifetimeOwnerPoints: 0,
     ownerUpgradeLevels: {},
@@ -632,22 +656,7 @@ function recalculateGarageStatsForStationEquipment(
   equippedStationEquipment: Record<GarageStationSlot, string | null>,
   stationEquipmentInventory: StationEquipment[],
 ): BuiltVehicle[] {
-  const gear = getGearBonuses(
-    state.equippedGear,
-    state.equippedLootGear,
-    state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
-    equippedStationEquipment,
-    stationEquipmentInventory,
-  );
-  const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
-  return state.garage.map((vehicle) => {
-    const definition = getVehicleById(vehicle.definitionId);
-    return definition
-      ? { ...vehicle, stats: calculateStats(definition, vehicle.parts, vehicle.condition ?? 100, handlingBonus) }
-      : vehicle;
-  });
+  return recalculateGarageStats({ ...state, equippedStationEquipment, stationEquipmentInventory });
 }
 
 /** Exact additive sell-value bonus used by manual, bulk, and automated sales. */
@@ -1330,7 +1339,12 @@ function createActions(set: SetState, get: GetState) {
         }
       }
 
-      const built = buildVehicle(vehicleDef, builtParts, _vehicleIdCounter);
+      const built = buildVehicle(
+        vehicleDef,
+        builtParts,
+        _vehicleIdCounter,
+        getEffectiveVehicleHandlingBonus(state),
+      );
 
       set((s: GameState) => {
         const remainingInventory = s.inventory.filter((p) => !usedPartIds.has(p.id));
@@ -1478,9 +1492,16 @@ function createActions(set: SetState, get: GetState) {
       set({ selectedSellBelowQuality: threshold });
     },
 
-    enterRace: () => {
+    enterRace: (raceControlSelection?: RaceControlSelection) => {
       const state = get() as GameState;
       if (!canEnterSelectedRace(state)) return;
+
+      const raceControlCallId = state.raceControlOpportunityReady
+        && raceControlSelection?.vehicleId === state.activeVehicleId
+        && raceControlSelection.circuitId === state.selectedCircuitId
+        ? raceControlSelection.callId
+        : undefined;
+      if (raceControlSelection && !raceControlCallId) return;
 
       const vehicle = state.garage.find((v) => v.id === state.activeVehicleId);
       const circuit = getCircuitById(state.selectedCircuitId);
@@ -1510,6 +1531,7 @@ function createActions(set: SetState, get: GetState) {
         false,
         state.currentRacePlan,
         permanentBonuses.raceDnfChanceMultiplier,
+        raceControlCallId,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -1526,6 +1548,9 @@ function createActions(set: SetState, get: GetState) {
         raceEvents: events,
         raceStartTime: Date.now(),
         precomputedOutcome: outcome,
+        raceControlOpportunityReady: raceControlCallId ? false : state.raceControlOpportunityReady,
+        raceControlRaceProgress: raceControlCallId ? 0 : state.raceControlRaceProgress,
+        raceControlCallEscrowed: Boolean(raceControlCallId),
       });
 
       setTimeout(() => {
@@ -1548,6 +1573,11 @@ function createActions(set: SetState, get: GetState) {
               raceEvents: [],
               raceStartTime: null,
               precomputedOutcome: null,
+              raceControlOpportunityReady: s.raceControlCallEscrowed || s.raceControlOpportunityReady,
+              raceControlRaceProgress: s.raceControlCallEscrowed
+                ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+                : s.raceControlRaceProgress,
+              raceControlCallEscrowed: false,
             };
           }
           settledCurrentSession = true;
@@ -1629,6 +1659,9 @@ function createActions(set: SetState, get: GetState) {
           let settledOutcome: RaceOutcome = { ...outcome, scrapsEarned: finalScraps, repEarned: effectiveRepEarned };
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
+          const raceControlRaceProgress = s.prestigeCount >= 1 && s.autoRaceUnlocked && !s.raceControlOpportunityReady
+            ? Math.min(RACE_CONTROL_RACES_PER_OPPORTUNITY, s.raceControlRaceProgress + 1)
+            : s.raceControlRaceProgress;
           const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + sb.enduranceFatigueOffset;
           const rawFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
           const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
@@ -1734,6 +1767,10 @@ function createActions(set: SetState, get: GetState) {
             unlockEvents: newUnlockEvents,
             garage: updatedGarage,
             lifetimeRaces: newLifetimeRaces,
+            raceControlRaceProgress,
+            raceControlOpportunityReady: s.raceControlOpportunityReady
+              || raceControlRaceProgress >= RACE_CONTROL_RACES_PER_OPPORTUNITY,
+            raceControlCallEscrowed: false,
             fatigue: newFatigue,
             racerSkills: updatedSkills,
             crewRoster: grantCrewRoleXp(s.crewRoster, "driver", 10, getCrewXpMultiplier(s)),
@@ -1914,15 +1951,26 @@ function createActions(set: SetState, get: GetState) {
     advanceTutorial: () => {
       const step = (get() as GameState).tutorialStep;
       // Each new step starts fully visible — minimized state is per-step, not persistent
-      set({ tutorialStep: step >= 13 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now(), tutorialMinimized: false });
+      set({
+        tutorialStep: step >= 13 ? -1 : step + 1,
+        tutorialCompleted: step >= 13,
+        tutorialLastAdvanceTime: Date.now(),
+        tutorialMinimized: false,
+      });
     },
 
     skipTutorial: () => {
-      set({ tutorialStep: -1, tutorialDismissed: false, tutorialMinimized: false });
+      set({ tutorialStep: -1, tutorialCompleted: false, tutorialDismissed: false, tutorialMinimized: false });
     },
 
     toggleTutorialMinimized: () => {
       set({ tutorialMinimized: !(get() as GameState).tutorialMinimized });
+    },
+
+    dismissContextualCoach: (coachId: ContextualCoachId) => {
+      set((state: GameState) => state.dismissedContextualCoachIds.includes(coachId)
+        ? state
+        : { dismissedContextualCoachIds: [...state.dismissedContextualCoachIds, coachId] });
     },
 
     dismissTutorial: () => {
@@ -1984,14 +2032,24 @@ function createActions(set: SetState, get: GetState) {
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
       const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
-      if (!slotCfg || !slotCfg.acceptableParts.includes(newPart.definitionId)) return;
+      const matchingCandidates = state.inventory.filter((part) => part.id === newPart.id);
+      const candidate = matchingCandidates.length === 1 ? matchingCandidates[0] : undefined;
+      if (
+        !slotCfg
+        || !candidate
+        || candidate.type === "addon"
+        || !CONDITIONS.includes(candidate.condition)
+        || CONDITION_ADDON_SLOTS[candidate.condition] === undefined
+        || !getPartById(candidate.definitionId)
+        || !slotCfg.acceptableParts.includes(candidate.definitionId)
+      ) return;
 
-      const capacity = CONDITION_ADDON_SLOTS[newPart.condition] ?? 0;
-      const retainedAddons = installed.addons.slice(0, capacity);
-      const returnedAddons = installed.addons.slice(capacity);
-      const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: retainedAddons } };
-      const gbSwap = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
-      const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gbSwap.race_handling_pct;
+      const projection = projectInstalledPartSwap(vehicleDef, vehicle, slot, candidate);
+      if (!projection) return;
+      const retainedAddonCount = installed.addons.length - projection.displacedAddonCount;
+      const returnedAddons = installed.addons.slice(retainedAddonCount);
+      const newParts = projection.parts;
+      const handlingBonus = getEffectiveVehicleHandlingBonus(state);
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 
       set((s: GameState) => ({
@@ -2001,7 +2059,7 @@ function createActions(set: SetState, get: GetState) {
           stats: newStats,
         }),
         inventory: [
-          ...s.inventory.filter((p) => p.id !== newPart.id),
+          ...s.inventory.filter((p) => p.id !== candidate.id),
           returnedPart,
           ...returnedAddons,
         ],
@@ -2107,10 +2165,15 @@ function createActions(set: SetState, get: GetState) {
       const cost = getWorkshopUpgradePurchaseCost(state, upgradeId);
       if (cost === null) return;
       if (state.scrapBucks < cost) return;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - cost,
-        workshopLevels: { ...s.workshopLevels, [upgradeId]: currentLevel + 1 },
-      }));
+      set((s: GameState) => {
+        const workshopLevels = { ...s.workshopLevels, [upgradeId]: currentLevel + 1 };
+        const nextState = { ...s, workshopLevels };
+        return {
+          scrapBucks: s.scrapBucks - cost,
+          workshopLevels,
+          ...(upgradeId === "tuned_suspension" ? { garage: recalculateGarageStats(nextState) } : {}),
+        };
+      });
       _appendLog(set, get, "upgrade", `Bought ${def.name} Lv.${currentLevel + 1} for $${cost}`, { scrapDelta: -cost });
     },
 
@@ -2121,11 +2184,15 @@ function createActions(set: SetState, get: GetState) {
       if (state.ownedGearIds.includes(gearId)) return;
       if (def.unlockRequirement?.repPoints && state.repPoints < def.unlockRequirement.repPoints) return;
       if (state.scrapBucks < def.cost) return;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - def.cost,
-        ownedGearIds: [...s.ownedGearIds, gearId],
-        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
-      }));
+      set((s: GameState) => {
+        const equippedGear = { ...s.equippedGear, [def.slot]: gearId };
+        return {
+          scrapBucks: s.scrapBucks - def.cost,
+          ownedGearIds: [...s.ownedGearIds, gearId],
+          equippedGear,
+          garage: recalculateGarageStats({ ...s, equippedGear }),
+        };
+      });
       _appendLog(set, get, "gear", `Bought ${def.name} for $${def.cost}`, { scrapDelta: -def.cost });
     },
 
@@ -2134,24 +2201,27 @@ function createActions(set: SetState, get: GetState) {
       if (!state.ownedGearIds.includes(gearId)) return;
       const def = getGearById(gearId);
       if (!def) return;
-      set((s: GameState) => ({
-        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
-      }));
+      set((s: GameState) => {
+        const equippedGear = { ...s.equippedGear, [def.slot]: gearId };
+        return { equippedGear, garage: recalculateGarageStats({ ...s, equippedGear }) };
+      });
     },
 
     equipLootGear: (lootGearId: string) => {
       const state = get() as GameState;
       const item = state.lootGearInventory.find((g) => g.id === lootGearId);
       if (!item) return;
-      set((s: GameState) => ({
-        equippedLootGear: { ...s.equippedLootGear, [item.slot]: lootGearId },
-      }));
+      set((s: GameState) => {
+        const equippedLootGear = { ...s.equippedLootGear, [item.slot]: lootGearId };
+        return { equippedLootGear, garage: recalculateGarageStats({ ...s, equippedLootGear }) };
+      });
     },
 
     unequipLootGear: (slot: GearSlot) => {
-      set((s: GameState) => ({
-        equippedLootGear: { ...s.equippedLootGear, [slot]: null },
-      }));
+      set((s: GameState) => {
+        const equippedLootGear = { ...s.equippedLootGear, [slot]: null };
+        return { equippedLootGear, garage: recalculateGarageStats({ ...s, equippedLootGear }) };
+      });
     },
 
     enhanceLootGear: (lootGearId: string) => {
@@ -2165,12 +2235,18 @@ function createActions(set: SetState, get: GetState) {
       if (state.scrapBucks < cost) return;
       const newLevel = item.enhancementLevel + 1;
       const newModSlots = getModSlots(newLevel);
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - cost,
-        lootGearInventory: s.lootGearInventory.map((g) =>
+      set((s: GameState) => {
+        const lootGearInventory = s.lootGearInventory.map((g) =>
           g.id !== lootGearId ? g : { ...g, enhancementLevel: newLevel, modSlots: newModSlots }
-        ),
-      }));
+        );
+        return {
+          scrapBucks: s.scrapBucks - cost,
+          lootGearInventory,
+          garage: s.equippedLootGear[item.slot] === lootGearId
+            ? recalculateGarageStats({ ...s, lootGearInventory })
+            : s.garage,
+        };
+      });
       _appendLog(set, get, "gear", `Enhanced ${item.name} to Lv.${newLevel} for $${cost}`, { scrapDelta: -cost });
     },
 
@@ -2185,17 +2261,21 @@ function createActions(set: SetState, get: GetState) {
       );
       // Return installed mods to inventory
       const returnedMods = item.mods;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks + value,
-        lifetimeScrapBucks: s.lifetimeScrapBucks + value,
-        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
-        lootGearInventory: s.lootGearInventory.filter((g) => g.id !== lootGearId),
-        // Unequip if this item was equipped
-        equippedLootGear: s.equippedLootGear[item.slot] === lootGearId
+      set((s: GameState) => {
+        const lootGearInventory = s.lootGearInventory.filter((g) => g.id !== lootGearId);
+        const equippedLootGear = s.equippedLootGear[item.slot] === lootGearId
           ? { ...s.equippedLootGear, [item.slot]: null }
-          : s.equippedLootGear,
-        gearModInventory: [...s.gearModInventory, ...returnedMods],
-      }));
+          : s.equippedLootGear;
+        return {
+          scrapBucks: s.scrapBucks + value,
+          lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+          lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
+          lootGearInventory,
+          equippedLootGear,
+          gearModInventory: [...s.gearModInventory, ...returnedMods],
+          garage: recalculateGarageStats({ ...s, lootGearInventory, equippedLootGear }),
+        };
+      });
       _appendLog(set, get, "gear", `Salvaged ${item.name} for $${value}`, { scrapDelta: value });
       (get() as GameState).checkAchievements();
     },
@@ -2208,11 +2288,15 @@ function createActions(set: SetState, get: GetState) {
         if (item.mods.some((installed) => installed.id === modInstanceId)) return s;
         const template = getModTemplateById(mod.templateId);
         if (!template || !template.slots.includes(item.slot)) return s;
+        const lootGearInventory = s.lootGearInventory.map((g) =>
+          g.id !== lootGearId ? g : { ...g, mods: [...g.mods, mod] }
+        );
         return {
-          lootGearInventory: s.lootGearInventory.map((g) =>
-            g.id !== lootGearId ? g : { ...g, mods: [...g.mods, mod] }
-          ),
+          lootGearInventory,
           gearModInventory: s.gearModInventory.filter((m) => m.id !== modInstanceId),
+          garage: s.equippedLootGear[item.slot] === lootGearId
+            ? recalculateGarageStats({ ...s, lootGearInventory })
+            : s.garage,
         };
       });
     },
@@ -2223,14 +2307,20 @@ function createActions(set: SetState, get: GetState) {
       if (!item || modIndex < 0 || modIndex >= item.mods.length) return;
       const mod = item.mods[modIndex];
       const preserveMod = _getUpgradeLevel(state, "careful_modding") >= 1;
-      set((s: GameState) => ({
-        lootGearInventory: s.lootGearInventory.map((g) =>
+      set((s: GameState) => {
+        const lootGearInventory = s.lootGearInventory.map((g) =>
           g.id !== lootGearId ? g : { ...g, mods: g.mods.filter((_, i) => i !== modIndex) }
-        ),
-        gearModInventory: preserveMod
-          ? [...s.gearModInventory, mod]
-          : s.gearModInventory,
-      }));
+        );
+        return {
+          lootGearInventory,
+          gearModInventory: preserveMod
+            ? [...s.gearModInventory, mod]
+            : s.gearModInventory,
+          garage: s.equippedLootGear[item.slot] === lootGearId
+            ? recalculateGarageStats({ ...s, lootGearInventory })
+            : s.garage,
+        };
+      });
     },
 
     unlockTalentNode: (nodeId: string) => {
@@ -2500,10 +2590,12 @@ function createActions(set: SetState, get: GetState) {
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         dealerBoard: [],
         gameTick: 0,
         // Activity log persists through prestige
@@ -2515,6 +2607,7 @@ function createActions(set: SetState, get: GetState) {
         teamUpgradeLevels: state.teamUpgradeLevels,
         teamEraCount: state.teamEraCount,
         lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra + lpEarned,
+        teamOperatingPhilosophy: state.teamOperatingPhilosophy,
         ownerPoints: state.ownerPoints,
         lifetimeOwnerPoints: state.lifetimeOwnerPoints,
         ownerUpgradeLevels: state.ownerUpgradeLevels,
@@ -2673,6 +2766,12 @@ function createActions(set: SetState, get: GetState) {
       set((s: GameState) => {
         const raced = settlement.racesCompleted > 0;
         const newLifetimeRaces = s.lifetimeRaces + settlement.racesCompleted;
+        const raceControlRaceProgress = s.prestigeCount >= 1 && s.autoRaceUnlocked && !s.raceControlOpportunityReady
+          ? Math.min(
+              RACE_CONTROL_RACES_PER_OPPORTUNITY,
+              s.raceControlRaceProgress + settlement.racesCompleted,
+            )
+          : s.raceControlRaceProgress;
         const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
         const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
         const updatedGarage = s.garage.map((vehicle) => {
@@ -2825,6 +2924,9 @@ function createActions(set: SetState, get: GetState) {
           repPoints: newRep,
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
+          raceControlRaceProgress,
+          raceControlOpportunityReady: s.raceControlOpportunityReady
+            || raceControlRaceProgress >= RACE_CONTROL_RACES_PER_OPPORTUNITY,
           fatigue: newFatigue,
           racerSkills: settlement.finalRacerSkills ?? tickSkills,
           crewRoster: settlement.finalCrewRoster ?? updatedCrew,
@@ -3361,6 +3463,12 @@ function createActions(set: SetState, get: GetState) {
         raceEvents: [],
         raceStartTime: null,
         precomputedOutcome: null,
+        raceControlOpportunityReady: state.raceControlCallEscrowed
+          || state.raceControlOpportunityReady,
+        raceControlRaceProgress: state.raceControlCallEscrowed
+          ? RACE_CONTROL_RACES_PER_OPPORTUNITY
+          : state.raceControlRaceProgress,
+        raceControlCallEscrowed: false,
       });
     },
 
@@ -3370,8 +3478,9 @@ function createActions(set: SetState, get: GetState) {
 
     // ── Multi-layer prestige actions ────────────────────────────────────────────
 
-    teamReset: () => {
+    teamReset: (philosophy: TeamOperatingPhilosophy) => {
       const state = get() as GameState;
+      if (!isTeamOperatingPhilosophy(philosophy)) return;
       if (!canTeamReset({
         lifetimeLegacyPoints: state.lifetimeLPAllTime,
         lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
@@ -3418,9 +3527,15 @@ function createActions(set: SetState, get: GetState) {
         "crew_starting_level",
       );
       const teamCrewSlots = 1 + (state.teamUpgradeLevels.team_crew_slots ?? 0);
+      const startingLevel = ownerCrewLevel > 0 ? ownerCrewLevel : 1;
+      const lead = selectDepartmentHead(
+        state.crewRoster,
+        TEAM_PHILOSOPHIES_BY_ID[philosophy].leadRole,
+        startingLevel,
+      );
       const startingCrew = academyActive
-        ? ensureAcademyRoster([], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
-        : [];
+        ? ensureAcademyRoster([lead], startingLevel)
+        : [lead];
       const startingMaterials = getGameEffectValue(
         TEAM_UPGRADE_DEFINITIONS,
         state.teamUpgradeLevels,
@@ -3431,22 +3546,25 @@ function createActions(set: SetState, get: GetState) {
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
-        autoScavengeUnlocked: autoEverything,
-        autoRaceUnlocked: autoEverything,
+        autoScavengeUnlocked: state.autoScavengeUnlocked || autoEverything,
+        autoRaceUnlocked: state.autoRaceUnlocked || autoEverything,
         materials: Object.fromEntries(
           Object.keys(INITIAL_MATERIALS).map((material) => [material, startingMaterials]),
         ) as Record<MaterialType, number>,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         // Team layer persists
         teamPoints: newTP,
         lifetimeTeamPoints: newLifetimeTP,
         teamUpgradeLevels: state.teamUpgradeLevels,
         teamEraCount: state.teamEraCount + 1,
         lifetimeLPThisTeamEra: 0,
+        teamOperatingPhilosophy: philosophy,
         // Owner layer persists
         ownerPoints: state.ownerPoints,
         lifetimeOwnerPoints: state.lifetimeOwnerPoints,
@@ -3581,10 +3699,12 @@ function createActions(set: SetState, get: GetState) {
         autoScavengeUnlocked: autoEverything,
         autoRaceUnlocked: autoEverything,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         // Owner layer persists
         ownerPoints: newOP,
         lifetimeOwnerPoints: newLifetimeOP,
@@ -3730,10 +3850,12 @@ function createActions(set: SetState, get: GetState) {
         autoScavengeUnlocked: autoEverything,
         autoRaceUnlocked: autoEverything,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         // Track layer persists
         trackPrestigeTokens: newPT,
         lifetimeTrackTokens: newLifetimePT,
@@ -3924,9 +4046,13 @@ function createActions(set: SetState, get: GetState) {
       if (!node) return;
       if (!canUnlockPlaystyleNode(nodeId, state.unlockedPlaystyleNodes)) return;
       if (state.legacyPoints < node.lpCost) return;
-      set({
-        legacyPoints: state.legacyPoints - node.lpCost,
-        unlockedPlaystyleNodes: [...state.unlockedPlaystyleNodes, nodeId],
+      set((current: GameState) => {
+        const unlockedPlaystyleNodes = [...current.unlockedPlaystyleNodes, nodeId];
+        return {
+          legacyPoints: current.legacyPoints - node.lpCost,
+          unlockedPlaystyleNodes,
+          garage: recalculateGarageStats({ ...current, unlockedPlaystyleNodes }),
+        };
       });
       _appendLog(set, get, "prestige", `Unlocked playstyle node: ${node.name} for ${node.lpCost} LP`, { lpDelta: -node.lpCost });
     },
@@ -3940,10 +4066,11 @@ function createActions(set: SetState, get: GetState) {
         const n = PLAYSTYLE_NODES_BY_ID[id];
         return n && n.path !== path;
       });
-      set({
+      set((current: GameState) => ({
         unlockedPlaystyleNodes: remaining,
-        legacyPoints: state.legacyPoints + refund,
-      });
+        legacyPoints: current.legacyPoints + refund,
+        garage: recalculateGarageStats({ ...current, unlockedPlaystyleNodes: remaining }),
+      }));
       _appendLog(set, get, "prestige", `Respecced ${path} playstyle path — refunded ${refund} LP`, { lpDelta: refund });
     },
 
@@ -3982,7 +4109,12 @@ function createActions(set: SetState, get: GetState) {
         };
       }
 
-      const built = buildVehicle(vehicleDef, builtParts, state._vehicleIdCounter);
+      const built = buildVehicle(
+        vehicleDef,
+        builtParts,
+        state._vehicleIdCounter,
+        getEffectiveVehicleHandlingBonus(state),
+      );
 
       set({
         scrapBucks: Math.max(state.scrapBucks, 500),

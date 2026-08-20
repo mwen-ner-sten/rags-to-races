@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getVehicleBuildCost, getVehicleRepairCost, getVehicleSaleValue, resolveVehicleLoadout, useGameStore } from "@/state/store";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getEffectiveVehicleHandlingBonus, getVehicleBuildCost, getVehicleRepairCost, getVehicleSaleValue, resolveVehicleLoadout, useGameStore } from "@/state/store";
 import { formatVehicleUnlockRequirement, VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import type { VehicleDefinition } from "@/data/vehicles";
-import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
+import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_LABELS, type CoreSlot } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
-import type { BuiltVehicle } from "@/engine/build";
-import { validateBuildSelection } from "@/engine/build";
+import type { BuiltVehicle, VehicleStats } from "@/engine/build";
+import { compareInstalledPart, degradeCondition, projectInstalledPartSwap, validateBuildSelection } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import GameAssetImage from "@/components/GameAssetImage";
+import type { EngineeringPriority } from "@/engine/engineeringDiagnostics";
+import { calculateBuildCircuitEvaluation, calculateBuildProfile } from "@/engine/buildIdentity";
+import { BUILD_IDENTITIES } from "@/data/buildIdentities";
+import { getCircuitById } from "@/data/circuits";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -54,7 +58,20 @@ function groupParts(parts: ScavengedPart[]): PartGroup[] {
   });
 }
 
-export default function GaragePanel() {
+interface GarageInspectionTarget {
+  vehicleId: string;
+  slot: CoreSlot;
+  priority: EngineeringPriority;
+  action: string;
+}
+
+export default function GaragePanel({
+  inspectionTarget = null,
+  onClearInspection,
+}: {
+  inspectionTarget?: GarageInspectionTarget | null;
+  onClearInspection?: () => void;
+}) {
   const garage = useGameStore((s) => s.garage);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const inventory = useGameStore((s) => s.inventory);
@@ -314,6 +331,10 @@ export default function GaragePanel() {
                 sellVehicle={sellVehicle}
                 repairVehicle={repairVehicle}
                 swapPart={swapPart}
+                diagnosisSlot={inspectionTarget?.vehicleId === vehicle.id ? inspectionTarget.slot : null}
+                diagnosisPriority={inspectionTarget?.vehicleId === vehicle.id ? inspectionTarget.priority : null}
+                diagnosisAction={inspectionTarget?.vehicleId === vehicle.id ? inspectionTarget.action : null}
+                onClearDiagnosis={onClearInspection}
               />
             ))}
           </div>
@@ -336,6 +357,10 @@ function VehicleCard({
   sellVehicle,
   repairVehicle,
   swapPart,
+  diagnosisSlot,
+  diagnosisPriority,
+  diagnosisAction,
+  onClearDiagnosis,
 }: {
   vehicle: BuiltVehicle;
   isActive: boolean;
@@ -347,8 +372,17 @@ function VehicleCard({
   sellVehicle: (id: string) => void;
   repairVehicle: (id: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
+  diagnosisSlot: CoreSlot | null;
+  diagnosisPriority: EngineeringPriority | null;
+  diagnosisAction: string | null;
+  onClearDiagnosis?: () => void;
 }) {
-  const [swapSlot, setSwapSlot] = useState<string | null>(null);
+  const [swapSlot, setSwapSlot] = useState<string | null>(() =>
+    toolkitUnlocked && diagnosisPriority === "component" ? diagnosisSlot : null,
+  );
+  const diagnosisRef = useRef<HTMLDivElement>(null);
+  const vehicleCardRef = useRef<HTMLDivElement>(null);
+  const repairButtonRef = useRef<HTMLButtonElement>(null);
   const [loadoutName, setLoadoutName] = useState("");
   const installAddon = useGameStore((s) => s.installAddon);
   const removeAddon = useGameStore((s) => s.removeAddon);
@@ -361,6 +395,7 @@ function VehicleCard({
   const applyVehicleLoadout = useGameStore((s) => s.applyVehicleLoadout);
   const deleteVehicleLoadout = useGameStore((s) => s.deleteVehicleLoadout);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const lifetimeScrapResets = useGameStore((s) => s.lifetimeScrapResets);
   const isTutorialRepair = tutorialStep === 13;
   const repairCost = useGameStore((state) => getVehicleRepairCost(state, vehicle));
   const saleValue = useGameStore((state) => getVehicleSaleValue(state, vehicle));
@@ -368,11 +403,32 @@ function VehicleCard({
   const fleetAssignmentStatus = useGameStore((state) =>
     state.fleetAssignments.find((assignment) => assignment.vehicleId === vehicle.id)?.status ?? null,
   );
+  const diagnosedInstalled = diagnosisSlot ? vehicle.parts[diagnosisSlot] : undefined;
+  const diagnosedPart = diagnosedInstalled ? getPartById(diagnosedInstalled.part.definitionId) : undefined;
+  const diagnosisTargetKey = diagnosisSlot ? `${vehicle.id}:${diagnosisSlot}` : null;
+  const focusedDiagnosisTargetRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!diagnosisTargetKey) {
+      focusedDiagnosisTargetRef.current = null;
+      return;
+    }
+    if (focusedDiagnosisTargetRef.current === diagnosisTargetKey) return;
+    focusedDiagnosisTargetRef.current = diagnosisTargetKey;
+    const repairTarget = repairButtonRef.current;
+    const focusTarget = diagnosisPriority === "repair" && repairTarget && !repairTarget.disabled
+      ? repairTarget
+      : diagnosisRef.current;
+    focusTarget?.focus();
+    focusTarget?.scrollIntoView({ block: "nearest" });
+  }, [diagnosisPriority, diagnosisTargetKey]);
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
+  const buildProfile = useMemo(() => def ? calculateBuildProfile(def, vehicle) : null, [def, vehicle]);
   if (!def) return null;
 
   const condition = vehicle.condition ?? 100;
+  const showBuildDirection = tutorialStep === -1 && (toolkitUnlocked || lifetimeScrapResets > 0);
   const mutationLocked = fleetAssignmentStatus !== null || (isRacing && isActive);
   const activationLocked = isRacing || fleetAssignmentStatus !== null;
   const lockMessage = fleetAssignmentStatus === "running"
@@ -389,13 +445,62 @@ function VehicleCard({
 
   return (
     <div
+      ref={vehicleCardRef}
+      tabIndex={-1}
+      aria-label={`${def.name} vehicle`}
+      data-vehicle-card-id={vehicle.id}
       className="rounded-lg border p-2.5 sm:p-4 transition-colors"
       style={
-        isActive
+        diagnosisSlot
+          ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", boxShadow: "0 0 0 1px var(--panel-border-active)" }
+          : isActive
           ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)" }
           : { borderColor: "var(--panel-border)", background: "var(--panel-bg)" }
       }
     >
+      {diagnosisSlot && diagnosedInstalled && (
+        <div
+          ref={diagnosisRef}
+          tabIndex={-1}
+          role="region"
+          aria-label={`Race diagnosis for ${def.name} ${diagnosisSlot}`}
+          data-testid="garage-diagnosis"
+          data-vehicle-id={vehicle.id}
+          data-slot={diagnosisSlot}
+          className="mb-3 rounded-md border p-2 outline-none focus-visible:ring-2"
+          style={{ borderColor: "var(--panel-border-active)", background: "var(--panel-bg)" }}
+        >
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0 text-xs" style={{ color: "var(--text-heading)" }}>
+              <strong className="block uppercase tracking-wide" style={{ color: "var(--accent)" }}>Race diagnosis</strong>
+              <span className="break-words">Current {diagnosisSlot}: {diagnosedPart?.name ?? "Installed part"} · {CONDITION_LABELS[diagnosedInstalled.part.condition]}</span>
+              {diagnosisPriority === "repair" && (
+                <span className="mt-1 block" style={{ color: "var(--warning)" }}>
+                  <strong>Repair first.</strong>{diagnosisAction ? ` ${diagnosisAction}` : ""}
+                </span>
+              )}
+              {!toolkitUnlocked && (
+                <span className="mt-1 block" style={{ color: "var(--warning)" }}>
+                  Comparing and replacing parts unlocks with Toolkit at 40 Rep.
+                </span>
+              )}
+            </div>
+            {onClearDiagnosis && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClearDiagnosis();
+                  requestAnimationFrame(() => vehicleCardRef.current?.focus());
+                }}
+                className="min-h-11 min-w-11 shrink-0 rounded border px-2 text-xs min-[641px]:min-h-0 min-[641px]:min-w-0 min-[641px]:py-1"
+                style={{ borderColor: "var(--panel-border)", color: "var(--text-secondary)" }}
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -440,6 +545,16 @@ function VehicleCard({
             <StatBadge label="Rel" value={Math.floor(vehicle.stats.reliability)} />
             <StatBadge label="Perf" value={Math.floor(vehicle.stats.performance)} highlight />
           </div>
+          {showBuildDirection && buildProfile && (
+            <div className="mt-2 text-xs" data-testid={`build-direction-${vehicle.id}`} style={{ color: "var(--text-secondary)" }}>
+              <strong className="block" style={{ color: "var(--accent)" }}>
+                {buildProfile.identity ? BUILD_IDENTITIES[buildProfile.identity].label : "No clear build direction yet"}
+              </strong>
+              {buildProfile.identity
+                ? `${buildProfile.dominantAxis === "pace" ? "Pace" : buildProfile.dominantAxis === "handling" ? "Handling" : "Reliability"} is ${Math.round((buildProfile.indices[buildProfile.dominantAxis] - 1) * 100)}% above this blueprint’s Good-parts reference and leads ${buildProfile.runnerUpAxis} by ${Math.round(buildProfile.dominanceGap * 100)} percentage points.`
+                : "A projected swap or add-on can push pace, handling, or reliability ahead."}
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           {!isActive && (
@@ -493,11 +608,12 @@ function VehicleCard({
         <div className="mt-2 flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <button
+              ref={repairButtonRef}
               data-tutorial="repair-btn"
               onClick={() => repairVehicle(vehicle.id)}
               disabled={mutationLocked || (!isTutorialRepair && scrapBucks < repairCost)}
               title={mutationLocked ? lockMessage : undefined}
-              className="min-h-11 w-full rounded border px-4 py-2 text-sm font-semibold transition-colors active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:w-auto sm:px-2 sm:py-1 sm:text-xs sm:font-normal sm:active:scale-100"
+              className="min-h-11 w-full rounded border px-4 py-2 text-sm font-semibold transition-colors active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 min-[641px]:min-h-0 min-[641px]:w-auto min-[641px]:px-2 min-[641px]:py-1 min-[641px]:text-xs min-[641px]:font-normal min-[641px]:active:scale-100"
               style={{ borderColor: "#16a34a", color: "var(--success)" }}
             >
               {isTutorialRepair ? "Repair to 100% — Free" : `Repair to 100% — $${formatNumber(repairCost)}`}
@@ -559,11 +675,17 @@ function VehicleCard({
               const installed = vehicle.parts[slot];
               if (!installed) return null;
               const partDef = getPartById(installed.part.definitionId);
+              const pickerId = `part-comparison-${vehicle.id}-${slot}`;
               return (
                 <button
                   key={slot}
                   onClick={() => setSwapSlot(swapSlot === slot ? null : slot)}
-                  className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[.65rem] transition-colors"
+                  aria-label={toolkitUnlocked
+                    ? `Compare ${slot} installed part: ${partDef?.name ?? "unknown part"}`
+                    : `Manage ${slot} add-ons: ${partDef?.name ?? "unknown part"}`}
+                  aria-expanded={swapSlot === slot}
+                  aria-controls={pickerId}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded border px-2 py-1 text-[.65rem] transition-colors min-[641px]:min-h-0 min-[641px]:min-w-0 min-[641px]:px-1.5 min-[641px]:py-0.5"
                   style={
                     swapSlot === slot
                       ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--accent)" }
@@ -580,13 +702,12 @@ function VehicleCard({
             })}
           </div>
           {swapSlot && vehicle.parts[swapSlot] && (
-            <div className="flex flex-col gap-2">
+            <div id={`part-comparison-${vehicle.id}-${swapSlot}`} className="flex flex-col gap-2">
               {toolkitUnlocked && (
                 <SwapPartPicker
-                  vehicleId={vehicle.id}
+                  vehicle={vehicle}
                   vehicleDef={def}
                   slot={swapSlot}
-                  currentPart={vehicle.parts[swapSlot].part}
                   inventory={inventory}
                   swapPart={swapPart}
                   onDone={() => setSwapSlot(null)}
@@ -686,28 +807,34 @@ function AddonManager({
 // ── Swap Part Picker ─────────────────────────────────────────────────────────
 
 function SwapPartPicker({
-  vehicleId,
+  vehicle,
   vehicleDef,
   slot,
-  currentPart,
   inventory,
   swapPart,
   onDone,
 }: {
-  vehicleId: string;
+  vehicle: BuiltVehicle;
   vehicleDef: VehicleDefinition;
   slot: string;
-  currentPart: ScavengedPart;
   inventory: ScavengedPart[];
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   onDone: () => void;
 }) {
+  const handlingBonus = useGameStore(getEffectiveVehicleHandlingBonus);
+  const gentleSwapUnlocked = useGameStore((state) => (state.workshopLevels.gentle_swap ?? 0) >= 1);
+  const selectedCircuitId = useGameStore((state) => state.selectedCircuitId);
   const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
   if (!slotCfg) return null;
   const eligible = inventory.filter((p) =>
     p.type !== "addon" && slotCfg.acceptableParts.includes(p.definitionId),
   );
   const groups = groupParts(eligible);
+  const currentPart = vehicle.parts[slot].part;
+  const returnedCondition = gentleSwapUnlocked ? currentPart.condition : degradeCondition(currentPart.condition);
+  const swapCostText = gentleSwapUnlocked
+    ? `Gentle Swap returns the current part at ${CONDITION_LABELS[returnedCondition]} condition.`
+    : `Without Gentle Swap, the current part returns at ${CONDITION_LABELS[returnedCondition]} condition.`;
 
   if (groups.length === 0) {
     return (
@@ -728,31 +855,86 @@ function SwapPartPicker({
       <div className="mb-1 text-xs" style={{ color: "var(--text-muted)" }}>
         Swap {slot} (current: <span style={{ color: CONDITION_COLORS[currentPart.condition] ?? undefined }}>{getPartById(currentPart.definitionId)?.name}</span>)
       </div>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
         {groups.map((group) => {
           const partDef = getPartById(group.definitionId);
           if (!partDef) return null;
+          const candidate = group.parts[0];
+          const comparison = compareInstalledPart(vehicleDef, vehicle, slot, candidate, handlingBonus);
+          if (!comparison) return null;
+          const projection = projectInstalledPartSwap(vehicleDef, vehicle, slot, candidate);
+          if (!projection) return null;
+          const projectedVehicle = { ...vehicle, parts: projection.parts, stats: comparison.projectedStats };
+          const currentProfile = calculateBuildProfile(vehicleDef, vehicle);
+          const projectedProfile = calculateBuildProfile(vehicleDef, projectedVehicle);
+          const identityTransition = currentProfile.identity !== projectedProfile.identity
+            ? `${currentProfile.identity ? BUILD_IDENTITIES[currentProfile.identity].label : "No clear build direction"} → ${projectedProfile.identity ? BUILD_IDENTITIES[projectedProfile.identity].label : "No clear build direction"}`
+            : null;
+          const circuit = getCircuitById(selectedCircuitId);
+          const currentFit = circuit ? calculateBuildCircuitEvaluation(vehicleDef, vehicle, circuit.profile) : null;
+          const projectedFit = circuit ? calculateBuildCircuitEvaluation(vehicleDef, projectedVehicle, circuit.profile) : null;
+          const currentAdjustedPerformance = currentFit ? comparison.currentStats.performance * currentFit.performanceMultiplier : null;
+          const projectedAdjustedPerformance = projectedFit ? comparison.projectedStats.performance * projectedFit.performanceMultiplier : null;
+          const meaningfulFitChange = currentAdjustedPerformance !== null && projectedAdjustedPerformance !== null
+            && Math.abs(projectedAdjustedPerformance - currentAdjustedPerformance) >= 0.5;
+          const deltas: Array<{ short: string; accessible: string; stat: keyof VehicleStats }> = [
+            { short: "Spd", accessible: "speed", stat: "speed" },
+            { short: "Hnd", accessible: "handling", stat: "handling" },
+            { short: "Rel", accessible: "reliability", stat: "reliability" },
+            { short: "Perf", accessible: "performance", stat: "performance" },
+            { short: "Wgt", accessible: "weight", stat: "weight" },
+          ];
+          const deltaText = deltas.map(({ short, stat }) => `${short} ${formatSignedDelta(comparison.deltas[stat])}`);
+          const accessibleDeltaText = deltas.map(({ accessible, stat }) => `${accessible} ${formatSignedDelta(comparison.deltas[stat])}`);
+          const displacementWarning = comparison.displacedAddonCount > 0
+            ? ` Warning: ${comparison.displacedAddonCount} add-on${comparison.displacedAddonCount === 1 ? "" : "s"} will return to inventory.`
+            : "";
           return (
             <button
               key={group.key}
+              data-candidate-instance-id={candidate.id}
+              aria-label={`Install ${partDef.name}, ${CONDITION_LABELS[candidate.condition]} condition; projected changes: ${accessibleDeltaText.join(", ")}.${identityTransition ? ` Build direction: ${identityTransition}.` : ""}${meaningfulFitChange ? ` ${circuit?.name} circuit-adjusted performance: ${currentAdjustedPerformance!.toFixed(1)} to ${projectedAdjustedPerformance!.toFixed(1)}.` : ""} ${swapCostText}${displacementWarning}`}
               onClick={() => {
-                swapPart(vehicleId, slot, group.parts[0]);
+                swapPart(vehicle.id, slot, candidate);
                 onDone();
               }}
-              className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs transition-colors"
+              className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded border px-2 py-1.5 text-left text-xs transition-colors min-[641px]:min-h-0 min-[641px]:w-auto min-[641px]:max-w-full min-[641px]:py-1"
               style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
             >
               <GameAssetImage kind="part" id={group.definitionId} width={24} height={24} />
-              <span style={{ color: CONDITION_COLORS[group.condition] ?? undefined }}>
-                {partDef.name}
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-baseline gap-x-1">
+                  <span style={{ color: CONDITION_COLORS[group.condition] ?? undefined }}>{partDef.name}</span>
+                  {group.parts.length > 1 && <span style={{ color: "var(--text-muted)" }}>x{group.parts.length}</span>}
+                </span>
+                <span className="block text-[.65rem]" style={{ color: "var(--text-secondary)" }}>
+                  Condition: {CONDITION_LABELS[candidate.condition]}
+                </span>
+                <span className="flex flex-wrap gap-x-2 text-[.65rem] font-mono" style={{ color: "var(--text-secondary)" }}>
+                  {deltaText.map((text) => <span key={text}>{text}</span>)}
+                </span>
+                {identityTransition && <span className="block text-[.65rem]" style={{ color: "var(--accent)" }}>Build direction: {identityTransition}</span>}
+                {meaningfulFitChange && <span className="block text-[.65rem]" style={{ color: "var(--text-secondary)" }}>{circuit!.name} circuit-adjusted Perf: {currentAdjustedPerformance!.toFixed(1)} → {projectedAdjustedPerformance!.toFixed(1)}</span>}
+                <span className="block text-[.65rem] font-semibold" style={{ color: gentleSwapUnlocked ? "var(--text-secondary)" : "var(--warning)" }}>
+                  {swapCostText}
+                </span>
+                {comparison.displacedAddonCount > 0 && (
+                  <span className="block text-[.65rem] font-semibold" style={{ color: "var(--warning)" }}>
+                    Warning: {comparison.displacedAddonCount} add-on{comparison.displacedAddonCount === 1 ? "" : "s"} will return to inventory.
+                  </span>
+                )}
               </span>
-              {group.parts.length > 1 && <span className="ml-0.5" style={{ color: "var(--text-muted)" }}>x{group.parts.length}</span>}
             </button>
           );
         })}
       </div>
     </div>
   );
+}
+
+function formatSignedDelta(value: number): string {
+  const rounded = Math.abs(value) < 0.05 ? 0 : value;
+  return `${rounded >= 0 ? "+" : ""}${rounded.toFixed(1)}`;
 }
 
 function StatBadge({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
