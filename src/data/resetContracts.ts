@@ -100,6 +100,8 @@ export const RESET_PRESERVE_FIELDS: Record<ResetLayer, ReadonlySet<string>> = {
     ...TRACK_LAYER,
     ...OWNER_LAYER,
     ...TEAM_LAYER,
+    "autoScavengeUnlocked",
+    "autoRaceUnlocked",
     "lifetimeTPThisOwnerEra",
     "lifetimeOPThisTrackEra",
     "hostedEvents",
