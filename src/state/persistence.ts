@@ -11,6 +11,7 @@ import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { CONDITIONS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
 import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
+import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 
 export const PERSISTENCE_VERSION = 3;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
@@ -252,6 +253,7 @@ const currentStateSafetySchema = z.object({
   lifetimeLegacyPoints: finiteNonNegative.optional(),
   currentEra: finiteNonNegative.optional(),
   manualScavengeClicks: finiteNonNegative.optional(),
+  scoutingOrder: z.unknown().optional(),
   raceTickProgress: finiteNonNegative.optional(),
   winStreak: finiteNonNegative.optional(),
   bestWinStreak: finiteNonNegative.optional(),
@@ -408,6 +410,7 @@ export function getPersistedGameState(state: GameState) {
     hostedEvents: state.hostedEvents,
     autoScavengeUnlocked: state.autoScavengeUnlocked,
     manualScavengeClicks: state.manualScavengeClicks,
+    scoutingOrder: state.scoutingOrder,
     autoRaceUnlocked: state.autoRaceUnlocked,
     raceTickProgress: state.raceTickProgress,
     unlockedLocationIds: state.unlockedLocationIds,
@@ -660,6 +663,7 @@ export function migratePersistedState(
     ? ensureAcademyRoster(state.crewRoster ?? [], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
     : state.crewRoster ?? [];
   const autoEverything = (ownerUpgradeLevels.owner_auto_all ?? 0) > 0;
+  const autoScavengeUnlocked = Boolean(state.autoScavengeUnlocked || autoEverything);
 
   const reconciled = {
     ...state,
@@ -674,7 +678,12 @@ export function migratePersistedState(
     unlockedVehicleIds: [...unlockedVehicleIds],
     crewSlots: derivedCrewSlots,
     crewRoster,
-    autoScavengeUnlocked: Boolean(state.autoScavengeUnlocked || autoEverything),
+    autoScavengeUnlocked,
+    scoutingOrder: normalizeScoutingOrder(
+      state.scoutingOrder,
+      getLocationById(state.selectedLocationId ?? "curbside"),
+      autoScavengeUnlocked,
+    ),
     autoRaceUnlocked: Boolean(state.autoRaceUnlocked || autoEverything),
   };
 

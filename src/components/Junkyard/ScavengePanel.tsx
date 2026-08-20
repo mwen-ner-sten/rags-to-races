@@ -1,9 +1,9 @@
 "use client";
 
 import { useGameStore, _getUpgradeEffectValue, getPartRefurbishQuote, getSellValueBonus } from "@/state/store";
-import { LOCATION_DEFINITIONS } from "@/data/locations";
+import { getScoutingOrderCategories, LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
-import type { PartCondition } from "@/data/parts";
+import type { PartCategory, PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import GameAssetImage from "@/components/GameAssetImage";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
@@ -104,6 +104,8 @@ export default function ScavengePanel() {
   const setSelectedSellBelowQuality = useGameStore((s) => s.setSelectedSellBelowQuality);
   const setSelectedLocation = useGameStore((s) => s.setSelectedLocation);
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const scoutingOrder = useGameStore((s) => s.scoutingOrder);
+  const setScoutingOrder = useGameStore((s) => s.setScoutingOrder);
   const tickMs = useGameStore((s) => computeTickSpeedMs(s));
   // Clamp orbit duration: match tick speed, but floor at 500ms to avoid flicker
   const orbitDuration = autoScavengeUnlocked ? `${Math.max(500, tickMs)}ms` : undefined;
@@ -121,6 +123,10 @@ export default function ScavengePanel() {
   const lockedLocations = LOCATION_DEFINITIONS.filter(
     (l) => !unlockedLocationIds.includes(l.id),
   );
+  const selectedLocation = LOCATION_DEFINITIONS.find((location) => location.id === selectedLocationId);
+  const scoutingOrderCategories = selectedLocation
+    ? getScoutingOrderCategories(selectedLocation)
+    : [];
 
   const groups = useMemo(
     () => groupInventory(inventory, sellValueBonus),
@@ -366,6 +372,48 @@ export default function ScavengePanel() {
             )}
           </div>
         </div>
+
+        {autoScavengeUnlocked && (
+          <fieldset
+            className="rounded-lg border p-3"
+            style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
+          >
+            <legend className="px-1 text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
+              Scouting Orders
+            </legend>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Pick a stocked category for a 3× relative chance, not guaranteed. Yield and condition stay unchanged.
+              This affects manual scavenging only; Auto-Scavenge keeps the normal location mix.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={scoutingOrder === null}
+                onClick={() => setScoutingOrder(null)}
+                className="min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors"
+                style={scoutingOrder === null
+                  ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--text-primary)" }
+                  : { borderColor: "var(--btn-border)", color: "var(--text-secondary)" }}
+              >
+                Open Search
+              </button>
+              {scoutingOrderCategories.map((category: PartCategory) => (
+                <button
+                  type="button"
+                  key={category}
+                  aria-pressed={scoutingOrder === category}
+                  onClick={() => setScoutingOrder(category)}
+                  className="min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors"
+                  style={scoutingOrder === category
+                    ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--text-primary)" }
+                    : { borderColor: "var(--btn-border)", color: "var(--text-secondary)" }}
+                >
+                  {capitalize(category)}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         {inventory.length === 0 ? (
           <div

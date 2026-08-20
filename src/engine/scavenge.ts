@@ -25,6 +25,7 @@ export function scavenge(
   gearLuckBonus: number = 0,   // gear scavenge_luck_bonus (can be negative for T0 penalties)
   gearYieldBonus: number = 0,  // gear scavenge_yield_pct
   qualityBonus: number = 0,    // chance to favor the highest available part tier
+  scoutingOrder: PartCategory | null = null,
 ): ScavengedPart[] {
   const baseCount = randInt(1, location.maxPartsPerScavenge);
   const count = Math.max(1, Math.round(baseCount * (1 + gearYieldBonus)));
@@ -34,10 +35,15 @@ export function scavenge(
 
   // Enforce quality cap based on location tier — scavenging never yields legendary+
   const conditionCap = getScavengeCap(location.tier);
+  const categoryWeights = { ...location.partDropRates };
+  if (scoutingOrder && categoryWeights[scoutingOrder] > 0) {
+    categoryWeights[scoutingOrder] *= 3;
+  }
 
   for (let i = 0; i < count; i++) {
-    // Pick category by drop rate weights
-    const category = weightedPick(location.partDropRates as Record<PartCategory, number>);
+    // Scouting Orders influence only category probability; they do not alter
+    // yield, quality, add-on, or any other roll.
+    const category = weightedPick(categoryWeights);
 
     // Filter eligible parts by category and tier
     const eligible = PART_DEFINITIONS.filter(
