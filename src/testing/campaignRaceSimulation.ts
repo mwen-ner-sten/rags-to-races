@@ -1,7 +1,7 @@
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, DEFAULT_RACE_PLAN, type RacePlan } from "@/data/raceStrategy";
 import type { BuiltVehicle } from "@/engine/build";
-import { calculateOdds, calculateWear, simulateRace } from "@/engine/race";
+import { calculateVehicleOdds, calculateWear, simulateRace } from "@/engine/race";
 import { calculateFatigue } from "@/state/store";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
 
@@ -69,7 +69,7 @@ export function runCampaignRaceSimulation(build: CampaignRaceBuild, seed: string
 
   withRandomSource(new SeededRandomSource(seed), () => {
     for (let index = 0; index < races; index += 1) {
-      const odds = calculateOdds(vehicle.stats.performance, vehicle.stats.reliability, circuit.difficulty, 1, fatigue, 0, 0, 0, 0, 0, false, planEvaluation);
+      const odds = calculateVehicleOdds({ vehicle, circuit, fatigue, racePlan: config.plan });
       const forecast = buildRaceForecast(odds.winChance, odds.dnfChance, 5, planEvaluation, 0);
       displayedWinMin += forecast.winChance.min;
       displayedWinMax += forecast.winChance.max;

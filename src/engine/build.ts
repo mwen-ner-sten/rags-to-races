@@ -42,6 +42,11 @@ export interface InstalledPartComparison {
   displacedAddonCount: number;
 }
 
+export interface InstalledPartSwapProjection {
+  parts: BuiltVehicle["parts"];
+  displacedAddonCount: number;
+}
+
 /**
  * Validate a pending garage build against the inventory as it exists now.
  *
@@ -151,14 +156,12 @@ export function calculateStats(
   return { speed, handling, reliability, weight, performance };
 }
 
-/** Preview the stat result of replacing one installed core part. */
-export function compareInstalledPart(
+export function projectInstalledPartSwap(
   vehicleDef: VehicleDefinition,
   vehicle: BuiltVehicle,
   slot: string,
   candidate: ScavengedPart,
-  handlingBonusPct: number = 0,
-): InstalledPartComparison | null {
+): InstalledPartSwapProjection | null {
   const slotConfig = vehicleDef.slots.find((config) => config.slot === slot);
   const installed = vehicle.parts[slot];
   if (
@@ -168,21 +171,31 @@ export function compareInstalledPart(
     || candidate.type === "addon"
     || !slotConfig.acceptableParts.includes(candidate.definitionId)
     || !getPartById(candidate.definitionId)
-  ) {
-    return null;
-  }
-
-  if (!CONDITIONS.includes(candidate.condition)) return null;
-
+    || !CONDITIONS.includes(candidate.condition)
+  ) return null;
   const capacity = CONDITION_ADDON_SLOTS[candidate.condition];
   if (capacity === undefined) return null;
-
-  const projectedParts: BuiltVehicle["parts"] = {
-    ...vehicle.parts,
-    [slot]: { part: candidate, addons: installed.addons.slice(0, capacity) },
+  return {
+    parts: {
+      ...vehicle.parts,
+      [slot]: { part: candidate, addons: installed.addons.slice(0, capacity) },
+    },
+    displacedAddonCount: Math.max(0, installed.addons.length - capacity),
   };
+}
+
+/** Preview the stat result of replacing one installed core part. */
+export function compareInstalledPart(
+  vehicleDef: VehicleDefinition,
+  vehicle: BuiltVehicle,
+  slot: string,
+  candidate: ScavengedPart,
+  handlingBonusPct: number = 0,
+): InstalledPartComparison | null {
+  const projection = projectInstalledPartSwap(vehicleDef, vehicle, slot, candidate);
+  if (!projection) return null;
   const currentStats = calculateStats(vehicleDef, vehicle.parts, vehicle.condition ?? 100, handlingBonusPct);
-  const projectedStats = calculateStats(vehicleDef, projectedParts, vehicle.condition ?? 100, handlingBonusPct);
+  const projectedStats = calculateStats(vehicleDef, projection.parts, vehicle.condition ?? 100, handlingBonusPct);
 
   return {
     currentStats,
@@ -194,7 +207,7 @@ export function compareInstalledPart(
       weight: projectedStats.weight - currentStats.weight,
       performance: projectedStats.performance - currentStats.performance,
     },
-    displacedAddonCount: Math.max(0, installed.addons.length - capacity),
+    displacedAddonCount: projection.displacedAddonCount,
   };
 }
 

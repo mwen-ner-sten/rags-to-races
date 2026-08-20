@@ -160,6 +160,16 @@ export interface StrategyCard {
 
 export const HELP_STRATEGY: StrategyCard[] = [
   {
+    id: "build_direction_circuit_fit",
+    title: "Build direction and circuit fit",
+    advice: [
+      "Build direction compares the installed hardware at full vehicle condition with the same blueprint using average Good-condition required parts and no add-ons.",
+      "Redline Special, Cornering Rig, and Finish-First labels describe a clear pace, handling, or reliability lead; the label itself grants no bonus.",
+      "Circuit fit continuously compares those three real build indices with circuit power, handling, and reliability demands, adjusting performance by at most 5%.",
+      "Fuel, tires, gearing, aero, suspension, aggression, and pits remain race-plan setup decisions. Reliability and setup still determine DNF risk and wear.",
+    ],
+  },
+  {
     id: "prestige_timing",
     title: "When should I prestige?",
     advice: [

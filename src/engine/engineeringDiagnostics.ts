@@ -2,6 +2,9 @@ import type { CircuitDefinition } from "@/data/circuits";
 import { CONDITION_LABELS, CONDITIONS, getPartById, type CoreSlot, type PartCondition } from "@/data/parts";
 import type { BuiltVehicle, InstalledPart } from "./build";
 import type { RaceOutcome } from "./race";
+import type { BuildAxis, BuildIdentityId } from "@/data/buildIdentities";
+import { calculateBuildCircuitEvaluation } from "./buildIdentity";
+import { getVehicleById } from "@/data/vehicles";
 
 export type EngineeringFocus = "power" | "grip" | "aero" | "reliability" | "fuel";
 export type EngineeringPriority = "repair" | "component" | "setup";
@@ -16,6 +19,10 @@ export interface EngineeringReport {
   slot?: CoreSlot;
   observation: string;
   action: string;
+  buildIdentity?: BuildIdentityId;
+  buildIdentityModelVersion?: 1;
+  circuitFitMultiplier?: number;
+  limitingAxis?: BuildAxis;
 }
 
 export function findDiagnosticVehicle(
@@ -78,7 +85,24 @@ export function buildEngineeringReport(
   circuit: CircuitDefinition,
   outcome: RaceOutcome,
 ): EngineeringReport {
-  const focus = outcome.result === "dnf" ? "reliability" : dominantDemand(circuit);
+  const vehicleDefinition = getVehicleById(vehicle.definitionId);
+  const buildEvaluation = vehicleDefinition
+    ? calculateBuildCircuitEvaluation(vehicleDefinition, vehicle, circuit.profile)
+    : undefined;
+  const buildSnapshot = buildEvaluation ? {
+    ...(buildEvaluation.profile.identity ? { buildIdentity: buildEvaluation.profile.identity } : {}),
+    buildIdentityModelVersion: 1 as const,
+    circuitFitMultiplier: buildEvaluation.performanceMultiplier,
+    limitingAxis: buildEvaluation.limitingAxis,
+  } : {};
+  const fitFocus: EngineeringFocus | undefined = buildEvaluation && buildEvaluation.performanceMultiplier < 1
+    ? buildEvaluation.limitingAxis === "pace"
+      ? "power"
+      : buildEvaluation.limitingAxis === "handling"
+        ? (circuit.profile.demands.grip >= circuit.profile.demands.aero ? "grip" : "aero")
+        : "reliability"
+    : undefined;
+  const focus = outcome.result === "dnf" ? "reliability" : fitFocus ?? dominantDemand(circuit);
   const diagnosed = relevantComponent(vehicle, focus);
   const installed = diagnosed?.installed;
   const definition = installed ? getPartById(installed.part.definitionId) : undefined;
@@ -90,6 +114,7 @@ export function buildEngineeringReport(
       ? "The DNF adds breakdown wear, so inspect the vehicle's current condition before entering again."
       : `The vehicle is at ${Math.round(vehicle.condition)}% condition.`;
     return {
+      ...buildSnapshot,
       headline: resultHeadline(outcome),
       focus,
       priority: "repair",
@@ -104,6 +129,7 @@ export function buildEngineeringReport(
 
   if (!installed || !component || !condition) {
     return {
+      ...buildSnapshot,
       headline: resultHeadline(outcome),
       focus,
       priority: "setup",
@@ -115,6 +141,7 @@ export function buildEngineeringReport(
 
   const lowCondition = conditionRank(installed) <= CONDITIONS.indexOf("decent");
   return {
+    ...buildSnapshot,
     headline: resultHeadline(outcome),
     focus,
     priority: "component",

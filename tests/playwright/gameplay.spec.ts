@@ -581,6 +581,32 @@ test("Engineering Notebook keeps race-time evidence honest on desktop and mobile
   await expect(diagnosis).toHaveAttribute("data-slot", "wheel");
 });
 
+test("build direction and circuit fit disclose after the tutorial on desktop and mobile", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 9,
+    tutorialDismissed: false,
+    workshopLevels: { toolkit: 1 },
+  });
+  await expect(page.locator('[data-testid^="build-direction-"]')).toHaveCount(0);
+
+  await replaceFixtureState(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    workshopLevels: { toolkit: 1 },
+    lifetimeScrapResets: 1,
+  });
+  await openTab(page, "garage");
+  await expect(page.locator('[data-testid^="build-direction-"]').first()).toContainText(/Redline Special|Cornering Rig|Finish-First Build|No clear build direction yet/);
+
+  await openTab(page, "race");
+  await expect(page.getByTestId("circuit-fit")).toContainText(/circuit-adjusted performance/i);
+  const viewport = page.viewportSize()!;
+  const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(documentWidth).toBeLessThanOrEqual(viewport.width);
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical")).toEqual([]);
+});
+
 test("garage diagnosis does not steal focus after an add-on mutation", async ({ page }) => {
   test.setTimeout(30_000);
   await installDeterministicMathRandom(page, 0x1234abcd);

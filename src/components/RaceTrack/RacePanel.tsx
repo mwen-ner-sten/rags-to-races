@@ -1,10 +1,11 @@
 "use client";
 
 import { useGameStore } from "@/state/store";
-import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
+import { CIRCUIT_DEFINITIONS, type CircuitDefinition } from "@/data/circuits";
 import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { calculateOdds } from "@/engine/race";
+import { calculateVehicleOdds } from "@/engine/race";
+import type { BuiltVehicle } from "@/engine/build";
 import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
 import { getRaceTicksNeeded } from "@/engine/tick";
@@ -24,6 +25,7 @@ import { TALENT_NODES } from "@/data/talentNodes";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
 import { buildEngineeringReport, findDiagnosticVehicle, type EngineeringPriority } from "@/engine/engineeringDiagnostics";
 import type { CoreSlot } from "@/data/parts";
+import { BUILD_IDENTITIES } from "@/data/buildIdentities";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -213,9 +215,8 @@ function LiveRaceView({
 // ── Odds Display ────────────────────────────────────────────────────────
 
 function OddsDisplay({
-  performance,
-  reliability,
-  difficulty,
+  vehicle,
+  circuit,
   prestigeBonus,
   fatigue,
   gearPerformanceBonus,
@@ -223,14 +224,13 @@ function OddsDisplay({
   skillPerformanceMult,
   skillDnfReduction,
   momentumWinBonus,
-  profile,
   plan,
   diagnosticsLevel,
   dnfChanceMultiplier,
+  showBuildDirection,
 }: {
-  performance: number;
-  reliability: number;
-  difficulty: number;
+  vehicle: BuiltVehicle;
+  circuit: CircuitDefinition;
   prestigeBonus: number;
   fatigue: number;
   gearPerformanceBonus: number;
@@ -238,16 +238,16 @@ function OddsDisplay({
   skillPerformanceMult: number;
   skillDnfReduction: number;
   momentumWinBonus: number;
-  profile: CircuitProfile;
   plan: RacePlan;
   diagnosticsLevel: number;
   dnfChanceMultiplier: number;
+  showBuildDirection: boolean;
 }) {
-  const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, false, evaluation, dnfChanceMultiplier),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, evaluation, dnfChanceMultiplier],
+    () => calculateVehicleOdds({ vehicle, circuit, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, racePlan: plan, dnfChanceMultiplier }),
+    [vehicle, circuit, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, plan, dnfChanceMultiplier],
   );
+  const evaluation = odds.planEvaluation;
   const forecast = useMemo(() => buildRaceForecast(odds.winChance, odds.dnfChance, 5, evaluation, diagnosticsLevel), [odds, evaluation, diagnosticsLevel]);
 
   const winStyle: React.CSSProperties = odds.winChance >= 0.5
@@ -283,6 +283,16 @@ function OddsDisplay({
       )}
       <span style={{ color: "var(--text-muted)" }}>· Wear {Math.round(forecast.wear.min)}–{Math.round(forecast.wear.max)}</span>
       <span style={{ color: forecast.fuelRisk.max > 0.15 ? "var(--warning)" : "var(--text-muted)" }}>· Fuel risk {Math.round(forecast.fuelRisk.min * 100)}–{Math.round(forecast.fuelRisk.max * 100)}%</span>
+      {showBuildDirection && (
+        <span className="basis-full" data-testid="circuit-fit" style={{ color: "var(--text-secondary)" }}>
+          <strong style={{ color: "var(--accent)" }}>
+            {odds.buildEvaluation.profile.identity
+              ? BUILD_IDENTITIES[odds.buildEvaluation.profile.identity].label
+              : "No clear build direction yet"} · {circuit.name}
+          </strong>{" "}
+          Circuit-adjusted performance {vehicle.stats.performance.toFixed(1)} → {(vehicle.stats.performance * odds.buildEvaluation.performanceMultiplier).toFixed(1)} ({odds.buildEvaluation.performanceMultiplier >= 1 ? "+" : ""}{((odds.buildEvaluation.performanceMultiplier - 1) * 100).toFixed(1)}%). Race-plan effects are shown below.
+        </span>
+      )}
     </div>
   );
 }
@@ -376,6 +386,9 @@ export default function RacePanel({
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
   const currentRacePlan = useGameStore((s) => s.currentRacePlan);
+  const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const lifetimeScrapResets = useGameStore((s) => s.lifetimeScrapResets);
+  const toolkitLevel = useGameStore((s) => s.workshopLevels.toolkit ?? 0);
   const setRacePlan = useGameStore((s) => s.setRacePlan);
   const applyRacePlanPreset = useGameStore((s) => s.applyRacePlanPreset);
 
@@ -645,9 +658,8 @@ export default function RacePanel({
         {activeVehicle && selectedCircuit && (
           <div data-tutorial="odds-display">
           <OddsDisplay
-            performance={activeVehicle.stats.performance}
-            reliability={activeVehicle.stats.reliability}
-            difficulty={selectedCircuit.difficulty}
+            vehicle={activeVehicle}
+            circuit={selectedCircuit}
             prestigeBonus={1}
             fatigue={fatigue}
             gearPerformanceBonus={gb.race_performance_pct + teamRacePerformance + permanentRaceBonuses.racePerformanceBonus}
@@ -655,10 +667,10 @@ export default function RacePanel({
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
             momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
-            profile={selectedCircuit.profile}
             plan={currentRacePlan}
             diagnosticsLevel={diagnosticsLevel}
             dnfChanceMultiplier={permanentRaceBonuses.raceDnfChanceMultiplier}
+            showBuildDirection={tutorialStep === -1 && (toolkitLevel >= 1 || lifetimeScrapResets > 0)}
           />
           </div>
         )}

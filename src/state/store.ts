@@ -33,7 +33,7 @@ import { rollGearDrops } from "@/engine/gearDrop";
 import { calculatePrestigeBonus, calculatePrestigeBonusLegacy, calculateScrapResetAward, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
-import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, validateBuildSelection } from "@/engine/build";
+import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, projectInstalledPartSwap, validateBuildSelection } from "@/engine/build";
 import { simulateRace, calculateWear, compactRaceHistory } from "@/engine/race";
 import { decomposePart, decomposeMany } from "@/engine/decompose";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
@@ -1989,10 +1989,11 @@ function createActions(set: SetState, get: GetState) {
         || !slotCfg.acceptableParts.includes(candidate.definitionId)
       ) return;
 
-      const capacity = CONDITION_ADDON_SLOTS[candidate.condition];
-      const retainedAddons = installed.addons.slice(0, capacity);
-      const returnedAddons = installed.addons.slice(capacity);
-      const newParts = { ...vehicle.parts, [slot]: { part: candidate, addons: retainedAddons } };
+      const projection = projectInstalledPartSwap(vehicleDef, vehicle, slot, candidate);
+      if (!projection) return;
+      const retainedAddonCount = installed.addons.length - projection.displacedAddonCount;
+      const returnedAddons = installed.addons.slice(retainedAddonCount);
+      const newParts = projection.parts;
       const handlingBonus = getEffectiveVehicleHandlingBonus(state);
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 

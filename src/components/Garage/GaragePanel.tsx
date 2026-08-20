@@ -7,12 +7,15 @@ import type { VehicleDefinition } from "@/data/vehicles";
 import { getPartById, CONDITIONS, CONDITION_ADDON_SLOTS, CONDITION_LABELS, type CoreSlot } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { BuiltVehicle, VehicleStats } from "@/engine/build";
-import { compareInstalledPart, degradeCondition, validateBuildSelection } from "@/engine/build";
+import { compareInstalledPart, degradeCondition, projectInstalledPartSwap, validateBuildSelection } from "@/engine/build";
 import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import GameAssetImage from "@/components/GameAssetImage";
 import type { EngineeringPriority } from "@/engine/engineeringDiagnostics";
+import { calculateBuildCircuitEvaluation, calculateBuildProfile } from "@/engine/buildIdentity";
+import { BUILD_IDENTITIES } from "@/data/buildIdentities";
+import { getCircuitById } from "@/data/circuits";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -392,6 +395,7 @@ function VehicleCard({
   const applyVehicleLoadout = useGameStore((s) => s.applyVehicleLoadout);
   const deleteVehicleLoadout = useGameStore((s) => s.deleteVehicleLoadout);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const lifetimeScrapResets = useGameStore((s) => s.lifetimeScrapResets);
   const isTutorialRepair = tutorialStep === 13;
   const repairCost = useGameStore((state) => getVehicleRepairCost(state, vehicle));
   const saleValue = useGameStore((state) => getVehicleSaleValue(state, vehicle));
@@ -420,9 +424,11 @@ function VehicleCard({
   }, [diagnosisPriority, diagnosisTargetKey]);
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
+  const buildProfile = useMemo(() => def ? calculateBuildProfile(def, vehicle) : null, [def, vehicle]);
   if (!def) return null;
 
   const condition = vehicle.condition ?? 100;
+  const showBuildDirection = tutorialStep === -1 && (toolkitUnlocked || lifetimeScrapResets > 0);
   const mutationLocked = fleetAssignmentStatus !== null || (isRacing && isActive);
   const activationLocked = isRacing || fleetAssignmentStatus !== null;
   const lockMessage = fleetAssignmentStatus === "running"
@@ -539,6 +545,16 @@ function VehicleCard({
             <StatBadge label="Rel" value={Math.floor(vehicle.stats.reliability)} />
             <StatBadge label="Perf" value={Math.floor(vehicle.stats.performance)} highlight />
           </div>
+          {showBuildDirection && buildProfile && (
+            <div className="mt-2 text-xs" data-testid={`build-direction-${vehicle.id}`} style={{ color: "var(--text-secondary)" }}>
+              <strong className="block" style={{ color: "var(--accent)" }}>
+                {buildProfile.identity ? BUILD_IDENTITIES[buildProfile.identity].label : "No clear build direction yet"}
+              </strong>
+              {buildProfile.identity
+                ? `${buildProfile.dominantAxis === "pace" ? "Pace" : buildProfile.dominantAxis === "handling" ? "Handling" : "Reliability"} is ${Math.round((buildProfile.indices[buildProfile.dominantAxis] - 1) * 100)}% above this blueprint’s Good-parts reference and leads ${buildProfile.runnerUpAxis} by ${Math.round(buildProfile.dominanceGap * 100)} percentage points.`
+                : "A projected swap or add-on can push pace, handling, or reliability ahead."}
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           {!isActive && (
@@ -807,6 +823,7 @@ function SwapPartPicker({
 }) {
   const handlingBonus = useGameStore(getEffectiveVehicleHandlingBonus);
   const gentleSwapUnlocked = useGameStore((state) => (state.workshopLevels.gentle_swap ?? 0) >= 1);
+  const selectedCircuitId = useGameStore((state) => state.selectedCircuitId);
   const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
   if (!slotCfg) return null;
   const eligible = inventory.filter((p) =>
@@ -845,6 +862,21 @@ function SwapPartPicker({
           const candidate = group.parts[0];
           const comparison = compareInstalledPart(vehicleDef, vehicle, slot, candidate, handlingBonus);
           if (!comparison) return null;
+          const projection = projectInstalledPartSwap(vehicleDef, vehicle, slot, candidate);
+          if (!projection) return null;
+          const projectedVehicle = { ...vehicle, parts: projection.parts, stats: comparison.projectedStats };
+          const currentProfile = calculateBuildProfile(vehicleDef, vehicle);
+          const projectedProfile = calculateBuildProfile(vehicleDef, projectedVehicle);
+          const identityTransition = currentProfile.identity !== projectedProfile.identity
+            ? `${currentProfile.identity ? BUILD_IDENTITIES[currentProfile.identity].label : "No clear build direction"} → ${projectedProfile.identity ? BUILD_IDENTITIES[projectedProfile.identity].label : "No clear build direction"}`
+            : null;
+          const circuit = getCircuitById(selectedCircuitId);
+          const currentFit = circuit ? calculateBuildCircuitEvaluation(vehicleDef, vehicle, circuit.profile) : null;
+          const projectedFit = circuit ? calculateBuildCircuitEvaluation(vehicleDef, projectedVehicle, circuit.profile) : null;
+          const currentAdjustedPerformance = currentFit ? comparison.currentStats.performance * currentFit.performanceMultiplier : null;
+          const projectedAdjustedPerformance = projectedFit ? comparison.projectedStats.performance * projectedFit.performanceMultiplier : null;
+          const meaningfulFitChange = currentAdjustedPerformance !== null && projectedAdjustedPerformance !== null
+            && Math.abs(projectedAdjustedPerformance - currentAdjustedPerformance) >= 0.5;
           const deltas: Array<{ short: string; accessible: string; stat: keyof VehicleStats }> = [
             { short: "Spd", accessible: "speed", stat: "speed" },
             { short: "Hnd", accessible: "handling", stat: "handling" },
@@ -861,7 +893,7 @@ function SwapPartPicker({
             <button
               key={group.key}
               data-candidate-instance-id={candidate.id}
-              aria-label={`Install ${partDef.name}, ${CONDITION_LABELS[candidate.condition]} condition; projected changes: ${accessibleDeltaText.join(", ")}. ${swapCostText}${displacementWarning}`}
+              aria-label={`Install ${partDef.name}, ${CONDITION_LABELS[candidate.condition]} condition; projected changes: ${accessibleDeltaText.join(", ")}.${identityTransition ? ` Build direction: ${identityTransition}.` : ""}${meaningfulFitChange ? ` ${circuit?.name} circuit-adjusted performance: ${currentAdjustedPerformance!.toFixed(1)} to ${projectedAdjustedPerformance!.toFixed(1)}.` : ""} ${swapCostText}${displacementWarning}`}
               onClick={() => {
                 swapPart(vehicle.id, slot, candidate);
                 onDone();
@@ -881,6 +913,8 @@ function SwapPartPicker({
                 <span className="flex flex-wrap gap-x-2 text-[.65rem] font-mono" style={{ color: "var(--text-secondary)" }}>
                   {deltaText.map((text) => <span key={text}>{text}</span>)}
                 </span>
+                {identityTransition && <span className="block text-[.65rem]" style={{ color: "var(--accent)" }}>Build direction: {identityTransition}</span>}
+                {meaningfulFitChange && <span className="block text-[.65rem]" style={{ color: "var(--text-secondary)" }}>{circuit!.name} circuit-adjusted Perf: {currentAdjustedPerformance!.toFixed(1)} → {projectedAdjustedPerformance!.toFixed(1)}</span>}
                 <span className="block text-[.65rem] font-semibold" style={{ color: gentleSwapUnlocked ? "var(--text-secondary)" : "var(--warning)" }}>
                   {swapCostText}
                 </span>

@@ -90,6 +90,10 @@ const engineeringReportSchema = z.object({
     (typeof CORE_SLOTS)[number],
     ...(typeof CORE_SLOTS)[number][],
   ]).optional(),
+  buildIdentity: z.enum(["redline_special", "cornering_rig", "finish_first"]).optional(),
+  buildIdentityModelVersion: z.literal(1).optional(),
+  circuitFitMultiplier: z.number().finite().min(0.95).max(1.05).optional(),
+  limitingAxis: z.enum(["pace", "handling", "reliability"]).optional(),
   observation: engineeringReportTextSchema,
   action: engineeringReportTextSchema,
 });

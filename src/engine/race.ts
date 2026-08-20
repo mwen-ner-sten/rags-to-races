@@ -1,4 +1,5 @@
 import type { CircuitDefinition } from "@/data/circuits";
+import { getVehicleById } from "@/data/vehicles";
 import { BASE_WEAR_PER_RACE, DNF_WEAR_BONUS, RELIABILITY_WEAR_THRESHOLD } from "@/data/vehicles";
 import { PART_DEFINITIONS, type PartCategory } from "@/data/parts";
 import { makePartId } from "./scavenge";
@@ -8,6 +9,7 @@ import type { BuiltVehicle } from "./build";
 import { DEFAULT_RACE_PLAN, evaluateRacePlan, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
 import { RIVAL_DEFINITIONS } from "@/data/rivals";
 import { buildEngineeringReport, type EngineeringReport } from "./engineeringDiagnostics";
+import { calculateBuildCircuitEvaluation, type BuildCircuitEvaluation } from "./buildIdentity";
 
 export type RaceResult = "win" | "loss" | "dnf";
 
@@ -111,6 +113,76 @@ export function calculateOdds(
   return { winChance, dnfChance, oddsLabel };
 }
 
+export interface CalculateVehicleOddsOptions {
+  vehicle: BuiltVehicle;
+  circuit: CircuitDefinition;
+  prestigeBonus?: number;
+  fatigue?: number;
+  gearPerformanceBonus?: number;
+  gearDnfReduction?: number;
+  skillPerformanceMult?: number;
+  skillDnfReduction?: number;
+  momentumWinBonus?: number;
+  forceDNF?: boolean;
+  racePlan?: RacePlan;
+  dnfChanceMultiplier?: number;
+}
+
+export interface VehicleOdds {
+  winChance: number;
+  dnfChance: number;
+  oddsLabel: string;
+  planEvaluation: RacePlanEvaluation;
+  buildEvaluation: BuildCircuitEvaluation;
+}
+
+export function calculateVehicleOdds({
+  vehicle,
+  circuit,
+  prestigeBonus = 1,
+  fatigue = 0,
+  gearPerformanceBonus = 0,
+  gearDnfReduction = 0,
+  skillPerformanceMult = 0,
+  skillDnfReduction = 0,
+  momentumWinBonus = 0,
+  forceDNF = false,
+  racePlan = DEFAULT_RACE_PLAN,
+  dnfChanceMultiplier = 1,
+}: CalculateVehicleOddsOptions): VehicleOdds {
+  const definition = getVehicleById(vehicle.definitionId);
+  const buildEvaluation = definition
+    ? calculateBuildCircuitEvaluation(definition, vehicle, circuit.profile)
+    : calculateBuildCircuitEvaluation({
+        id: "unknown",
+        name: "Unknown",
+        tier: 0,
+        description: "",
+        slots: [],
+        baseStats: { speed: 1, handling: 1, reliability: 1, weight: 0 },
+        unlockRequirement: { type: "start" },
+        buildCost: 0,
+        sellValue: 0,
+      }, vehicle, circuit.profile);
+  const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
+  const odds = calculateOdds(
+    vehicle.stats.performance * buildEvaluation.performanceMultiplier,
+    vehicle.stats.reliability,
+    circuit.difficulty,
+    prestigeBonus,
+    fatigue,
+    gearPerformanceBonus,
+    gearDnfReduction,
+    skillPerformanceMult,
+    skillDnfReduction,
+    momentumWinBonus,
+    forceDNF,
+    planEvaluation,
+    dnfChanceMultiplier,
+  );
+  return { ...odds, planEvaluation, buildEvaluation };
+}
+
 /**
  * Roll for a circuit salvage drop after a race win.
  * @param circuit - the circuit raced on
@@ -171,8 +243,21 @@ export function simulateRace(
   dnfChanceMultiplier: number = 1,
 ): RaceOutcome {
   const totalRacers = 8;
-  const { performance } = vehicle.stats;
-  const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
+  const odds = calculateVehicleOdds({
+    vehicle,
+    circuit,
+    prestigeBonus,
+    fatigue,
+    gearPerformanceBonus,
+    gearDnfReduction,
+    skillPerformanceMult,
+    skillDnfReduction,
+    momentumWinBonus,
+    forceDNF,
+    racePlan,
+    dnfChanceMultiplier,
+  });
+  const { planEvaluation } = odds;
   const eligibleRivals = RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier);
   const rival = eligibleRivals.length > 0 && chance(0.35) ? eligibleRivals[randInt(0, eligibleRivals.length - 1)] : undefined;
 
@@ -197,21 +282,6 @@ export function simulateRace(
     }, vehicle, circuit);
   }
 
-  const odds = calculateOdds(
-    performance,
-    vehicle.stats.reliability,
-    circuit.difficulty,
-    prestigeBonus,
-    fatigue,
-    gearPerformanceBonus,
-    gearDnfReduction,
-    skillPerformanceMult,
-    skillDnfReduction,
-    momentumWinBonus,
-    forceDNF,
-    planEvaluation,
-    dnfChanceMultiplier,
-  );
   const dnfChance = odds.dnfChance;
   if (random() < dnfChance) {
     return finalizeOutcome({

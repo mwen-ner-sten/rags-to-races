@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getCircuitById } from "@/data/circuits";
 import type { BuiltVehicle } from "../build";
-import { calculateOdds, simulateRace } from "../race";
+import { calculateOdds, calculateVehicleOdds, simulateRace } from "../race";
 
 const diagnosticVehicle: BuiltVehicle = {
   id: "race-time-build",
@@ -83,6 +83,26 @@ describe("calculateOdds", () => {
   });
 });
 
+describe("calculateVehicleOdds", () => {
+  it("applies circuit fit exactly once without changing DNF risk", () => {
+    const circuit = getCircuitById("backyard_derby")!;
+    const base = calculateOdds(
+      diagnosticVehicle.stats.performance,
+      diagnosticVehicle.stats.reliability,
+      circuit.difficulty,
+    );
+
+    const odds = calculateVehicleOdds({ vehicle: diagnosticVehicle, circuit });
+
+    expect(odds.winChance).toBeCloseTo(
+      base.winChance
+        * odds.buildEvaluation.performanceMultiplier
+        * odds.planEvaluation.performanceMultiplier,
+    );
+    expect(odds.dnfChance).toBe(base.dnfChance);
+  });
+});
+
 describe("simulateRace engineering provenance", () => {
   it.each([
     ["finish", false],
@@ -101,6 +121,9 @@ describe("simulateRace engineering provenance", () => {
 
     expect(reportAtRaceTime?.slot).toBe("wheel");
     expect(reportAtRaceTime?.component).toBe("Busted Wheel");
+    expect(reportAtRaceTime?.buildIdentityModelVersion).toBe(1);
+    expect(reportAtRaceTime?.circuitFitMultiplier).toBeGreaterThanOrEqual(0.95);
+    expect(reportAtRaceTime?.circuitFitMultiplier).toBeLessThanOrEqual(1.05);
     expect(outcome.engineeringReport).toEqual(reportAtRaceTime);
   });
 });

@@ -59,6 +59,10 @@ describe("save envelope", () => {
           componentCondition: "rusted" as const,
           vehicleCondition: 77,
           slot: "wheel" as const,
+          buildIdentity: "cornering_rig" as const,
+          buildIdentityModelVersion: 1 as const,
+          circuitFitMultiplier: 1.04,
+          limitingAxis: "pace" as const,
           observation: "Stored observation",
           action: "Stored action",
         },
@@ -72,6 +76,7 @@ describe("save envelope", () => {
     expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.slot).toBe("wheel");
     expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.componentCondition).toBe("rusted");
     expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.vehicleCondition).toBe(77);
+    expect(decoded.envelope.state.raceHistory?.[0]?.engineeringReport?.buildIdentity).toBe("cornering_rig");
     expect(decoded.envelope.state).toEqual(
       getPersistedGameState({
         ...state,
@@ -98,6 +103,10 @@ describe("save envelope", () => {
             componentCondition: "rusted" as const,
             vehicleCondition: 77,
             slot: "wheel" as const,
+            buildIdentity: "cornering_rig" as const,
+            buildIdentityModelVersion: 1 as const,
+            circuitFitMultiplier: 1.04,
+            limitingAxis: "pace" as const,
             observation: "Stored observation",
             action: "Stored action",
           },
