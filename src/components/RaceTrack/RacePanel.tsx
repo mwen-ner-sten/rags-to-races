@@ -4,7 +4,7 @@ import { useGameStore } from "@/state/store";
 import { CIRCUIT_DEFINITIONS, type CircuitDefinition } from "@/data/circuits";
 import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { calculateOdds, calculateVehicleOdds } from "@/engine/race";
+import { calculateVehicleOdds, calculateVehicleRaceForecast } from "@/engine/race";
 import type { BuiltVehicle } from "@/engine/build";
 import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
@@ -26,7 +26,7 @@ import { getRaceIneligibilityReason } from "@/engine/eligibility";
 import { buildEngineeringReport, findDiagnosticVehicle, type EngineeringPriority } from "@/engine/engineeringDiagnostics";
 import type { CoreSlot } from "@/data/parts";
 import { BUILD_IDENTITIES } from "@/data/buildIdentities";
-import { applyRaceControlEffect, buildRaceControlBriefing, type RaceControlCallId } from "@/engine/raceControl";
+import { buildRaceControlBriefing, type RaceControlCallId } from "@/engine/raceControl";
 import { RACE_CONTROL_RACES_PER_OPPORTUNITY } from "@/config/gameplayLimits";
 
 // ── Event Icons ────────────────────────────────────────────────────────
@@ -317,9 +317,8 @@ function signedPoints(value: number): string {
 }
 
 function RaceControlBriefing({
-  performance,
-  reliability,
-  difficulty,
+  vehicle,
+  circuit,
   prestigeBonus,
   fatigue,
   gearPerformanceBonus,
@@ -327,7 +326,6 @@ function RaceControlBriefing({
   skillPerformanceMult,
   skillDnfReduction,
   momentumWinBonus,
-  profile,
   plan,
   diagnosticsLevel,
   dnfChanceMultiplier,
@@ -336,9 +334,8 @@ function RaceControlBriefing({
   onConfirm,
   onCancel,
 }: {
-  performance: number;
-  reliability: number;
-  difficulty: number;
+  vehicle: BuiltVehicle;
+  circuit: CircuitDefinition;
   prestigeBonus: number;
   fatigue: number;
   gearPerformanceBonus: number;
@@ -346,7 +343,6 @@ function RaceControlBriefing({
   skillPerformanceMult: number;
   skillDnfReduction: number;
   momentumWinBonus: number;
-  profile: CircuitProfile;
   plan: RacePlan;
   diagnosticsLevel: number;
   dnfChanceMultiplier: number;
@@ -355,14 +351,11 @@ function RaceControlBriefing({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const briefing = useMemo(() => buildRaceControlBriefing(profile), [profile]);
-  const standingEvaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
+  const briefing = useMemo(() => buildRaceControlBriefing(circuit.profile), [circuit.profile]);
   const forecasts = useMemo(() => Object.fromEntries(briefing.calls.map((call) => {
-    const evaluation = applyRaceControlEffect(standingEvaluation, call.id);
-    const odds = calculateOdds(
-      performance,
-      reliability,
-      difficulty,
+    const { forecast } = calculateVehicleRaceForecast({
+      vehicle,
+      circuit,
       prestigeBonus,
       fatigue,
       gearPerformanceBonus,
@@ -370,12 +363,12 @@ function RaceControlBriefing({
       skillPerformanceMult,
       skillDnfReduction,
       momentumWinBonus,
-      false,
-      evaluation,
+      racePlan: plan,
       dnfChanceMultiplier,
-    );
-    return [call.id, buildRaceForecast(odds.winChance, odds.dnfChance, 5, evaluation, diagnosticsLevel)];
-  })), [briefing.calls, standingEvaluation, performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, dnfChanceMultiplier, diagnosticsLevel]);
+      raceControlCallId: call.id,
+    }, diagnosticsLevel);
+    return [call.id, forecast];
+  })), [briefing.calls, vehicle, circuit, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, plan, dnfChanceMultiplier, diagnosticsLevel]);
 
   const selected = briefing.calls.find((call) => call.id === selectedCall)!;
   return (
@@ -821,9 +814,8 @@ export default function RacePanel({
 
         {showRaceControl && raceControlOpportunityReady && activeVehicle && selectedCircuit && (
           <RaceControlBriefing
-            performance={activeVehicle.stats.performance}
-            reliability={activeVehicle.stats.reliability}
-            difficulty={selectedCircuit.difficulty}
+            vehicle={activeVehicle}
+            circuit={selectedCircuit}
             prestigeBonus={1}
             fatigue={fatigue}
             gearPerformanceBonus={gb.race_performance_pct + teamRacePerformance + permanentRaceBonuses.racePerformanceBonus}
@@ -831,7 +823,6 @@ export default function RacePanel({
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
             momentumWinBonus={getMomentumEffectValue(activeMomentumTiers, "race_win_bonus")}
-            profile={selectedCircuit.profile}
             plan={currentRacePlan}
             diagnosticsLevel={diagnosticsLevel}
             dnfChanceMultiplier={permanentRaceBonuses.raceDnfChanceMultiplier}

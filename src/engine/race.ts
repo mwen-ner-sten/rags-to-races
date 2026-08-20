@@ -6,7 +6,7 @@ import { makePartId } from "./scavenge";
 import { chance, randInt, random, weightedPick } from "@/utils/random";
 import type { ScavengedPart } from "./scavenge";
 import type { BuiltVehicle } from "./build";
-import { DEFAULT_RACE_PLAN, evaluateRacePlan, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
+import { buildRaceForecast, DEFAULT_RACE_PLAN, evaluateRacePlan, type RaceForecast, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
 import { RIVAL_DEFINITIONS } from "@/data/rivals";
 import { buildEngineeringReport, type EngineeringReport } from "./engineeringDiagnostics";
 import { calculateBuildCircuitEvaluation, type BuildCircuitEvaluation } from "./buildIdentity";
@@ -194,6 +194,30 @@ export function calculateVehicleOdds({
     dnfChanceMultiplier,
   );
   return { ...odds, planEvaluation, buildEvaluation };
+}
+
+export interface VehicleRaceForecast {
+  odds: VehicleOdds;
+  forecast: RaceForecast;
+}
+
+/** Build a player-facing forecast from the exact canonical odds used by settlement. */
+export function calculateVehicleRaceForecast(
+  options: CalculateVehicleOddsOptions,
+  diagnosticsLevel: number,
+  baseWear: number = 5,
+): VehicleRaceForecast {
+  const odds = calculateVehicleOdds(options);
+  return {
+    odds,
+    forecast: buildRaceForecast(
+      odds.winChance,
+      odds.dnfChance,
+      baseWear,
+      odds.planEvaluation,
+      diagnosticsLevel,
+    ),
+  };
 }
 
 /**

@@ -3,7 +3,7 @@ import { RACE_CONTROL_RACES_PER_OPPORTUNITY } from "@/config/gameplayLimits";
 import { CIRCUIT_DEFINITIONS, getCircuitById } from "@/data/circuits";
 import { DEFAULT_RACE_PLAN, evaluateRacePlan } from "@/data/raceStrategy";
 import type { BuiltVehicle } from "../build";
-import { calculateWear, simulateRace } from "../race";
+import { calculateVehicleOdds, calculateVehicleRaceForecast, calculateWear, simulateRace } from "../race";
 import { buildRaceControlBriefing } from "../raceControl";
 import { generateRaceEvents } from "../raceEvents";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
@@ -30,6 +30,50 @@ describe("Race Control briefing", () => {
       expect(call.effect.dnfDelta).toBeLessThanOrEqual(0.03);
       expect(call.effect.wearMultiplier).toBeGreaterThanOrEqual(0.85);
       expect(call.effect.wearMultiplier).toBeLessThanOrEqual(1.15);
+    }
+  });
+
+  it("centers every briefing forecast on canonical circuit-fit-adjusted settlement odds", () => {
+    const circuit = getCircuitById("backyard_derby")!;
+    const vehicle: BuiltVehicle = {
+      id: "forecast-parity",
+      definitionId: "push_mower",
+      builtAt: 0,
+      condition: 100,
+      totalRaces: 0,
+      parts: {
+        engine: {
+          part: { id: "engine", definitionId: "engine_small", condition: "good", foundAt: "test", type: "part" },
+          addons: [],
+        },
+        wheel: {
+          part: { id: "wheel", definitionId: "wheel_busted", condition: "rusted", foundAt: "test", type: "part" },
+          addons: [],
+        },
+      },
+      stats: { speed: 18, handling: 8, reliability: 40, weight: 60, performance: 14 },
+    };
+
+    for (const call of ["standing", "attack", "protect"] as const) {
+      const canonical = calculateVehicleOdds({
+        vehicle,
+        circuit,
+        racePlan: DEFAULT_RACE_PLAN,
+        raceControlCallId: call,
+      });
+      expect(canonical.buildEvaluation.performanceMultiplier).not.toBe(1);
+
+      const { odds, forecast } = calculateVehicleRaceForecast({
+        vehicle,
+        circuit,
+        racePlan: DEFAULT_RACE_PLAN,
+        raceControlCallId: call,
+      }, 6);
+
+      expect(odds.winChance).toBeCloseTo(canonical.winChance, 12);
+      expect(odds.dnfChance).toBeCloseTo(canonical.dnfChance, 12);
+      expect((forecast.winChance.min + forecast.winChance.max) / 2).toBeCloseTo(canonical.winChance, 12);
+      expect((forecast.dnfRisk.min + forecast.dnfRisk.max) / 2).toBeCloseTo(canonical.dnfChance, 12);
     }
   });
 
