@@ -23,6 +23,7 @@ import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { TALENT_NODES } from "@/data/talentNodes";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
 import { buildEngineeringReport, findDiagnosticVehicle } from "@/engine/engineeringDiagnostics";
+import type { CoreSlot } from "@/data/parts";
 
 // ── Event Icons ────────────────────────────────────────────────────────
 
@@ -338,7 +339,13 @@ function StreakDisplay({ streak, best }: { streak: number; best: number }) {
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
 
-export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId) => void }) {
+export default function RacePanel({
+  setActiveTab,
+  onInspectBuild,
+}: {
+  setActiveTab?: (tab: TabId) => void;
+  onInspectBuild?: (vehicleId: string, slot: CoreSlot) => void;
+}) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
   const garage = useGameStore((s) => s.garage);
@@ -457,9 +464,10 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const resultCircuit = lastRaceOutcome
     ? CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === lastRaceOutcome.circuitId)
     : undefined;
-  const engineeringReport = resultVehicle && resultCircuit && lastRaceOutcome
-    ? buildEngineeringReport(resultVehicle, resultCircuit, lastRaceOutcome)
-    : null;
+  const engineeringReport = lastRaceOutcome?.engineeringReport
+    ?? (resultVehicle && resultCircuit && lastRaceOutcome
+      ? buildEngineeringReport(resultVehicle, resultCircuit, lastRaceOutcome)
+      : null);
   const sb = getSkillBonuses(racerSkills, selectedCircuit?.tier ?? 0);
   const vehicleCondition = activeVehicle ? (activeVehicle.condition ?? 100) : 0;
   const raceIneligibilityReason = getRaceIneligibilityReason({
@@ -801,7 +809,13 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                   </p>
                   <button
                     type="button"
-                    onClick={() => setActiveTab?.("garage")}
+                    onClick={() => {
+                      if (resultVehicle && engineeringReport.slot && onInspectBuild) {
+                        onInspectBuild(resultVehicle.id, engineeringReport.slot);
+                      } else {
+                        setActiveTab?.("garage");
+                      }
+                    }}
                     className="min-h-11 shrink-0 self-start rounded px-3 py-2 text-xs font-bold transition active:scale-95 sm:self-center"
                     style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
                   >

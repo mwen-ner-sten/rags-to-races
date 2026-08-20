@@ -39,6 +39,7 @@ describe("buildEngineeringReport", () => {
 
     expect(report.focus).toBe("grip");
     expect(report.component).toBe("Busted Wheel");
+    expect(report.slot).toBe("wheel");
     expect(report.observation).toMatch(/grip|corner/i);
     expect(report.action).toMatch(/wheel|tire|refurbish|replace/i);
   });
@@ -48,7 +49,16 @@ describe("buildEngineeringReport", () => {
 
     expect(report.priority).toBe("repair");
     expect(report.focus).toBe("reliability");
+    expect(report.component).toBe("Busted Wheel");
+    expect(report.slot).toBe("wheel");
     expect(report.action).toMatch(/repair/i);
+  });
+
+  it("does not describe race-entry condition as the post-DNF repair state", () => {
+    const report = buildEngineeringReport(vehicle, getCircuitById("backyard_derby")!, { ...loss, result: "dnf" });
+
+    expect(report.observation).not.toContain("100% condition");
+    expect(report.observation).toMatch(/dnf|breakdown|wear/i);
   });
 
   it("still identifies an improvement after a win without calling it a failure", () => {

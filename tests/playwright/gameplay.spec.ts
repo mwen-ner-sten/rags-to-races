@@ -338,8 +338,118 @@ test("@smoke tutorial first race uses the displayed simulation", async ({ page }
   expect(["win", "loss", "dnf"]).toContain(outcome?.result);
   expect(outcome?.repEarned).toBeGreaterThan(0);
   await expect(page.getByRole("heading", { name: "Engineering Debrief" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Inspect Build" })).toBeVisible();
+  const inspectBuild = page.getByRole("button", { name: "Inspect Build" });
+  await expect(inspectBuild).toBeVisible();
   await expect(page.getByTestId("tutorial-card").getByText(/won|exploded|not first/i)).toBeVisible();
+  await inspectBuild.click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", "fixture_vehicle_10_push_mower");
+  await expect(diagnosis).toHaveAttribute("data-slot", "wheel");
+  await expect(diagnosis).toHaveAccessibleName(/race diagnosis for push mower wheel/i);
+  await expect(diagnosis).toContainText("Basic Tire");
+  await expect(diagnosis).toContainText(/Toolkit.*40 Rep/i);
+  await expect(diagnosis).toBeFocused();
+  await expect(page.getByRole("button", { name: /^Compare wheel installed part/ })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+  const dismissDiagnosis = diagnosis.getByRole("button", { name: "Dismiss" });
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    expect((await dismissDiagnosis.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+  await dismissDiagnosis.click();
+  await expect(page.getByTestId("garage-diagnosis")).toHaveCount(0);
+  await expect(page.locator('[data-vehicle-card-id="fixture_vehicle_10_push_mower"]')).toBeFocused();
+});
+
+test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unlocked", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  const duplicate = structuredClone(garage[0]);
+  duplicate.id = "duplicate_vehicle_with_same_parts";
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: 9,
+    tutorialDismissed: false,
+    garage: [duplicate, garage[0]],
+    raceHistory: [],
+    repPoints: 0,
+    lifetimeRacesAllTime: 0,
+    workshopLevels: { toolkit: 1 },
+  });
+  await openTab(page, "race");
+  await page.getByRole("button", { name: "Got it" }).click();
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toHaveAttribute("data-vehicle-id", garage[0].id);
+  await expect(page.getByTestId("garage-diagnosis")).toHaveCount(1);
+  const comparisonId = `part-comparison-${garage[0].id}-wheel`;
+  const diagnosedToggle = page.locator(`[aria-controls="${comparisonId}"]`);
+  await expect(diagnosedToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(`#${comparisonId}`)).toBeVisible();
+});
+
+test("race debrief preserves its stored report after the garage build changes", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const vehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  vehicle.stats.reliability = 100;
+  const replacementWheel = structuredClone(fixtures.maxed.payload.state.inventory.find((item) => item.definitionId === "wheel_busted")!);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [vehicle],
+    inventory: [replacementWheel],
+    workshopLevels: { toolkit: 1 },
+  });
+
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await expect(page.getByText(/relevant Basic Tire/i)).toBeVisible();
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  await page.getByRole("button", { name: /^Install Busted Wheel/ }).click();
+
+  await openTab(page, "race");
+  await expect(page.getByText(/relevant Basic Tire/i)).toBeVisible();
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  await expect(page.getByTestId("garage-diagnosis")).toHaveAttribute("data-slot", "wheel");
+});
+
+test("garage diagnosis does not steal focus after an add-on mutation", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const vehicle = structuredClone(fixtures.first_race_ready.payload.state.garage[0]);
+  vehicle.stats.reliability = 100;
+  const wheelAddon = structuredClone(fixtures.maxed.payload.state.inventory.find((item) => item.definitionId === "addon_wheel_spacers")!);
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage: [vehicle],
+    inventory: [wheelAddon],
+    workshopLevels: { toolkit: 1, addon_bench: 1 },
+  });
+
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Inspect Build" }).click();
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  const comparison = page.getByRole("button", { name: /^Compare wheel installed part/ });
+  const installAddon = page.getByRole("button", { name: /Install Wheel Spacers/ });
+  await expect(diagnosis).toBeFocused();
+  await comparison.focus();
+  await expect(comparison).toBeFocused();
+  await installAddon.evaluate((button: HTMLButtonElement) => button.click());
+
+  await expect(comparison).toBeFocused();
+  await expect(diagnosis).not.toBeFocused();
 });
 
 test("tutorial interrupted first race recovers to a retry instead of an empty step", async ({ page }) => {
@@ -420,6 +530,107 @@ test("@smoke tutorial releases navigation after the first repair", async ({ page
   expect((await persistedState(page)).tutorialStep).toBe(-1);
   await openTab(page, "gear");
   await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
+});
+
+test("part toggle controls the shared expanded panel when only the add-on bench is unlocked", async ({ page }) => {
+  await loadFixture(page, "workshop_ready", {
+    workshopLevels: {
+      ...fixtures.workshop_ready.payload.state.workshopLevels,
+      toolkit: 0,
+      addon_bench: 1,
+    },
+  });
+  await openTab(page, "garage");
+
+  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const controlledId = await toggle.getAttribute("aria-controls");
+  expect(controlledId).toBeTruthy();
+  const controlledPanel = page.locator(`#${controlledId}`);
+  await expect(controlledPanel).toHaveCount(1);
+  await expect(controlledPanel).toBeVisible();
+});
+
+test("installed-part candidates expose textual condition and signed named stat deltas", async ({ page }) => {
+  const garage = structuredClone(fixtures.workshop_ready.payload.state.garage);
+  const inventory = structuredClone(fixtures.workshop_ready.payload.state.inventory);
+  const installedAddons = inventory.filter((part) =>
+    part.definitionId === "addon_air_filter" || part.definitionId === "addon_turbo_snail",
+  );
+  const candidateId = "e2e_comparison_candidate_engine_v4";
+  const candidatePart = {
+    ...inventory.find((part) => part.definitionId === "engine_v4" && part.condition === "decent")!,
+    id: candidateId,
+    condition: "decent" as const,
+  };
+  const firstVehicle = garage[0] as unknown as {
+    parts: { engine: { part: { id: string }; addons: typeof installedAddons } };
+  };
+  firstVehicle.parts.engine.addons = installedAddons;
+  await loadFixture(page, "workshop_ready", {
+    garage,
+    inventory: [
+      ...inventory.filter((part) => part.type === "addon" && !installedAddons.some((addon) => addon.id === part.id)),
+      candidatePart,
+    ],
+  });
+  await openTab(page, "garage");
+
+  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const pickerId = await toggle.getAttribute("aria-controls");
+  expect(pickerId).toBeTruthy();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const picker = page.locator(`#${pickerId}`);
+  await expect(picker).toBeVisible();
+  const candidate = picker.locator(`[data-candidate-instance-id="${candidateId}"]`);
+  await expect(candidate).toBeVisible();
+  await expect(candidate).toContainText("Condition: Decent");
+  await expect(candidate).toContainText(/Spd [+-]\d/);
+  await expect(candidate).toContainText(/Hnd [+-]\d/);
+  await expect(candidate).toContainText(/Rel [+-]\d/);
+  await expect(candidate).toContainText(/Perf [+-]\d/);
+  await expect(candidate).toContainText(/Wgt [+-]\d/);
+  await expect(candidate).toContainText("Warning: 1 add-on will return to inventory.");
+  await expect(candidate).toHaveAccessibleName(/Warning: 1 add-on will return to inventory/);
+  await expect(candidate).toContainText(/Without Gentle Swap.*condition/i);
+  await expect(candidate).toHaveAccessibleName(/speed [+-]\d.*handling [+-]\d.*reliability [+-]\d.*performance [+-]\d.*weight [+-]\d/i);
+
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    const toggleBox = await toggle.boundingBox();
+    const candidateBox = await candidate.boundingBox();
+    expect(toggleBox?.height).toBeGreaterThanOrEqual(44);
+    expect(candidateBox?.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+
+  const originalPartId = firstVehicle.parts.engine.part.id;
+  const returnedAddonId = installedAddons[1].id;
+  await candidate.click();
+
+  await expect.poll(async () => {
+    const state = await persistedState(page) as unknown as {
+      garage: Array<{ id: string; parts: { engine: { part: { id: string } } } }>;
+      inventory: Array<{ id: string }>;
+    };
+    const persistedVehicle = state.garage.find((item) => item.id === garage[0].id)!;
+    const persistedInventoryIds = state.inventory.map((part) => part.id);
+    return {
+      installedPartId: persistedVehicle.parts.engine.part.id,
+      candidateWasRemoved: !persistedInventoryIds.includes(candidateId),
+      oldPartWasReturned: persistedInventoryIds.includes(originalPartId),
+      displacedAddonWasReturned: persistedInventoryIds.includes(returnedAddonId),
+    };
+  }).toEqual({
+    installedPartId: candidateId,
+    candidateWasRemoved: true,
+    oldPartWasReturned: true,
+    displacedAddonWasReturned: true,
+  });
 });
 
 test("@smoke build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
@@ -645,8 +856,8 @@ test("named loadouts cannot restore more add-ons than a degraded part can hold",
   const streetRacer = loadoutName.locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
   await loadoutName.fill("Two Boosters");
   await streetRacer.getByRole("button", { name: "Save build" }).click();
-  await streetRacer.getByRole("button", { name: /engine:/i }).click();
-  const goodReplacement = streetRacer.getByRole("button", { name: /V8 Engine.*x2/ }).first();
+  await streetRacer.getByRole("button", { name: /^Compare engine installed part/ }).click();
+  const goodReplacement = streetRacer.getByRole("button", { name: /^Install V8 Engine, Good condition/ }).first();
   await goodReplacement.click();
 
   const stateAfterSwap = await persistedState(page);
