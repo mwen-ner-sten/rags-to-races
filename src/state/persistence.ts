@@ -339,10 +339,12 @@ const currentStateSafetySchema = z.object({
   selectedSellBelowQuality: partConditionSchema.optional(),
   selectedCircuitId: z.string().optional(),
   tutorialStep: z.number().finite().min(-1).optional(),
+  tutorialCompleted: z.boolean().optional(),
   tutorialDismissed: z.boolean().optional(),
   tutorialMinimized: z.boolean().optional(),
   tutorialSkippedSteps: z.array(finiteNonNegative).optional(),
   tutorialLastAdvanceTime: finiteNonNegative.optional(),
+  dismissedContextualCoachIds: z.array(z.enum(["toolkit", "automation", "scrap-reset"])).optional(),
   activeMomentumTiers: z.array(nonEmptyString).optional(),
   unlockedLocationIds: z.array(nonEmptyString).optional(),
   unlockedCircuitIds: z.array(nonEmptyString).optional(),
@@ -490,10 +492,12 @@ export function getPersistedGameState(state: GameState) {
     lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
     highestConditionReached: state.highestConditionReached,
     tutorialStep: state.tutorialStep,
+    tutorialCompleted: state.tutorialCompleted,
     tutorialDismissed: state.tutorialDismissed,
     tutorialMinimized: state.tutorialMinimized,
     tutorialSkippedSteps: state.tutorialSkippedSteps,
     tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+    dismissedContextualCoachIds: state.dismissedContextualCoachIds,
     activityLog: state.activityLog,
     _logIdCounter: state._logIdCounter,
     racerSkills: state.racerSkills,
@@ -724,6 +728,9 @@ export function migratePersistedState(
     state.raceControlOpportunityReady
     || raceControlRaceProgress >= RACE_CONTROL_RACES_PER_OPPORTUNITY,
   );
+  const legacyTutorialRepairRecorded = (state.activityLog ?? []).some((entry) =>
+    entry.category === "build" && entry.message.startsWith("Repaired "),
+  );
 
   const reconciled = {
     ...state,
@@ -733,6 +740,8 @@ export function migratePersistedState(
     lifetimeLPThisTeamEra: Math.max(state.lifetimeLPThisTeamEra ?? 0, state.legacyPoints ?? 0),
     lifetimeTPThisOwnerEra: Math.max(state.lifetimeTPThisOwnerEra ?? 0, state.teamPoints ?? 0),
     lifetimeOPThisTrackEra: Math.max(state.lifetimeOPThisTrackEra ?? 0, state.ownerPoints ?? 0),
+    tutorialCompleted: state.tutorialCompleted
+      ?? (state.tutorialStep === -1 && raceHistory.length > 0 && legacyTutorialRepairRecorded),
     unlockedFeatures: [...unlockedFeatures],
     unlockedCircuitIds: [...unlockedCircuitIds],
     unlockedVehicleIds: [...unlockedVehicleIds],

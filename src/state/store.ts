@@ -85,6 +85,7 @@ export { getEffectiveVehicleHandlingBonus } from "@/engine/vehicleStats";
 import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, RACE_CONTROL_RACES_PER_OPPORTUNITY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
+import type { ContextualCoachId } from "@/engine/contextualCoaching";
 import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "@/engine/progressionUnlocks";
 import {
   BULK_DECOMPOSE_COST,
@@ -285,6 +286,8 @@ export interface GameState {
 
   /** Guided tutorial step (-1 = complete/skipped, 0+ = active step) */
   tutorialStep: number;
+  /** True only after completing the mandatory first engineering loop. */
+  tutorialCompleted: boolean;
   /** Cards hidden but highlights/auto-advance still active */
   tutorialDismissed: boolean;
   /** Temporarily hidden — shows a restore chip instead of card/badge. Auto-resets on step advance. */
@@ -293,6 +296,8 @@ export interface GameState {
   tutorialSkippedSteps: number[];
   /** Timestamp of last tutorial step advance (for help nudge) */
   tutorialLastAdvanceTime: number;
+  /** Optional post-tutorial coach cards the player has dismissed. */
+  dismissedContextualCoachIds: ContextualCoachId[];
 
   // Lifetime stats (for challenge tracking, persist through prestige)
   lifetimeTotalDecomposed: number;
@@ -390,6 +395,7 @@ export interface GameState {
   skipTutorial: () => void;
   dismissTutorial: () => void;
   toggleTutorialMinimized: () => void;
+  dismissContextualCoach: (coachId: ContextualCoachId) => void;
   repairVehicle: (vehicleId: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   installAddon: (vehicleId: string, slot: string, addonId: string) => void;
@@ -546,10 +552,12 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     lifetimeTotalRaceSalvage: 0,
     highestConditionReached: 0,
     tutorialStep: 0,
+    tutorialCompleted: false,
     tutorialDismissed: false,
     tutorialMinimized: false,
     tutorialSkippedSteps: [],
     tutorialLastAdvanceTime: Date.now(),
+    dismissedContextualCoachIds: [],
     racerSkills: createDefaultSkills(),
     // Multi-layer prestige defaults
     teamPoints: 0,
@@ -1940,15 +1948,26 @@ function createActions(set: SetState, get: GetState) {
     advanceTutorial: () => {
       const step = (get() as GameState).tutorialStep;
       // Each new step starts fully visible — minimized state is per-step, not persistent
-      set({ tutorialStep: step >= 13 ? -1 : step + 1, tutorialLastAdvanceTime: Date.now(), tutorialMinimized: false });
+      set({
+        tutorialStep: step >= 13 ? -1 : step + 1,
+        tutorialCompleted: step >= 13,
+        tutorialLastAdvanceTime: Date.now(),
+        tutorialMinimized: false,
+      });
     },
 
     skipTutorial: () => {
-      set({ tutorialStep: -1, tutorialDismissed: false, tutorialMinimized: false });
+      set({ tutorialStep: -1, tutorialCompleted: false, tutorialDismissed: false, tutorialMinimized: false });
     },
 
     toggleTutorialMinimized: () => {
       set({ tutorialMinimized: !(get() as GameState).tutorialMinimized });
+    },
+
+    dismissContextualCoach: (coachId: ContextualCoachId) => {
+      set((state: GameState) => state.dismissedContextualCoachIds.includes(coachId)
+        ? state
+        : { dismissedContextualCoachIds: [...state.dismissedContextualCoachIds, coachId] });
     },
 
     dismissTutorial: () => {
@@ -2568,10 +2587,12 @@ function createActions(set: SetState, get: GetState) {
         lifetimeTotalRaceSalvage: state.lifetimeTotalRaceSalvage,
         highestConditionReached: state.highestConditionReached,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         dealerBoard: [],
         gameTick: 0,
         // Activity log persists through prestige
@@ -3520,10 +3541,12 @@ function createActions(set: SetState, get: GetState) {
           Object.keys(INITIAL_MATERIALS).map((material) => [material, startingMaterials]),
         ) as Record<MaterialType, number>,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         // Team layer persists
         teamPoints: newTP,
         lifetimeTeamPoints: newLifetimeTP,
@@ -3664,10 +3687,12 @@ function createActions(set: SetState, get: GetState) {
         autoScavengeUnlocked: autoEverything,
         autoRaceUnlocked: autoEverything,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         // Owner layer persists
         ownerPoints: newOP,
         lifetimeOwnerPoints: newLifetimeOP,
@@ -3813,10 +3838,12 @@ function createActions(set: SetState, get: GetState) {
         autoScavengeUnlocked: autoEverything,
         autoRaceUnlocked: autoEverything,
         tutorialStep: state.tutorialStep,
+        tutorialCompleted: state.tutorialCompleted,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
         tutorialSkippedSteps: state.tutorialSkippedSteps,
         tutorialLastAdvanceTime: state.tutorialLastAdvanceTime,
+        dismissedContextualCoachIds: state.dismissedContextualCoachIds,
         // Track layer persists
         trackPrestigeTokens: newPT,
         lifetimeTrackTokens: newLifetimePT,

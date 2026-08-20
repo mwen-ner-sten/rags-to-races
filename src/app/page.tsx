@@ -13,8 +13,10 @@ import HelpPanel from "@/components/Help/HelpPanel";
 import HelpActivityTab from "@/components/Help/HelpActivityTab";
 import ToastContainer from "@/components/effects/Toast";
 import TutorialOverlay, { getAdaptiveAllowedTabs } from "@/components/effects/TutorialOverlay";
+import ContextualCoachCard from "@/components/effects/ContextualCoachCard";
 import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import { useGameStore, type GameState } from "@/state/store";
+import { hasComparableInstalledPart, selectContextualCoach, type ContextualCoach } from "@/engine/contextualCoaching";
 import { computeOfflineTickSpeedMs, computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
 import type { RaceOutcome } from "@/engine/race";
@@ -49,8 +51,10 @@ export default function Home() {
     priority: EngineeringPriority;
     action: string;
   } | null>(null);
+  const [coachTarget, setCoachTarget] = useState<ContextualCoach["targetSection"]>();
   const [offlineResult, setOfflineResult] = useState<{ result: OfflineResult; timeAway: number } | null>(null);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
+  const tutorialCompleted = useGameStore((s) => s.tutorialCompleted);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
   const advanceFleetAssignments = useGameStore((s) => s.advanceFleetAssignments);
   const storeRef = useRef(useGameStore.getState());
@@ -58,12 +62,40 @@ export default function Home() {
   const garage = useGameStore((s) => s.garage);
   const raceHistory = useGameStore((s) => s.raceHistory);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
+  const dismissedContextualCoachIds = useGameStore((s) => s.dismissedContextualCoachIds);
+  const repPoints = useGameStore((s) => s.repPoints);
+  const inventory = useGameStore((s) => s.inventory);
+  const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
+  const prestigeCount = useGameStore((s) => s.prestigeCount);
+  const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
+  const dismissContextualCoach = useGameStore((s) => s.dismissContextualCoach);
+  const hasComparablePart = hasComparableInstalledPart(inventory, garage);
+
+  const contextualCoach = selectContextualCoach({
+    tutorialStep,
+    tutorialCompleted,
+    raceHistoryCount: raceHistory.length,
+    dismissedCoachIds: dismissedContextualCoachIds,
+    reputation: repPoints,
+    workshopLevels,
+    hasComparablePart,
+    autoScavengeUnlocked,
+    prestigeCount,
+    vehiclesBuilt: garage.length,
+    lifetimeScrapBucks,
+  });
+
+  const navigateFromCoach = useCallback((coach: ContextualCoach) => {
+    setCoachTarget(coach.targetSection);
+    setActiveTab(coach.targetTab);
+  }, []);
 
   // Guard tab switching during tutorial — adaptive: loosens restrictions when player acts ahead
   const guardedSetActiveTab = useCallback((tab: TabId) => {
     const allowed = getAdaptiveAllowedTabs(tutorialStep, { garage, raceHistory, workshopLevels });
     if (allowed && !allowed.has(tab)) return;
     setGarageInspection(null);
+    setCoachTarget(undefined);
     setActiveTab(tab);
   }, [tutorialStep, garage, raceHistory, workshopLevels]);
 
@@ -221,6 +253,13 @@ export default function Home() {
   return (
     <>
       <ToastContainer />
+      {contextualCoach && (
+        <ContextualCoachCard
+          coach={contextualCoach}
+          onNavigate={navigateFromCoach}
+          onDismiss={dismissContextualCoach}
+        />
+      )}
       {offlineResult && (
         <OfflineProgressModal
           timeAwayMinutes={offlineResult.timeAway}
@@ -233,8 +272,8 @@ export default function Home() {
         {displayedTab === "junkyard" && <ScavengePanel />}
         {displayedTab === "garage"   && <GaragePanel inspectionTarget={garageInspection} onClearInspection={() => setGarageInspection(null)} />}
         {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} onInspectBuild={inspectRaceBuild} />}
-        {displayedTab === "gear"     && <SalvageWorkshopPanel />}
-        {displayedTab === "upgrades" && <UpgradesPanel />}
+        {displayedTab === "gear"     && <SalvageWorkshopPanel key={`gear:${coachTarget ?? "default"}`} initialTab={coachTarget === "facilities" ? "facilities" : undefined} />}
+        {displayedTab === "upgrades" && <UpgradesPanel key={`upgrades:${coachTarget ?? "default"}`} initialTab={coachTarget === "prestige" ? "prestige" : undefined} />}
         {displayedTab === "help"     && <HelpPanel />}
         {displayedTab === "log"      && <HelpActivityTab setActiveTab={guardedSetActiveTab} onInspectBuild={inspectRaceBuild} />}
         {displayedTab === "settings" && <SettingsPanel />}

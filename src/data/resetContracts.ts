@@ -8,10 +8,12 @@ export type ResetDisposition = "reset" | "preserve" | "conditional";
  */
 const CROSS_LAYER_HISTORY = [
   "tutorialStep",
+  "tutorialCompleted",
   "tutorialDismissed",
   "tutorialMinimized",
   "tutorialSkippedSteps",
   "tutorialLastAdvanceTime",
+  "dismissedContextualCoachIds",
   "equippedGear",
   "ownedGearIds",
   "completedChallenges",

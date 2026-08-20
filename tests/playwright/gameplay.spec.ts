@@ -896,6 +896,56 @@ test("diagnosis controls retain 44px targets at the inclusive 640px mobile bound
   }
 });
 
+test("optional coaching navigates without progress mutation, never locks navigation, and stays dismissed after reload", async ({ page }) => {
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialCompleted: true,
+    tutorialDismissed: true,
+    raceHistory: [structuredClone(fixtures.first_scrap_reset_ready.payload.state.raceHistory[0])],
+    repPoints: 25,
+    workshopLevels: {},
+    dismissedContextualCoachIds: [],
+  });
+
+  const coach = page.getByRole("status", { name: "Next step: compare your parts" });
+  await expect(coach).toBeVisible();
+  const coachBox = await coach.boundingBox();
+  const viewport = page.viewportSize();
+  expect(coachBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(coachBox!.x).toBeGreaterThanOrEqual(0);
+  expect(coachBox!.x + coachBox!.width).toBeLessThanOrEqual(viewport!.width);
+  const mobileNav = page.getByTestId("mobile-nav");
+  if (await mobileNav.isVisible()) {
+    const mobileNavBox = await mobileNav.boundingBox();
+    expect(mobileNavBox).not.toBeNull();
+    expect(coachBox!.y + coachBox!.height).toBeLessThanOrEqual(mobileNavBox!.y);
+  }
+  const before = await persistedState(page);
+
+  await coach.getByRole("button", { name: "Open Workshop Facilities" }).click();
+  await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Scavenging/ })).toBeVisible();
+
+  const afterNavigation = await persistedState(page);
+  for (const field of ["scrapBucks", "repPoints", "lifetimeScrapBucks", "garage", "inventory", "raceHistory"] as const) {
+    expect(afterNavigation[field], `${field} changed from coaching CTA`).toEqual(before[field]);
+  }
+
+  await openTab(page, "race");
+  await expect(page.getByRole("button", { name: "Enter Race" })).toBeVisible();
+  await openTab(page, "gear");
+  await expect(page.locator('[role="tab"]').filter({ hasText: /^Inventory$/ }).first()).toHaveAttribute("aria-selected", "true");
+  await coach.getByRole("button", { name: "Dismiss compare your parts coaching" }).click();
+  await expect(coach).toHaveCount(0);
+  await expect.poll(async () => (await persistedState(page)).dismissedContextualCoachIds).toEqual(["toolkit"]);
+
+  await page.reload();
+  await expect(page.getByRole("status", { name: "Next step: compare your parts" })).toHaveCount(0);
+  await openTab(page, "garage");
+  await expect(page.getByText(/Your Garage/).first()).toBeVisible();
+});
+
 test("@smoke build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
   const errors = captureErrors(page);
   await loadFixture(page, "first_build_ready", { scrapBucks: 1_000, lifetimeScrapBucks: 1_000 });
