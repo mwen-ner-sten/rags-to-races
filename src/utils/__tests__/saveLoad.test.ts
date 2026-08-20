@@ -36,7 +36,9 @@ describe("save envelope", () => {
       ...state,
       scrapBucks: 1234,
       legacyPoints: 9,
+      lifetimeLPThisTeamEra: 9,
       teamPoints: 4,
+      lifetimeTPThisOwnerEra: 4,
       unlockedFeatures: ["team"],
       raceHistory: [{
         result: "loss" as const,
@@ -59,7 +61,9 @@ describe("save envelope", () => {
         ...state,
         scrapBucks: 1234,
         legacyPoints: 9,
+        lifetimeLPThisTeamEra: 9,
         teamPoints: 4,
+        lifetimeTPThisOwnerEra: 4,
         unlockedFeatures: ["team"],
         raceHistory: [{
           result: "loss" as const,
@@ -105,6 +109,32 @@ describe("save envelope", () => {
     expect(decoded.envelope.state.legacyPoints).toBe(9);
     expect(decoded.envelope.state.lifetimeLegacyPoints).toBe(9);
     expect(decoded.envelope.state.currentEra).toBe(1);
+  });
+
+  it("backfills missing era earnings from balances without lowering recorded earnings", () => {
+    const initial = createInitialState() as GameState;
+    const backfilled = mergePersistedGameState({
+      legacyPoints: 75,
+      teamPoints: 30,
+      ownerPoints: 12,
+    }, initial);
+
+    expect(backfilled.lifetimeLPThisTeamEra).toBe(75);
+    expect(backfilled.lifetimeTPThisOwnerEra).toBe(30);
+    expect(backfilled.lifetimeOPThisTrackEra).toBe(12);
+
+    const preserved = mergePersistedGameState({
+      legacyPoints: 10,
+      lifetimeLPThisTeamEra: 80,
+      teamPoints: 5,
+      lifetimeTPThisOwnerEra: 40,
+      ownerPoints: 2,
+      lifetimeOPThisTrackEra: 20,
+    }, initial);
+
+    expect(preserved.lifetimeLPThisTeamEra).toBe(80);
+    expect(preserved.lifetimeTPThisOwnerEra).toBe(40);
+    expect(preserved.lifetimeOPThisTrackEra).toBe(20);
   });
 
   it("refunds legacy talents into Garage Philosophy LP during version-three migration", () => {

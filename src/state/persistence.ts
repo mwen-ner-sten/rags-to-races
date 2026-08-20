@@ -663,6 +663,12 @@ export function migratePersistedState(
 
   const reconciled = {
     ...state,
+    // Era-earnings counters were introduced without invalidating older save
+    // versions. A current balance is the conservative lower bound for what
+    // that era earned; never reduce a counter already recorded by newer saves.
+    lifetimeLPThisTeamEra: Math.max(state.lifetimeLPThisTeamEra ?? 0, state.legacyPoints ?? 0),
+    lifetimeTPThisOwnerEra: Math.max(state.lifetimeTPThisOwnerEra ?? 0, state.teamPoints ?? 0),
+    lifetimeOPThisTrackEra: Math.max(state.lifetimeOPThisTrackEra ?? 0, state.ownerPoints ?? 0),
     unlockedFeatures: [...unlockedFeatures],
     unlockedCircuitIds: [...unlockedCircuitIds],
     unlockedVehicleIds: [...unlockedVehicleIds],

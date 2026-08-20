@@ -247,14 +247,15 @@ function getCircuitsByMaxTier(maxTier: number): string[] {
 export interface TeamResetStats {
   lifetimeLPThisTeamEra: number;
   teamEraCount: number;
+  /** Current balance remains part of reset eligibility, but spending it no longer lowers the award. */
   unspentLP: number;
 }
 
 export function calculateTeamPoints(stats: TeamResetStats): number {
   const base = Math.floor(Math.sqrt(stats.lifetimeLPThisTeamEra / 10));
   const eraBonus = 1 + 0.1 * Math.max(0, stats.teamEraCount - 1);
-  const lpBankBonus = Math.floor(stats.unspentLP / 25);
-  return Math.max(1, Math.floor(base * eraBonus) + lpBankBonus);
+  const eraEarningsBonus = Math.floor(stats.lifetimeLPThisTeamEra / 25);
+  return Math.max(1, Math.floor(base * eraBonus) + eraEarningsBonus);
 }
 
 // ── Owner Reset ─────────────────────────────────────────────────────────────
@@ -262,14 +263,15 @@ export function calculateTeamPoints(stats: TeamResetStats): number {
 export interface OwnerResetStats {
   lifetimeTPThisOwnerEra: number;
   ownerEraCount: number;
+  /** Current balance remains part of reset eligibility, but spending it no longer lowers the award. */
   unspentTP: number;
 }
 
 export function calculateOwnerPoints(stats: OwnerResetStats): number {
   const base = Math.floor(Math.sqrt(stats.lifetimeTPThisOwnerEra / 5));
   const eraBonus = 1 + 0.1 * Math.max(0, stats.ownerEraCount - 1);
-  const tpBankBonus = Math.floor(stats.unspentTP / 15);
-  return Math.max(1, Math.floor(base * eraBonus) + tpBankBonus);
+  const eraEarningsBonus = Math.floor(stats.lifetimeTPThisOwnerEra / 15);
+  return Math.max(1, Math.floor(base * eraBonus) + eraEarningsBonus);
 }
 
 // ── Track Reset ─────────────────────────────────────────────────────────────
@@ -277,12 +279,13 @@ export function calculateOwnerPoints(stats: OwnerResetStats): number {
 export interface TrackResetStats {
   lifetimeOPThisTrackEra: number;
   trackEraCount: number;
+  /** Current balance remains part of reset eligibility, but spending it no longer lowers the award. */
   unspentOP: number;
 }
 
 export function calculateTrackTokens(stats: TrackResetStats): number {
   const base = Math.floor(Math.sqrt(stats.lifetimeOPThisTrackEra / 3));
   const eraBonus = 1 + 0.1 * Math.max(0, stats.trackEraCount - 1);
-  const opBankBonus = Math.floor(stats.unspentOP / 10);
-  return Math.max(1, Math.floor(base * eraBonus) + opBankBonus);
+  const eraEarningsBonus = Math.floor(stats.lifetimeOPThisTrackEra / 10);
+  return Math.max(1, Math.floor(base * eraBonus) + eraEarningsBonus);
 }
