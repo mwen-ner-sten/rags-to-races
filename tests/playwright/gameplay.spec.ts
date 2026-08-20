@@ -1306,7 +1306,9 @@ test("maxed upgrade and facility surfaces expose no enabled over-max purchase", 
 });
 
 test("all supported themes survive reload without hydration errors or horizontal overflow", async ({ page }) => {
-  test.setTimeout(90_000);
+  // This intentionally performs a full reload for every visible and hidden
+  // theme. Mobile emulation can exceed the default budget on a cold dev server.
+  test.setTimeout(180_000);
   await loadFixture(page, "workshop_ready");
   await openTab(page, "settings");
 
