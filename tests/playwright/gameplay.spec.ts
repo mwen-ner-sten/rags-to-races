@@ -212,6 +212,41 @@ test("current-version saves strip injected action names and keep Scavenge callab
   expect(after.prestige).toBeUndefined();
 });
 
+test("Scouting Orders are an accessible manual-only probability tradeoff", async ({ page }) => {
+  await loadFixture(page, "auto_scavenge_boundary", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    autoScavengeUnlocked: true,
+    manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET,
+    selectedLocationId: "curbside",
+    scoutingOrder: null,
+  });
+
+  const orders = page.getByRole("group", { name: "Scouting Orders" });
+  await expect(orders).toBeVisible();
+  await expect(orders).toContainText("3× relative chance");
+  await expect(orders).toContainText("not guaranteed");
+  await expect(orders).toContainText("Yield and condition stay unchanged");
+  await expect(orders).toContainText("manual scavenging only");
+  await expect(orders).toContainText("Auto-Scavenge keeps the normal location mix");
+
+  const engine = orders.getByRole("button", { name: "Engine" });
+  await engine.focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(async () => (await persistedState(page)).scoutingOrder).toBe("engine");
+  await expect(engine).toHaveAttribute("aria-pressed", "true");
+
+  await orders.getByRole("button", { name: "Misc" }).click();
+  await page.getByRole("button", { name: /Industrial Surplus/ }).click();
+  await expect.poll(async () => (await persistedState(page)).scoutingOrder).toBeNull();
+  await expect(orders.getByRole("button", { name: "Misc" })).toHaveCount(0);
+  await expect(orders.getByRole("button", { name: "Open Search" })).toHaveAttribute("aria-pressed", "true");
+
+  const controlBounds = await orders.getByRole("button", { name: "Open Search" }).boundingBox();
+  expect(controlBounds?.height).toBeGreaterThanOrEqual(44);
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+});
+
 test("@smoke Auto-Scavenge unlocks on the exact final manual action", async ({ page }) => {
   await loadFixture(page, "auto_scavenge_boundary");
   await expect(page.getByText(`${AUTO_SCAVENGE_MANUAL_TARGET - 1}/${AUTO_SCAVENGE_MANUAL_TARGET} for Auto`, { exact: true })).toBeVisible();

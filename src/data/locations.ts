@@ -1,4 +1,5 @@
 import type { PartCategory } from "./parts";
+import { PART_DEFINITIONS } from "./parts";
 import { REP_PROGRESSION } from "@/config/progression";
 
 export interface LocationDefinition {
@@ -87,4 +88,25 @@ export const LOCATION_DEFINITIONS: LocationDefinition[] = [
 
 export function getLocationById(id: string): LocationDefinition | undefined {
   return LOCATION_DEFINITIONS.find((l) => l.id === id);
+}
+
+/** Categories this location can actually yield at its current tier cap. */
+export function getScoutingOrderCategories(location: LocationDefinition): PartCategory[] {
+  const maxTier = location.maxPartTier ?? location.tier;
+  return (Object.entries(location.partDropRates) as [PartCategory, number][])
+    .filter(([category, weight]) => weight > 0 && PART_DEFINITIONS.some(
+      (part) => part.category === category && part.minTier <= maxTier,
+    ))
+    .map(([category]) => category);
+}
+
+export function normalizeScoutingOrder(
+  order: unknown,
+  location: LocationDefinition | undefined,
+  earned: boolean,
+): PartCategory | null {
+  if (!earned || typeof order !== "string" || !location) return null;
+  return getScoutingOrderCategories(location).includes(order as PartCategory)
+    ? order as PartCategory
+    : null;
 }

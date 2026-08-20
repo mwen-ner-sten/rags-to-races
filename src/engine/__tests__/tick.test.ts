@@ -364,6 +364,31 @@ describe("simulateOfflineTicks", () => {
     expect(result.partsScavenged).toBeGreaterThanOrEqual(5);
   });
 
+  it("keeps live and offline Auto-Scavenge on the normal location mix despite a manual Scouting Order", () => {
+    const baseState = makeState({ autoScavengeUnlocked: true, selectedLocationId: "curbside" });
+    const normal = withRandomSource(
+      new SeededRandomSource("automation-scouting-order-isolation"),
+      () => computeTick({ ...baseState, scoutingOrder: null }),
+    );
+    const ordered = withRandomSource(
+      new SeededRandomSource("automation-scouting-order-isolation"),
+      () => computeTick({ ...baseState, scoutingOrder: "engine" }),
+    );
+    const offlineNormal = withRandomSource(
+      new SeededRandomSource("offline-scouting-order-isolation"),
+      () => simulateOfflineTicks({ ...baseState, scoutingOrder: null }, 12),
+    );
+    const offlineOrdered = withRandomSource(
+      new SeededRandomSource("offline-scouting-order-isolation"),
+      () => simulateOfflineTicks({ ...baseState, scoutingOrder: "engine" }, 12),
+    );
+
+    expect(ordered.partsFound.map((part) => part.definitionId))
+      .toEqual(normal.partsFound.map((part) => part.definitionId));
+    expect(offlineOrdered.partsFound.map((part) => part.definitionId))
+      .toEqual(offlineNormal.partsFound.map((part) => part.definitionId));
+  });
+
   it("applies Scavenger's Eye to automated salvage drop rate and condition cap", () => {
     const baseState = makeState({
       autoRaceUnlocked: true,

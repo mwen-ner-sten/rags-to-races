@@ -17,7 +17,7 @@ import type { RaceEvent } from "@/engine/raceEvents";
 import type { PrestigeBonus, RunStats } from "@/engine/prestige";
 import { LEGACY_UPGRADES_BY_ID, legacyUpgradeCost } from "@/data/legacyUpgrades";
 import { getActiveMomentumTiers, getMomentumEffectValue } from "@/data/momentumBonuses";
-import type { PartCondition } from "@/data/parts";
+import type { PartCategory, PartCondition } from "@/data/parts";
 import { CONDITIONS, CONDITION_ADDON_SLOTS, getPartById } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { InstalledPart } from "@/engine/build";
@@ -36,7 +36,7 @@ import { scavenge, makePartId } from "@/engine/scavenge";
 import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, validateBuildSelection } from "@/engine/build";
 import { simulateRace, calculateWear, compactRaceHistory } from "@/engine/race";
 import { decomposePart, decomposeMany } from "@/engine/decompose";
-import { getLocationById } from "@/data/locations";
+import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
 import { getVehicleById, getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { getUpgradeById, getUpgradeCost, UPGRADE_DEFINITIONS } from "@/data/upgrades";
@@ -184,6 +184,8 @@ export interface GameState {
   autoScavengeUnlocked: boolean;
   /** Counts manual scavenge button clicks; auto-scavenge unlocks at the configured target. */
   manualScavengeClicks: number;
+  /** Optional category weighting for manual scavenging only. */
+  scoutingOrder: PartCategory | null;
 
   // Racing
   selectedCircuitId: string;
@@ -361,6 +363,7 @@ export interface GameState {
   applyVehicleLoadout: (loadoutId: string) => void;
   deleteVehicleLoadout: (loadoutId: string) => void;
   setSelectedLocation: (locationId: string) => void;
+  setScoutingOrder: (order: PartCategory | null) => void;
   setSelectedCircuit: (circuitId: string) => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
   enterRace: () => void;
@@ -475,6 +478,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     isScavenging: false,
     autoScavengeUnlocked: false,
     manualScavengeClicks: 0,
+    scoutingOrder: null,
     selectedCircuitId: "backyard_derby",
     isRacing: false,
     activeRaceSessionId: null,
@@ -1111,11 +1115,16 @@ function createActions(set: SetState, get: GetState) {
       const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
       const milestoneBonuses = getPrestigeMilestoneBonuses(state.prestigeCount);
       const permanentBonuses = getPermanentRuntimeBonuses(state);
+      const scoutingOrder = normalizeScoutingOrder(
+        state.scoutingOrder,
+        location,
+        state.autoScavengeUnlocked,
+      );
       const scavengeLuck = state.prestigeBonus.luckBonus + milestoneBonuses.scavengeLuckBonus + permanentBonuses.scavengeLuckBonus + extraLuck + scavSkill.scavengingLuckBonus;
       const scavengeYield = gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus + milestoneBonuses.scavengeYieldMult + permanentBonuses.scavengeYieldMult;
-      const parts = scavenge(location, scavengeLuck, fatigue, gb.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus);
+      const parts = scavenge(location, scavengeLuck, fatigue, gb.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus, scoutingOrder);
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, scavengeLuck, fatigue, gb.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus);
+        const bonus = scavenge(location, scavengeLuck, fatigue, gb.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus, scoutingOrder);
         if (bonus.length > 0) parts.push(bonus[0]);
       }
       /* ── Early-game boost: first 30 clicks on first prestige guarantee enough to build ── */
@@ -1175,6 +1184,7 @@ function createActions(set: SetState, get: GetState) {
           reforgeShards: s.reforgeShards + (modDrop ? 1 : 0),
           manualScavengeClicks: newClicks,
           autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
+          scoutingOrder,
           racerSkills: _grantXp(s.racerSkills, "scavenging", 5),
           crewRoster: updatedCrew,
           unlockEvents: justUnlocked
@@ -1438,7 +1448,26 @@ function createActions(set: SetState, get: GetState) {
     },
 
     setSelectedLocation: (locationId: string) => {
-      set({ selectedLocationId: locationId });
+      const state = get() as GameState;
+      set({
+        selectedLocationId: locationId,
+        scoutingOrder: normalizeScoutingOrder(
+          state.scoutingOrder,
+          getLocationById(locationId),
+          state.autoScavengeUnlocked,
+        ),
+      });
+    },
+
+    setScoutingOrder: (order: PartCategory | null) => {
+      const state = get() as GameState;
+      set({
+        scoutingOrder: normalizeScoutingOrder(
+          order,
+          getLocationById(state.selectedLocationId),
+          state.autoScavengeUnlocked,
+        ),
+      });
     },
 
     setSelectedCircuit: (circuitId: string) => {

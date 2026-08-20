@@ -52,6 +52,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 0,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -270,6 +271,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 12,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -533,6 +535,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 0,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -1937,6 +1940,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
         "manualScavengeClicks": 100,
+        "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -2249,6 +2253,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 99,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -2785,6 +2790,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 0,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -3063,6 +3069,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
+        "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -4138,6 +4145,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
         "manualScavengeClicks": 100,
+        "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -4398,6 +4406,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 0,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -5473,6 +5482,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
         "manualScavengeClicks": 100,
+        "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -5710,6 +5720,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 0,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -6785,6 +6796,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
         "manualScavengeClicks": 100,
+        "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -7022,6 +7034,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": false,
         "manualScavengeClicks": 0,
+        "scoutingOrder": null,
         "autoRaceUnlocked": false,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
@@ -10557,6 +10570,7 @@
         "hostedEvents": [],
         "autoScavengeUnlocked": true,
         "manualScavengeClicks": 100,
+        "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
