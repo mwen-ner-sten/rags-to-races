@@ -12,6 +12,7 @@ import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import GameAssetImage from "@/components/GameAssetImage";
+import type { EngineeringPriority } from "@/engine/engineeringDiagnostics";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -57,6 +58,8 @@ function groupParts(parts: ScavengedPart[]): PartGroup[] {
 interface GarageInspectionTarget {
   vehicleId: string;
   slot: CoreSlot;
+  priority: EngineeringPriority;
+  action: string;
 }
 
 export default function GaragePanel({
@@ -326,6 +329,8 @@ export default function GaragePanel({
                 repairVehicle={repairVehicle}
                 swapPart={swapPart}
                 diagnosisSlot={inspectionTarget?.vehicleId === vehicle.id ? inspectionTarget.slot : null}
+                diagnosisPriority={inspectionTarget?.vehicleId === vehicle.id ? inspectionTarget.priority : null}
+                diagnosisAction={inspectionTarget?.vehicleId === vehicle.id ? inspectionTarget.action : null}
                 onClearDiagnosis={onClearInspection}
               />
             ))}
@@ -350,6 +355,8 @@ function VehicleCard({
   repairVehicle,
   swapPart,
   diagnosisSlot,
+  diagnosisPriority,
+  diagnosisAction,
   onClearDiagnosis,
 }: {
   vehicle: BuiltVehicle;
@@ -363,11 +370,16 @@ function VehicleCard({
   repairVehicle: (id: string) => void;
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   diagnosisSlot: CoreSlot | null;
+  diagnosisPriority: EngineeringPriority | null;
+  diagnosisAction: string | null;
   onClearDiagnosis?: () => void;
 }) {
-  const [swapSlot, setSwapSlot] = useState<string | null>(() => toolkitUnlocked ? diagnosisSlot : null);
+  const [swapSlot, setSwapSlot] = useState<string | null>(() =>
+    toolkitUnlocked && diagnosisPriority === "component" ? diagnosisSlot : null,
+  );
   const diagnosisRef = useRef<HTMLDivElement>(null);
   const vehicleCardRef = useRef<HTMLDivElement>(null);
+  const repairButtonRef = useRef<HTMLButtonElement>(null);
   const [loadoutName, setLoadoutName] = useState("");
   const installAddon = useGameStore((s) => s.installAddon);
   const removeAddon = useGameStore((s) => s.removeAddon);
@@ -399,9 +411,10 @@ function VehicleCard({
     }
     if (focusedDiagnosisTargetRef.current === diagnosisTargetKey) return;
     focusedDiagnosisTargetRef.current = diagnosisTargetKey;
-    diagnosisRef.current?.focus();
-    diagnosisRef.current?.scrollIntoView({ block: "nearest" });
-  }, [diagnosisTargetKey]);
+    const focusTarget = diagnosisPriority === "repair" ? repairButtonRef.current : diagnosisRef.current;
+    focusTarget?.focus();
+    focusTarget?.scrollIntoView({ block: "nearest" });
+  }, [diagnosisPriority, diagnosisTargetKey]);
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
   if (!def) return null;
@@ -425,6 +438,7 @@ function VehicleCard({
     <div
       ref={vehicleCardRef}
       tabIndex={-1}
+      aria-label={`${def.name} vehicle`}
       data-vehicle-card-id={vehicle.id}
       className="rounded-lg border p-2.5 sm:p-4 transition-colors"
       style={
@@ -451,6 +465,11 @@ function VehicleCard({
             <div className="min-w-0 text-xs" style={{ color: "var(--text-heading)" }}>
               <strong className="block uppercase tracking-wide" style={{ color: "var(--accent)" }}>Race diagnosis</strong>
               <span className="break-words">Current {diagnosisSlot}: {diagnosedPart?.name ?? "Installed part"} · {CONDITION_LABELS[diagnosedInstalled.part.condition]}</span>
+              {diagnosisPriority === "repair" && (
+                <span className="mt-1 block" style={{ color: "var(--warning)" }}>
+                  <strong>Repair first.</strong>{diagnosisAction ? ` ${diagnosisAction}` : ""}
+                </span>
+              )}
               {!toolkitUnlocked && (
                 <span className="mt-1 block" style={{ color: "var(--warning)" }}>
                   Comparing and replacing parts unlocks with Toolkit at 40 Rep.
@@ -464,7 +483,7 @@ function VehicleCard({
                   onClearDiagnosis();
                   requestAnimationFrame(() => vehicleCardRef.current?.focus());
                 }}
-                className="min-h-11 min-w-11 shrink-0 rounded border px-2 text-xs sm:min-h-0 sm:min-w-0 sm:py-1"
+                className="min-h-11 min-w-11 shrink-0 rounded border px-2 text-xs min-[641px]:min-h-0 min-[641px]:min-w-0 min-[641px]:py-1"
                 style={{ borderColor: "var(--panel-border)", color: "var(--text-secondary)" }}
               >
                 Dismiss
@@ -570,11 +589,12 @@ function VehicleCard({
         <div className="mt-2 flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <button
+              ref={repairButtonRef}
               data-tutorial="repair-btn"
               onClick={() => repairVehicle(vehicle.id)}
               disabled={mutationLocked || (!isTutorialRepair && scrapBucks < repairCost)}
               title={mutationLocked ? lockMessage : undefined}
-              className="min-h-11 w-full rounded border px-4 py-2 text-sm font-semibold transition-colors active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:w-auto sm:px-2 sm:py-1 sm:text-xs sm:font-normal sm:active:scale-100"
+              className="min-h-11 w-full rounded border px-4 py-2 text-sm font-semibold transition-colors active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 min-[641px]:min-h-0 min-[641px]:w-auto min-[641px]:px-2 min-[641px]:py-1 min-[641px]:text-xs min-[641px]:font-normal min-[641px]:active:scale-100"
               style={{ borderColor: "#16a34a", color: "var(--success)" }}
             >
               {isTutorialRepair ? "Repair to 100% — Free" : `Repair to 100% — $${formatNumber(repairCost)}`}
@@ -641,10 +661,12 @@ function VehicleCard({
                 <button
                   key={slot}
                   onClick={() => setSwapSlot(swapSlot === slot ? null : slot)}
-                  aria-label={`Compare ${slot} installed part: ${partDef?.name ?? "unknown part"}`}
+                  aria-label={toolkitUnlocked
+                    ? `Compare ${slot} installed part: ${partDef?.name ?? "unknown part"}`
+                    : `Manage ${slot} add-ons: ${partDef?.name ?? "unknown part"}`}
                   aria-expanded={swapSlot === slot}
                   aria-controls={pickerId}
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded border px-2 py-1 text-[.65rem] transition-colors sm:min-h-0 sm:min-w-0 sm:px-1.5 sm:py-0.5"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded border px-2 py-1 text-[.65rem] transition-colors min-[641px]:min-h-0 min-[641px]:min-w-0 min-[641px]:px-1.5 min-[641px]:py-0.5"
                   style={
                     swapSlot === slot
                       ? { borderColor: "var(--panel-border-active)", background: "var(--accent-bg)", color: "var(--accent)" }
@@ -841,7 +863,7 @@ function SwapPartPicker({
                 swapPart(vehicle.id, slot, candidate);
                 onDone();
               }}
-              className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded border px-2 py-1.5 text-left text-xs transition-colors sm:min-h-0 sm:w-auto sm:max-w-full sm:py-1"
+              className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded border px-2 py-1.5 text-left text-xs transition-colors min-[641px]:min-h-0 min-[641px]:w-auto min-[641px]:max-w-full min-[641px]:py-1"
               style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}
             >
               <GameAssetImage kind="part" id={group.definitionId} width={24} height={24} />

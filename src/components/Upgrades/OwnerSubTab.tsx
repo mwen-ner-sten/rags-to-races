@@ -131,12 +131,13 @@ function CategorySection({
 
               {!maxed && (
                 <button
+                  data-responsibility-purchase
                   onClick={() => onPurchase(def.id)}
                   disabled={!canAfford}
                   style={{
                     background: canAfford ? "var(--accent)" : "transparent",
                     color: canAfford
-                      ? "var(--panel-bg)"
+                      ? "var(--btn-primary-text)"
                       : "var(--text-dim)",
                     borderColor: "var(--panel-border)",
                   }}

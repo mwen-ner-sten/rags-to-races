@@ -49,15 +49,31 @@ function mutableStateSnapshot() {
   return structuredClone({ garage: state.garage, inventory: state.inventory });
 }
 
+function expectCanonicalVehicleStats() {
+  const state = useGameStore.getState();
+  const current = state.garage[0];
+  const definition = getVehicleById(current.definitionId)!;
+  expect(current.stats).toEqual(
+    calculateStats(definition, current.parts, current.condition, getEffectiveVehicleHandlingBonus(state)),
+  );
+}
+
 afterEach(() => useGameStore.setState(createInitialState()));
 
 describe("part swapping", () => {
-  it("makes the state-level projection exactly match swap stats with effective handling bonuses", () => {
+  it("keeps displayed, projected, and committed stats identical after buying Tuned Suspension", () => {
     setSwapState();
+    useGameStore.setState({ scrapBucks: 10_000, workshopLevels: { toolkit: 1 } });
+
+    useGameStore.getState().purchaseUpgrade("tuned_suspension");
+
     const before = useGameStore.getState();
     const definition = getVehicleById("push_mower")!;
     const handlingBonus = getEffectiveVehicleHandlingBonus(before);
     expect(handlingBonus).toBeGreaterThan(0);
+    expect(before.garage[0].stats).toEqual(
+      calculateStats(definition, before.garage[0].parts, before.garage[0].condition, handlingBonus),
+    );
 
     const comparison = compareInstalledPart(
       definition,
@@ -67,13 +83,76 @@ describe("part swapping", () => {
       handlingBonus,
     );
     expect(comparison).not.toBeNull();
+    expect(comparison!.currentStats).toEqual(before.garage[0].stats);
 
     before.swapPart("vehicle-1", "engine", replacement);
 
     const after = useGameStore.getState();
     expect(after.garage[0].stats).toEqual(comparison!.projectedStats);
+    for (const stat of ["speed", "handling", "reliability", "weight", "performance"] as const) {
+      expect(before.garage[0].stats[stat] + comparison!.deltas[stat]).toBeCloseTo(after.garage[0].stats[stat], 10);
+    }
     expect(after.garage[0].parts.engine.part).toBe(replacement);
     expect(after.inventory).not.toContain(replacement);
+  });
+
+  it("recalculates canonical stats through static and loot handling gear actions", () => {
+    setSwapState([]);
+    useGameStore.setState({
+      scrapBucks: 10_000,
+      repPoints: 10_000,
+      workshopLevels: { toolkit: 1 },
+      lootGearInventory: [{
+        id: "handling-boots",
+        slot: "feet",
+        rarity: "common",
+        name: "Handling Boots",
+        effects: [{ type: "race_handling_pct", value: 0.08 }],
+        enhancementLevel: 0,
+        modSlots: 1,
+        mods: [],
+        source: "test",
+      }],
+      gearModInventory: [{
+        id: "grip-mod",
+        templateId: "grip_tape",
+        name: "Grip Tape",
+        effectType: "race_handling_pct",
+        value: 0.03,
+      }],
+    });
+
+    useGameStore.getState().purchaseGear("hands_racing");
+    expectCanonicalVehicleStats();
+
+    useGameStore.getState().equipLootGear("handling-boots");
+    expectCanonicalVehicleStats();
+
+    useGameStore.getState().installMod("handling-boots", "grip-mod");
+    expectCanonicalVehicleStats();
+
+    useGameStore.getState().removeMod("handling-boots", 0);
+    expectCanonicalVehicleStats();
+
+    useGameStore.getState().enhanceLootGear("handling-boots");
+    expectCanonicalVehicleStats();
+
+    useGameStore.getState().salvageLootGear("handling-boots");
+    expectCanonicalVehicleStats();
+  });
+
+  it("recalculates canonical stats when playstyle changes amplify Tuned Suspension", () => {
+    setSwapState([]);
+    useGameStore.setState({
+      legacyPoints: 100,
+      unlockedPlaystyleNodes: ["ps_eng_t1", "ps_eng_t2a"],
+    });
+
+    useGameStore.getState().purchasePlaystyleNode("ps_eng_t3a");
+    expectCanonicalVehicleStats();
+
+    useGameStore.getState().respecPlaystylePath("engineer");
+    expectCanonicalVehicleStats();
   });
 
   it.each([

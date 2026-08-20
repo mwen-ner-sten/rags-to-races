@@ -202,12 +202,13 @@ export function buildVehicle(
   vehicleDef: VehicleDefinition,
   parts: BuiltVehicle["parts"],
   idCounter: number,
+  handlingBonusPct: number = 0,
 ): BuiltVehicle {
   return {
     id: `vehicle_${Date.now()}_${idCounter}`,
     definitionId: vehicleDef.id,
     parts,
-    stats: calculateStats(vehicleDef, parts),
+    stats: calculateStats(vehicleDef, parts, 100, handlingBonusPct),
     builtAt: Date.now(),
     condition: 100,
     totalRaces: 0,

@@ -21,6 +21,7 @@ import type { RaceOutcome } from "@/engine/race";
 import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
 import { isFeatureAvailable } from "@/config/features";
 import type { CoreSlot } from "@/data/parts";
+import type { EngineeringPriority } from "@/engine/engineeringDiagnostics";
 
 type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
@@ -42,7 +43,12 @@ function circuitStreakAfterOutcome(
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("junkyard");
-  const [garageInspection, setGarageInspection] = useState<{ vehicleId: string; slot: CoreSlot } | null>(null);
+  const [garageInspection, setGarageInspection] = useState<{
+    vehicleId: string;
+    slot: CoreSlot;
+    priority: EngineeringPriority;
+    action: string;
+  } | null>(null);
   const [offlineResult, setOfflineResult] = useState<{ result: OfflineResult; timeAway: number } | null>(null);
   const tutorialStep = useGameStore((s) => s.tutorialStep);
   const applyTickResult = useGameStore((s) => s.applyTickResult);
@@ -61,10 +67,15 @@ export default function Home() {
     setActiveTab(tab);
   }, [tutorialStep, garage, raceHistory, workshopLevels]);
 
-  const inspectRaceBuild = useCallback((vehicleId: string, slot: CoreSlot) => {
+  const inspectRaceBuild = useCallback((
+    vehicleId: string,
+    slot: CoreSlot,
+    priority: EngineeringPriority,
+    action: string,
+  ) => {
     const allowed = getAdaptiveAllowedTabs(tutorialStep, { garage, raceHistory, workshopLevels });
     if (allowed && !allowed.has("garage")) return;
-    setGarageInspection({ vehicleId, slot });
+    setGarageInspection({ vehicleId, slot, priority, action });
     setActiveTab("garage");
   }, [tutorialStep, garage, raceHistory, workshopLevels]);
 

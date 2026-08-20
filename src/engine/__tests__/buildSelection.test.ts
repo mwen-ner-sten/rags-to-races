@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { getVehicleById } from "@/data/vehicles";
-import { validateBuildSelection } from "@/engine/build";
+import { calculateStats, validateBuildSelection } from "@/engine/build";
 import type { ScavengedPart } from "@/engine/scavenge";
-import { createInitialState, useGameStore } from "@/state/store";
+import { createInitialState, getEffectiveVehicleHandlingBonus, useGameStore } from "@/state/store";
 
 const engine: ScavengedPart = {
   id: "build-engine",
@@ -68,5 +68,25 @@ describe("garage build selection integrity", () => {
     afterSale.buildSelectedVehicle();
     expect(useGameStore.getState().garage).toHaveLength(0);
     expect(useGameStore.getState().scrapBucks).toBe(afterSale.scrapBucks);
+  });
+
+  it("constructs a vehicle with the active canonical handling modifiers", () => {
+    useGameStore.setState({
+      ...createInitialState(),
+      scrapBucks: 10_000,
+      inventory: [engine, wheel],
+      pendingBuildVehicleId: "push_mower",
+      pendingBuildParts: { engine, wheel },
+      workshopLevels: { tuned_suspension: 2 },
+      tutorialDismissed: true,
+    });
+
+    useGameStore.getState().buildSelectedVehicle();
+
+    const state = useGameStore.getState();
+    const mower = getVehicleById("push_mower")!;
+    expect(state.garage[0].stats).toEqual(
+      calculateStats(mower, state.garage[0].parts, 100, getEffectiveVehicleHandlingBonus(state)),
+    );
   });
 });

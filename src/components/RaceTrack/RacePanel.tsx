@@ -22,7 +22,7 @@ import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { TALENT_NODES } from "@/data/talentNodes";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
-import { buildEngineeringReport, findDiagnosticVehicle } from "@/engine/engineeringDiagnostics";
+import { buildEngineeringReport, findDiagnosticVehicle, type EngineeringPriority } from "@/engine/engineeringDiagnostics";
 import type { CoreSlot } from "@/data/parts";
 
 // ── Event Icons ────────────────────────────────────────────────────────
@@ -344,7 +344,7 @@ export default function RacePanel({
   onInspectBuild,
 }: {
   setActiveTab?: (tab: TabId) => void;
-  onInspectBuild?: (vehicleId: string, slot: CoreSlot) => void;
+  onInspectBuild?: (vehicleId: string, slot: CoreSlot, priority: EngineeringPriority, action: string) => void;
 }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
@@ -811,7 +811,12 @@ export default function RacePanel({
                     type="button"
                     onClick={() => {
                       if (resultVehicle && engineeringReport.slot && onInspectBuild) {
-                        onInspectBuild(resultVehicle.id, engineeringReport.slot);
+                        onInspectBuild(
+                          resultVehicle.id,
+                          engineeringReport.slot,
+                          engineeringReport.priority,
+                          engineeringReport.action,
+                        );
                       } else {
                         setActiveTab?.("garage");
                       }

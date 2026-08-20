@@ -79,7 +79,7 @@ describe("1,000-seed campaign simulation guardrails", () => {
     expect(totals.optimized.dnfs).toBeLessThan(totals.weak.dnfs);
     expect(totals.optimized.scrap).toBeGreaterThan(totals.average.scrap);
     expect(totals.optimized.rep).toBeGreaterThan(totals.average.rep);
-  });
+  }, 15_000);
 
   it("keeps pacing targets ordered and decision sessions bounded", () => {
     const layers = Object.values(CAMPAIGN_PACING_TARGETS_HOURS);

@@ -389,12 +389,14 @@ test("@smoke tutorial first race uses the displayed simulation", async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectNoSeriousStructuralAccessibilityViolations(page);
   const dismissDiagnosis = diagnosis.getByRole("button", { name: "Dismiss" });
-  if ((page.viewportSize()?.width ?? 0) < 640) {
+  if ((page.viewportSize()?.width ?? 0) <= 640) {
     expect((await dismissDiagnosis.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   }
   await dismissDiagnosis.click();
   await expect(page.getByTestId("garage-diagnosis")).toHaveCount(0);
-  await expect(page.locator('[data-vehicle-card-id="fixture_vehicle_10_push_mower"]')).toBeFocused();
+  const focusedVehicle = page.locator('[data-vehicle-card-id="fixture_vehicle_10_push_mower"]');
+  await expect(focusedVehicle).toBeFocused();
+  await expect(focusedVehicle).toHaveAccessibleName(/Push Mower/i);
 });
 
 test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unlocked", async ({ page }) => {
@@ -426,6 +428,56 @@ test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unl
   const diagnosedToggle = page.locator(`[aria-controls="${comparisonId}"]`);
   await expect(diagnosedToggle).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator(`#${comparisonId}`)).toBeVisible();
+});
+
+test("repair-priority diagnosis keeps repair intent and comparison collapsed", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  garage[0].condition = 33;
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    garage,
+    workshopLevels: { toolkit: 1 },
+    raceHistory: [],
+  });
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await expect(page.getByRole("button", { name: "Open Garage" })).toBeVisible();
+  await page.getByRole("button", { name: "Open Garage" }).click();
+
+  const diagnosis = page.getByTestId("garage-diagnosis");
+  await expect(diagnosis).toContainText("Repair first");
+  const diagnosedToggle = page.locator(`[aria-controls="part-comparison-${garage[0].id}-wheel"]`);
+  await expect(diagnosedToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("button", { name: /Repair to 100%/ })).toBeFocused();
+});
+
+test("repair-priority diagnosis focuses its named region when repair is unavailable", async ({ page }) => {
+  test.setTimeout(30_000);
+  await installDeterministicMathRandom(page, 0x1234abcd);
+  const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
+  garage[0].condition = 33;
+  await loadFixture(page, "first_race_ready", {
+    tutorialStep: -1,
+    tutorialDismissed: true,
+    scrapBucks: 0,
+    garage,
+    workshopLevels: { toolkit: 1 },
+    raceHistory: [],
+  });
+  await openTab(page, "race");
+  const enterRace = page.getByRole("button", { name: "Enter Race" });
+  await enterRace.click();
+  await expect(enterRace).toBeEnabled({ timeout: 12_000 });
+  await page.getByRole("button", { name: "Open Garage" }).click();
+
+  const diagnosis = page.getByRole("region", { name: /Race diagnosis for Push Mower wheel/ });
+  await expect(diagnosis).toBeFocused();
+  await expect(page.getByRole("button", { name: /Repair to 100%/ })).toBeDisabled();
 });
 
 test("race debrief preserves its stored report after the garage build changes", async ({ page }) => {
@@ -567,7 +619,7 @@ test("@smoke tutorial releases navigation after the first repair", async ({ page
   await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
 });
 
-test("part toggle controls the shared expanded panel when only the add-on bench is unlocked", async ({ page }) => {
+test("part toggle names the add-on manager when only the add-on bench is unlocked", async ({ page }) => {
   await loadFixture(page, "workshop_ready", {
     workshopLevels: {
       ...fixtures.workshop_ready.payload.state.workshopLevels,
@@ -577,7 +629,7 @@ test("part toggle controls the shared expanded panel when only the add-on bench 
   });
   await openTab(page, "garage");
 
-  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  const toggle = page.getByRole("button", { name: /^Manage engine add-ons/ }).first();
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
 
@@ -635,7 +687,7 @@ test("installed-part candidates expose textual condition and signed named stat d
   await expect(candidate).toContainText(/Without Gentle Swap.*condition/i);
   await expect(candidate).toHaveAccessibleName(/speed [+-]\d.*handling [+-]\d.*reliability [+-]\d.*performance [+-]\d.*weight [+-]\d/i);
 
-  if ((page.viewportSize()?.width ?? 0) < 640) {
+  if ((page.viewportSize()?.width ?? 0) <= 640) {
     const toggleBox = await toggle.boundingBox();
     const candidateBox = await candidate.boundingBox();
     expect(toggleBox?.height).toBeGreaterThanOrEqual(44);
@@ -666,6 +718,19 @@ test("installed-part candidates expose textual condition and signed named stat d
     oldPartWasReturned: true,
     displacedAddonWasReturned: true,
   });
+});
+
+test("diagnosis controls retain 44px targets at the inclusive 640px mobile boundary", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 844 });
+  await loadFixture(page, "workshop_ready");
+  await openTab(page, "garage");
+  const toggle = page.getByRole("button", { name: /^Compare engine installed part/ }).first();
+  await toggle.click();
+  const candidate = page.locator('[data-candidate-instance-id]').first();
+  await expect(candidate).toBeVisible();
+  for (const control of [toggle, candidate]) {
+    expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
 });
 
 test("@smoke build to populated Garage, activate, repair, and reload stays stable", async ({ page }) => {
@@ -1038,6 +1103,53 @@ for (const [fixtureName, layerName, heading] of [
     await page.screenshot({ path: testInfo.outputPath(`${fixtureName}-${testInfo.project.name}.png`), fullPage: true });
   });
 }
+
+test("available responsibility purchases use semantic AA text in every released theme", async ({ page }) => {
+  test.setTimeout(240_000);
+  await loadFixture(page, "track_reset_ready", {
+    teamPoints: 1_000_000,
+    ownerPoints: 1_000_000,
+    trackPrestigeTokens: 1_000_000,
+    teamUpgradeLevels: {},
+    ownerUpgradeLevels: {},
+    trackPerkLevels: {},
+  });
+
+  for (const theme of THEMES) {
+    await page.evaluate((themeId) => localStorage.setItem("rags-to-races-theme", themeId), theme.id);
+    await page.reload();
+    await openTab(page, "upgrades");
+    for (const layer of ["Team", "Owner", "Track"] as const) {
+      await page.getByRole("button", { name: layer, exact: true }).evaluate((button) =>
+        (button as HTMLButtonElement).click(),
+      );
+      const purchases = page.locator('button[data-responsibility-purchase]:enabled');
+      await expect(purchases.first(), `${theme.id} ${layer} has an available purchase`).toBeVisible();
+      const colors = await purchases.first().evaluate((button) => {
+        const style = getComputedStyle(button);
+        const shell = button.closest<HTMLElement>(".shell-content > div");
+        return {
+          foreground: style.color,
+          semanticForeground: shell ? getComputedStyle(shell).getPropertyValue("--btn-primary-text").trim() : "",
+        };
+      });
+      const semanticColor = await page.evaluate((value) => {
+        const probe = document.createElement("span");
+        probe.style.color = value;
+        document.body.appendChild(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      }, colors.semanticForeground);
+      expect(colors.foreground, `${theme.id} ${layer} purchase text token`).toBe(semanticColor);
+      const results = await new AxeBuilder({ page })
+        .include('button[data-responsibility-purchase]:enabled')
+        .withRules(["color-contrast"])
+        .analyze();
+      expect(results.violations, `${theme.id} ${layer} purchase contrast`).toEqual([]);
+    }
+  }
+});
 
 test("Team crew lifecycle and Fleet program use selected crew and settle rewards", async ({ page }) => {
   const crew = {

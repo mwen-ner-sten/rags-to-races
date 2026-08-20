@@ -78,6 +78,9 @@ import { calculateHostedEventTerms, DEFAULT_TRACK_CONFIG, normalizeHostedEventCo
 import { getPartSaleValue } from "@/engine/sale";
 import { autoSellRustedParts } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
+import { getEffectiveVehicleHandlingBonus, recalculateGarageStats } from "@/engine/vehicleStats";
+
+export { getEffectiveVehicleHandlingBonus } from "@/engine/vehicleStats";
 import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
@@ -627,41 +630,12 @@ export function _getUpgradeEffectValue(state: GameState, upgradeId: string): num
   return def.effect.valuePerLevel * level * (1 + philosophyEffectBonus);
 }
 
-/** Exact handling bonus applied when vehicle stats are recalculated at runtime. */
-export function getEffectiveVehicleHandlingBonus(state: GameState): number {
-  const gear = getGearBonuses(
-    state.equippedGear,
-    state.equippedLootGear,
-    state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
-    state.equippedStationEquipment,
-    state.stationEquipmentInventory,
-  );
-  return _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
-}
-
 function recalculateGarageStatsForStationEquipment(
   state: GameState,
   equippedStationEquipment: Record<GarageStationSlot, string | null>,
   stationEquipmentInventory: StationEquipment[],
 ): BuiltVehicle[] {
-  const gear = getGearBonuses(
-    state.equippedGear,
-    state.equippedLootGear,
-    state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
-    equippedStationEquipment,
-    stationEquipmentInventory,
-  );
-  const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
-  return state.garage.map((vehicle) => {
-    const definition = getVehicleById(vehicle.definitionId);
-    return definition
-      ? { ...vehicle, stats: calculateStats(definition, vehicle.parts, vehicle.condition ?? 100, handlingBonus) }
-      : vehicle;
-  });
+  return recalculateGarageStats({ ...state, equippedStationEquipment, stationEquipmentInventory });
 }
 
 /** Exact additive sell-value bonus used by manual, bulk, and automated sales. */
@@ -1344,7 +1318,12 @@ function createActions(set: SetState, get: GetState) {
         }
       }
 
-      const built = buildVehicle(vehicleDef, builtParts, _vehicleIdCounter);
+      const built = buildVehicle(
+        vehicleDef,
+        builtParts,
+        _vehicleIdCounter,
+        getEffectiveVehicleHandlingBonus(state),
+      );
 
       set((s: GameState) => {
         const remainingInventory = s.inventory.filter((p) => !usedPartIds.has(p.id));
@@ -2130,10 +2109,15 @@ function createActions(set: SetState, get: GetState) {
       const cost = getWorkshopUpgradePurchaseCost(state, upgradeId);
       if (cost === null) return;
       if (state.scrapBucks < cost) return;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - cost,
-        workshopLevels: { ...s.workshopLevels, [upgradeId]: currentLevel + 1 },
-      }));
+      set((s: GameState) => {
+        const workshopLevels = { ...s.workshopLevels, [upgradeId]: currentLevel + 1 };
+        const nextState = { ...s, workshopLevels };
+        return {
+          scrapBucks: s.scrapBucks - cost,
+          workshopLevels,
+          ...(upgradeId === "tuned_suspension" ? { garage: recalculateGarageStats(nextState) } : {}),
+        };
+      });
       _appendLog(set, get, "upgrade", `Bought ${def.name} Lv.${currentLevel + 1} for $${cost}`, { scrapDelta: -cost });
     },
 
@@ -2144,11 +2128,15 @@ function createActions(set: SetState, get: GetState) {
       if (state.ownedGearIds.includes(gearId)) return;
       if (def.unlockRequirement?.repPoints && state.repPoints < def.unlockRequirement.repPoints) return;
       if (state.scrapBucks < def.cost) return;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - def.cost,
-        ownedGearIds: [...s.ownedGearIds, gearId],
-        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
-      }));
+      set((s: GameState) => {
+        const equippedGear = { ...s.equippedGear, [def.slot]: gearId };
+        return {
+          scrapBucks: s.scrapBucks - def.cost,
+          ownedGearIds: [...s.ownedGearIds, gearId],
+          equippedGear,
+          garage: recalculateGarageStats({ ...s, equippedGear }),
+        };
+      });
       _appendLog(set, get, "gear", `Bought ${def.name} for $${def.cost}`, { scrapDelta: -def.cost });
     },
 
@@ -2157,24 +2145,27 @@ function createActions(set: SetState, get: GetState) {
       if (!state.ownedGearIds.includes(gearId)) return;
       const def = getGearById(gearId);
       if (!def) return;
-      set((s: GameState) => ({
-        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
-      }));
+      set((s: GameState) => {
+        const equippedGear = { ...s.equippedGear, [def.slot]: gearId };
+        return { equippedGear, garage: recalculateGarageStats({ ...s, equippedGear }) };
+      });
     },
 
     equipLootGear: (lootGearId: string) => {
       const state = get() as GameState;
       const item = state.lootGearInventory.find((g) => g.id === lootGearId);
       if (!item) return;
-      set((s: GameState) => ({
-        equippedLootGear: { ...s.equippedLootGear, [item.slot]: lootGearId },
-      }));
+      set((s: GameState) => {
+        const equippedLootGear = { ...s.equippedLootGear, [item.slot]: lootGearId };
+        return { equippedLootGear, garage: recalculateGarageStats({ ...s, equippedLootGear }) };
+      });
     },
 
     unequipLootGear: (slot: GearSlot) => {
-      set((s: GameState) => ({
-        equippedLootGear: { ...s.equippedLootGear, [slot]: null },
-      }));
+      set((s: GameState) => {
+        const equippedLootGear = { ...s.equippedLootGear, [slot]: null };
+        return { equippedLootGear, garage: recalculateGarageStats({ ...s, equippedLootGear }) };
+      });
     },
 
     enhanceLootGear: (lootGearId: string) => {
@@ -2188,12 +2179,18 @@ function createActions(set: SetState, get: GetState) {
       if (state.scrapBucks < cost) return;
       const newLevel = item.enhancementLevel + 1;
       const newModSlots = getModSlots(newLevel);
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - cost,
-        lootGearInventory: s.lootGearInventory.map((g) =>
+      set((s: GameState) => {
+        const lootGearInventory = s.lootGearInventory.map((g) =>
           g.id !== lootGearId ? g : { ...g, enhancementLevel: newLevel, modSlots: newModSlots }
-        ),
-      }));
+        );
+        return {
+          scrapBucks: s.scrapBucks - cost,
+          lootGearInventory,
+          garage: s.equippedLootGear[item.slot] === lootGearId
+            ? recalculateGarageStats({ ...s, lootGearInventory })
+            : s.garage,
+        };
+      });
       _appendLog(set, get, "gear", `Enhanced ${item.name} to Lv.${newLevel} for $${cost}`, { scrapDelta: -cost });
     },
 
@@ -2208,17 +2205,21 @@ function createActions(set: SetState, get: GetState) {
       );
       // Return installed mods to inventory
       const returnedMods = item.mods;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks + value,
-        lifetimeScrapBucks: s.lifetimeScrapBucks + value,
-        lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
-        lootGearInventory: s.lootGearInventory.filter((g) => g.id !== lootGearId),
-        // Unequip if this item was equipped
-        equippedLootGear: s.equippedLootGear[item.slot] === lootGearId
+      set((s: GameState) => {
+        const lootGearInventory = s.lootGearInventory.filter((g) => g.id !== lootGearId);
+        const equippedLootGear = s.equippedLootGear[item.slot] === lootGearId
           ? { ...s.equippedLootGear, [item.slot]: null }
-          : s.equippedLootGear,
-        gearModInventory: [...s.gearModInventory, ...returnedMods],
-      }));
+          : s.equippedLootGear;
+        return {
+          scrapBucks: s.scrapBucks + value,
+          lifetimeScrapBucks: s.lifetimeScrapBucks + value,
+          lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
+          lootGearInventory,
+          equippedLootGear,
+          gearModInventory: [...s.gearModInventory, ...returnedMods],
+          garage: recalculateGarageStats({ ...s, lootGearInventory, equippedLootGear }),
+        };
+      });
       _appendLog(set, get, "gear", `Salvaged ${item.name} for $${value}`, { scrapDelta: value });
       (get() as GameState).checkAchievements();
     },
@@ -2231,11 +2232,15 @@ function createActions(set: SetState, get: GetState) {
         if (item.mods.some((installed) => installed.id === modInstanceId)) return s;
         const template = getModTemplateById(mod.templateId);
         if (!template || !template.slots.includes(item.slot)) return s;
+        const lootGearInventory = s.lootGearInventory.map((g) =>
+          g.id !== lootGearId ? g : { ...g, mods: [...g.mods, mod] }
+        );
         return {
-          lootGearInventory: s.lootGearInventory.map((g) =>
-            g.id !== lootGearId ? g : { ...g, mods: [...g.mods, mod] }
-          ),
+          lootGearInventory,
           gearModInventory: s.gearModInventory.filter((m) => m.id !== modInstanceId),
+          garage: s.equippedLootGear[item.slot] === lootGearId
+            ? recalculateGarageStats({ ...s, lootGearInventory })
+            : s.garage,
         };
       });
     },
@@ -2246,14 +2251,20 @@ function createActions(set: SetState, get: GetState) {
       if (!item || modIndex < 0 || modIndex >= item.mods.length) return;
       const mod = item.mods[modIndex];
       const preserveMod = _getUpgradeLevel(state, "careful_modding") >= 1;
-      set((s: GameState) => ({
-        lootGearInventory: s.lootGearInventory.map((g) =>
+      set((s: GameState) => {
+        const lootGearInventory = s.lootGearInventory.map((g) =>
           g.id !== lootGearId ? g : { ...g, mods: g.mods.filter((_, i) => i !== modIndex) }
-        ),
-        gearModInventory: preserveMod
-          ? [...s.gearModInventory, mod]
-          : s.gearModInventory,
-      }));
+        );
+        return {
+          lootGearInventory,
+          gearModInventory: preserveMod
+            ? [...s.gearModInventory, mod]
+            : s.gearModInventory,
+          garage: s.equippedLootGear[item.slot] === lootGearId
+            ? recalculateGarageStats({ ...s, lootGearInventory })
+            : s.garage,
+        };
+      });
     },
 
     unlockTalentNode: (nodeId: string) => {
@@ -3947,9 +3958,13 @@ function createActions(set: SetState, get: GetState) {
       if (!node) return;
       if (!canUnlockPlaystyleNode(nodeId, state.unlockedPlaystyleNodes)) return;
       if (state.legacyPoints < node.lpCost) return;
-      set({
-        legacyPoints: state.legacyPoints - node.lpCost,
-        unlockedPlaystyleNodes: [...state.unlockedPlaystyleNodes, nodeId],
+      set((current: GameState) => {
+        const unlockedPlaystyleNodes = [...current.unlockedPlaystyleNodes, nodeId];
+        return {
+          legacyPoints: current.legacyPoints - node.lpCost,
+          unlockedPlaystyleNodes,
+          garage: recalculateGarageStats({ ...current, unlockedPlaystyleNodes }),
+        };
       });
       _appendLog(set, get, "prestige", `Unlocked playstyle node: ${node.name} for ${node.lpCost} LP`, { lpDelta: -node.lpCost });
     },
@@ -3963,10 +3978,11 @@ function createActions(set: SetState, get: GetState) {
         const n = PLAYSTYLE_NODES_BY_ID[id];
         return n && n.path !== path;
       });
-      set({
+      set((current: GameState) => ({
         unlockedPlaystyleNodes: remaining,
-        legacyPoints: state.legacyPoints + refund,
-      });
+        legacyPoints: current.legacyPoints + refund,
+        garage: recalculateGarageStats({ ...current, unlockedPlaystyleNodes: remaining }),
+      }));
       _appendLog(set, get, "prestige", `Respecced ${path} playstyle path — refunded ${refund} LP`, { lpDelta: refund });
     },
 
@@ -4005,7 +4021,12 @@ function createActions(set: SetState, get: GetState) {
         };
       }
 
-      const built = buildVehicle(vehicleDef, builtParts, state._vehicleIdCounter);
+      const built = buildVehicle(
+        vehicleDef,
+        builtParts,
+        state._vehicleIdCounter,
+        getEffectiveVehicleHandlingBonus(state),
+      );
 
       set({
         scrapBucks: Math.max(state.scrapBucks, 500),

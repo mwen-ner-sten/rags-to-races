@@ -12,6 +12,7 @@ import { CONDITIONS, CORE_SLOTS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
 import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
+import { recalculateGarageStats } from "@/engine/vehicleStats";
 
 export const PERSISTENCE_VERSION = 3;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
@@ -20,6 +21,7 @@ export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 const finiteNonNegative = z.number().finite().min(0);
 const finitePercentage = z.number().finite().min(0).max(100);
 const nonEmptyString = z.string().min(1);
+const boundedNonEmptyString = z.string().min(1).max(200);
 
 const partConditionSchema = z.enum(CONDITIONS as [
   (typeof CONDITIONS)[number],
@@ -101,6 +103,7 @@ const raceOutcomeSchema = z.object({
   forgeTokenDrop: z.boolean().optional(),
   rivalId: z.string().optional(),
   rivalRewardClaimed: z.boolean().optional(),
+  vehicleId: boundedNonEmptyString.optional(),
   circuitId: nonEmptyString,
   engineeringReport: engineeringReportSchema.optional(),
 }).passthrough();
@@ -727,10 +730,11 @@ export function mergePersistedGameState(
   currentState: GameState,
 ): GameState {
   try {
-    return {
+    const hydrated = {
       ...currentState,
       ...migratePersistedState(persistedState, PERSISTENCE_VERSION),
     } as GameState;
+    return { ...hydrated, garage: recalculateGarageStats(hydrated) };
   } catch {
     // A corrupt browser payload should not poison the live Zustand state. File
     // imports and raw-save decoding still surface the validation error to the
