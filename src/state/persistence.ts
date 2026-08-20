@@ -13,6 +13,7 @@ import { INITIAL_MATERIALS } from "@/data/materials";
 import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY, RACE_CONTROL_RACES_PER_OPPORTUNITY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 import { recalculateGarageStats } from "@/engine/vehicleStats";
+import { TEAM_OPERATING_PHILOSOPHY_IDS } from "@/data/teamPhilosophies";
 
 export const PERSISTENCE_VERSION = 3;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
@@ -308,6 +309,7 @@ const currentStateSafetySchema = z.object({
   lifetimeTeamPoints: finiteNonNegative.optional(),
   teamEraCount: finiteNonNegative.optional(),
   lifetimeLPThisTeamEra: finiteNonNegative.optional(),
+  teamOperatingPhilosophy: z.enum(TEAM_OPERATING_PHILOSOPHY_IDS).nullable().default(null),
   ownerPoints: finiteNonNegative.optional(),
   lifetimeOwnerPoints: finiteNonNegative.optional(),
   ownerEraCount: finiteNonNegative.optional(),
@@ -506,6 +508,7 @@ export function getPersistedGameState(state: GameState) {
     teamUpgradeLevels: state.teamUpgradeLevels,
     teamEraCount: state.teamEraCount,
     lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
+    teamOperatingPhilosophy: state.teamOperatingPhilosophy,
     ownerPoints: state.ownerPoints,
     lifetimeOwnerPoints: state.lifetimeOwnerPoints,
     ownerUpgradeLevels: state.ownerUpgradeLevels,

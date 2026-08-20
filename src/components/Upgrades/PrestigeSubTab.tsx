@@ -8,6 +8,10 @@ import PrestigeMilestoneTrack from "./PrestigeMilestoneTrack";
 import PrestigeConfirm from "@/components/Shop/PrestigeConfirm";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, RESPONSIBILITY_RESET_REQUIREMENTS, scrapResetRequirementText } from "@/config/progression";
 import { calculateOwnerPoints, calculateTeamPoints, calculateTrackTokens } from "@/engine/prestige";
+import { CREW_ROLE_LABELS, getSpecializationsForRole } from "@/data/crew";
+import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
+import { getGameEffectValue } from "@/data/gameEffects";
+import { TEAM_OPERATING_PHILOSOPHY_IDS, TEAM_PHILOSOPHIES, type TeamOperatingPhilosophy } from "@/data/teamPhilosophies";
 
 type ResponsibilityResetLayer = "team" | "owner" | "track";
 
@@ -171,7 +175,8 @@ export default function PrestigeSubTab() {
           </div>
           <p style={{ color: "var(--text-secondary)" }} className="text-sm mb-3">
             Disband your team and rebuild. Clears Scrap/Legacy progress, vehicles, fleet assignments,
-            the crew roster, and station equipment. Keeps Team Points, Team upgrades, blueprints, and achievements.
+            non-lead crew, and station equipment. Keeps your selected department head, mastered automation,
+            Team Points, Team upgrades, blueprints, and achievements.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
             Requires {RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints} lifetime LP (you have {lifetimeLPAllTime})
@@ -183,11 +188,11 @@ export default function PrestigeSubTab() {
             <ResponsibilityResetConfirm
               layerName="Team"
               award={`+${teamPointAward} TP`}
-              resetText="Scrap and Legacy progress, vehicles, fleet assignments, crew, and station equipment"
-              keepText="Team Points and upgrades, discovered blueprints, achievements, and lifetime history"
-              onConfirm={() => {
+              resetText="Scrap and Legacy progress, vehicles, fleet assignments, non-lead crew, and station equipment"
+              keepText="Your selected department head, Auto-Scavenge, Auto-Race, Team Points and upgrades, discovered blueprints, achievements, and lifetime history"
+              onConfirm={(philosophy) => {
                 setConfirmingResponsibilityReset(null);
-                teamReset();
+                if (philosophy) teamReset(philosophy);
               }}
               onCancel={() => setConfirmingResponsibilityReset(null)}
             />
@@ -322,9 +327,18 @@ function ResponsibilityResetConfirm({
   award: string;
   resetText: string;
   keepText: string;
-  onConfirm: () => void;
+  onConfirm: (philosophy?: TeamOperatingPhilosophy) => void;
   onCancel: () => void;
 }) {
+  const [selectedPhilosophy, setSelectedPhilosophy] = useState<TeamOperatingPhilosophy | null>(null);
+  const crewRoster = useGameStore((s) => s.crewRoster);
+  const ownerUpgradeLevels = useGameStore((s) => s.ownerUpgradeLevels);
+  const startingLevel = Math.max(1, getGameEffectValue(
+    OWNER_UPGRADE_DEFINITIONS,
+    ownerUpgradeLevels,
+    "crew_starting_level",
+  ));
+
   return (
     <div
       role="alertdialog"
@@ -344,11 +358,66 @@ function ResponsibilityResetConfirm({
       <p style={{ color: "var(--text-secondary)" }} className="mt-1 text-xs">
         <strong>Will keep:</strong> {keepText}.
       </p>
+      {layerName === "Team" && (
+        <fieldset className="mt-3">
+          <legend style={{ color: "var(--text-heading)" }} className="text-sm font-semibold">
+            Team Operating Philosophy
+          </legend>
+          <p style={{ color: "var(--text-muted)" }} className="mt-1 text-xs">
+            Choose the department head who defines this Team era. This costs no TP and changes only at your next Team Reset.
+          </p>
+          <div data-testid="team-philosophy-grid" className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {TEAM_PHILOSOPHIES.map((philosophy) => {
+              const retained = crewRoster
+                .filter((member) => member.role === philosophy.leadRole)
+                .reduce<(typeof crewRoster)[number] | null>(
+                  (best, member) => best === null || member.xp > best.xp ? member : best,
+                  null,
+                );
+              const specializations = getSpecializationsForRole(philosophy.leadRole).map((specialization) => specialization.name).join(" or ");
+              return (
+                <label
+                  key={philosophy.id}
+                  style={{
+                    borderColor: selectedPhilosophy === philosophy.id ? "var(--accent)" : "var(--panel-border)",
+                    background: selectedPhilosophy === philosophy.id ? "var(--panel-bg)" : "transparent",
+                  }}
+                  className="cursor-pointer rounded-lg border p-3 text-xs"
+                >
+                  <span className="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name="team-operating-philosophy"
+                      value={philosophy.id}
+                      checked={selectedPhilosophy === philosophy.id}
+                      onChange={() => setSelectedPhilosophy(philosophy.id)}
+                    />
+                    <span>
+                      <strong style={{ color: "var(--text-heading)" }} className="block text-sm">{philosophy.name}</strong>
+                      <span style={{ color: "var(--accent)" }} className="mt-1 block">{CREW_ROLE_LABELS[philosophy.leadRole]} lead · {philosophy.laborDelegated}</span>
+                    </span>
+                  </span>
+                  <span style={{ color: "var(--text-secondary)" }} className="mt-2 block">
+                    Specialization paths: <span>{specializations}</span>
+                  </span>
+                  <span style={{ color: "var(--warning)" }} className="mt-1 block">Lost expertise: {philosophy.lostExpertise}</span>
+                  <span style={{ color: "var(--text-white)" }} className="mt-1 block font-semibold">
+                    {retained
+                      ? `Retains ${retained.name} · ${CREW_ROLE_LABELS[retained.role]} Lv.${retained.level}`
+                      : `Hires a new level-${startingLevel} ${CREW_ROLE_LABELS[philosophy.leadRole]} lead`}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
-          onClick={onConfirm}
+          onClick={() => onConfirm(selectedPhilosophy ?? undefined)}
+          disabled={layerName === "Team" && !TEAM_OPERATING_PHILOSOPHY_IDS.some((id) => id === selectedPhilosophy)}
           style={{ background: "var(--accent)", color: "var(--btn-primary-text)" }}
-          className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90"
+          className="rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Confirm {layerName} Reset ({award})
         </button>

@@ -10,6 +10,7 @@ import {
 } from "@/data/crew";
 import GameAssetImage from "@/components/GameAssetImage";
 import { crewLevelFromXp } from "@/engine/crew";
+import { TEAM_PHILOSOPHIES_BY_ID } from "@/data/teamPhilosophies";
 
 export default function CrewPanel() {
   const crewRoster = useGameStore((s) => s.crewRoster);
@@ -17,6 +18,15 @@ export default function CrewPanel() {
   const recruitCrewMember = useGameStore((s) => s.recruitCrewMember);
   const crewSlots = useGameStore((s) => s.crewSlots);
   const teamPoints = useGameStore((s) => s.teamPoints);
+  const philosophyId = useGameStore((s) => s.teamOperatingPhilosophy);
+  const departmentHead = philosophyId
+    ? crewRoster
+        .filter((member) => member.role === TEAM_PHILOSOPHIES_BY_ID[philosophyId].leadRole)
+        .reduce<(typeof crewRoster)[number] | null>(
+          (best, member) => best === null || member.xp > best.xp ? member : best,
+          null,
+        )
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,6 +76,11 @@ export default function CrewPanel() {
                     >
                       {member.name}
                     </span>
+                    {departmentHead?.id === member.id && (
+                      <span className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                        Department Head
+                      </span>
+                    )}
                     <span
                       className="ml-2 text-xs"
                       style={{ color: "var(--text-dim)" }}

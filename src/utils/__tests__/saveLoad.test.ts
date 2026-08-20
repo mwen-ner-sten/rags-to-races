@@ -482,6 +482,25 @@ describe("save envelope", () => {
     });
   });
 
+  it("persists a nullable Team Operating Philosophy and defaults missing saves to null", () => {
+    const initial = createInitialState() as GameState;
+    expect(getPersistedGameState({ ...initial, teamOperatingPhilosophy: "driver_led" })).toMatchObject({
+      teamOperatingPhilosophy: "driver_led",
+    });
+    expect(mergePersistedGameState({}, initial).teamOperatingPhilosophy).toBeNull();
+  });
+
+  it("rejects an invalid Team Operating Philosophy enum", () => {
+    expect(() => decodeSavePayload(JSON.stringify({
+      format: SAVE_FORMAT,
+      version: SAVE_VERSION,
+      build: "test",
+      exportedAt: Date.now(),
+      label: "Invalid philosophy",
+      state: { teamOperatingPhilosophy: "free_money" },
+    }))).toThrow("Invalid persisted game state");
+  });
+
   it("refuses saves from a newer schema", () => {
     expect(() =>
       decodeSavePayload(

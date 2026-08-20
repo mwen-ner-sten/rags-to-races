@@ -413,7 +413,7 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
       };
     case "post_team_reset": {
       const earned = calculateTeamPoints({ lifetimeLPThisTeamEra: 1_600, teamEraCount: 2, unspentLP: 150 });
-      return { tutorialStep: -1, tutorialDismissed: true, unlockedFeatures: resetReady.unlockedFeatures, teamPoints: 40 + earned, lifetimeTeamPoints: 150 + earned, teamEraCount: 3, lifetimeLPThisTeamEra: 0, lifetimeTPThisOwnerEra: earned, lifetimeLPAllTime: 400, lifetimeScrapResets: 6, crewSlots: 1, unlockedPlaystyleNodes: [] };
+      return { tutorialStep: -1, tutorialDismissed: true, unlockedFeatures: resetReady.unlockedFeatures, teamPoints: 40 + earned, lifetimeTeamPoints: 150 + earned, teamEraCount: 3, lifetimeLPThisTeamEra: 0, teamOperatingPhilosophy: "engineering_works", lifetimeTPThisOwnerEra: earned, lifetimeLPAllTime: 400, lifetimeScrapResets: 6, crewSlots: 1, crewRoster: [{ id: "philosophy_mechanic", name: "Dave", role: "mechanic", level: 1, xp: 0, specialization: null }], unlockedPlaystyleNodes: [] };
     }
     case "owner_reset_ready":
       return {

@@ -82,9 +82,10 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} one-time gameplay goals rewarding Scrap Bucks, materials, and Forge Tokens.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
   { term: "Team Points (TP)", meaning: "Layer 2 currency earned from Team Reset. Spent on crew, fleet capacity, and team infrastructure." },
+  { term: "Team Operating Philosophy", meaning: "A no-cost Team Reset choice that retains your highest-XP Scout, Mechanic, or Driver as department head for the next Team era. It is separate from the LP-funded Garage Philosophy." },
   { term: "Owner Points (OP)", meaning: "Layer 3 currency earned from Owner Reset. Spent on facilities, sourcing, and advanced engineering capability." },
   { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 currency earned from Track Reset. Spent on venue, event, and endgame fleet perks." },
-  { term: "Crew", meaning: "NPC helpers unlocked after the first Team Reset. Four roles (Mechanic, Scout, Driver, Trader) have distinct specializations. Crew persist through Scrap Resets and reset on Team Reset." },
+  { term: "Crew", meaning: "NPC helpers unlocked after the first Team Reset. Four roles (Mechanic, Scout, Driver, Trader) have distinct specializations. Crew persist through Scrap Resets; Team Reset retains only the department head selected by your Team Operating Philosophy." },
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
   { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 8 hours). Catch-up uses at most one tick per ${OFFLINE_TICK_MS_MIN / 1_000} second of elapsed time. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts and ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
   { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
@@ -123,11 +124,11 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "What are Team, Owner, and Track resets?",
-    answer: "These are responsibility layers beyond Scrap Reset. Team Reset exchanges lower-layer progress for Team Points and opens crew and fleet programs. Owner Reset exchanges Team progress for Owner Points and opens facilities and supply chains. Track Reset exchanges Owner progress for Prestige Tokens and opens venue configuration and hosted events. Each layer has an explicit retention contract and clears the layers below it.",
+    answer: "These are responsibility layers beyond Scrap Reset. Team Reset exchanges lower-layer progress for Team Points, opens crew and fleet programs, and requires a Team Operating Philosophy that retains one department head at no TP cost. Owner Reset exchanges Team progress for Owner Points and opens facilities and supply chains. Track Reset exchanges Owner progress for Prestige Tokens and opens venue configuration and hosted events. Each layer has an explicit retention contract and clears the layers below it.",
   },
   {
     question: "How does the crew system work?",
-    answer: "Crew unlocks after your first Team Reset. You recruit NPC members in 4 roles: Mechanic (-build/repair costs), Scout (+scavenge luck/yield), Driver (+race performance/-DNF), and Trader (+sell value/-dealer prices). Each role has 2 specializations. Crew gain XP from their activities and from fleet programs. They persist through Scrap Resets and reset on Team Reset.",
+    answer: "Crew unlocks after your first Team Reset. You recruit NPC members in 4 roles: Mechanic (-build/repair costs), Scout (+scavenge luck/yield), Driver (+race performance/-DNF), and Trader (+sell value/-dealer prices). Each role has 2 specializations. Crew gain XP from their activities and from fleet programs. They persist through Scrap Resets. At Team Reset, your Team Operating Philosophy retains the highest-XP matching department head while other crew reset.",
   },
   {
     question: "How do racer skills work?",

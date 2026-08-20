@@ -1245,6 +1245,52 @@ test("Junkyard refurbishment quote matches the executable discounted store cost"
   expect((after.inventory as Array<{ id: string; condition: string }>).find((candidate) => candidate.id === part.id)?.condition).toBe("decent");
 });
 
+test("Team Reset requires an accessible operating philosophy choice", async ({ page }, testInfo) => {
+  await loadFixture(page, "team_reset_ready", {
+    crewRoster: [{ id: "scout_lead", name: "Jess Prime", role: "scout", level: 6, xp: 900, specialization: "treasure_hunter" }],
+  });
+  await openResetTab(page);
+  await page.getByRole("button", { name: "Team Reset", exact: true }).click();
+
+  const dialog = page.getByRole("alertdialog", { name: "Confirm Team Reset" });
+  const choices = dialog.getByRole("group", { name: "Team Operating Philosophy" });
+  const confirm = dialog.getByRole("button", { name: /^Confirm Team Reset/ });
+  await expect(choices).toBeVisible();
+  await expectNoSeriousStructuralAccessibilityViolations(page);
+  await expect(confirm).toBeDisabled();
+  await expect(choices.getByRole("radio")).toHaveCount(3);
+  const gridColumns = await page.getByTestId("team-philosophy-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+  expect(gridColumns).toBe(testInfo.project.name.startsWith("mobile") ? 1 : 3);
+  await expect(choices.getByText("Treasure Hunter or Bulk Hauler", { exact: true })).toBeVisible();
+  await expect(choices.getByText("Retains Jess Prime · Scout Lv.6", { exact: true })).toBeVisible();
+
+  await choices.getByRole("radio", { name: /Junkyard Works/ }).check();
+  await expect(confirm).toBeEnabled();
+  await page.reload();
+  expect((await persistedState(page)).teamOperatingPhilosophy).toBeNull();
+  await openResetTab(page);
+  await page.getByRole("button", { name: "Team Reset", exact: true }).click();
+  await expect(page.getByRole("alertdialog", { name: "Confirm Team Reset" }).getByRole("button", { name: /^Confirm Team Reset/ })).toBeDisabled();
+});
+
+test("current Team Operating Philosophy is summarized above Fleet Programs", async ({ page }) => {
+  await loadFixture(page, "team_reset_ready", {
+    teamOperatingPhilosophy: "driver_led",
+    crewRoster: [{ id: "driver_lead", name: "Rico Prime", role: "driver", level: 7, xp: 1_200, specialization: "safety_first" }],
+  });
+  await openTab(page, "upgrades");
+  await page.getByRole("button", { name: "Team", exact: true }).click();
+
+  const summary = page.getByRole("region", { name: "Team Operating Philosophy" });
+  await expect(summary.getByRole("heading", { name: "Driver-Led Team" })).toBeVisible();
+  await expect(summary.getByText("Change at next Team Reset", { exact: true })).toBeVisible();
+  await expect(summary).toHaveText(/Rico Prime.*Driver.*Lv\.7/);
+  await expect(page.getByText("Department Head", { exact: true })).toBeVisible();
+  const summaryBox = await summary.boundingBox();
+  const fleetBox = await page.getByRole("heading", { name: "Fleet Programs" }).boundingBox();
+  expect(summaryBox!.y + summaryBox!.height).toBeLessThanOrEqual(fleetBox!.y);
+});
+
 for (const [fixtureName, buttonName, awardField, clearedField] of [
   ["first_scrap_reset_ready", "Scrap Reset", "legacyPoints", "garage"],
   ["team_reset_ready", "Team Reset", "teamPoints", "garage"],
@@ -1267,6 +1313,7 @@ for (const [fixtureName, buttonName, awardField, clearedField] of [
         await expect(page.getByRole("alertdialog", { name: `Confirm ${buttonName}` })).toHaveCount(0);
         expect((await persistedState(page))[awardField]).toBe(before[awardField]);
         await page.getByRole("button", { name: buttonName, exact: true }).click();
+        await page.getByRole("radio", { name: /Engineering Works/ }).check();
       }
       await page.getByRole("button", { name: new RegExp(`^Confirm ${buttonName} \\(\\+\\d+ (?:TP|OP|PT)\\)$`) }).click();
     }
@@ -1274,8 +1321,15 @@ for (const [fixtureName, buttonName, awardField, clearedField] of [
     expect(after[awardField] as number).toBeGreaterThan(before[awardField] as number);
     if (clearedField === "garage") expect(after.garage).toEqual([]);
     else expect(after[clearedField]).toBe(0);
+    if (buttonName === "Team Reset") {
+      expect(after.teamOperatingPhilosophy).toBe("engineering_works");
+      expect(after.autoScavengeUnlocked).toBe(true);
+      expect(after.autoRaceUnlocked).toBe(true);
+      expect(after.crewRoster).toEqual([expect.objectContaining({ role: "mechanic" })]);
+    }
     await page.reload();
     expect((await persistedState(page))[awardField]).toBe(after[awardField]);
+    if (buttonName === "Team Reset") expect((await persistedState(page)).teamOperatingPhilosophy).toBe("engineering_works");
   });
 }
 
@@ -1289,6 +1343,7 @@ test("Team, Owner, and Track resets cannot repeat at zero progress", async ({ pa
     else await replaceFixtureState(page, fixtureName);
     await openResetTab(page);
     await page.getByRole("button", { name: buttonName, exact: true }).click();
+    if (buttonName === "Team Reset") await page.getByRole("radio", { name: /Driver-Led Team/ }).check();
     await page.getByRole("button", { name: new RegExp(`^Confirm ${buttonName} \\(\\+\\d+ (?:TP|OP|PT)\\)$`) }).click();
     const afterReset = await persistedState(page);
     expect(afterReset[currencyField] as number).toBeGreaterThan(0);

@@ -8,15 +8,15 @@ describe("responsibility reset action guards", () => {
   it("blocks Team Reset below the boundary and permits it exactly at the boundary", () => {
     const requirement = RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints;
     useGameStore.setState({ ...createInitialState(), lifetimeLPAllTime: requirement - 1, lifetimeLPThisTeamEra: 100 });
-    useGameStore.getState().teamReset();
+    useGameStore.getState().teamReset("junkyard_works");
     expect(useGameStore.getState().teamEraCount).toBe(0);
 
     useGameStore.setState({ ...createInitialState(), lifetimeLPAllTime: requirement, lifetimeLPThisTeamEra: 100 });
-    useGameStore.getState().teamReset();
+    useGameStore.getState().teamReset("junkyard_works");
     expect(useGameStore.getState().teamEraCount).toBe(1);
 
     const afterFirstReset = useGameStore.getState();
-    useGameStore.getState().teamReset();
+    useGameStore.getState().teamReset("junkyard_works");
     expect(useGameStore.getState().teamEraCount).toBe(1);
     expect(useGameStore.getState().teamPoints).toBe(afterFirstReset.teamPoints);
   });

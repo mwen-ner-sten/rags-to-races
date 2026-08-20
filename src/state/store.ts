@@ -60,7 +60,7 @@ import { TRACK_PERK_DEFINITIONS, TRACK_PERKS_BY_ID, trackPerkCost } from "@/data
 import { calculateTeamPoints, calculateOwnerPoints, calculateTrackTokens } from "@/engine/prestige";
 import { FEATURE_UNLOCK_DEFINITIONS, checkFeatureUnlock } from "@/data/featureUnlocks";
 import { getSpecializationsForRole, type CrewMember, type CrewRole } from "@/data/crew";
-import { createCrewAtLevel, ensureAcademyRoster, grantCrewRoleXp, grantCrewXp } from "@/engine/crew";
+import { createCrewAtLevel, ensureAcademyRoster, grantCrewRoleXp, grantCrewXp, selectDepartmentHead } from "@/engine/crew";
 import { getPrestigeMilestoneBonuses, getNewlyUnlockedMilestones } from "@/data/prestigeMilestones";
 import { checkAchievements } from "@/engine/achievements";
 import { ACHIEVEMENTS_BY_ID, type AchievementStats } from "@/data/achievements";
@@ -84,6 +84,7 @@ import { getEffectiveVehicleHandlingBonus, recalculateGarageStats } from "@/engi
 export { getEffectiveVehicleHandlingBonus } from "@/engine/vehicleStats";
 import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, RACE_CONTROL_RACES_PER_OPPORTUNITY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
+import { isTeamOperatingPhilosophy, TEAM_PHILOSOPHIES_BY_ID, type TeamOperatingPhilosophy } from "@/data/teamPhilosophies";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
 import type { ContextualCoachId } from "@/engine/contextualCoaching";
 import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "@/engine/progressionUnlocks";
@@ -317,6 +318,7 @@ export interface GameState {
   teamUpgradeLevels: Record<string, number>;
   teamEraCount: number;
   lifetimeLPThisTeamEra: number;
+  teamOperatingPhilosophy: TeamOperatingPhilosophy | null;
 
   // Layer 3: Owner Reset
   ownerPoints: number;
@@ -440,7 +442,7 @@ export interface GameState {
   clearActivityLog: () => void;
 
   // ── Multi-layer prestige actions ─────────────────────────────────────────────
-  teamReset: () => void;
+  teamReset: (philosophy: TeamOperatingPhilosophy) => void;
   purchaseTeamUpgrade: (upgradeId: string) => void;
   ownerReset: () => void;
   purchaseOwnerUpgrade: (upgradeId: string) => void;
@@ -565,6 +567,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     teamUpgradeLevels: {},
     teamEraCount: 0,
     lifetimeLPThisTeamEra: 0,
+    teamOperatingPhilosophy: null,
     ownerPoints: 0,
     lifetimeOwnerPoints: 0,
     ownerUpgradeLevels: {},
@@ -2604,6 +2607,7 @@ function createActions(set: SetState, get: GetState) {
         teamUpgradeLevels: state.teamUpgradeLevels,
         teamEraCount: state.teamEraCount,
         lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra + lpEarned,
+        teamOperatingPhilosophy: state.teamOperatingPhilosophy,
         ownerPoints: state.ownerPoints,
         lifetimeOwnerPoints: state.lifetimeOwnerPoints,
         ownerUpgradeLevels: state.ownerUpgradeLevels,
@@ -3474,8 +3478,9 @@ function createActions(set: SetState, get: GetState) {
 
     // ── Multi-layer prestige actions ────────────────────────────────────────────
 
-    teamReset: () => {
+    teamReset: (philosophy: TeamOperatingPhilosophy) => {
       const state = get() as GameState;
+      if (!isTeamOperatingPhilosophy(philosophy)) return;
       if (!canTeamReset({
         lifetimeLegacyPoints: state.lifetimeLPAllTime,
         lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
@@ -3522,9 +3527,15 @@ function createActions(set: SetState, get: GetState) {
         "crew_starting_level",
       );
       const teamCrewSlots = 1 + (state.teamUpgradeLevels.team_crew_slots ?? 0);
+      const startingLevel = ownerCrewLevel > 0 ? ownerCrewLevel : 1;
+      const lead = selectDepartmentHead(
+        state.crewRoster,
+        TEAM_PHILOSOPHIES_BY_ID[philosophy].leadRole,
+        startingLevel,
+      );
       const startingCrew = academyActive
-        ? ensureAcademyRoster([], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
-        : [];
+        ? ensureAcademyRoster([lead], startingLevel)
+        : [lead];
       const startingMaterials = getGameEffectValue(
         TEAM_UPGRADE_DEFINITIONS,
         state.teamUpgradeLevels,
@@ -3535,8 +3546,8 @@ function createActions(set: SetState, get: GetState) {
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
-        autoScavengeUnlocked: autoEverything,
-        autoRaceUnlocked: autoEverything,
+        autoScavengeUnlocked: state.autoScavengeUnlocked || autoEverything,
+        autoRaceUnlocked: state.autoRaceUnlocked || autoEverything,
         materials: Object.fromEntries(
           Object.keys(INITIAL_MATERIALS).map((material) => [material, startingMaterials]),
         ) as Record<MaterialType, number>,
@@ -3553,6 +3564,7 @@ function createActions(set: SetState, get: GetState) {
         teamUpgradeLevels: state.teamUpgradeLevels,
         teamEraCount: state.teamEraCount + 1,
         lifetimeLPThisTeamEra: 0,
+        teamOperatingPhilosophy: philosophy,
         // Owner layer persists
         ownerPoints: state.ownerPoints,
         lifetimeOwnerPoints: state.lifetimeOwnerPoints,

@@ -86,6 +86,7 @@ export const RESET_PRESERVE_FIELDS: Record<ResetLayer, ReadonlySet<string>> = {
     "unlockedPlaystyleNodes",
     "forgeTokens",
     "lifetimeLPThisTeamEra",
+    "teamOperatingPhilosophy",
     "lifetimeTPThisOwnerEra",
     "lifetimeOPThisTrackEra",
     "hostedEvents",
@@ -130,6 +131,9 @@ export const RESET_CONDITIONAL_FIELDS: Record<ResetLayer, ReadonlySet<string>> =
   team: new Set([
     // Eternal Workshop is required to retain this field.
     "workshopLevels",
+    // Team Reset reselects a philosophy and conditionally retains its matching lead.
+    "teamOperatingPhilosophy",
+    "crewRoster",
   ]),
   owner: new Set([
     "workshopLevels",

@@ -15,6 +15,7 @@ import {
   teamUpgradeCost,
   type TeamUpgradeCategory,
 } from "@/data/teamUpgrades";
+import { TEAM_PHILOSOPHIES_BY_ID } from "@/data/teamPhilosophies";
 
 export default function TeamSubTab() {
   const teamPoints = useGameStore((s) => s.teamPoints);
@@ -38,6 +39,7 @@ export default function TeamSubTab() {
         </span>
       </div>
 
+      <TeamPhilosophySummary />
       <FleetPrograms />
       <CrewPanel />
 
@@ -51,6 +53,38 @@ export default function TeamSubTab() {
         />
       ))}
     </div>
+  );
+}
+
+function TeamPhilosophySummary() {
+  const philosophyId = useGameStore((s) => s.teamOperatingPhilosophy);
+  const crew = useGameStore((s) => s.crewRoster);
+  if (!philosophyId) return null;
+  const philosophy = TEAM_PHILOSOPHIES_BY_ID[philosophyId];
+  const lead = crew
+    .filter((member) => member.role === philosophy.leadRole)
+    .reduce<(typeof crew)[number] | null>(
+      (best, member) => best === null || member.xp > best.xp ? member : best,
+      null,
+    );
+  return (
+    <section
+      aria-label="Team Operating Philosophy"
+      className="rounded-lg border p-3"
+      style={{ borderColor: "var(--accent-border)", background: "var(--accent-bg)" }}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Team Operating Philosophy</p>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>{philosophy.name}</h3>
+        </div>
+        <span className="text-xs" style={{ color: "var(--accent)" }}>Change at next Team Reset</span>
+      </div>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+        {CREW_ROLE_LABELS[philosophy.leadRole]} lead delegates {philosophy.laborDelegated.toLowerCase()}.
+        {lead ? ` ${lead.name} · ${CREW_ROLE_LABELS[lead.role]} · Lv.${lead.level} leads the department.` : " The department lead will be restored on the next Team Reset."}
+      </p>
+    </section>
   );
 }
 
