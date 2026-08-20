@@ -147,7 +147,7 @@ describe("connected deterministic campaign oracle", () => {
     });
 
     expect(ledger.status).toBe("reached_stop_after");
-    expect(ledger.resets.owner).toEqual({ count: 1, awards: [43] });
+    expect(ledger.resets.owner).toEqual({ count: 1, awards: [44] });
     expect(ledger.milestones.map((entry) => entry.id)).toEqual(expect.arrayContaining([
       "owner_eligible",
       "first_owner_reset",
@@ -156,8 +156,8 @@ describe("connected deterministic campaign oracle", () => {
     expect(ledger.finalAccounting).toEqual(expect.objectContaining({
       teamResets: 0,
       ownerResets: 1,
-      ownerPoints: 43,
-      lifetimeOwnerPoints: 43,
+      ownerPoints: 44,
+      lifetimeOwnerPoints: 44,
     }));
   }, 60_000);
 

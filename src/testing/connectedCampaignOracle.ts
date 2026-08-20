@@ -481,7 +481,7 @@ export function runConnectedCampaignOracle(options: {
       if (canTeamReset({ lifetimeLegacyPoints: state.lifetimeLPAllTime, lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra, unspentLegacyPoints: state.legacyPoints })) {
         milestone("team_eligible");
         const before = state.teamPoints;
-        state.teamReset();
+        state.teamReset("engineering_works");
         const after = useGameStore.getState();
         const award = after.teamPoints - before;
         resets.team.count += 1; resets.team.awards.push(award); recordCurrencyDelta(state, after, ["scrapBucks", "legacyPoints", "teamPoints"]);
