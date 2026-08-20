@@ -432,7 +432,7 @@ test("race diagnosis opens the exact vehicle slot comparison when Toolkit is unl
 
 test("repair-priority diagnosis keeps repair intent and comparison collapsed", async ({ page }) => {
   test.setTimeout(30_000);
-  await installDeterministicMathRandom(page, 0x1234abcd);
+  await installDeterministicMathRandom(page, 7);
   const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
   garage[0].condition = 33;
   await loadFixture(page, "first_race_ready", {
@@ -458,7 +458,7 @@ test("repair-priority diagnosis keeps repair intent and comparison collapsed", a
 
 test("repair-priority diagnosis focuses its named region when repair is unavailable", async ({ page }) => {
   test.setTimeout(30_000);
-  await installDeterministicMathRandom(page, 0x1234abcd);
+  await installDeterministicMathRandom(page, 7);
   const garage = structuredClone(fixtures.first_race_ready.payload.state.garage);
   garage[0].condition = 33;
   await loadFixture(page, "first_race_ready", {

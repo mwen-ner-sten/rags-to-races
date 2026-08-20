@@ -411,7 +411,10 @@ function VehicleCard({
     }
     if (focusedDiagnosisTargetRef.current === diagnosisTargetKey) return;
     focusedDiagnosisTargetRef.current = diagnosisTargetKey;
-    const focusTarget = diagnosisPriority === "repair" ? repairButtonRef.current : diagnosisRef.current;
+    const repairTarget = repairButtonRef.current;
+    const focusTarget = diagnosisPriority === "repair" && repairTarget && !repairTarget.disabled
+      ? repairTarget
+      : diagnosisRef.current;
     focusTarget?.focus();
     focusTarget?.scrollIntoView({ block: "nearest" });
   }, [diagnosisPriority, diagnosisTargetKey]);
