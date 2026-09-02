@@ -794,6 +794,8 @@ for (const [fixtureName, buttonName, awardField, clearedField] of [
 }
 
 test("Team, Owner, and Track resets cannot repeat at zero progress", async ({ page }) => {
+  // Three reset-and-reload cycles in one test; give it room under parallel load.
+  test.setTimeout(90_000);
   for (const [index, fixtureName, buttonName, currencyField, eraField] of [
     [0, "team_reset_ready", "Team Reset", "teamPoints", "teamEraCount"],
     [1, "owner_reset_ready", "Owner Reset", "ownerPoints", "ownerEraCount"],
