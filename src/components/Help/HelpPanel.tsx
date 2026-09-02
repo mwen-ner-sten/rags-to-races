@@ -8,6 +8,7 @@ import HelpProgressionTab from "./HelpProgressionTab";
 import HelpReferenceTab from "./HelpReferenceTab";
 import BalanceDashboard from "@/components/Admin/BalanceDashboard";
 import MobileSubNav from "@/components/MobileSubNav";
+import { isFeatureAvailable } from "@/config/features";
 
 type HelpTab = "basics" | "systems" | "strategy" | "progression" | "reference" | "simulators";
 
@@ -17,7 +18,8 @@ const TABS: { id: HelpTab; label: string }[] = [
   { id: "strategy",    label: "Strategy" },
   { id: "progression", label: "Progression" },
   { id: "reference",   label: "Reference" },
-  { id: "simulators",  label: "Simulators" },
+  // The balance dashboard is a development tool, gated like the Dev tab.
+  ...(isFeatureAvailable("balance_visualizer") ? [{ id: "simulators" as const, label: "Simulators" }] : []),
 ];
 
 export default function HelpPanel() {
@@ -54,7 +56,7 @@ export default function HelpPanel() {
       {activeTab === "strategy"    && <HelpStrategyTab />}
       {activeTab === "progression" && <HelpProgressionTab />}
       {activeTab === "reference"   && <HelpReferenceTab />}
-      {activeTab === "simulators"  && <BalanceDashboard />}
+      {activeTab === "simulators"  && isFeatureAvailable("balance_visualizer") && <BalanceDashboard />}
     </div>
   );
 }
