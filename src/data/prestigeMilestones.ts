@@ -39,6 +39,8 @@ export interface PrestigeMilestoneBonuses {
   workshopCostReduction: number;
   startWithToolkit: boolean;
   tickSpeedReductionMs: number;
+  /** Ticks shaved off the auto-race cadence. */
+  raceTickReduction: number;
   deepRunLpMult: number;
   startWorkshopCount: number;
   startingScrapMult: number;
@@ -49,11 +51,11 @@ export interface PrestigeMilestoneBonuses {
 
 const PM_AUTO_RACE: PrestigeMilestoneDefinition = {
   id: "pm_auto_race",
-  name: "Auto-Pilot",
-  description: "Races begin automatically when a vehicle is ready.",
+  name: "Pit Rhythm",
+  description: "Auto-race fires one tick sooner every cycle.",
   prestigeRequired: 1,
-  reward: { type: "qol", qolId: "auto_race" },
-  flavorText: "The car races itself now. Sort of.",
+  reward: { type: "bonus", bonusType: "race_tick_reduction", value: 1 },
+  flavorText: "The crew stops arguing about who holds the flag.",
 };
 
 const PM_AUTO_ACTIVATE: PrestigeMilestoneDefinition = {
@@ -267,6 +269,7 @@ const BONUS_TYPE_MAP: Record<string, keyof PrestigeMilestoneBonuses> = {
   workshop_cost_reduction: "workshopCostReduction",
   start_with_toolkit: "startWithToolkit",
   tick_speed_reduction_ms: "tickSpeedReductionMs",
+  race_tick_reduction: "raceTickReduction",
   deep_run_lp_mult: "deepRunLpMult",
   start_workshop_count: "startWorkshopCount",
   starting_scrap_mult: "startingScrapMult",
@@ -294,6 +297,7 @@ export function getPrestigeMilestoneBonuses(
     workshopCostReduction: 0,
     startWithToolkit: false,
     tickSpeedReductionMs: 0,
+    raceTickReduction: 0,
     deepRunLpMult: 0,
     startWorkshopCount: 0,
     startingScrapMult: 0,

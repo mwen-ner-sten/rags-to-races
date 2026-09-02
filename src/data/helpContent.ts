@@ -8,7 +8,7 @@ import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
 import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_INTERVAL, DEALER_BOARD_SIZE } from "@/data/dealer";
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
-import { AUTO_SCAVENGE_MANUAL_TARGET, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 import { GARAGE_STATIONS } from "@/data/garageStations";
@@ -76,8 +76,8 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Materials", meaning: `${MATERIAL_DEFINITIONS.length} types gained by decomposing parts. Used for part enhancement and targeted fabrication.` },
   { term: "Station Equipment", meaning: "Randomized equipment for six shared garage stations. It has rarity, attribute affixes, enhancement levels, and optional set membership." },
   { term: "Reforge Shards", meaning: "Earned by salvaging unequipped station items. Spent to reroll secondary attributes while preserving the primary." },
-  { term: "Auto-Scavenge", meaning: `Unlocks after ${AUTO_SCAVENGE_MANUAL_TARGET} manual scavenges or the first Scrap Reset, then stays unlocked. Runs automatically each tick.` },
-  { term: "Auto-Race", meaning: "Unlocks after the first Scrap Reset. Fires on a timer (improved by the Pit Crew facility upgrade)." },
+  { term: "Auto-Scavenge", meaning: "Runs from the first tick of every run. Manual scavenging adds on top, paced by the hold-to-scavenge upgrades." },
+  { term: "Auto-Race", meaning: "Runs as soon as a vehicle is active. Fires every 3 ticks (Pit Crew and Pit Rhythm shorten it) and pauses below the condition floor set on the Race tab." },
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} one-time gameplay goals rewarding Scrap Bucks, materials, and Forge Tokens.` },
   { term: "Crafting", meaning: "Spend materials to produce random parts. Unlocked via Workshop upgrade. Higher recipes = better conditions." },
   { term: "Team Points (TP)", meaning: "Layer 2 currency earned from Team Reset. Spent on crew, fleet capacity, and team infrastructure." },

@@ -9,7 +9,6 @@ import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { VEHICLE_DEFINITIONS, getVehicleById } from "@/data/vehicles";
 import { GEAR_DEFINITIONS } from "@/data/gear";
-import { AUTO_SCAVENGE_MANUAL_TARGET } from "@/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { calculateStats, type BuiltVehicle, type InstalledPart } from "@/engine/build";
 import type { ScavengedPart } from "@/engine/scavenge";
@@ -185,7 +184,7 @@ function resetReadyCommon(): Partial<PersistedGameState> {
     selectedCircuitId: "dirt_track",
     autoScavengeUnlocked: true,
     autoRaceUnlocked: true,
-    manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET,
+    manualScavengeClicks: 100,
     lifetimeRaces: 40,
     fatigue: 18,
     lifetimeVehiclesBuiltAllTime: 3,
@@ -234,8 +233,8 @@ function firstScrapResetReady(): Partial<PersistedGameState> {
     unlockedLocationIds,
     unlockedCircuitIds,
     unlockedVehicleIds,
-    autoScavengeUnlocked: false,
-    autoRaceUnlocked: false,
+    autoScavengeUnlocked: true,
+    autoRaceUnlocked: true,
     manualScavengeClicks: 0,
     lifetimeRaces: 74,
     fatigue: 19,
@@ -348,7 +347,7 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
         equippedStationEquipment: { diagnostics: null, lift: null, workbench: null, logistics: null, fabrication: null, pit_equipment: null },
         autoScavengeUnlocked: true,
         autoRaceUnlocked: true,
-        manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET,
+        manualScavengeClicks: 100,
         lifetimeRaces: 80,
         fatigue: 32,
         activeMomentumTiers: ["momentum_warmed_up", "momentum_in_the_zone", "momentum_reputation"],
@@ -368,9 +367,9 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
         selectedLocationId: "curbside",
         selectedCircuitId: "backyard_derby",
         scrapBucks: 1_000,
-        manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET - 1,
-        autoScavengeUnlocked: false,
-        autoRaceUnlocked: false,
+        manualScavengeClicks: 99,
+        autoScavengeUnlocked: true,
+        autoRaceUnlocked: true,
         prestigeCount: 0,
       };
     case "first_scrap_reset_ready":
@@ -509,7 +508,7 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
         reforgeShards: 100_000,
         autoScavengeUnlocked: true,
         autoRaceUnlocked: true,
-        manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET,
+        manualScavengeClicks: 100,
         fatigue: 99,
         lifetimeRaces: 100_000,
         lifetimeRacesAllTime: 1_000_000,

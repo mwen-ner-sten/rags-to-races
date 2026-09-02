@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import {
-  AUTO_SCAVENGE_MANUAL_TARGET,
   MAX_OFFLINE_DURATION_MS,
   STATION_EQUIPMENT_INVENTORY_LIMIT,
 } from "../../src/config/gameplayLimits";
@@ -217,7 +216,7 @@ test("Scouting Orders are an accessible manual-only probability tradeoff", async
     tutorialStep: -1,
     tutorialDismissed: true,
     autoScavengeUnlocked: true,
-    manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET,
+    manualScavengeClicks: 100,
     selectedLocationId: "curbside",
     scoutingOrder: null,
   });
@@ -247,19 +246,19 @@ test("Scouting Orders are an accessible manual-only probability tradeoff", async
   await expectNoSeriousStructuralAccessibilityViolations(page);
 });
 
-test("@smoke Auto-Scavenge unlocks on the exact final manual action", async ({ page }) => {
+test("@smoke Auto-Scavenge is on from the start and manual scavenging adds on top", async ({ page }) => {
   await loadFixture(page, "auto_scavenge_boundary");
-  await expect(page.getByText(`${AUTO_SCAVENGE_MANUAL_TARGET - 1}/${AUTO_SCAVENGE_MANUAL_TARGET} for Auto`, { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Auto every \d+s/)).toBeVisible();
 
   const before = await persistedState(page);
-  expect(before.manualScavengeClicks).toBe(AUTO_SCAVENGE_MANUAL_TARGET - 1);
-  expect(before.autoScavengeUnlocked).toBe(false);
+  expect(before.manualScavengeClicks).toBe(99);
+  expect(before.autoScavengeUnlocked).toBe(true);
 
   await page.getByRole("button", { name: "Scavenge!" }).click();
-  await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(AUTO_SCAVENGE_MANUAL_TARGET);
+  await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(100);
   const after = await persistedState(page);
   expect(after.autoScavengeUnlocked).toBe(true);
-  expect((after.inventory as unknown[]).length).toBe((before.inventory as unknown[]).length + 1);
+  expect((after.inventory as unknown[]).length).toBeGreaterThanOrEqual((before.inventory as unknown[]).length + 1);
   await expect(page.getByText(/for Auto$/)).toHaveCount(0);
 });
 
@@ -305,7 +304,7 @@ test("offline catch-up honors the eight-hour cap and settles every part exactly 
   await loadFixture(page, "auto_scavenge_boundary", {
     autoScavengeUnlocked: true,
     autoRaceUnlocked: false,
-    manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET,
+    manualScavengeClicks: 100,
     lastActiveTimestamp: Date.now() - MAX_OFFLINE_DURATION_MS * 4,
   });
 
@@ -325,7 +324,7 @@ test("offline catch-up honors the eight-hour cap and settles every part exactly 
   const after = await persistedState(page);
   expect((after.inventory as unknown[]).length).toBe(initialInventory + kept);
   expect(after.scrapBucks).toBe(initialScrap + netScrap);
-  expect(after.manualScavengeClicks).toBe(AUTO_SCAVENGE_MANUAL_TARGET);
+  expect(after.manualScavengeClicks).toBe(100);
 
   await page.getByRole("button", { name: "Continue" }).click();
   const settled = await persistedState(page);

@@ -103,9 +103,8 @@ export function getScoutingOrderCategories(location: LocationDefinition): PartCa
 export function normalizeScoutingOrder(
   order: unknown,
   location: LocationDefinition | undefined,
-  earned: boolean,
 ): PartCategory | null {
-  if (!earned || typeof order !== "string" || !location) return null;
+  if (typeof order !== "string" || !location) return null;
   return getScoutingOrderCategories(location).includes(order as PartCategory)
     ? order as PartCategory
     : null;

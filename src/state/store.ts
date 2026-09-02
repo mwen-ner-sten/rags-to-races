@@ -78,7 +78,7 @@ import { calculateHostedEventTerms, DEFAULT_TRACK_CONFIG, normalizeHostedEventCo
 import { getPartSaleValue } from "@/engine/sale";
 import { autoSellRustedParts } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
-import { AUTO_SCAVENGE_MANUAL_TARGET, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTO_RACE_MIN_CONDITION_DEFAULT, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
 import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "@/engine/progressionUnlocks";
@@ -181,8 +181,9 @@ export interface GameState {
   selectedLocationId: string;
   selectedSellBelowQuality: PartCondition;
   isScavenging: boolean;
+  /** The garage scavenges on its own from the first tick; dev tools can pause it. */
   autoScavengeUnlocked: boolean;
-  /** Counts manual scavenge button clicks; auto-scavenge unlocks at the configured target. */
+  /** Counts manual scavenge button clicks (drives the opening pity script and stats). */
   manualScavengeClicks: number;
   /** Optional category weighting for manual scavenging only. */
   scoutingOrder: PartCategory | null;
@@ -192,7 +193,10 @@ export interface GameState {
   isRacing: boolean;
   /** Ephemeral token that prevents an old race timer from settling into a replaced save. */
   activeRaceSessionId: string | null;
+  /** Auto-race runs from the first vehicle; dev tools can pause it. */
   autoRaceUnlocked: boolean;
+  /** Auto-race waits while the active vehicle's condition is below this. */
+  autoRaceMinCondition: number;
   /** Tick counter toward next auto-race fire (0 to raceTicksNeeded-1) */
   raceTickProgress: number;
   lastRaceOutcome: RaceOutcome | null;
@@ -364,6 +368,7 @@ export interface GameState {
   deleteVehicleLoadout: (loadoutId: string) => void;
   setSelectedLocation: (locationId: string) => void;
   setScoutingOrder: (order: PartCategory | null) => void;
+  setAutoRaceMinCondition: (condition: number) => void;
   setSelectedCircuit: (circuitId: string) => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
   enterRace: () => void;
@@ -476,13 +481,14 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     selectedLocationId: "curbside",
     selectedSellBelowQuality: "decent",
     isScavenging: false,
-    autoScavengeUnlocked: false,
+    autoScavengeUnlocked: true,
     manualScavengeClicks: 0,
     scoutingOrder: null,
     selectedCircuitId: "backyard_derby",
     isRacing: false,
     activeRaceSessionId: null,
-    autoRaceUnlocked: false,
+    autoRaceUnlocked: true,
+    autoRaceMinCondition: AUTO_RACE_MIN_CONDITION_DEFAULT,
     raceTickProgress: 0,
     lastRaceOutcome: null,
     raceHistory: [],
@@ -1115,11 +1121,7 @@ function createActions(set: SetState, get: GetState) {
       const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
       const milestoneBonuses = getPrestigeMilestoneBonuses(state.prestigeCount);
       const permanentBonuses = getPermanentRuntimeBonuses(state);
-      const scoutingOrder = normalizeScoutingOrder(
-        state.scoutingOrder,
-        location,
-        state.autoScavengeUnlocked,
-      );
+      const scoutingOrder = normalizeScoutingOrder(state.scoutingOrder, location);
       const scavengeLuck = state.prestigeBonus.luckBonus + milestoneBonuses.scavengeLuckBonus + permanentBonuses.scavengeLuckBonus + extraLuck + scavSkill.scavengingLuckBonus;
       const scavengeYield = gb.scavenge_yield_pct + scavSkill.scavengingYieldBonus + milestoneBonuses.scavengeYieldMult + permanentBonuses.scavengeYieldMult;
       const parts = scavenge(location, scavengeLuck, fatigue, gb.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus, scoutingOrder);
@@ -1173,7 +1175,6 @@ function createActions(set: SetState, get: GetState) {
       });
       set((s: GameState) => {
         const newClicks = s.manualScavengeClicks + 1;
-        const justUnlocked = !s.autoScavengeUnlocked && newClicks >= AUTO_SCAVENGE_MANUAL_TARGET;
         let updatedCrew = grantCrewRoleXp(s.crewRoster, "scout", 5, getCrewXpMultiplier(s));
         if (autoSale.soldParts.length > 0) updatedCrew = grantTraderSaleXp({ ...s, crewRoster: updatedCrew }, autoSale.soldParts.length);
         return {
@@ -1183,13 +1184,9 @@ function createActions(set: SetState, get: GetState) {
           stationEquipmentInventory: gearDrops.length > 0 ? [...s.stationEquipmentInventory, ...gearDrops.map(convertLegacyLootDrop)] : s.stationEquipmentInventory,
           reforgeShards: s.reforgeShards + (modDrop ? 1 : 0),
           manualScavengeClicks: newClicks,
-          autoScavengeUnlocked: s.autoScavengeUnlocked || justUnlocked,
           scoutingOrder,
           racerSkills: _grantXp(s.racerSkills, "scavenging", 5),
           crewRoster: updatedCrew,
-          unlockEvents: justUnlocked
-            ? [...s.unlockEvents, "Auto-Scavenge Enabled! Parts collect themselves now."]
-            : s.unlockEvents,
           // Lifetime stats for achievements
           lifetimePartsScavengedAllTime: s.lifetimePartsScavengedAllTime + parts.length,
           lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + autoSale.scrapEarned,
@@ -1454,7 +1451,6 @@ function createActions(set: SetState, get: GetState) {
         scoutingOrder: normalizeScoutingOrder(
           state.scoutingOrder,
           getLocationById(locationId),
-          state.autoScavengeUnlocked,
         ),
       });
     },
@@ -1465,9 +1461,12 @@ function createActions(set: SetState, get: GetState) {
         scoutingOrder: normalizeScoutingOrder(
           order,
           getLocationById(state.selectedLocationId),
-          state.autoScavengeUnlocked,
         ),
       });
+    },
+
+    setAutoRaceMinCondition: (condition: number) => {
+      set({ autoRaceMinCondition: Math.max(0, Math.min(100, Math.floor(condition))) });
     },
 
     setSelectedCircuit: (circuitId: string) => {
@@ -2440,8 +2439,6 @@ function createActions(set: SetState, get: GetState) {
         + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "starting_scrap")
         + permanentBonuses.startingScrap;
       const startingScrap = Math.floor(startingScrapBeforeMilestone * (1 + milestoneBonuses.startingScrapMult)) + challengeBundle.scrap;
-      const autoEverything = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "auto_all") > 0;
-
       set({
         ...createInitialState(),
         prestigeCount: newPrestigeCount,
@@ -2462,10 +2459,9 @@ function createActions(set: SetState, get: GetState) {
         // Seed Money: starting scrap
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
-        // Auto-race via prestige milestone system
-        autoRaceUnlocked: milestoneBonuses.autoRace || autoEverything,
-        // The first Scrap Reset permanently removes the repeated manual-scavenge grind.
-        autoScavengeUnlocked: newPrestigeCount >= 1 || state.autoScavengeUnlocked || autoEverything,
+        // Automation is a baseline, not a reward: every run starts with it on.
+        autoRaceUnlocked: true,
+        autoScavengeUnlocked: true,
         manualScavengeClicks: 0,
         raceTickProgress: 0,
         unlockEvents,
@@ -3402,11 +3398,6 @@ function createActions(set: SetState, get: GetState) {
         "quick_start_bonus",
       );
       const startingScrap = permanent.startingScrap + bornRich + quickStart;
-      const autoEverything = getGameEffectValue(
-        OWNER_UPGRADE_DEFINITIONS,
-        state.ownerUpgradeLevels,
-        "auto_all",
-      ) > 0;
       const academyActive = getGameEffectValue(
         TRACK_PERK_DEFINITIONS,
         state.trackPerkLevels,
@@ -3431,8 +3422,8 @@ function createActions(set: SetState, get: GetState) {
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
-        autoScavengeUnlocked: autoEverything,
-        autoRaceUnlocked: autoEverything,
+        autoScavengeUnlocked: true,
+        autoRaceUnlocked: true,
         materials: Object.fromEntries(
           Object.keys(INITIAL_MATERIALS).map((material) => [material, startingMaterials]),
         ) as Record<MaterialType, number>,
@@ -3555,11 +3546,6 @@ function createActions(set: SetState, get: GetState) {
         "starting_scrap",
       );
       const startingScrap = permanent.startingScrap + bornRich;
-      const autoEverything = getGameEffectValue(
-        OWNER_UPGRADE_DEFINITIONS,
-        state.ownerUpgradeLevels,
-        "auto_all",
-      ) > 0;
       const academyActive = getGameEffectValue(
         TRACK_PERK_DEFINITIONS,
         state.trackPerkLevels,
@@ -3578,8 +3564,8 @@ function createActions(set: SetState, get: GetState) {
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
-        autoScavengeUnlocked: autoEverything,
-        autoRaceUnlocked: autoEverything,
+        autoScavengeUnlocked: true,
+        autoRaceUnlocked: true,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,
@@ -3702,11 +3688,6 @@ function createActions(set: SetState, get: GetState) {
         "starting_scrap",
       );
       const startingScrap = permanent.startingScrap + bornRich;
-      const autoEverything = getGameEffectValue(
-        OWNER_UPGRADE_DEFINITIONS,
-        state.ownerUpgradeLevels,
-        "auto_all",
-      ) > 0;
       const academyActive = getGameEffectValue(
         TRACK_PERK_DEFINITIONS,
         state.trackPerkLevels,
@@ -3727,8 +3708,8 @@ function createActions(set: SetState, get: GetState) {
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
-        autoScavengeUnlocked: autoEverything,
-        autoRaceUnlocked: autoEverything,
+        autoScavengeUnlocked: true,
+        autoRaceUnlocked: true,
         tutorialStep: state.tutorialStep,
         tutorialDismissed: state.tutorialDismissed,
         tutorialMinimized: state.tutorialMinimized,

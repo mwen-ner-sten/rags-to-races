@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState, type GameState, useGameStore } from "../store";
 import { computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
-import { AUTO_SCAVENGE_MANUAL_TARGET } from "@/config/gameplayLimits";
 import { CONDITIONS } from "@/data/parts";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
 import { createGameplayFixture } from "@/testing/gameplayFixtures";
@@ -72,7 +71,7 @@ afterEach(() => {
 });
 
 describe("prestige milestone runtime behavior", () => {
-  it("Auto-Pilot and Quick Hands automate racing/scavenging and first activation at Prestige 1", () => {
+  it("keeps automation on through a reset and Quick Hands auto-activates the first build at Prestige 1", () => {
     const reset = performReset(0);
     expect(reset).toMatchObject({ autoRaceUnlocked: true, autoScavengeUnlocked: true, manualScavengeClicks: 0 });
 
@@ -85,7 +84,7 @@ describe("prestige milestone runtime behavior", () => {
   it("Junk Filter auto-sells rusted finds in manual, tick, and offline-equivalent paths", () => {
     useGameStore.setState({ ...createInitialState(), prestigeCount: 2, selectedLocationId: "curbside" });
     withRandomSource(new SeededRandomSource("junk-filter-manual"), () => {
-      for (let index = 0; index < AUTO_SCAVENGE_MANUAL_TARGET; index++) useGameStore.getState().manualScavenge();
+      for (let index = 0; index < 100; index++) useGameStore.getState().manualScavenge();
     });
     const manual = useGameStore.getState();
     expect(manual.inventory.every((part) => part.condition !== "rusted")).toBe(true);

@@ -3,7 +3,6 @@ import { RESET_PRESERVE_FIELDS, type ResetLayer } from "@/data/resetContracts";
 import { createInitialState, type GameState, useGameStore } from "@/state/store";
 import { getPersistedGameState } from "@/state/persistence";
 import { createAllGameplayFixtures, createGameplayFixture, GAMEPLAY_FIXTURE_NAMES, validateGameplayFixture } from "../gameplayFixtures";
-import { AUTO_SCAVENGE_MANUAL_TARGET } from "@/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { LEGACY_UPGRADE_DEFINITIONS } from "@/data/legacyUpgrades";
 import { PLAYSTYLE_PATHS } from "@/data/playstyleUpgrades";
@@ -55,16 +54,14 @@ describe("accelerated campaign fixtures", () => {
     ]));
   });
 
-  it("unlocks auto-scavenge at exactly the configured manual-action target", () => {
+  it("keeps automation on as a baseline: fresh, mid-run, and through the first Scrap Reset", () => {
+    load("fresh");
+    expect(useGameStore.getState()).toMatchObject({ autoScavengeUnlocked: true, autoRaceUnlocked: true });
     load("auto_scavenge_boundary");
-    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET - 1, autoScavengeUnlocked: false });
+    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: 99, autoScavengeUnlocked: true });
     useGameStore.getState().manualScavenge();
-    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: AUTO_SCAVENGE_MANUAL_TARGET, autoScavengeUnlocked: true });
-  });
-
-  it("unlocks both automation systems on the first Scrap Reset, not before", () => {
+    expect(useGameStore.getState()).toMatchObject({ manualScavengeClicks: 100, autoScavengeUnlocked: true });
     load("first_scrap_reset_ready");
-    expect(useGameStore.getState()).toMatchObject({ autoScavengeUnlocked: false, autoRaceUnlocked: false });
     useGameStore.getState().prestige();
     expect(useGameStore.getState()).toMatchObject({ prestigeCount: 1, autoScavengeUnlocked: true, autoRaceUnlocked: true });
   });

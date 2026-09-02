@@ -1,5 +1,18 @@
-/** Manual scavenges required before Auto-Scavenge becomes available. */
-export const AUTO_SCAVENGE_MANUAL_TARGET = 100;
+/**
+ * Base spacing between manual scavenges. The garage always works on its own;
+ * manual effort is the active accelerator, paced so it rewards attention
+ * rather than click speed. Hold-to-scavenge upgrades shorten it.
+ */
+export const MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT = 2_000;
+/** Floor for the manual scavenge cooldown after every upgrade. */
+export const MANUAL_SCAVENGE_COOLDOWN_MS_MIN = 100;
+
+/**
+ * Auto-race skips entries while the active vehicle sits below this condition,
+ * so unattended play produces progress instead of a wreck. Player-adjustable.
+ */
+export const AUTO_RACE_MIN_CONDITION_DEFAULT = 25;
+export const AUTO_RACE_MIN_CONDITION_OPTIONS = [0, 10, 25, 50] as const;
 
 /**
  * Maximum number of loose parts automation may retain. Overflow is converted

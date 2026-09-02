@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import { useGameStore } from "@/state/store";
-import { computeTickSpeedMs, getRaceTicksNeeded } from "@/engine/tick";
+import { computeTickSpeedMs, getIdleRates, getRaceTicksNeeded } from "@/engine/tick";
 import { MATERIAL_DEFINITIONS } from "@/data/materials";
 import type { MaterialType } from "@/data/materials";
 import { Section, Row, TooltipPanel, HoverTooltipWrapper } from "@/components/TooltipPrimitives";
@@ -44,6 +44,8 @@ function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
   const state = useGameStore.getState();
   const tickSpeedMs = computeTickSpeedMs(state);
   const raceTicksNeeded = getRaceTicksNeeded(state);
+  const idleRates = getIdleRates(state);
+  const formatRate = (perHour: number) => (perHour >= 100 ? Math.round(perHour).toLocaleString() : perHour.toFixed(perHour >= 10 ? 0 : 1));
 
   const fatigueColor =
     fatigue >= 75 ? "var(--danger)" :
@@ -59,6 +61,8 @@ function StatsTooltipContent({ anchorRect }: { anchorRect: DOMRect }) {
       <Section label="Tick">
         <Row label="Next tick in" value={<span ref={tickRef}>—</span>} />
         <Row label="Tick speed" value={`${(tickSpeedMs / 1000).toFixed(1)}s`} />
+        <Row label="Scavenges / hr" value={formatRate(idleRates.scavengesPerHour)} />
+        <Row label="Races / hr" value={formatRate(idleRates.racesPerHour)} />
         {autoRaceUnlocked && (
           <Row label="Race progress" value={`${raceTickProgress} / ${raceTicksNeeded} ticks`} />
         )}

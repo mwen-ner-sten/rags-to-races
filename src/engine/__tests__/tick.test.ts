@@ -364,28 +364,27 @@ describe("simulateOfflineTicks", () => {
     expect(result.partsScavenged).toBeGreaterThanOrEqual(5);
   });
 
-  it("keeps live and offline Auto-Scavenge on the normal location mix despite a manual Scouting Order", () => {
+  it("steers live and offline Auto-Scavenge with the active Scouting Order", () => {
     const baseState = makeState({ autoScavengeUnlocked: true, selectedLocationId: "curbside" });
-    const normal = withRandomSource(
-      new SeededRandomSource("automation-scouting-order-isolation"),
-      () => computeTick({ ...baseState, scoutingOrder: null }),
-    );
-    const ordered = withRandomSource(
-      new SeededRandomSource("automation-scouting-order-isolation"),
-      () => computeTick({ ...baseState, scoutingOrder: "engine" }),
-    );
+    const engineShare = (parts: { definitionId: string }[]) =>
+      parts.filter((part) => part.definitionId === "engine_small").length / Math.max(1, parts.length);
+
     const offlineNormal = withRandomSource(
-      new SeededRandomSource("offline-scouting-order-isolation"),
-      () => simulateOfflineTicks({ ...baseState, scoutingOrder: null }, 12),
+      new SeededRandomSource("offline-scouting-order"),
+      () => simulateOfflineTicks({ ...baseState, scoutingOrder: null }, 80),
     );
     const offlineOrdered = withRandomSource(
-      new SeededRandomSource("offline-scouting-order-isolation"),
-      () => simulateOfflineTicks({ ...baseState, scoutingOrder: "engine" }, 12),
+      new SeededRandomSource("offline-scouting-order"),
+      () => simulateOfflineTicks({ ...baseState, scoutingOrder: "engine" }, 80),
     );
+    expect(engineShare(offlineOrdered.partsFound)).toBeGreaterThan(engineShare(offlineNormal.partsFound));
 
-    expect(ordered.partsFound.map((part) => part.definitionId))
-      .toEqual(normal.partsFound.map((part) => part.definitionId));
-    expect(offlineOrdered.partsFound.map((part) => part.definitionId))
+    // A stale order for a category the location cannot stock is ignored.
+    const invalid = withRandomSource(
+      new SeededRandomSource("offline-scouting-order"),
+      () => simulateOfflineTicks({ ...baseState, scoutingOrder: "electronics" }, 80),
+    );
+    expect(invalid.partsFound.map((part) => part.definitionId))
       .toEqual(offlineNormal.partsFound.map((part) => part.definitionId));
   });
 

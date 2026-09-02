@@ -8,6 +8,7 @@ import { calculateOdds } from "@/engine/race";
 import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
 import { getRaceTicksNeeded } from "@/engine/tick";
+import { AUTO_RACE_MIN_CONDITION_OPTIONS } from "@/config/gameplayLimits";
 import { formatNumber, formatRep } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
@@ -350,8 +351,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const lastRaceOutcome = useGameStore((s) => s.lastRaceOutcome);
   const raceHistory = useGameStore((s) => s.raceHistory);
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
+  const autoRaceMinCondition = useGameStore((s) => s.autoRaceMinCondition);
+  const setAutoRaceMinCondition = useGameStore((s) => s.setAutoRaceMinCondition);
   const raceTickProgress = useGameStore((s) => s.raceTickProgress);
-  const prestigeCount = useGameStore((s) => s.prestigeCount);
   const raceEvents = useGameStore((s) => s.raceEvents);
   const raceStartTime = useGameStore((s) => s.raceStartTime);
   const winStreak = useGameStore((s) => s.winStreak);
@@ -666,19 +668,28 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           >
             {isRacing ? "Racing..." : "Enter Race"}
           </button>
-          {!autoRaceUnlocked && prestigeCount === 0 && (
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Auto-Race unlocks after the first Scrap Reset
-            </span>
-          )}
           {autoRaceUnlocked && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className="rounded px-2 py-1 text-xs"
                 style={{ background: "rgba(59,130,246,.2)", color: "var(--info)" }}
               >
                 Auto-race
               </span>
+              <label className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                pause below
+                <select
+                  aria-label="Pause auto-race below condition"
+                  value={autoRaceMinCondition}
+                  onChange={(event) => setAutoRaceMinCondition(Number(event.target.value))}
+                  className="rounded border px-1 py-0.5 text-xs"
+                  style={{ borderColor: "var(--btn-border)", background: "var(--panel-bg)", color: "var(--text-primary)" }}
+                >
+                  {AUTO_RACE_MIN_CONDITION_OPTIONS.map((value) => (
+                    <option key={value} value={value}>{value === 0 ? "never" : `${value}%`}</option>
+                  ))}
+                </select>
+              </label>
               {raceTicksNeeded > 1 && (
                 <div className="flex items-center gap-1.5">
                   <div
@@ -854,9 +865,6 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         {/* Rep display */}
         <div className="text-sm" style={{ color: "var(--text-muted)" }}>
           Rep Points: <span className="font-semibold" style={{ color: "var(--info)" }}>{formatRep(repPoints)}</span>
-          {!autoRaceUnlocked && prestigeCount === 0 && (
-            <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>(Auto-Race unlocks after the first Scrap Reset)</span>
-          )}
         </div>
       </div>
     </div>

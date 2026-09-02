@@ -10,7 +10,7 @@ import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
 import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { CONDITIONS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
-import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
+import { AUTO_RACE_MIN_CONDITION_DEFAULT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 
 export const PERSISTENCE_VERSION = 3;
@@ -294,6 +294,7 @@ const currentStateSafetySchema = z.object({
   highestConditionReached: finiteNonNegative.optional(),
   autoScavengeUnlocked: z.boolean().optional(),
   autoRaceUnlocked: z.boolean().optional(),
+  autoRaceMinCondition: finiteNonNegative.optional(),
   activeVehicleId: z.string().nullable().optional(),
   selectedLocationId: z.string().optional(),
   selectedSellBelowQuality: partConditionSchema.optional(),
@@ -412,6 +413,7 @@ export function getPersistedGameState(state: GameState) {
     manualScavengeClicks: state.manualScavengeClicks,
     scoutingOrder: state.scoutingOrder,
     autoRaceUnlocked: state.autoRaceUnlocked,
+    autoRaceMinCondition: state.autoRaceMinCondition,
     raceTickProgress: state.raceTickProgress,
     unlockedLocationIds: state.unlockedLocationIds,
     unlockedCircuitIds: state.unlockedCircuitIds,
@@ -662,9 +664,6 @@ export function migratePersistedState(
   const crewRoster = academyActive
     ? ensureAcademyRoster(state.crewRoster ?? [], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
     : state.crewRoster ?? [];
-  const autoEverything = (ownerUpgradeLevels.owner_auto_all ?? 0) > 0;
-  const autoScavengeUnlocked = Boolean(state.autoScavengeUnlocked || autoEverything);
-
   const reconciled = {
     ...state,
     // Era-earnings counters were introduced without invalidating older save
@@ -678,13 +677,15 @@ export function migratePersistedState(
     unlockedVehicleIds: [...unlockedVehicleIds],
     crewSlots: derivedCrewSlots,
     crewRoster,
-    autoScavengeUnlocked,
+    // Automation became a baseline in every run; older saves that earned it
+    // through clicks or a reset simply keep it, and pre-baseline saves gain it.
+    autoScavengeUnlocked: true,
     scoutingOrder: normalizeScoutingOrder(
       state.scoutingOrder,
       getLocationById(state.selectedLocationId ?? "curbside"),
-      autoScavengeUnlocked,
     ),
-    autoRaceUnlocked: Boolean(state.autoRaceUnlocked || autoEverything),
+    autoRaceUnlocked: true,
+    autoRaceMinCondition: state.autoRaceMinCondition ?? AUTO_RACE_MIN_CONDITION_DEFAULT,
   };
 
   const safe = currentStateSafetySchema.safeParse(reconciled);

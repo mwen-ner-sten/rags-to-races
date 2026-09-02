@@ -38,24 +38,11 @@ describe("Scouting Orders state", () => {
     expect(getPartById(state.inventory[0].definitionId)?.category).toBe("engine");
   });
 
-  it("rejects unearned or unavailable orders and clears one after a location change", () => {
+  it("rejects unavailable orders and clears one after a location change", () => {
     useGameStore.setState({
       ...createInitialState(),
-      autoScavengeUnlocked: false,
       unlockedLocationIds: ["curbside", "industrial_surplus"],
     });
-    useGameStore.getState().setScoutingOrder("engine");
-    expect(useGameStore.getState().scoutingOrder).toBeNull();
-
-    useGameStore.setState({ scoutingOrder: "engine", prestigeCount: 1 });
-    withRandomSource(
-      new ScriptedRandomSource([0, 0.5, 0, 0, 0.99, 0.99]),
-      () => useGameStore.getState().manualScavenge(),
-    );
-    expect(getPartById(useGameStore.getState().inventory[0].definitionId)?.category).toBe("wheel");
-    expect(useGameStore.getState().scoutingOrder).toBeNull();
-
-    useGameStore.setState({ autoScavengeUnlocked: true });
     useGameStore.getState().setScoutingOrder("electronics");
     expect(useGameStore.getState().scoutingOrder).toBeNull();
 
@@ -84,11 +71,11 @@ describe("Scouting Orders persistence", () => {
     expect(hydrated.scoutingOrder).toBe("engine");
   });
 
-  it("normalizes invalid, unearned, and location-unavailable persisted orders", () => {
+  it("normalizes invalid and location-unavailable persisted orders", () => {
     const migrate = (scoutingOrder: unknown, autoScavengeUnlocked: boolean, selectedLocationId = "curbside") =>
       migratePersistedState({ scoutingOrder, autoScavengeUnlocked, selectedLocationId }, PERSISTENCE_VERSION);
 
-    expect(migrate("engine", false).scoutingOrder).toBeNull();
+    expect(migrate("engine", false).scoutingOrder).toBe("engine");
     expect(migrate("electronics", true).scoutingOrder).toBeNull();
     expect(migrate("fabricated_category", true).scoutingOrder).toBeNull();
     expect(migrate("electronics", true, "local_junkyard").scoutingOrder).toBe("electronics");

@@ -1,18 +1,17 @@
 "use client";
 
-import { useGameStore, _getUpgradeEffectValue, getPartRefurbishQuote, getSellValueBonus } from "@/state/store";
+import { useGameStore, getPartRefurbishQuote, getSellValueBonus } from "@/state/store";
 import { getScoutingOrderCategories, LOCATION_DEFINITIONS } from "@/data/locations";
 import { getPartById, CONDITION_MULTIPLIERS, CONDITIONS, CONDITION_ADDON_SLOTS } from "@/data/parts";
 import type { PartCategory, PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import GameAssetImage from "@/components/GameAssetImage";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { computeTickSpeedMs } from "@/engine/tick";
+import { computeTickSpeedMs, getManualScavengeCooldownMs } from "@/engine/tick";
 import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { getPartSaleValue } from "@/engine/sale";
-import { AUTO_SCAVENGE_MANUAL_TARGET } from "@/config/gameplayLimits";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -109,7 +108,6 @@ export default function ScavengePanel() {
   const tickMs = useGameStore((s) => computeTickSpeedMs(s));
   // Clamp orbit duration: match tick speed, but floor at 500ms to avoid flicker
   const orbitDuration = autoScavengeUnlocked ? `${Math.max(500, tickMs)}ms` : undefined;
-  const manualScavengeClicks = useGameStore((s) => s.manualScavengeClicks);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
   const refurbishPart = useGameStore((s) => s.refurbishPart);
@@ -168,19 +166,22 @@ export default function ScavengePanel() {
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdActiveRef = useRef(false);
 
-  const computeHoldInterval = useCallback(() => {
-    const state = useGameStore.getState();
-    const steadyReduction = _getUpgradeEffectValue(state, "steady_hands");
-    const lightningReduction = _getUpgradeEffectValue(state, "lightning_fingers");
-    const franticReduction = _getUpgradeEffectValue(state, "frantic_scavenger");
-    return Math.max(100, 2000 - steadyReduction - lightningReduction - franticReduction);
-  }, []);
+  const computeHoldInterval = useCallback(
+    () => getManualScavengeCooldownMs(useGameStore.getState()),
+    [],
+  );
 
+  // Manual scavenging is paced: the garage already works on its own, and
+  // effort is meant to reward attention, not click speed.
+  const lastFireRef = useRef(0);
   const fireScavenge = useCallback(() => {
+    const now = Date.now();
+    if (now - lastFireRef.current < computeHoldInterval()) return;
+    lastFireRef.current = now;
     setIsScavengeAnimating(true);
     manualScavenge();
     setTimeout(() => setIsScavengeAnimating(false), 150);
-  }, [manualScavenge]);
+  }, [manualScavenge, computeHoldInterval]);
 
   const stopHold = useCallback(() => {
     if (holdIntervalRef.current) { clearInterval(holdIntervalRef.current); holdIntervalRef.current = null; }
@@ -310,24 +311,10 @@ export default function ScavengePanel() {
           >
             {isHolding ? "Scavenging…" : "Scavenge!"}
           </button>
-          {!autoScavengeUnlocked && (
-            <div className="flex items-center gap-2">
-              <div
-                className="h-1.5 w-24 rounded-full overflow-hidden"
-                style={{ background: "var(--divider)" }}
-              >
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${Math.min(100, (manualScavengeClicks / AUTO_SCAVENGE_MANUAL_TARGET) * 100)}%`,
-                    background: "var(--info)",
-                  }}
-                />
-              </div>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {manualScavengeClicks}/{AUTO_SCAVENGE_MANUAL_TARGET} for Auto
-              </span>
-            </div>
+          {autoScavengeUnlocked && (
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Auto every {tickMs >= 10_000 ? `${Math.round(tickMs / 1000)}s` : `${(tickMs / 1000).toFixed(1)}s`} · hold to work faster
+            </span>
           )}
           <div data-tutorial="sell-area" className="ml-auto flex flex-wrap items-center gap-2">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{inventory.length} items</span>
@@ -383,7 +370,7 @@ export default function ScavengePanel() {
             </legend>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               Pick a stocked category for a 3× relative chance, not guaranteed. Yield and condition stay unchanged.
-              This affects manual scavenging only; Auto-Scavenge keeps the normal location mix.
+              Applies to every scavenge, manual or automatic.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button

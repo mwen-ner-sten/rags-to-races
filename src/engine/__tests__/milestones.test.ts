@@ -53,10 +53,11 @@ describe("getPrestigeMilestoneBonuses", () => {
     expect(bonuses.lpMultiplier).toBe(0);
   });
 
-  it("has autoRace and autoActivateVehicle true at prestige 1", () => {
+  it("grants Pit Rhythm and Quick Hands at prestige 1", () => {
     const bonuses = getPrestigeMilestoneBonuses(1);
-    expect(bonuses.autoRace).toBe(true);
+    expect(bonuses.raceTickReduction).toBe(1);
     expect(bonuses.autoActivateVehicle).toBe(true);
+    expect(getPrestigeMilestoneBonuses(0).raceTickReduction).toBe(0);
   });
 
   it("adds concrete race and LP bonuses at prestige 50", () => {

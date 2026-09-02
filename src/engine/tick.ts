@@ -16,7 +16,10 @@ import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
-import { AUTOMATION_DROP_DETAIL_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTOMATION_DROP_DETAIL_LIMIT, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT, MANUAL_SCAVENGE_COOLDOWN_MS_MIN, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { normalizeScoutingOrder } from "@/data/locations";
+import { makePartId } from "./scavenge";
+import { random } from "@/utils/random";
 import { getPartSaleValue } from "./sale";
 import { getPrestigeMilestoneBonuses } from "@/data/prestigeMilestones";
 import { autoSellRustedParts } from "./autoSell";
@@ -85,8 +88,31 @@ export function computeTickSpeedMs(state: GameState): number {
  * Clamped to [RACE_TICKS_MIN, RACE_TICKS_DEFAULT].
  */
 export function getRaceTicksNeeded(state: GameState): number {
-  const reduction = _getUpgradeEffectValue(state, "pit_crew");
+  const reduction = _getUpgradeEffectValue(state, "pit_crew")
+    + getPrestigeMilestoneBonuses(state.prestigeCount).raceTickReduction;
   return Math.max(RACE_TICKS_MIN, RACE_TICKS_DEFAULT - reduction);
+}
+
+/**
+ * Spacing between manual scavenges. Shared by the hold-to-scavenge repeat
+ * and the single-click pacing so the same upgrades govern both.
+ */
+export function getManualScavengeCooldownMs(state: GameState): number {
+  const reduction =
+    _getUpgradeEffectValue(state, "steady_hands") +
+    _getUpgradeEffectValue(state, "lightning_fingers") +
+    _getUpgradeEffectValue(state, "frantic_scavenger");
+  return Math.max(MANUAL_SCAVENGE_COOLDOWN_MS_MIN, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT - reduction);
+}
+
+/** Effective per-hour rates for the HUD, derived from the current tick contract. */
+export function getIdleRates(state: GameState): { scavengesPerHour: number; racesPerHour: number } {
+  const tickMs = computeTickSpeedMs(state);
+  const ticksPerHour = 3_600_000 / tickMs;
+  const scavengesPerHour = state.autoScavengeUnlocked && canScavengeSelectedLocation(state) ? ticksPerHour : 0;
+  const canRace = state.autoRaceUnlocked && Boolean(state.activeVehicleId) && canEnterSelectedRace(state);
+  const racesPerHour = canRace ? ticksPerHour / getRaceTicksNeeded(state) : 0;
+  return { scavengesPerHour, racesPerHour };
 }
 
 /** Pure function: compute one tick of idle progress */
@@ -141,11 +167,18 @@ export function computeTick(state: GameState): TickResult {
       const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
       const scavengeLuck = state.prestigeBonus.luckBonus + milestoneBonuses.scavengeLuckBonus + permanentBonuses.scavengeLuckBonus + extraLuck + scavSkill.scavengingLuckBonus;
       const scavengeYield = gearBonuses.scavenge_yield_pct + scavSkill.scavengingYieldBonus + milestoneBonuses.scavengeYieldMult + permanentBonuses.scavengeYieldMult;
-      const parts = scavenge(location, scavengeLuck, fatigue, gearBonuses.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus);
+      // Scouting Orders steer automated runs the same way they steer manual ones.
+      const scoutingOrder = normalizeScoutingOrder(state.scoutingOrder, location);
+      const parts = scavenge(location, scavengeLuck, fatigue, gearBonuses.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus, scoutingOrder);
       // Add extra parts from Deep Pockets
       for (let i = 0; i < extraParts; i++) {
-        const bonus = scavenge(location, scavengeLuck, fatigue, gearBonuses.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus);
+        const bonus = scavenge(location, scavengeLuck, fatigue, gearBonuses.scavenge_luck_bonus, scavengeYield, permanentBonuses.scavengeQualityBonus, scoutingOrder);
         if (bonus.length > 0) parts.push(bonus[0]);
+      }
+      // Thorough Search applies to every scavenge, automated or not.
+      const doubleChance = _getUpgradeEffectValue(state, "thorough_search");
+      if (doubleChance > 0 && random() < doubleChance) {
+        parts.push(...parts.map((p) => ({ ...p, id: makePartId() })));
       }
       const autoSale = autoSellRustedParts(parts, milestoneBonuses.autoSellRusted, getSellValueBonus(state));
       result.partsFound = autoSale.keptParts;
@@ -195,8 +228,12 @@ export function computeTick(state: GameState): TickResult {
           result.vehicleRepairAmount = Math.min(Math.floor(autoRepairRate), 100 - vehicleCondition);
         }
 
+        // Unattended racing pauses on a damaged car rather than grinding it to nothing.
+        const conditionAfterRepair = vehicleCondition + result.vehicleRepairAmount;
+        const conditionFloorMet = conditionAfterRepair >= (state.autoRaceMinCondition ?? 0);
+
         // Manual and automated races share the same authoritative gate.
-        if (canEnterSelectedRace(state)) {
+        if (conditionFloorMet && canEnterSelectedRace(state)) {
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
           const skillBonuses = getSkillBonuses(state.racerSkills, circuit.tier);
