@@ -50,10 +50,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -269,10 +270,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 12,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -495,11 +497,11 @@
               }
             },
             "stats": {
-              "speed": 23.52,
-              "handling": 6.808,
-              "reliability": 19.3,
+              "speed": 18.523809523809522,
+              "handling": 5.790476190476191,
+              "reliability": 16.0576,
               "weight": 66,
-              "performance": 17.662399999999998
+              "performance": 14.210567619047618
             },
             "builtAt": 1700000000010,
             "condition": 72,
@@ -533,10 +535,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -1778,11 +1781,11 @@
               }
             },
             "stats": {
-              "speed": 135.49159999999998,
-              "handling": 50.008,
-              "reliability": 120,
+              "speed": 73.214806312769,
+              "handling": 22.748,
+              "reliability": 94.08,
               "weight": 463,
-              "performance": 106.74819999999998
+              "performance": 62.24780315638449
             },
             "builtAt": 1700000000020,
             "condition": 64,
@@ -1834,11 +1837,11 @@
               }
             },
             "stats": {
-              "speed": 169.14,
-              "handling": 58.2,
-              "reliability": 130,
+              "speed": 138.5769230769231,
+              "handling": 47.315875613747956,
+              "reliability": 120.64,
               "weight": 1243,
-              "performance": 128.03
+              "performance": 107.61122422258593
             },
             "builtAt": 1700000000021,
             "condition": 88,
@@ -1900,11 +1903,11 @@
               }
             },
             "stats": {
-              "speed": 328.96,
-              "handling": 110.08000000000001,
-              "reliability": 203,
+              "speed": 276.9544347826087,
+              "handling": 109.30747826086956,
+              "reliability": 199.346,
               "weight": 1422,
-              "performance": 238.10399999999998
+              "performance": 211.13866086956523
             },
             "builtAt": 1700000000022,
             "condition": 97,
@@ -1942,6 +1945,7 @@
         "manualScavengeClicks": 100,
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -2213,11 +2217,11 @@
               }
             },
             "stats": {
-              "speed": 23.52,
-              "handling": 6.808,
-              "reliability": 19.3,
+              "speed": 18.523809523809522,
+              "handling": 5.790476190476191,
+              "reliability": 16.0576,
               "weight": 66,
-              "performance": 17.662399999999998
+              "performance": 14.210567619047618
             },
             "builtAt": 1700000000010,
             "condition": 72,
@@ -2251,10 +2255,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 99,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -2644,11 +2649,11 @@
               }
             },
             "stats": {
-              "speed": 23.52,
-              "handling": 6.808,
-              "reliability": 19.3,
+              "speed": 18.523809523809522,
+              "handling": 5.790476190476191,
+              "reliability": 16.2892,
               "weight": 66,
-              "performance": 17.662399999999998
+              "performance": 14.256887619047617
             },
             "builtAt": 1700000000041,
             "condition": 74,
@@ -2690,11 +2695,11 @@
               }
             },
             "stats": {
-              "speed": 103.84,
-              "handling": 36.2,
-              "reliability": 85,
+              "speed": 68.16927899686522,
+              "handling": 25.705329153605017,
+              "reliability": 75.82,
               "weight": 188,
-              "performance": 79.78
+              "performance": 56.960238244514116
             },
             "builtAt": 1700000000042,
             "condition": 82,
@@ -2746,11 +2751,11 @@
               }
             },
             "stats": {
-              "speed": 144.14,
-              "handling": 53.2,
-              "reliability": 120,
+              "speed": 77.88809182209468,
+              "handling": 24.200000000000003,
+              "reliability": 113.52000000000001,
               "weight": 463,
-              "performance": 112.03
+              "performance": 68.90804591104734
             },
             "builtAt": 1700000000043,
             "condition": 91,
@@ -2788,10 +2793,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -3029,8 +3035,8 @@
           "luckBonus": 0,
           "repMultiplier": 1
         },
-        "legacyPoints": 27,
-        "lifetimeLegacyPoints": 27,
+        "legacyPoints": 43,
+        "lifetimeLegacyPoints": 43,
         "legacyUpgradeLevels": {},
         "activeMomentumTiers": [],
         "currentEra": 1,
@@ -3071,6 +3077,7 @@
         "manualScavengeClicks": 0,
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -3179,7 +3186,7 @@
         "lifetimeTeamPoints": 0,
         "teamUpgradeLevels": {},
         "teamEraCount": 0,
-        "lifetimeLPThisTeamEra": 27,
+        "lifetimeLPThisTeamEra": 43,
         "ownerPoints": 0,
         "lifetimeOwnerPoints": 0,
         "ownerUpgradeLevels": {},
@@ -3199,7 +3206,7 @@
           "fortune": 0
         },
         "unlockedFeatures": [],
-        "lifetimeLPAllTime": 27,
+        "lifetimeLPAllTime": 43,
         "lifetimeScrapResets": 1,
         "crewRoster": [],
         "crewSlots": 0,
@@ -3999,11 +4006,11 @@
               }
             },
             "stats": {
-              "speed": 23.049599999999998,
-              "handling": 6.6718399999999995,
-              "reliability": 19.3,
+              "speed": 18.153333333333332,
+              "handling": 5.674666666666667,
+              "reliability": 15.594400000000002,
               "weight": 66,
-              "performance": 17.386352
+              "performance": 13.897946666666668
             },
             "builtAt": 1700000000001,
             "condition": 68,
@@ -4045,11 +4052,11 @@
               }
             },
             "stats": {
-              "speed": 103.84,
-              "handling": 36.2,
-              "reliability": 85,
+              "speed": 68.16927899686522,
+              "handling": 25.705329153605017,
+              "reliability": 72.76,
               "weight": 188,
-              "performance": 79.78
+              "performance": 56.348238244514114
             },
             "builtAt": 1700000000002,
             "condition": 76,
@@ -4101,11 +4108,11 @@
               }
             },
             "stats": {
-              "speed": 144.14,
-              "handling": 53.2,
-              "reliability": 120,
+              "speed": 77.88809182209468,
+              "handling": 24.200000000000003,
+              "reliability": 113.52000000000001,
               "weight": 463,
-              "performance": 112.03
+              "performance": 68.90804591104734
             },
             "builtAt": 1700000000003,
             "condition": 91,
@@ -4147,6 +4154,7 @@
         "manualScavengeClicks": 100,
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -4404,10 +4412,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -4508,8 +4517,8 @@
             "level": 0
           }
         },
-        "teamPoints": 59,
-        "lifetimeTeamPoints": 169,
+        "teamPoints": 117,
+        "lifetimeTeamPoints": 227,
         "teamUpgradeLevels": {},
         "teamEraCount": 3,
         "lifetimeLPThisTeamEra": 0,
@@ -4517,7 +4526,7 @@
         "lifetimeOwnerPoints": 0,
         "ownerUpgradeLevels": {},
         "ownerEraCount": 0,
-        "lifetimeTPThisOwnerEra": 19,
+        "lifetimeTPThisOwnerEra": 77,
         "trackPrestigeTokens": 0,
         "lifetimeTrackTokens": 0,
         "trackPerkLevels": {},
@@ -5336,11 +5345,11 @@
               }
             },
             "stats": {
-              "speed": 23.049599999999998,
-              "handling": 6.6718399999999995,
-              "reliability": 19.3,
+              "speed": 18.153333333333332,
+              "handling": 5.674666666666667,
+              "reliability": 15.594400000000002,
               "weight": 66,
-              "performance": 17.386352
+              "performance": 13.897946666666668
             },
             "builtAt": 1700000000001,
             "condition": 68,
@@ -5382,11 +5391,11 @@
               }
             },
             "stats": {
-              "speed": 103.84,
-              "handling": 36.2,
-              "reliability": 85,
+              "speed": 68.16927899686522,
+              "handling": 25.705329153605017,
+              "reliability": 72.76,
               "weight": 188,
-              "performance": 79.78
+              "performance": 56.348238244514114
             },
             "builtAt": 1700000000002,
             "condition": 76,
@@ -5438,11 +5447,11 @@
               }
             },
             "stats": {
-              "speed": 144.14,
-              "handling": 53.2,
-              "reliability": 120,
+              "speed": 77.88809182209468,
+              "handling": 24.200000000000003,
+              "reliability": 113.52000000000001,
               "weight": 463,
-              "performance": 112.03
+              "performance": 68.90804591104734
             },
             "builtAt": 1700000000003,
             "condition": 91,
@@ -5484,6 +5493,7 @@
         "manualScavengeClicks": 100,
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -5718,10 +5728,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -5827,8 +5838,8 @@
         "teamUpgradeLevels": {},
         "teamEraCount": 0,
         "lifetimeLPThisTeamEra": 0,
-        "ownerPoints": 82,
-        "lifetimeOwnerPoints": 282,
+        "ownerPoints": 152,
+        "lifetimeOwnerPoints": 352,
         "ownerUpgradeLevels": {},
         "ownerEraCount": 5,
         "lifetimeTPThisOwnerEra": 0,
@@ -5836,7 +5847,7 @@
         "lifetimeTrackTokens": 0,
         "trackPerkLevels": {},
         "trackEraCount": 0,
-        "lifetimeOPThisTrackEra": 32,
+        "lifetimeOPThisTrackEra": 102,
         "racerAttributes": {
           "reflexes": 0,
           "endurance": 0,
@@ -6650,11 +6661,11 @@
               }
             },
             "stats": {
-              "speed": 23.049599999999998,
-              "handling": 6.6718399999999995,
-              "reliability": 19.3,
+              "speed": 18.153333333333332,
+              "handling": 5.674666666666667,
+              "reliability": 15.594400000000002,
               "weight": 66,
-              "performance": 17.386352
+              "performance": 13.897946666666668
             },
             "builtAt": 1700000000001,
             "condition": 68,
@@ -6696,11 +6707,11 @@
               }
             },
             "stats": {
-              "speed": 103.84,
-              "handling": 36.2,
-              "reliability": 85,
+              "speed": 68.16927899686522,
+              "handling": 25.705329153605017,
+              "reliability": 72.76,
               "weight": 188,
-              "performance": 79.78
+              "performance": 56.348238244514114
             },
             "builtAt": 1700000000002,
             "condition": 76,
@@ -6752,11 +6763,11 @@
               }
             },
             "stats": {
-              "speed": 144.14,
-              "handling": 53.2,
-              "reliability": 120,
+              "speed": 77.88809182209468,
+              "handling": 24.200000000000003,
+              "reliability": 113.52000000000001,
               "weight": 463,
-              "performance": 112.03
+              "performance": 68.90804591104734
             },
             "builtAt": 1700000000003,
             "condition": 91,
@@ -6798,6 +6809,7 @@
         "manualScavengeClicks": 100,
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -7032,10 +7044,11 @@
           "riskReward": 1
         },
         "hostedEvents": [],
-        "autoScavengeUnlocked": false,
+        "autoScavengeUnlocked": true,
         "manualScavengeClicks": 0,
         "scoutingOrder": null,
-        "autoRaceUnlocked": false,
+        "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -7146,8 +7159,8 @@
         "ownerUpgradeLevels": {},
         "ownerEraCount": 0,
         "lifetimeTPThisOwnerEra": 0,
-        "trackPrestigeTokens": 99,
-        "lifetimeTrackTokens": 249,
+        "trackPrestigeTokens": 224,
+        "lifetimeTrackTokens": 374,
         "trackPerkLevels": {},
         "trackEraCount": 3,
         "lifetimeOPThisTrackEra": 0,
@@ -9703,11 +9716,11 @@
               }
             },
             "stats": {
-              "speed": 51.52,
-              "handling": 12.408000000000001,
+              "speed": 38.76190476190476,
+              "handling": 10.314285714285715,
               "reliability": 41.8,
               "weight": 66,
-              "performance": 37.8424
+              "performance": 30.835238095238093
             },
             "builtAt": 1700000000100,
             "condition": 100,
@@ -9749,11 +9762,11 @@
               }
             },
             "stats": {
-              "speed": 181.94,
-              "handling": 51.82,
+              "speed": 111.53479623824454,
+              "handling": 38.4294670846395,
               "reliability": 151,
               "weight": 188,
-              "performance": 136.716
+              "performance": 97.49623824451412
             },
             "builtAt": 1700000000101,
             "condition": 100,
@@ -9805,11 +9818,11 @@
               }
             },
             "stats": {
-              "speed": 271.74,
-              "handling": 78.72,
+              "speed": 137.7142037302726,
+              "handling": 32.67,
               "reliability": 230,
               "weight": 463,
-              "performance": 205.486
+              "performance": 124.6581018651363
             },
             "builtAt": 1700000000102,
             "condition": 100,
@@ -9861,11 +9874,11 @@
               }
             },
             "stats": {
-              "speed": 296.74,
-              "handling": 83.72,
+              "speed": 226.1457446808511,
+              "handling": 62.18657937806874,
               "reliability": 240,
               "weight": 1243,
-              "performance": 221.486
+              "performance": 179.72884615384618
             },
             "builtAt": 1700000000103,
             "condition": 100,
@@ -9927,11 +9940,11 @@
               }
             },
             "stats": {
-              "speed": 576.9,
-              "handling": 159.668,
+              "speed": 459.29961739130437,
+              "handling": 156.50379130434783,
               "reliability": 376.8,
               "weight": 1422,
-              "performance": 411.7104
+              "performance": 351.96094608695654
             },
             "builtAt": 1700000000104,
             "condition": 100,
@@ -10003,11 +10016,11 @@
               }
             },
             "stats": {
-              "speed": 780.0100000000001,
-              "handling": 215.11800000000005,
+              "speed": 673.9177212483969,
+              "handling": 233.62291577597261,
               "reliability": 444.3,
               "weight": 1479,
-              "performance": 543.4004000000001
+              "performance": 495.90573535699025
             },
             "builtAt": 1700000000105,
             "condition": 100,
@@ -10089,11 +10102,11 @@
               }
             },
             "stats": {
-              "speed": 965.0300000000001,
-              "handling": 220.15000000000003,
+              "speed": 843.3065092007691,
+              "handling": 241.73435869266683,
               "reliability": 531.5,
               "weight": 1736,
-              "performance": 654.8600000000001
+              "performance": 600.4735622081846
             },
             "builtAt": 1700000000106,
             "condition": 100,
@@ -10195,11 +10208,11 @@
               }
             },
             "stats": {
-              "speed": 1291.89,
-              "handling": 335.5100000000001,
+              "speed": 1104.6512518904387,
+              "handling": 407.53197781885405,
               "reliability": 642.5,
               "weight": 983,
-              "performance": 875.0980000000001
+              "performance": 803.0852192908756
             },
             "builtAt": 1700000000107,
             "condition": 100,
@@ -10301,11 +10314,11 @@
               }
             },
             "stats": {
-              "speed": 1421.89,
-              "handling": 395.5100000000001,
+              "speed": 1225.3592800899887,
+              "handling": 460.7452568428947,
               "reliability": 662.5,
               "weight": 1333,
-              "performance": 962.0980000000001
+              "performance": 883.4032170978628
             },
             "builtAt": 1700000000108,
             "condition": 100,
@@ -10407,11 +10420,11 @@
               }
             },
             "stats": {
-              "speed": 1521.89,
-              "handling": 445.5100000000001,
+              "speed": 1324.9,
+              "handling": 510.40000000000003,
               "reliability": 667.5,
               "weight": 1183,
-              "performance": 1028.098
+              "performance": 949.07
             },
             "builtAt": 1700000000109,
             "condition": 100,
@@ -10513,11 +10526,11 @@
               }
             },
             "stats": {
-              "speed": 1671.89,
-              "handling": 495.5100000000001,
+              "speed": 1474.9,
+              "handling": 560.4000000000001,
               "reliability": 672.5,
               "weight": 1083,
-              "performance": 1119.098
+              "performance": 1040.0700000000002
             },
             "builtAt": 1700000000110,
             "condition": 100,
@@ -10572,6 +10585,7 @@
         "manualScavengeClicks": 100,
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
+        "autoRaceMinCondition": 25,
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",

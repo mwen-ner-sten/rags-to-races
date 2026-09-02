@@ -189,6 +189,11 @@ test("@smoke core Scavenge action works from the keyboard without duplicate inpu
   await scavenge.focus();
   await page.keyboard.press("Enter");
   await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(1);
+  // Manual scavenging is paced; a second press inside the cooldown is ignored.
+  await page.keyboard.press("Space");
+  await expect(scavenge).toHaveAttribute("data-cooldown", "true");
+  expect((await persistedState(page)).manualScavengeClicks).toBe(1);
+  await expect(scavenge).not.toHaveAttribute("data-cooldown", "true", { timeout: 5_000 });
   await page.keyboard.press("Space");
   await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(2);
 });

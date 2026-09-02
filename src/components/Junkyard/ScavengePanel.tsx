@@ -174,13 +174,19 @@ export default function ScavengePanel() {
   // Manual scavenging is paced: the garage already works on its own, and
   // effort is meant to reward attention, not click speed.
   const lastFireRef = useRef(0);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fireScavenge = useCallback(() => {
     const now = Date.now();
-    if (now - lastFireRef.current < computeHoldInterval()) return;
+    const cooldown = computeHoldInterval();
+    if (now - lastFireRef.current < cooldown) return;
     lastFireRef.current = now;
     setIsScavengeAnimating(true);
+    setIsCoolingDown(true);
     manualScavenge();
     setTimeout(() => setIsScavengeAnimating(false), 150);
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    cooldownTimerRef.current = setTimeout(() => setIsCoolingDown(false), cooldown);
   }, [manualScavenge, computeHoldInterval]);
 
   const stopHold = useCallback(() => {
@@ -207,7 +213,10 @@ export default function ScavengePanel() {
   }, [fireScavenge, computeHoldInterval]);
 
   // Clean up on unmount
-  useEffect(() => () => { stopHold(); }, [stopHold]);
+  useEffect(() => () => {
+    stopHold();
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+  }, [stopHold]);
 
   return (
     <>
@@ -301,7 +310,9 @@ export default function ScavengePanel() {
             className={`min-h-12 w-full rounded-lg px-5 py-2 font-semibold text-sm transition-all select-none active:scale-[.98] sm:min-h-11 sm:w-auto sm:active:scale-95 ${
               isScavengeAnimating ? "scale-90" : "scale-100"
             } ${isHolding ? "ring-2 ring-offset-1" : ""} ${autoScavengeUnlocked ? "auto-scavenge-active" : ""}`}
+            data-cooldown={isCoolingDown && !isHolding ? "true" : undefined}
             style={{
+              ...(isCoolingDown && !isHolding ? { opacity: 0.75 } : {}),
               ...(!autoScavengeUnlocked ? { background: "var(--btn-primary-bg)" } : {}),
               color: "var(--btn-primary-text)",
               ...(isHolding ? { ringColor: "var(--info)" } : {}),
