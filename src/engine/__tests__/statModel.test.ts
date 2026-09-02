@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateStats, expectedLoadedWeight, RELIABILITY_CONDITION_FLOOR, type BuiltVehicle } from "../build";
+import { calculateStats, expectedLoadedWeight, RELIABILITY_CONDITION_FLOOR, type BuiltVehicle, type InstalledPart } from "../build";
 import { getVehicleById } from "@/data/vehicles";
 import { getPartById, type PartCondition } from "@/data/parts";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
@@ -7,8 +7,8 @@ import { getCircuitPerformance } from "../race";
 import { buildEngineeringReport, diagnoseFocus } from "../engineeringDiagnostics";
 import type { RaceOutcome } from "../race";
 
-function installed(slot: string, definitionId: string, condition: PartCondition = "pristine") {
-  return [slot, { part: { id: `${slot}_${definitionId}`, definitionId, condition, foundAt: "test", type: "part" as const }, addons: [] }] as const;
+function installed(slot: string, definitionId: string, condition: PartCondition = "pristine"): [string, InstalledPart] {
+  return [slot, { part: { id: `${slot}_${definitionId}`, definitionId, condition, foundAt: "test", type: "part" }, addons: [] }];
 }
 
 function build(vehicleId: string, selections: Record<string, string>, condition = 100): BuiltVehicle {

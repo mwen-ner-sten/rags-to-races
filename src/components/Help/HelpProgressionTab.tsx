@@ -3,6 +3,7 @@
 import { HELP_LOCATIONS, HELP_CIRCUITS, HELP_VEHICLES, HELP_CHALLENGES, HELP_DEALER } from "@/data/helpContent";
 import { formatNumber } from "@/utils/format";
 import { REP_PROGRESSION } from "@/config/progression";
+import { WORKSHOP_TABS } from "@/data/workshopTabs";
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -46,6 +47,21 @@ export default function HelpProgressionTab() {
           Manual scavenging and racing are the active accelerators. The Pit Crew facility and the Pit Rhythm milestone each shave a tick off the race cadence (minimum 1),
           and auto-race pauses below the condition floor you set on the Race tab.
         </p>
+      </SectionCard>
+
+      {/* Workshop sections */}
+      <SectionCard title="Workshop Sections">
+        <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
+          Workshop sections appear when they first have something for you to do.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {WORKSHOP_TABS.map((tab) => (
+            <div key={tab.id} className="rounded border p-2" style={{ borderColor: "var(--panel-border)" }}>
+              <div className="text-sm font-semibold" style={{ color: "var(--text-white)" }}>{tab.label}</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{tab.revealHint}</div>
+            </div>
+          ))}
+        </div>
       </SectionCard>
 
       {/* Locations & Circuits */}

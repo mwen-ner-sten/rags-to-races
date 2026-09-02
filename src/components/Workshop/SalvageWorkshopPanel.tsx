@@ -30,6 +30,8 @@ import SkillsSubTab from "@/components/Locker/SkillsSubTab";
 import PlaystyleSubTab from "@/components/Upgrades/PlaystyleSubTab";
 import WorkshopPanel from "./WorkshopPanel";
 import MobileSubNav from "@/components/MobileSubNav";
+import { useShallow } from "zustand/react/shallow";
+import { getAvailableWorkshopTabs, WORKSHOP_TABS, type WorkshopTab } from "@/data/workshopTabs";
 import { formatNumber } from "@/utils/format";
 import { getPartSaleValue } from "@/engine/sale";
 import { getPrestigeMilestoneBonuses } from "@/data/prestigeMilestones";
@@ -47,19 +49,6 @@ import {
   FATIGUE_DRINK_RECOVERY,
   FATIGUE_DRINK_RUN_LIMIT,
 } from "@/data/workshopActions";
-
-type WorkshopTab = "inventory" | "fabrication" | "addons" | "dealer" | "stations" | "philosophy" | "skills" | "facilities";
-
-const TABS: { id: WorkshopTab; label: string }[] = [
-  { id: "inventory", label: "Inventory" },
-  { id: "fabrication", label: "Fabrication" },
-  { id: "addons", label: "Add-ons" },
-  { id: "dealer", label: "Dealer" },
-  { id: "stations", label: "Stations" },
-  { id: "philosophy", label: "Philosophy" },
-  { id: "skills", label: "Skills" },
-  { id: "facilities", label: "Facilities" },
-];
 
 const INVENTORY_PAGE_SIZE = 40;
 
@@ -104,31 +93,35 @@ const STATION_REDUCTION_BONUSES = new Set<Extract<StationEquipmentEffect, { type
 
 export default function SalvageWorkshopPanel() {
   const [tab, setTab] = useState<WorkshopTab>("inventory");
+  // Sections reveal themselves as the campaign reaches them (see workshopTabs.ts).
+  const availableTabs = useGameStore(useShallow((s) => getAvailableWorkshopTabs(s).map((item) => item.id)));
+  const TABS = useMemo(() => WORKSHOP_TABS.filter((item) => availableTabs.includes(item.id)), [availableTabs]);
+  const activeTab: WorkshopTab = availableTabs.includes(tab) ? tab : "inventory";
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-lg font-bold uppercase tracking-widest" style={{ color: "var(--text-heading)" }}>Salvage Workshop</h1>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>Inspect, improve, source, and equip everything your garage needs.</p>
       </div>
-      <MobileSubNav tabs={TABS} activeTab={tab} setActiveTab={(id) => setTab(id as WorkshopTab)} tutorialTargetId="workshop-facilities-tab" />
+      <MobileSubNav tabs={TABS} activeTab={activeTab} setActiveTab={(id) => setTab(id as WorkshopTab)} tutorialTargetId="workshop-facilities-tab" />
       <div className="hidden gap-1 overflow-x-auto rounded-lg border p-1 sm:flex" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} role="tablist" aria-label="Salvage Workshop sections">
         {TABS.map((item) => (
-          <button key={item.id} role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}
+          <button key={item.id} role="tab" aria-selected={activeTab === item.id} onClick={() => setTab(item.id)}
             data-tutorial={item.id === "facilities" ? "workshop-facilities-tab" : undefined}
             className="shrink-0 rounded px-3 py-2 text-xs font-semibold uppercase tracking-wider"
-            style={tab === item.id ? { background: "var(--accent)", color: "var(--btn-primary-text)" } : { color: "var(--text-secondary)" }}>
+            style={activeTab === item.id ? { background: "var(--accent)", color: "var(--btn-primary-text)" } : { color: "var(--text-secondary)" }}>
             {item.label}
           </button>
         ))}
       </div>
-      {tab === "inventory" && <InventoryWorkbench />}
-      {tab === "fabrication" && <FabricationBench />}
-      {tab === "addons" && <AddonBench onOpenFacilities={() => setTab("facilities")} />}
-      {tab === "dealer" && <DealerBoard onOpenFacilities={() => setTab("facilities")} />}
-      {tab === "stations" && <StationEquipment />}
-      {tab === "philosophy" && <Philosophy />}
-      {tab === "skills" && <SkillsSubTab />}
-      {tab === "facilities" && <WorkshopPanel />}
+      {activeTab === "inventory" && <InventoryWorkbench />}
+      {activeTab === "fabrication" && <FabricationBench />}
+      {activeTab === "addons" && <AddonBench onOpenFacilities={() => setTab("facilities")} />}
+      {activeTab === "dealer" && <DealerBoard onOpenFacilities={() => setTab("facilities")} />}
+      {activeTab === "stations" && <StationEquipment />}
+      {activeTab === "philosophy" && <Philosophy />}
+      {activeTab === "skills" && <SkillsSubTab />}
+      {activeTab === "facilities" && <WorkshopPanel />}
     </div>
   );
 }
