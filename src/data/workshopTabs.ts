@@ -43,30 +43,34 @@ type WorkshopTabState = Pick<
 >;
 
 export function isWorkshopTabAvailable(tab: WorkshopTab, state: WorkshopTabState): boolean {
+  // Saves from older versions (and the pre-hydration render) can lack fields;
+  // treat anything missing as "nothing yet".
+  const rep = state.repPoints ?? 0;
+  const workshopLevels = state.workshopLevels ?? {};
   switch (tab) {
     case "inventory":
     case "facilities":
       return true;
     case "addons":
-      return state.repPoints >= REP_PROGRESSION.workshop.addon_bench
-        || (state.workshopLevels.addon_bench ?? 0) > 0
-        || state.inventory.some((part) => part.type === "addon");
+      return rep >= REP_PROGRESSION.workshop.addon_bench
+        || (workshopLevels.addon_bench ?? 0) > 0
+        || (state.inventory ?? []).some((part) => part.type === "addon");
     case "dealer":
-      return state.repPoints >= REP_PROGRESSION.dealer.unlock;
+      return rep >= REP_PROGRESSION.dealer.unlock;
     case "fabrication":
-      return MATERIAL_DEFINITIONS.some((material) => (state.materials[material.id as MaterialType] ?? 0) > 0)
-        || (state.workshopLevels.parts_bin ?? 0) > 0
-        || state.repPoints >= REP_PROGRESSION.workshop.parts_bin;
+      return MATERIAL_DEFINITIONS.some((material) => (state.materials?.[material.id as MaterialType] ?? 0) > 0)
+        || (workshopLevels.parts_bin ?? 0) > 0
+        || rep >= REP_PROGRESSION.workshop.parts_bin;
     case "stations":
-      return state.stationEquipmentInventory.length > 0
-        || Object.values(state.equippedStationEquipment).some(Boolean)
-        || state.repPoints >= REP_PROGRESSION.gear.uncommon;
+      return (state.stationEquipmentInventory ?? []).length > 0
+        || Object.values(state.equippedStationEquipment ?? {}).some(Boolean)
+        || rep >= REP_PROGRESSION.gear.uncommon;
     case "skills":
-      return Object.values(state.racerSkills).some((skill) => skill.level >= 1);
+      return Object.values(state.racerSkills ?? {}).some((skill) => (skill?.level ?? 0) >= 1);
     case "philosophy":
-      return state.lifetimeLegacyPoints > 0
-        || state.lifetimeLPAllTime > 0
-        || state.unlockedPlaystyleNodes.length > 0;
+      return (state.lifetimeLegacyPoints ?? 0) > 0
+        || (state.lifetimeLPAllTime ?? 0) > 0
+        || (state.unlockedPlaystyleNodes ?? []).length > 0;
   }
 }
 
