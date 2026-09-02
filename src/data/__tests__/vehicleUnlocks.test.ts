@@ -33,9 +33,16 @@ describe("vehicle blueprint unlock contracts", () => {
     expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: amount }))).toBe(true);
   });
 
-  it("requires five consecutive Backyard Derby wins for the Go-Kart", () => {
+  it("unlocks the Go-Kart on the shared Rep ladder alongside Dirt Track and the Local Junkyard", () => {
     const requirement = getVehicleById("go_kart")!.unlockRequirement;
 
+    expect(formatVehicleUnlockRequirement(requirement)).toBe("Reach 25 Reputation");
+    expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: 24 }))).toBe(false);
+    expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: 25 }))).toBe(true);
+  });
+
+  it("keeps the streak requirement type evaluable for future blueprints", () => {
+    const requirement = { type: "circuit_win_streak", circuitId: "backyard_derby", wins: 5 } as const;
     expect(formatVehicleUnlockRequirement(requirement)).toBe("5-win streak at the Backyard Derby");
     expect(isVehicleUnlockRequirementMet(requirement, progress({ circuitWinStreaks: { backyard_derby: 4 } }))).toBe(false);
     expect(isVehicleUnlockRequirementMet(requirement, progress({ circuitWinStreaks: { backyard_derby: 5 } }))).toBe(true);

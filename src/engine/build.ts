@@ -91,6 +91,36 @@ export function validateBuildSelection(
   return { valid: true, reason: null, parts };
 }
 
+/** Speed lost per 100% of weight carried above the chassis' expected load. */
+export const WEIGHT_SPEED_FACTOR = 1.0;
+/** Handling lost per 100% of excess weight — grip suffers twice as much as pace. */
+export const WEIGHT_HANDLING_FACTOR = 2.0;
+/** Bounds on the weight adjustment: light builds gain a little, heavy ones lose a lot. */
+export const WEIGHT_SPEED_ADJ = { min: -0.15, max: 0.45 } as const;
+export const WEIGHT_HANDLING_ADJ = { min: -0.25, max: 0.45 } as const;
+/** Reliability retained at 0% condition; the rest scales linearly with condition. */
+export const RELIABILITY_CONDITION_FLOOR = 0.4;
+
+/**
+ * The weight a chassis is designed to carry: base weight plus the average
+ * compatible part in every required slot. Building heavier than that costs
+ * pace and grip; building lighter earns a little of both.
+ */
+export function expectedLoadedWeight(vehicleDef: VehicleDefinition): number {
+  let weight = vehicleDef.baseStats.weight;
+  for (const slot of vehicleDef.slots) {
+    if (!slot.required) continue;
+    const weights = slot.acceptableParts.map((id) => getPartById(id)?.baseWeight ?? 0);
+    if (weights.length === 0) continue;
+    weight += weights.reduce((sum, value) => sum + value, 0) / weights.length;
+  }
+  return weight;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 export function calculateStats(
   vehicleDef: VehicleDefinition,
   parts: BuiltVehicle["parts"],
@@ -98,8 +128,8 @@ export function calculateStats(
   handlingBonusPct: number = 0,
 ): VehicleStats {
   let bonusPower = 0;
-  let bonusReliability = 0;
   let bonusHandling = 0;
+  let bonusReliability = 0;
   let totalWeight = vehicleDef.baseStats.weight;
 
   for (const slotConfig of vehicleDef.slots) {
@@ -109,7 +139,8 @@ export function calculateStats(
     const def = getPartById(installed.part.definitionId);
     if (!def) continue;
     const mult = CONDITION_MULTIPLIERS[installed.part.condition as PartCondition];
-    bonusPower += (def.basePower + def.baseReliability * 0.3) * mult;
+    bonusPower += def.basePower * mult;
+    bonusHandling += def.baseHandling * mult;
     bonusReliability += def.baseReliability * mult;
     totalWeight += def.baseWeight;
 
@@ -126,19 +157,31 @@ export function calculateStats(
     }
   }
 
-  // Condition penalty: below threshold, stats degrade linearly (1.0 → 0.3 at condition 0)
+  // Condition penalty: below threshold, pace and grip degrade linearly (1.0 → 0.3 at condition 0)
   let conditionMultiplier = 1.0;
   if (vehicleCondition < CONDITION_PENALTY_THRESHOLD) {
     conditionMultiplier = 0.3 + (vehicleCondition / CONDITION_PENALTY_THRESHOLD) * 0.7;
   }
 
-  const weightPenalty = Math.max(0, (totalWeight - vehicleDef.baseStats.weight) / 50);
-  const speed = Math.max(1, (vehicleDef.baseStats.speed + bonusPower - weightPenalty) * conditionMultiplier);
-  const rawHandling = (vehicleDef.baseStats.handling + bonusPower * 0.2 + bonusHandling) * conditionMultiplier;
+  // Weight is a real trade: excess over the expected load costs pace and, doubly, grip.
+  const expected = expectedLoadedWeight(vehicleDef);
+  const excess = expected > 0 ? (totalWeight - expected) / expected : 0;
+  const speedAdj = clamp(excess * WEIGHT_SPEED_FACTOR, WEIGHT_SPEED_ADJ.min, WEIGHT_SPEED_ADJ.max);
+  const handlingAdj = clamp(excess * WEIGHT_HANDLING_FACTOR, WEIGHT_HANDLING_ADJ.min, WEIGHT_HANDLING_ADJ.max);
+
+  const speed = Math.max(1, (vehicleDef.baseStats.speed + bonusPower) * (1 - speedAdj) * conditionMultiplier);
+  const rawHandling = (vehicleDef.baseStats.handling + bonusHandling) * (1 - handlingAdj) * conditionMultiplier;
   const handling = Math.max(1, rawHandling * (1 + handlingBonusPct));
-  const reliability = Math.max(1, vehicleDef.baseStats.reliability + bonusReliability);
+  // A damaged car breaks down more, not just drives slower.
+  const conditionFraction = clamp(vehicleCondition, 0, 100) / 100;
+  const reliability = Math.max(
+    1,
+    (vehicleDef.baseStats.reliability + bonusReliability)
+      * (RELIABILITY_CONDITION_FLOOR + (1 - RELIABILITY_CONDITION_FLOOR) * conditionFraction),
+  );
   const weight = totalWeight;
 
+  // Neutral composite for display; races weight these by the circuit's demands.
   const performance = speed * 0.5 + handling * 0.3 + reliability * 0.2;
 
   return { speed, handling, reliability, weight, performance };

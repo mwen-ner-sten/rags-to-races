@@ -1,9 +1,10 @@
 import type { CircuitDefinition } from "@/data/circuits";
 import { CONDITION_LABELS, CONDITIONS, getPartById, type CoreSlot } from "@/data/parts";
-import type { BuiltVehicle, InstalledPart } from "./build";
+import { getVehicleById } from "@/data/vehicles";
+import { expectedLoadedWeight, type BuiltVehicle, type InstalledPart } from "./build";
 import type { RaceOutcome } from "./race";
 
-export type EngineeringFocus = "power" | "grip" | "aero" | "reliability" | "fuel";
+export type EngineeringFocus = "power" | "grip" | "weight" | "reliability" | "fuel";
 export type EngineeringPriority = "repair" | "component" | "setup";
 
 export interface EngineeringReport {
@@ -23,37 +24,72 @@ export function findDiagnosticVehicle(
   return garage.find((vehicle) => vehicle.id === outcomeVehicleId);
 }
 
+/** Slots that move each focus stat, in the order they matter most. */
 const FOCUS_SLOTS: Record<EngineeringFocus, CoreSlot[]> = {
-  power: ["engine", "drivetrain", "exhaust"],
-  grip: ["wheel", "suspension"],
-  aero: ["aero", "frame"],
+  power: ["engine", "drivetrain", "exhaust", "electronics"],
+  grip: ["wheel", "suspension", "aero", "frame"],
+  weight: ["frame", "engine", "drivetrain", "suspension"],
   reliability: ["engine", "wheel", "frame", "fuel", "electronics", "drivetrain", "exhaust", "suspension", "aero"],
   fuel: ["fuel", "engine"],
 };
 
 const OBSERVATIONS: Record<EngineeringFocus, string> = {
-  power: "This circuit rewards power and acceleration; straight-line performance is the clearest place to gain time.",
-  grip: "This circuit is grip-limited through its corners and surface changes; tire and suspension quality matter most.",
-  aero: "This circuit places a high demand on aerodynamic stability and high-speed handling.",
+  power: "This circuit is decided on the straights, and this build is short on pace relative to its grip.",
+  grip: "This circuit is decided in the corners, and this build is short on grip relative to its pace.",
+  weight: "This build is carrying far more weight than the chassis was meant to, and it is costing grip more than pace.",
   reliability: "This event punishes fragile builds; dependable components and vehicle condition matter more than peak pace.",
   fuel: "This event stretches fuel range and race management, so the fuel system is the limiting concern.",
 };
 
-function dominantDemand(circuit: CircuitDefinition): EngineeringFocus {
-  const demands = Object.entries(circuit.profile.demands) as [EngineeringFocus, number][];
-  return demands.reduce((best, current) => current[1] > best[1] ? current : best)[0];
+/** Excess over the chassis' expected load at which weight becomes the story. */
+const WEIGHT_FOCUS_THRESHOLD = 0.2;
+
+/**
+ * Which stat is holding the build back on this circuit. Compares the build's
+ * speed:handling balance to the circuit's power:grip demand instead of just
+ * reading the circuit's dominant demand off the data.
+ */
+export function diagnoseFocus(vehicle: BuiltVehicle, circuit: CircuitDefinition, outcome: RaceOutcome): EngineeringFocus {
+  if (outcome.result === "dnf") return "reliability";
+  const { power, grip, aero, fuel } = circuit.profile.demands;
+  if (fuel >= 8 && (outcome.planEvaluation?.fuelRisk ?? 0) > 0.1) return "fuel";
+
+  const definition = getVehicleById(vehicle.definitionId);
+  if (definition) {
+    const expected = expectedLoadedWeight(definition);
+    if (expected > 0 && (vehicle.stats.weight - expected) / expected > WEIGHT_FOCUS_THRESHOLD) return "weight";
+  }
+
+  // Speed outweighs handling in raw numbers on every chassis, so measure how
+  // the build leans relative to its own chassis, and how the circuit leans
+  // relative to an even power / grip+aero split.
+  const base = definition?.baseStats;
+  const baseShare = base ? base.speed / Math.max(1, base.speed + base.handling) : 0.5;
+  const buildShare = vehicle.stats.speed / Math.max(1, vehicle.stats.speed + vehicle.stats.handling);
+  const buildLean = buildShare - baseShare;             // > 0: built for pace
+  const circuitLean = power / Math.max(1, power + grip + aero) - 0.5; // > 0: rewards pace
+  if (circuitLean > 0) return buildLean <= circuitLean ? "power" : "grip";
+  return buildLean >= circuitLean ? "grip" : "power";
 }
 
 function conditionRank(installed: InstalledPart): number {
   return CONDITIONS.indexOf(installed.part.condition);
 }
 
+/** The installed part with the most room to improve for this focus. */
 function relevantComponent(vehicle: BuiltVehicle, focus: EngineeringFocus): InstalledPart | undefined {
   const relevant = FOCUS_SLOTS[focus]
     .map((slot) => vehicle.parts[slot])
     .filter((part): part is InstalledPart => Boolean(part));
   const candidates = relevant.length > 0 ? relevant : Object.values(vehicle.parts);
-  return candidates.sort((left, right) => conditionRank(left) - conditionRank(right))[0];
+  if (focus === "weight") {
+    return [...candidates].sort((left, right) => {
+      const leftWeight = getPartById(left.part.definitionId)?.baseWeight ?? 0;
+      const rightWeight = getPartById(right.part.definitionId)?.baseWeight ?? 0;
+      return rightWeight - leftWeight;
+    })[0];
+  }
+  return [...candidates].sort((left, right) => conditionRank(left) - conditionRank(right))[0];
 }
 
 function resultHeadline(outcome: RaceOutcome): string {
@@ -67,7 +103,7 @@ export function buildEngineeringReport(
   circuit: CircuitDefinition,
   outcome: RaceOutcome,
 ): EngineeringReport {
-  const focus = outcome.result === "dnf" ? "reliability" : dominantDemand(circuit);
+  const focus = diagnoseFocus(vehicle, circuit, outcome);
   const installed = relevantComponent(vehicle, focus);
   const definition = installed ? getPartById(installed.part.definitionId) : undefined;
   const component = definition?.name;
@@ -79,7 +115,7 @@ export function buildEngineeringReport(
       focus,
       priority: "repair",
       component,
-      observation: `${OBSERVATIONS[focus]} The vehicle is at ${Math.round(vehicle.condition)}% condition.`,
+      observation: `${OBSERVATIONS[focus]} The vehicle is at ${Math.round(vehicle.condition)}% condition, and a damaged car breaks down more often.`,
       action: "Repair the vehicle before the next entry, then reassess the highlighted component instead of risking another avoidable breakdown.",
     };
   }
@@ -91,6 +127,17 @@ export function buildEngineeringReport(
       priority: "setup",
       observation: OBSERVATIONS[focus],
       action: `Look for a compatible ${FOCUS_SLOTS[focus][0]} upgrade or choose a circuit that better matches the current chassis.`,
+    };
+  }
+
+  if (focus === "weight") {
+    return {
+      headline: resultHeadline(outcome),
+      focus,
+      priority: "component",
+      component,
+      observation: `${OBSERVATIONS[focus]} The heaviest contributor is the ${component}.`,
+      action: `Swap the ${component} for a lighter ${definition.category} option, or shed weight elsewhere before adding more power.`,
     };
   }
 

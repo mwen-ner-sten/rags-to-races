@@ -115,6 +115,22 @@ export function getIdleRates(state: GameState): { scavengesPerHour: number; race
   return { scavengesPerHour, racesPerHour };
 }
 
+/**
+ * Vehicle stats are derived from parts and current condition. Races always
+ * derive them at entry so a stale persisted snapshot can never change an
+ * outcome, and live and batched simulation agree tick for tick.
+ */
+export function deriveRaceVehicle(
+  state: GameState,
+  vehicle: GameState["garage"][number],
+  gearHandlingPct: number,
+): GameState["garage"][number] {
+  const definition = getVehicleById(vehicle.definitionId);
+  if (!definition) return vehicle;
+  const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gearHandlingPct;
+  return { ...vehicle, stats: calculateStats(definition, vehicle.parts, vehicle.condition ?? 100, handlingBonus) };
+}
+
 /** Pure function: compute one tick of idle progress */
 export function computeTick(state: GameState): TickResult {
   const result: TickResult = {
@@ -238,7 +254,8 @@ export function computeTick(state: GameState): TickResult {
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
           const skillBonuses = getSkillBonuses(state.racerSkills, circuit.tier);
           const enhancedRaceSalvage = _getUpgradeEffectValue(state, "scavengers_eye") > 0;
-          result.raceOutcome = simulateRace(vehicle, circuit, 1, fatigue, gearBonuses.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance") + permanentBonuses.racePerformanceBonus, gearBonuses.race_dnf_reduction + permanentBonuses.raceDnfFlatReduction, enhancedRaceSalvage ? 0.30 : 0.15, enhancedRaceSalvage ? 2 : 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"), skillBonuses.drivingPerformanceMult, skillBonuses.drivingDnfReduction, false, state.currentRacePlan, permanentBonuses.raceDnfChanceMultiplier);
+          const raceVehicle = deriveRaceVehicle(state, vehicle, gearBonuses.race_handling_pct);
+          result.raceOutcome = simulateRace(raceVehicle, circuit, 1, fatigue, gearBonuses.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance") + permanentBonuses.racePerformanceBonus, gearBonuses.race_dnf_reduction + permanentBonuses.raceDnfFlatReduction, enhancedRaceSalvage ? 0.30 : 0.15, enhancedRaceSalvage ? 2 : 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"), skillBonuses.drivingPerformanceMult, skillBonuses.drivingDnfReduction, false, state.currentRacePlan, permanentBonuses.raceDnfChanceMultiplier);
 
           // Apply consolation sponsor bonus
           const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");
@@ -270,7 +287,7 @@ export function computeTick(state: GameState): TickResult {
           // Calculate wear (workshop + gear + legacy reduction)
           const wearReduction = _getUpgradeEffectValue(state, "reinforced_chassis");
           const legacyWearReduction = getLegacyEffectValue(state.legacyUpgradeLevels, "leg_wear_reduction");
-          result.vehicleWearAmount = calculateWear(vehicle, result.raceOutcome.result, wearReduction + legacyWearReduction, fatigue, gearBonuses.race_wear_reduction_pct, skillBonuses.enduranceWearReduction, result.raceOutcome.planEvaluation?.wearMultiplier ?? 1);
+          result.vehicleWearAmount = calculateWear(raceVehicle, result.raceOutcome.result, wearReduction + legacyWearReduction, fatigue, gearBonuses.race_wear_reduction_pct, skillBonuses.enduranceWearReduction, result.raceOutcome.planEvaluation?.wearMultiplier ?? 1);
 
           // Gear drop roll from auto-race
           const vehiclePerf = vehicle.stats

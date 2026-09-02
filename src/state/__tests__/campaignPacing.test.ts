@@ -74,6 +74,22 @@ function tryBuild(vehicleId: string): boolean {
   return useGameStore.getState().garage.length === before + 1;
 }
 
+/**
+ * Manual scavenges are paced at ~2 s and the garage ticks every 30 s on its
+ * own, so roughly one automation tick lands per 15 manual actions. The
+ * harness settles that background tick so the estimate reflects real play.
+ */
+const MANUAL_ACTIONS_PER_TICK = 15;
+let manualActionsSinceTick = 0;
+function manualScavengeWithBackgroundTick(): void {
+  useGameStore.getState().manualScavenge();
+  manualActionsSinceTick++;
+  if (manualActionsSinceTick >= MANUAL_ACTIONS_PER_TICK) {
+    manualActionsSinceTick = 0;
+    settleLiveAutomationTick();
+  }
+}
+
 function scavengeUntilBuilt(vehicleId: string, maxActions: number): number {
   for (let actions = 0; actions < maxActions; actions++) {
     if (tryBuild(vehicleId)) return actions;
@@ -82,7 +98,7 @@ function scavengeUntilBuilt(vehicleId: string, maxActions: number): number {
       .map((id) => getLocationById(id)!)
       .sort((left, right) => right.tier - left.tier)[0].id;
     state.setSelectedLocation(bestLocationId);
-    state.manualScavenge();
+    manualScavengeWithBackgroundTick();
   }
   throw new Error(`Could not organically source ${vehicleId} in ${maxActions} scavenges`);
 }
@@ -151,7 +167,7 @@ describe("seeded first-campaign pacing", () => {
               .map((id) => getLocationById(id)!)
               .sort((left, right) => right.tier - left.tier)[0].id;
             cashState.setSelectedLocation(bestLocationId);
-            cashState.manualScavenge();
+            manualScavengeWithBackgroundTick();
             useGameStore.getState().sellAllJunk();
             scavenges++;
           }
@@ -162,6 +178,8 @@ describe("seeded first-campaign pacing", () => {
         vi.runAllTimers();
         races++;
         raceDurationMs += bestRace.circuit.raceDuration;
+        // A race plus its review is roughly one background tick of real time.
+        settleLiveAutomationTick();
         if (races > 400) {
           const stalled = useGameStore.getState();
           throw new Error(`First campaign exceeded 400 races: rep=${stalled.repPoints}, scrap=${stalled.lifetimeScrapBucks}, vehicles=${stalled.garage.map((vehicle) => vehicle.definitionId).join(",")}, unlocked=${stalled.unlockedVehicleIds.join(",")}`);
@@ -210,11 +228,10 @@ describe("seeded first-campaign pacing", () => {
     expect(state.repPoints).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.reputation);
     expect(state.lifetimeScrapBucks).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks);
     expect(award.totalLp).toBeGreaterThanOrEqual(5);
-    expect(estimatedHandsOnMinutes).toBeGreaterThanOrEqual(45);
-    // Natural first-race outcomes consume the same simulation path as every
-    // later race. Keep a narrow cohort guard without depending on a scripted
-    // DNF's random-call sequence.
-    expect(estimatedHandsOnMinutes).toBeLessThanOrEqual(80);
+    // The first Scrap Reset is meant to be earned over an engaged 1–2 hours
+    // (see CAMPAIGN_PACING_TARGETS_HOURS.scrap), never handed out in a sprint.
+    expect(estimatedHandsOnMinutes).toBeGreaterThanOrEqual(60);
+    expect(estimatedHandsOnMinutes).toBeLessThanOrEqual(130);
 
     state.prestige();
     const secondRun = useGameStore.getState();

@@ -4,7 +4,7 @@ import { useGameStore } from "@/state/store";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { calculateOdds } from "@/engine/race";
+import { calculateOdds, getCircuitPerformance } from "@/engine/race";
 import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
 import { getRaceTicksNeeded } from "@/engine/tick";
@@ -639,7 +639,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         {activeVehicle && selectedCircuit && (
           <div data-tutorial="odds-display">
           <OddsDisplay
-            performance={activeVehicle.stats.performance}
+            performance={getCircuitPerformance(activeVehicle.stats, selectedCircuit)}
             reliability={activeVehicle.stats.reliability}
             difficulty={selectedCircuit.difficulty}
             prestigeBonus={1}

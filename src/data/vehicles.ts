@@ -83,7 +83,7 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "fuel", required: true, acceptableParts: ["fuel_tank_small", "fuel_tank_large"] },
     ],
     baseStats: { speed: 35, handling: 30, reliability: 20, weight: 120 },
-    unlockRequirement: { type: "circuit_win_streak", circuitId: "backyard_derby", wins: 5 },
+    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.go_kart },
     buildCost: 120,
     sellValue: 150,
   },

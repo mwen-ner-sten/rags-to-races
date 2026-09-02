@@ -5,11 +5,17 @@ import { CONDITIONS } from "@/data/parts";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
 import { createGameplayFixture } from "@/testing/gameplayFixtures";
 
+// Stats are derived from parts at race entry, so the test car carries real,
+// favoured parts for the Backyard Derby.
 const vehicle = {
   id: "milestone-car",
-  definitionId: "push_mower",
-  parts: {},
-  stats: { speed: 40, handling: 30, reliability: 100, weight: 50, performance: 40 },
+  definitionId: "riding_mower",
+  parts: {
+    engine: { part: { id: "ms-engine", definitionId: "engine_v4", condition: "pristine" as const, foundAt: "test", type: "part" as const }, addons: [] },
+    wheel: { part: { id: "ms-wheel", definitionId: "wheel_sport", condition: "pristine" as const, foundAt: "test", type: "part" as const }, addons: [] },
+    frame: { part: { id: "ms-frame", definitionId: "frame_kart", condition: "pristine" as const, foundAt: "test", type: "part" as const }, addons: [] },
+  },
+  stats: { speed: 80, handling: 48, reliability: 85, weight: 188, performance: 71.4 },
   builtAt: 1,
   condition: 100,
   totalRaces: 0,

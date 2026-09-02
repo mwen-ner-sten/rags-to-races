@@ -1,6 +1,6 @@
 import type { PartCondition } from "./parts";
 import { PART_DEFINITIONS } from "./parts";
-import { randInt } from "@/utils/random";
+import { randInt, SeededRandomSource, withRandomSource } from "@/utils/random";
 import { REP_PROGRESSION } from "@/config/progression";
 
 export interface DealerListing {
@@ -37,6 +37,19 @@ function makeListingId(): string {
  * Higher rep unlocks better conditions and higher-tier parts.
  */
 export function generateDealerBoard(
+  repPoints: number,
+  currentTick: number,
+): DealerListing[] {
+  // The board is regenerated inside live settlement but not inside batched
+  // simulation, so it must never draw from the shared gameplay stream —
+  // otherwise online and offline races would diverge after the first refresh.
+  return withRandomSource(
+    new SeededRandomSource(`dealer:${currentTick}:${Math.floor(repPoints)}`),
+    () => buildDealerListings(repPoints, currentTick),
+  );
+}
+
+function buildDealerListings(
   repPoints: number,
   currentTick: number,
 ): DealerListing[] {

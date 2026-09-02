@@ -51,12 +51,61 @@ const RACE_FLAVOR: Record<RaceResult, string[]> = {
   ],
 };
 
+/**
+ * Where a losing car lands. A car at parity drifts around P4–P5; a strong car
+ * that loses is usually P2; a weak car finishes near the back. Loss payouts
+ * therefore carry information about the build.
+ */
+export function losingPosition(ratio: number, totalRacers: number = 8): number {
+  const skill = ratio * (0.85 + random() * 0.3);
+  const t = Math.min(1, Math.max(0, (skill - 0.3) / 1.4));
+  const slots = totalRacers - 2; // P2 … P(totalRacers-1); last place is reserved for DNFs
+  return 2 + Math.min(slots - 1, Math.floor((1 - t) * slots));
+}
+
 function pickFlavor(result: RaceResult): string {
   const arr = RACE_FLAVOR[result];
   return arr[Math.floor(random() * arr.length)];
 }
 
-/** Calculate pre-race odds for display. */
+/**
+ * Win-curve shape. At a performance ratio of 1.0 (a decently built,
+ * tier-appropriate car) the win chance is ~45%; over-building keeps paying
+ * but with diminishing returns, and no car is ever a lock.
+ */
+export const WIN_CHANCE_FLOOR = 0.05;
+export const WIN_CHANCE_CAP = 0.85;
+const WIN_CURVE_BASE = 0.05;
+const WIN_CURVE_RANGE = 0.80;
+const WIN_CURVE_STEEPNESS = 3;
+/** DNF base risk decays smoothly with reliability; it never quite reaches zero. */
+const DNF_BASE_RISK = 0.32;
+const DNF_RELIABILITY_SCALE = 45;
+
+/**
+ * How well a build fits a circuit: speed and handling are weighted by the
+ * circuit's power vs. grip/aero demands, reliability by its reliability demand.
+ */
+export function getCircuitPerformance(
+  stats: Pick<BuiltVehicle["stats"], "speed" | "handling" | "reliability">,
+  circuit: Pick<CircuitDefinition, "profile">,
+): number {
+  const { power, grip, aero, reliability } = circuit.profile.demands;
+  const reliabilityWeight = 0.15 + reliability * 0.01;
+  const paceWeight = 1 - reliabilityWeight;
+  const total = Math.max(1, power + grip + aero);
+  const speedWeight = paceWeight * (power / total);
+  const handlingWeight = paceWeight * ((grip + aero) / total);
+  return stats.speed * speedWeight + stats.handling * handlingWeight + stats.reliability * reliabilityWeight;
+}
+
+/** Win chance from the ratio of circuit-fitted performance to circuit difficulty. */
+export function winChanceFromRatio(ratio: number): number {
+  const shaped = Math.pow(Math.max(0, ratio), WIN_CURVE_STEEPNESS);
+  return WIN_CURVE_BASE + WIN_CURVE_RANGE * (shaped / (1 + shaped));
+}
+
+/** Calculate pre-race odds for display. `performance` is the circuit-fitted value. */
 export function calculateOdds(
   performance: number,
   reliability: number,
@@ -74,14 +123,18 @@ export function calculateOdds(
 ): { winChance: number; dnfChance: number; oddsLabel: string } {
   const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
   const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult) * (planEvaluation?.performanceMultiplier ?? 1);
-  const winChance = forceDNF ? 0 : Math.min(0.95, Math.max(0.05, effectivePerformance / (difficulty * 2) + momentumWinBonus));
+  const ratio = effectivePerformance / Math.max(1, difficulty);
+  const winChance = forceDNF
+    ? 0
+    : Math.min(WIN_CHANCE_CAP, Math.max(WIN_CHANCE_FLOOR, winChanceFromRatio(ratio) + momentumWinBonus));
+  const baseDnf = DNF_BASE_RISK * Math.exp(-Math.max(0, reliability) / DNF_RELIABILITY_SCALE);
   const dnfChance = forceDNF
     ? 1
     : Math.max(
         0,
         Math.min(
           0.95,
-          (0.3 - reliability / 200 - gearDnfReduction - skillDnfReduction + (planEvaluation?.dnfDelta ?? 0)) *
+          (baseDnf - gearDnfReduction - skillDnfReduction + (planEvaluation?.dnfDelta ?? 0)) *
             Math.max(0, dnfChanceMultiplier),
         ),
       );
@@ -157,7 +210,7 @@ export function simulateRace(
   dnfChanceMultiplier: number = 1,
 ): RaceOutcome {
   const totalRacers = 8;
-  const { performance } = vehicle.stats;
+  const performance = getCircuitPerformance(vehicle.stats, circuit);
   const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
   const eligibleRivals = RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier);
   const rival = eligibleRivals.length > 0 && chance(0.35) ? eligibleRivals[randInt(0, eligibleRivals.length - 1)] : undefined;
@@ -215,7 +268,7 @@ export function simulateRace(
   }
 
   const won = random() < odds.winChance;
-  const position = won ? 1 : Math.floor(random() * (totalRacers - 2)) + 2;
+  const position = won ? 1 : losingPosition(performance / Math.max(1, circuit.difficulty), totalRacers);
 
   const result: RaceResult = won ? "win" : "loss";
 

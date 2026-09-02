@@ -206,32 +206,15 @@ describe("automation unlock contracts", () => {
     expect(useGameStore.getState().raceHistory).toHaveLength(1);
   });
 
-  it("requires five consecutive wins on the same circuit for the Go-Kart blueprint", () => {
-    const winningOutcome = raceOutcome("win");
-    useGameStore.setState({ ...createInitialState(), bestWinStreak: 5 });
-
-    useGameStore.getState().applyTickResult([], 0, 0, undefined, undefined, undefined, undefined, undefined, settlement({
-      racesCompleted: 5,
-      winsCompleted: 5,
-      finalWinStreak: 5,
-      bestWinStreak: 5,
-      recentRaceOutcomes: [winningOutcome],
-      winningCircuitIds: ["backyard_derby", "dirt_track"],
-      circuitWinStreaks: { backyard_derby: 4, dirt_track: 1 },
-    }));
+  it("unlocks the Go-Kart blueprint from automated Rep on the shared ladder", () => {
+    useGameStore.setState({ ...createInitialState(), repPoints: 24 });
+    useGameStore.getState().applyTickResult([], 0, 0.5, undefined, undefined, undefined, undefined, undefined, settlement({}));
     expect(useGameStore.getState().unlockedVehicleIds).not.toContain("go_kart");
 
-    useGameStore.setState({ ...createInitialState(), bestWinStreak: 4 });
-    useGameStore.getState().applyTickResult([], 0, 0, undefined, undefined, undefined, undefined, undefined, settlement({
-      racesCompleted: 1,
-      winsCompleted: 1,
-      finalWinStreak: 5,
-      bestWinStreak: 5,
-      recentRaceOutcomes: [winningOutcome],
-      winningCircuitIds: ["backyard_derby"],
-      circuitWinStreaks: { backyard_derby: 5 },
-    }));
+    useGameStore.getState().applyTickResult([], 0, 0.5, undefined, undefined, undefined, undefined, undefined, settlement({}));
     expect(useGameStore.getState().unlockedVehicleIds).toContain("go_kart");
+    expect(useGameStore.getState().unlockedCircuitIds).toContain("dirt_track");
+    expect(useGameStore.getState().unlockedLocationIds).toContain("local_junkyard");
   });
 
   it("bounds batched race history to the most recent twenty outcomes", () => {

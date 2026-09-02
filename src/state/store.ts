@@ -1494,8 +1494,13 @@ function createActions(set: SetState, get: GetState) {
       const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
       const sb = getSkillBonuses(state.racerSkills, circuit.tier);
       const permanentBonuses = getPermanentRuntimeBonuses(state);
+      // Stats are derived at entry from parts + condition, matching automation.
+      const vehicleDefinition = getVehicleById(vehicle.definitionId);
+      const raceVehicle = vehicleDefinition
+        ? { ...vehicle, stats: calculateStats(vehicleDefinition, vehicle.parts, vehicle.condition ?? 100, _getUpgradeEffectValue(state, "tuned_suspension") + gb.race_handling_pct) }
+        : vehicle;
       const outcome = simulateRace(
-        vehicle, circuit,
+        raceVehicle, circuit,
         1,
         state.fatigue,
         gb.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance") + permanentBonuses.racePerformanceBonus,

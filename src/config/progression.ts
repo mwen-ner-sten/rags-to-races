@@ -46,7 +46,7 @@ export const REP_PROGRESSION = {
   locations: {
     curbside: 0,
     neighborhood_yards: 10,
-    local_junkyard: 40,
+    local_junkyard: 25,
     salvage_auction: 100,
     industrial_surplus: 500,
     military_scrapyard: 2_500,
@@ -61,6 +61,7 @@ export const REP_PROGRESSION = {
     endurance_series: 50_000,
   },
   vehicles: {
+    go_kart: 25,
     beater_car: 100,
     street_racer: 150,
     stock_car: 1_000,
