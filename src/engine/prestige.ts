@@ -4,7 +4,6 @@ import {
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
-import { random } from "@/utils/random";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
@@ -30,19 +29,6 @@ export function calculatePrestigeBonus(
   };
 }
 
-/**
- * Legacy fallback: compute bonuses from raw prestige count (for saves that
- * haven't bought any legacy upgrades yet). Returns same shape as old system.
- */
-export function calculatePrestigeBonusLegacy(prestigeCount: number): PrestigeBonus {
-  const p = prestigeCount;
-  return {
-    scrapMultiplier: 1 + p * 0.25,
-    luckBonus: Math.min(0.3, p * 0.03),
-    repMultiplier: 1 + p * 0.15,
-  };
-}
-
 // ── Legacy Points (LP) calculation ──────────────────────────────────────────
 
 export interface RunStats {
@@ -64,8 +50,9 @@ export function calculateLegacyPoints(stats: RunStats): number {
   // Tier bonus: reaching higher circuits multiplies LP
   const tierMultiplier = 1 + stats.highestCircuitTier * 0.5;
 
-  // Fatigue floor: need ~50 races (fatigue ~30) for full LP efficiency
-  const fatigueFloor = Math.max(0.3, Math.min(1, stats.fatigue / 30));
+  // Run depth: a reset after a handful of races pays half; ~50 races pays
+  // in full. Measured in races, not fatigue, so fatigue relief never costs LP.
+  const depthFactor = Math.min(1, 0.5 + stats.lifetimeRaces / 100);
 
   // Workshop investment bonus
   const workshopBonus = 1 + stats.workshopUpgradesBought * 0.05;
@@ -73,7 +60,7 @@ export function calculateLegacyPoints(stats: RunStats): number {
   const raw =
     (scrapComponent + raceComponent * 3) *
     tierMultiplier *
-    fatigueFloor *
+    depthFactor *
     workshopBonus;
 
   return Math.max(1, Math.floor(raw));
@@ -162,7 +149,7 @@ export function doPrestige(
   const keepCount = Math.floor(
     getLegacyEffectValue(legacyUpgradeLevels, "leg_keep_workshop"),
   );
-  const keptWorkshop = pickRandomWorkshopToKeep(
+  const keptWorkshop = pickWorkshopToKeep(
     currentWorkshopLevels,
     keepCount,
   );
@@ -214,21 +201,21 @@ export function deriveHighestCircuitTier(unlockedCircuitIds: string[]): number {
   return max;
 }
 
-/** Pick N random workshop upgrades to keep at level 1 */
-function pickRandomWorkshopToKeep(
+/**
+ * Blueprint Memory keeps the player's N most-invested workshop upgrades at
+ * level 1. Deterministic, so the choice of what to invest in is the choice
+ * of what survives the reset.
+ */
+export function pickWorkshopToKeep(
   workshopLevels: Record<string, number>,
   keepCount: number,
 ): Record<string, number> {
   if (keepCount <= 0) return {};
-  const owned = Object.entries(workshopLevels).filter(([, lvl]) => lvl > 0);
-  if (owned.length === 0) return {};
-
-  // Shuffle and pick up to keepCount
-  const shuffled = [...owned].sort(() => random() - 0.5);
+  const owned = Object.entries(workshopLevels)
+    .filter(([, lvl]) => lvl > 0)
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
   const kept: Record<string, number> = {};
-  for (let i = 0; i < Math.min(keepCount, shuffled.length); i++) {
-    kept[shuffled[i][0]] = 1;
-  }
+  for (const [id] of owned.slice(0, keepCount)) kept[id] = 1;
   return kept;
 }
 

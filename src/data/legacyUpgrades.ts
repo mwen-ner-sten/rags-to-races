@@ -111,7 +111,7 @@ const BUILT_TO_LAST: LegacyUpgradeDefinition = {
 const BLUEPRINT_MEMORY: LegacyUpgradeDefinition = {
   id: "leg_keep_workshop",
   name: "Blueprint Memory",
-  description: "Keep 1 random workshop upgrade (at level 1) on prestige per level.",
+  description: "Keep your 1 most-invested workshop upgrade (at level 1) through Scrap Reset, per level.",
   category: "mastery",
   maxLevel: 5,
   baseCost: 25,

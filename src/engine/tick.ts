@@ -89,7 +89,8 @@ export function computeTickSpeedMs(state: GameState): number {
  */
 export function getRaceTicksNeeded(state: GameState): number {
   const reduction = _getUpgradeEffectValue(state, "pit_crew")
-    + getPrestigeMilestoneBonuses(state.prestigeCount).raceTickReduction;
+    + getPrestigeMilestoneBonuses(state.prestigeCount).raceTickReduction
+    + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "race_tick_reduction");
   return Math.max(RACE_TICKS_MIN, RACE_TICKS_DEFAULT - reduction);
 }
 

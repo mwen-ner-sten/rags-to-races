@@ -30,7 +30,7 @@ import { getModTemplateById } from "@/data/gearMods";
 import { TALENT_NODES, getTalentNodeById } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
 import { rollGearDrops } from "@/engine/gearDrop";
-import { calculatePrestigeBonus, calculatePrestigeBonusLegacy, calculateScrapResetAward, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
+import { calculatePrestigeBonus, calculateScrapResetAward, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
 import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, validateBuildSelection } from "@/engine/build";
@@ -468,7 +468,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     repPoints: 0,
     lifetimeScrapBucks: 0,
     prestigeCount: 0,
-    prestigeBonus: calculatePrestigeBonusLegacy(0),
+    prestigeBonus: calculatePrestigeBonus({}),
     legacyPoints: 0,
     lifetimeLegacyPoints: 0,
     legacyUpgradeLevels: {},
@@ -3665,8 +3665,8 @@ function createActions(set: SetState, get: GetState) {
         unlockedVehicleIds,
         unlockedCircuitIds,
         unlockedFeatures,
-        autoScavengeUnlocked: state.autoScavengeUnlocked || def.effect.type === "auto_all",
-        autoRaceUnlocked: state.autoRaceUnlocked || def.effect.type === "auto_all",
+        autoScavengeUnlocked: true,
+        autoRaceUnlocked: true,
       });
     },
 

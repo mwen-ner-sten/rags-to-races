@@ -166,7 +166,6 @@ function formatEffect(type: string, value: number): string {
     case "scrap_mult_squared":
     case "rep_mult_squared":
     case "lp_triple":
-    case "auto_all":
     case "unlock_adv_circuits":
     case "unlock_t9_vehicles":
     case "unlock_research":
@@ -174,6 +173,8 @@ function formatEffect(type: string, value: number): string {
       return value >= 1 ? "Active" : "Inactive";
     case "material_conversion":
       return value >= 1 ? "10 materials / $100" : "Inactive";
+    case "race_tick_reduction":
+      return value >= 1 ? `−${value} tick per race` : "Inactive";
     case "crew_starting_level":
       return value >= 1 ? `Level ${value}` : "Inactive";
     case "legacy_starting_level":

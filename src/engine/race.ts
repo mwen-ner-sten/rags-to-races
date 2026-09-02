@@ -176,10 +176,10 @@ export function rollSalvageDrop(
 
   const def = eligible[randInt(0, eligible.length - 1)];
 
-  // Salvage is always rusted or worn (it's from wreckage)
-  const conditions: ScavengedPart["condition"][] = maxConditionIndex >= 2
-    ? ["rusted", "worn", "decent"]
-    : ["rusted", "worn"];
+  // Wreckage from a bigger race is worth picking through: the ceiling rises
+  // with circuit tier (up to "good"), and Scavenger's Eye raises it further.
+  const ceiling = Math.min(3, maxConditionIndex + Math.floor(circuit.tier / 2));
+  const conditions: ScavengedPart["condition"][] = (["rusted", "worn", "decent", "good"] as const).slice(0, ceiling + 1);
   const condition = conditions[randInt(0, conditions.length - 1)];
 
   return {

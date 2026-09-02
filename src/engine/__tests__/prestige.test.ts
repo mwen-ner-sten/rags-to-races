@@ -36,25 +36,24 @@ describe("calculateLegacyPoints", () => {
     // scrapComponent = sqrt(10000 / 100) = sqrt(100) = 10
     // raceComponent = log2(1 + 80/10) = log2(9) ≈ 3.1699
     // tierMultiplier = 1 + 2 * 0.5 = 2
-    // fatigueFloor = max(0.3, min(1, 35/30)) = min(1, 1.167) = 1
+    // depthFactor = min(1, 0.5 + 80/100) = 1
     // workshopBonus = 1 + 10 * 0.05 = 1.5
     // raw = (10 + 3.1699*3) * 2 * 1 * 1.5 = (10 + 9.5097) * 3 = 58.529
     // floor(58.529) = 58
     expect(calculateLegacyPoints(baseStats)).toBe(58);
   });
 
-  it("applies fatigue floor at 0.3 when fatigue is 0", () => {
-    const noFatigue: RunStats = { ...baseStats, fatigue: 0 };
-    // fatigueFloor = max(0.3, min(1, 0/30)) = 0.3
-    // raw = (10 + 9.5097) * 2 * 0.3 * 1.5 = 17.5587 → 17
-    expect(calculateLegacyPoints(noFatigue)).toBe(17);
+  it("pays half for a reset with no race depth", () => {
+    const shallow: RunStats = { ...baseStats, lifetimeRaces: 0 };
+    // raceComponent = 0, depthFactor = 0.5
+    // raw = 10 * 2 * 0.5 * 1.5 = 15
+    expect(calculateLegacyPoints(shallow)).toBe(15);
   });
 
-  it("caps fatigue floor at 1.0 when fatigue >= 30", () => {
-    const fatigue30 = calculateLegacyPoints({ ...baseStats, fatigue: 30 });
-    const fatigue50 = calculateLegacyPoints({ ...baseStats, fatigue: 50 });
-    // Both should have fatigueFloor = 1.0, so same LP
-    expect(fatigue30).toBe(fatigue50);
+  it("never lets fatigue change the award, so fatigue relief is never a trap", () => {
+    const fresh = calculateLegacyPoints({ ...baseStats, fatigue: 0 });
+    const tired = calculateLegacyPoints({ ...baseStats, fatigue: 50 });
+    expect(fresh).toBe(tired);
   });
 
   it("higher tier multiplies LP", () => {

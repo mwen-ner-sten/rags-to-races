@@ -53,13 +53,13 @@ const LP_PRINTING_PRESS: OwnerUpgradeDefinition = {
 
 const AUTO_EVERYTHING: OwnerUpgradeDefinition = {
   id: "owner_auto_all",
-  name: "Auto-Everything",
-  description: "Auto-Scavenge and Auto-Race start enabled after every reset.",
+  name: "Pit Wall",
+  description: "Auto-race fires one tick sooner in every run.",
   category: "franchise",
   maxLevel: 1,
   baseCost: 30,
   costScaling: 1,
-  effect: { type: "auto_all", valuePerLevel: 1 },
+  effect: { type: "race_tick_reduction", valuePerLevel: 1 },
 };
 
 // ── Facilities (new content) ───────────────────────────────────────────────
