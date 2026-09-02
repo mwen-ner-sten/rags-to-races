@@ -381,6 +381,8 @@ export interface GameState {
   hostTrackEvent: () => void;
   collectHostedEvent: (eventId: string) => void;
   clearUnlockEvents: () => void;
+  /** Queue an unlock announcement once; duplicates already pending are ignored. */
+  announceUnlock: (message: string) => void;
   advanceTutorial: () => void;
   skipTutorial: () => void;
   dismissTutorial: () => void;
@@ -1905,6 +1907,10 @@ function createActions(set: SetState, get: GetState) {
       if (!event) return;
       set((current: GameState) => ({ scrapBucks: current.scrapBucks + event.reward, lifetimeScrapBucks: current.lifetimeScrapBucks + event.reward, lifetimeScrapBucksAllTime: current.lifetimeScrapBucksAllTime + event.reward, hostedEvents: current.hostedEvents.filter((candidate) => candidate.id !== eventId) }));
       (get() as GameState).checkAchievements();
+    },
+
+    announceUnlock: (message: string) => {
+      set((s: GameState) => s.unlockEvents.includes(message) ? {} : { unlockEvents: [...s.unlockEvents, message] });
     },
 
     clearUnlockEvents: () => {

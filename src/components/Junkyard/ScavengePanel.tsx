@@ -186,7 +186,9 @@ export default function ScavengePanel() {
     manualScavenge();
     setTimeout(() => setIsScavengeAnimating(false), 150);
     if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
-    cooldownTimerRef.current = setTimeout(() => setIsCoolingDown(false), cooldown);
+    // Clear the visual state slightly after the guard window so a press the
+    // moment it clears is never swallowed by timer/clock rounding.
+    cooldownTimerRef.current = setTimeout(() => setIsCoolingDown(false), cooldown + 50);
   }, [manualScavenge, computeHoldInterval]);
 
   const stopHold = useCallback(() => {

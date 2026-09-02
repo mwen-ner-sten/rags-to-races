@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/state/store";
+import { WORKSHOP_REVEAL_PREFIX, WORKSHOP_TABS } from "@/data/workshopTabs";
 
 interface UnlockGuide {
   id: string;
@@ -21,6 +22,17 @@ interface ToastItem {
 const SEEN_GUIDES_KEY = "rags-to-races-seen-unlock-guides";
 
 export function getUnlockGuide(message: string): UnlockGuide | null {
+  if (message.startsWith(WORKSHOP_REVEAL_PREFIX)) {
+    const label = message.slice(WORKSHOP_REVEAL_PREFIX.length);
+    const tab = WORKSHOP_TABS.find((candidate) => candidate.label === label);
+    if (tab) return {
+      id: `workshop-${tab.id}`,
+      title: `${tab.label} opened in the Workshop`,
+      what: tab.guide.what,
+      where: `Find it under Workshop > ${tab.label}.`,
+      why: tab.guide.why,
+    };
+  }
   if (/Dirt Track Unlocked/i.test(message)) return {
     id: "circuits",
     title: "Circuits unlocked",

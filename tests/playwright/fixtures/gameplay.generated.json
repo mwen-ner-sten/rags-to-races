@@ -5,7 +5,7 @@
     "description": "Generated fresh gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -203,7 +203,7 @@
     "description": "Generated first build ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 25,
         "repPoints": 8,
@@ -438,7 +438,7 @@
     "description": "Generated first race ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 100,
         "repPoints": 25,
@@ -690,7 +690,7 @@
     "description": "Generated workshop ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 1000000,
         "repPoints": 250000,
@@ -2173,7 +2173,7 @@
     "description": "Generated auto scavenge boundary gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 1000,
         "repPoints": 0,
@@ -2436,7 +2436,7 @@
     "description": "Generated first scrap reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 1000,
         "repPoints": 500,
@@ -3024,7 +3024,7 @@
     "description": "Generated post scrap reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -3233,7 +3233,7 @@
     "description": "Generated team reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -4367,7 +4367,7 @@
     "description": "Generated post team reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -4572,7 +4572,7 @@
     "description": "Generated owner reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -5683,7 +5683,7 @@
     "description": "Generated post owner reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -5888,7 +5888,7 @@
     "description": "Generated track reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -6999,7 +6999,7 @@
     "description": "Generated post track reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -7204,7 +7204,7 @@
     "description": "Generated maxed gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 3,
+      "version": 4,
       "state": {
         "scrapBucks": 1000000000,
         "repPoints": 1000000000,

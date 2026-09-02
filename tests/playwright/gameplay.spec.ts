@@ -216,7 +216,7 @@ test("current-version saves strip injected action names and keep Scavenge callab
   expect(after.prestige).toBeUndefined();
 });
 
-test("Scouting Orders are an accessible manual-only probability tradeoff", async ({ page }) => {
+test("Scouting Orders are an accessible probability tradeoff for every scavenge", async ({ page }) => {
   await loadFixture(page, "auto_scavenge_boundary", {
     tutorialStep: -1,
     tutorialDismissed: true,
@@ -231,8 +231,7 @@ test("Scouting Orders are an accessible manual-only probability tradeoff", async
   await expect(orders).toContainText("3× relative chance");
   await expect(orders).toContainText("not guaranteed");
   await expect(orders).toContainText("Yield and condition stay unchanged");
-  await expect(orders).toContainText("manual scavenging only");
-  await expect(orders).toContainText("Auto-Scavenge keeps the normal location mix");
+  await expect(orders).toContainText("Applies to every scavenge, manual or automatic");
 
   const engine = orders.getByRole("button", { name: "Engine" });
   await engine.focus();

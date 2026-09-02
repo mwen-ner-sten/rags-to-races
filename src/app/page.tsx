@@ -14,6 +14,7 @@ import HelpActivityTab from "@/components/Help/HelpActivityTab";
 import ToastContainer from "@/components/effects/Toast";
 import TutorialOverlay, { getAdaptiveAllowedTabs } from "@/components/effects/TutorialOverlay";
 import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
+import WorkshopRevealWatcher from "@/components/effects/WorkshopRevealWatcher";
 import { useGameStore, type GameState } from "@/state/store";
 import { computeOfflineTickSpeedMs, computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
@@ -200,6 +201,7 @@ export default function Home() {
   return (
     <>
       <ToastContainer />
+      <WorkshopRevealWatcher />
       {offlineResult && (
         <OfflineProgressModal
           timeAwayMinutes={offlineResult.timeAway}

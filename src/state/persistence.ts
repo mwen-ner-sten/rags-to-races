@@ -13,7 +13,7 @@ import { INITIAL_MATERIALS } from "@/data/materials";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 
-export const PERSISTENCE_VERSION = 3;
+export const PERSISTENCE_VERSION = 4;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
 export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 
@@ -517,6 +517,12 @@ export function migratePersistedState(
     };
   }
 
+  if (version < 4) {
+    // Automation became a baseline. Saves that were still earning it through
+    // manual clicks or a first reset simply receive it.
+    state = { ...state, autoScavengeUnlocked: true, autoRaceUnlocked: true };
+  }
+
   if (version < 3) {
     const oldNodes = Array.isArray(state.unlockedTalentNodes) ? state.unlockedTalentNodes : [];
     const tierRefund = { 1: 8, 2: 15, 3: 30, 4: 60, 5: 60 } as Record<number, number>;
@@ -677,14 +683,13 @@ export function migratePersistedState(
     unlockedVehicleIds: [...unlockedVehicleIds],
     crewSlots: derivedCrewSlots,
     crewRoster,
-    // Automation became a baseline in every run; older saves that earned it
-    // through clicks or a reset simply keep it, and pre-baseline saves gain it.
-    autoScavengeUnlocked: true,
+    // Automation is on unless a current-version save (or a dev toggle) turned it off.
+    autoScavengeUnlocked: state.autoScavengeUnlocked ?? true,
     scoutingOrder: normalizeScoutingOrder(
       state.scoutingOrder,
       getLocationById(state.selectedLocationId ?? "curbside"),
     ),
-    autoRaceUnlocked: true,
+    autoRaceUnlocked: state.autoRaceUnlocked ?? true,
     autoRaceMinCondition: state.autoRaceMinCondition ?? AUTO_RACE_MIN_CONDITION_DEFAULT,
   };
 
