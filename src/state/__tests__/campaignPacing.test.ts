@@ -10,6 +10,9 @@ import { canScrapReset, getScrapResetProgress, SCRAP_RESET_REQUIREMENTS } from "
 import { createInitialState, getVehicleBuildCost, getVehicleRepairCost, useGameStore } from "../store";
 import { LEGACY_UPGRADE_DEFINITIONS } from "@/data/legacyUpgrades";
 import { computeTick } from "@/engine/tick";
+import { FATIGUE } from "@/config/progression";
+import { getFatigueRecoveryPerHour } from "@/engine/fatigue";
+import { aimAtResetGoal } from "@/testing/mixedCampaign";
 
 function settleLiveAutomationTick(): void {
   const state = useGameStore.getState();
@@ -164,21 +167,29 @@ function resetProgress() {
 const MAX_CAMPAIGN_RACES = 3_000;
 
 /**
- * Interim guard (phase 2, 2026-09-04). The reset needs the National Feature,
- * two rivals and 2,500 lifetime Rep; on this seed that is ~54 engaged
- * minutes (67 races, 308 scavenges), down from ~88 under the old gate because
- * the spec's geometric venue ladder makes the first four venues near-locks
- * for tier-appropriate builds (see docs/balance/phase2-event-ladder-2026-09-04.md).
- * The charter's 2–4 day target is judged by the mixed-play simulation, not by
- * this engaged-only harness; this band only catches drift.
+ * Hands-on minutes to the first Scrap Reset for an engaged player who races
+ * until the auto-race fatigue ceiling, then sleeps it off (fatigue only: the
+ * garage's hours away are the mixed-play simulation's subject, not this
+ * harness's). Rest is wall time, not hands-on time, and is reported separately.
+ *
+ * Measured 2026-09-04 after the event-ladder anchor retune
+ * (docs/balance/phase2-mixed-play-2026-09-04.md): ~185 hands-on
+ * minutes on this seed. The band is that value +-20%; it catches drift. The
+ * charter's 2-4 wall-day target is judged by src/engine/__tests__/mixedCampaign.test.ts,
+ * never by tuning fatigue or ladder constants to satisfy this band.
  */
-// Interim band after Phase 2 lever 1 (fatigue rhythm) landed on top of the
-// event ladder: this harness races back-to-back with no rest, so the driver
-// sits near max fatigue for most of the run and the estimate is ~115 min.
-// The mixed-play simulation with rest between sessions is the real Phase 2
-// instrument; retighten this band from that harness, never by tuning
-// fatigue or ladder constants to satisfy it.
-const CAMPAIGN_HANDS_ON_MINUTES_GUARD = { min: 35, max: 150 };
+const CAMPAIGN_HANDS_ON_MINUTES_GUARD = { min: 148, max: 222 };
+/** Fatigue the engaged player rests down to before racing again. */
+const RESTED_FATIGUE = 20;
+
+/** Sleep until the driver is rested. Returns the hours it took. */
+function restIfTired(): number {
+  const state = useGameStore.getState();
+  if (state.fatigue <= FATIGUE.AUTO_RACE_MAX_DEFAULT) return 0;
+  const hours = (state.fatigue - RESTED_FATIGUE) / getFatigueRecoveryPerHour(state);
+  useGameStore.setState({ fatigue: RESTED_FATIGUE });
+  return hours;
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -198,6 +209,7 @@ describe("seeded first-campaign pacing", () => {
     let firstVehicleScavenges = 0;
     let races = 0;
     let raceDurationMs = 0;
+    let restHours = 0;
     const eventsRaced: Record<string, number> = {};
 
     withRandomSource(random, () => {
@@ -230,12 +242,20 @@ describe("seeded first-campaign pacing", () => {
         if (!bestRace) throw new Error("No eligible race during campaign cohort");
         refreshed.setActiveVehicle(bestRace.vehicle.id);
         refreshed.setSelectedCircuit(bestRace.circuit.id);
+        // A player reading the reset card climbs the National ladder and hunts
+        // rivals in Features once those are open, whatever the auto chooser
+        // would enter for the money.
+        aimAtResetGoal();
+        const activeCar = () => {
+          const current = useGameStore.getState();
+          return current.garage.find((vehicle) => vehicle.id === current.activeVehicleId)!;
+        };
         // Grind cash until the car is race-ready: the background ticks keep
         // racing (and wearing) the car while we scavenge, so the repair bill
         // and the entered event's fee are re-read every attempt.
         for (let attempts = 0; attempts < 400; attempts++) {
           const cashState = useGameStore.getState();
-          const car = cashState.garage.find((vehicle) => vehicle.id === bestRace.vehicle.id)!;
+          const car = activeCar();
           const needsRepair = (car.condition ?? 100) < 35;
           const entryFee = getActiveEventCircuit(cashState)?.entryFee ?? bestRace.circuit.entryFee;
           const neededCash = (needsRepair ? getVehicleRepairCost(cashState, car) : 0) + entryFee;
@@ -259,9 +279,10 @@ describe("seeded first-campaign pacing", () => {
         races++;
         const key = `${entered.venueId}:${entered.eventId}`;
         eventsRaced[key] = (eventsRaced[key] ?? 0) + 1;
-        raceDurationMs += bestRace.circuit.raceDuration;
+        raceDurationMs += entered.raceDuration;
         // A race plus its review is roughly one background tick of real time.
         settleLiveAutomationTick();
+        restHours += restIfTired();
         if (races > MAX_CAMPAIGN_RACES) {
           const stalled = useGameStore.getState();
           throw new Error(`First campaign exceeded ${MAX_CAMPAIGN_RACES} races: progress=${JSON.stringify(resetProgress())}, rep=${stalled.repPoints}, lifetimeRep=${stalled.lifetimeRep}, vehicles=${stalled.garage.map((vehicle) => vehicle.definitionId).join(",")}, unlocked=${stalled.unlockedVehicleIds.join(",")}, circuits=${stalled.unlockedCircuitIds.join(",")}, events=${JSON.stringify(stalled.eventWins)}`);
@@ -306,6 +327,7 @@ describe("seeded first-campaign pacing", () => {
       lifetimeScrap: state.lifetimeScrapBucks,
       wins: state.lifetimeWinsAllTime,
       fatigue: state.fatigue,
+      restHours: Number(restHours.toFixed(1)),
       lp: award.totalLp,
       engineMinutes: Number(((raceDurationMs + scavengeDurationMs) / 60_000).toFixed(1)),
       estimatedHandsOnMinutes: Number(estimatedHandsOnMinutes.toFixed(1)),

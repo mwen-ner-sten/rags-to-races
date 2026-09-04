@@ -1,5 +1,11 @@
+/**
+ * `scrap` is wall-clock time for mixed play (charter, 2026-09-04): 2-4 days at
+ * four check-ins of ~15 min a day, measured by scripts/simulate-mixed-campaign.ts
+ * and guarded by src/engine/__tests__/mixedCampaign.test.ts. The later layers
+ * are still hours of play.
+ */
 export const CAMPAIGN_PACING_TARGETS_HOURS = {
-  scrap: { min: 1, max: 2 },
+  scrap: { min: 48, max: 96 },
   team: { min: 8, max: 15 },
   owner: { min: 30, max: 50 },
   track: { min: 80, max: 150 },

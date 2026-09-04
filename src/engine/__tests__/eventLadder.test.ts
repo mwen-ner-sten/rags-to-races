@@ -10,8 +10,10 @@ import {
 } from "../eventLadder";
 
 describe("venue ladder", () => {
-  it("re-curves venue difficulty and prizes geometrically with 15% entry fees", () => {
-    expect(CIRCUIT_DEFINITIONS.map((circuit) => circuit.difficulty)).toEqual([9, 20, 45, 100, 220, 480, 1050]);
+  it("anchors venue difficulty on measured parity, keeps the prize ladder geometric, and charges 15% entry fees", () => {
+    // Heat difficulty per venue: the circuit-fitted performance at which a
+    // decent tier-minimum build sits at 35-55% (docs/balance/phase2-mixed-play-2026-09-04.md).
+    expect(CIRCUIT_DEFINITIONS.map((circuit) => circuit.difficulty)).toEqual([8, 58, 140, 230, 380, 385, 385]);
     expect(CIRCUIT_DEFINITIONS.map((circuit) => circuit.rewardBase)).toEqual([10, 22, 50, 110, 250, 560, 1250]);
     for (const circuit of CIRCUIT_DEFINITIONS.slice(1)) {
       expect(circuit.entryFee).toBe(Math.round(circuit.rewardBase * 0.15));
