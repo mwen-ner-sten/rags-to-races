@@ -22,14 +22,14 @@ export interface ComposedEquipmentArt {
 }
 
 export const EQUIPMENT_SILHOUETTES = Object.fromEntries(
-  GARAGE_STATION_IDS.map((slot) => [slot, `/sprites/stations/${slot}.png`]),
+  GARAGE_STATION_IDS.map((slot) => [slot, `/sprites/stations/${slot}.webp`]),
 ) as Record<GarageStationSlot, string>;
 
 export function composeEquipmentArt(variant: EquipmentArtVariant): ComposedEquipmentArt {
   return {
     silhouette: EQUIPMENT_SILHOUETTES[variant.slot],
-    rarityFrame: `/sprites/equipment/rarity/${variant.rarity}.png`,
-    setMotif: variant.set ? `/sprites/equipment/sets/${variant.set}.png` : undefined,
-    affixOverlays: variant.affixes.map((affix) => `/sprites/equipment/affixes/${affix}.png`),
+    rarityFrame: `/sprites/equipment/rarity/${variant.rarity}.webp`,
+    setMotif: variant.set ? `/sprites/equipment/sets/${variant.set}.webp` : undefined,
+    affixOverlays: variant.affixes.map((affix) => `/sprites/equipment/affixes/${affix}.webp`),
   };
 }

@@ -89,8 +89,11 @@ success, info, close, chevron, external, search.
 
 ## Format and weight
 
-- Author at 128×128 PNG, ship 64×64 **WebP** (quality 85). Today's 138 PNGs are
-  ~14 MB; the WebP set should land under 2 MB.
+- Author at 128×128 PNG, ship 64×64 **WebP** (quality 85). Authoring PNGs live
+  in `docs/art/source/<same tree>`; `python scripts/convert_sprites_to_webp.py`
+  regenerates the shipped set in `public/sprites/` (124 sprites, ~1 MB, down
+  from ~14 MB of PNG). The asset scripts write both the PNG source and the
+  WebP in one pass.
 - Contact and review sheets live in `docs/art/review/`, never in `public/`.
 - `src/assets/manifest.ts` keys `kind:id` → path. A missing asset must render a
   visible placeholder glyph in dev, not `null`.

@@ -8,7 +8,7 @@ describe("vehicle sprite manifest", () => {
       const sprite = getVehicleSpriteAsset(vehicle.id);
 
       expect(sprite, vehicle.id).toBeDefined();
-      expect(sprite?.src).toBe(`/sprites/vehicles/${vehicle.id}.png`);
+      expect(sprite?.src).toBe(`/sprites/vehicles/${vehicle.id}.webp`);
       expect(sprite?.width).toBe(64);
       expect(sprite?.height).toBe(64);
       expect(sprite?.anchor).toEqual({ x: 32, y: 32 });

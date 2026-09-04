@@ -17,28 +17,28 @@ describe("procedural station equipment art", () => {
       affixes: ["engineering", "speed"],
     });
     expect(art).toEqual({
-      silhouette: "/sprites/stations/diagnostics.png",
-      rarityFrame: "/sprites/equipment/rarity/legendary.png",
-      setMotif: "/sprites/equipment/sets/redline.png",
+      silhouette: "/sprites/stations/diagnostics.webp",
+      rarityFrame: "/sprites/equipment/rarity/legendary.webp",
+      setMotif: "/sprites/equipment/sets/redline.webp",
       affixOverlays: [
-        "/sprites/equipment/affixes/engineering.png",
-        "/sprites/equipment/affixes/speed.png",
+        "/sprites/equipment/affixes/engineering.webp",
+        "/sprites/equipment/affixes/speed.webp",
       ],
     });
   });
 
   it("ships every layer referenced by the composition catalog", () => {
     for (const slot of GARAGE_STATION_IDS) {
-      expect(publicAssetExists(`/sprites/stations/${slot}.png`), slot).toBe(true);
+      expect(publicAssetExists(`/sprites/stations/${slot}.webp`), slot).toBe(true);
     }
     for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
-      expect(publicAssetExists(`/sprites/equipment/rarity/${rarity}.png`), rarity).toBe(true);
+      expect(publicAssetExists(`/sprites/equipment/rarity/${rarity}.webp`), rarity).toBe(true);
     }
     for (const set of STATION_SET_IDS) {
-      expect(publicAssetExists(`/sprites/equipment/sets/${set}.png`), set).toBe(true);
+      expect(publicAssetExists(`/sprites/equipment/sets/${set}.webp`), set).toBe(true);
     }
     for (const affix of EQUIPMENT_AFFIX_ART_IDS) {
-      expect(publicAssetExists(`/sprites/equipment/affixes/${affix}.png`), affix).toBe(true);
+      expect(publicAssetExists(`/sprites/equipment/affixes/${affix}.webp`), affix).toBe(true);
     }
   });
 });
