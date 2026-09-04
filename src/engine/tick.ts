@@ -7,6 +7,8 @@ import type { ScavengedPart } from "./scavenge";
 import { getGearBonuses } from "./gear";
 import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
+import { getActiveEventCircuit } from "./raceExpectation";
+import { addEventWin, type EventWins } from "./eventLadder";
 import { simulateRace, calculateWear, compactRaceHistory, type RaceOutcome } from "./race";
 import { applyRacePayout, collectBonuses, racePerformanceMultiplier } from "./bonuses";
 import { deriveVehicleStats, vehiclePerformance, withDerivedStats } from "./performance";
@@ -135,7 +137,7 @@ function autoRepairAmount(state: GameState, vehicleCondition: number): number {
 export function autoRaceWouldFire(state: GameState): boolean {
   if (!state.autoRaceUnlocked || !state.activeVehicleId || !state.selectedCircuitId) return false;
   const vehicle = state.garage.find((candidate) => candidate.id === state.activeVehicleId);
-  if (!vehicle || !canEnterSelectedRace(state) || isTooTiredToAutoRace(state)) return false;
+  if (!vehicle || !canEnterSelectedRace(state, getActiveEventCircuit(state)) || isTooTiredToAutoRace(state)) return false;
   const condition = vehicle.condition ?? 100;
   return condition + autoRepairAmount(state, condition) >= (state.autoRaceMinCondition ?? 0);
 }
@@ -282,7 +284,8 @@ export function computeTick(state: GameState): TickResult {
       result.newRaceTickProgress = Math.min(newRaceProgress, raceTicksNeeded);
 
       const vehicle = state.garage.find((v) => v.id === state.activeVehicleId);
-      const circuit = getCircuitById(state.selectedCircuitId);
+      // The event auto-race volunteers for: the pinned one, or the best contestable open event.
+      const circuit = getActiveEventCircuit(state);
 
       if (vehicle && circuit) {
         const vehicleCondition = vehicle.condition ?? 100;
@@ -297,7 +300,7 @@ export function computeTick(state: GameState): TickResult {
         const restedEnough = !isTooTiredToAutoRace(state);
 
         // Manual and automated races share the same authoritative gate.
-        if (conditionFloorMet && restedEnough && canEnterSelectedRace(state)) {
+        if (conditionFloorMet && restedEnough && canEnterSelectedRace(state, circuit)) {
           result.newRaceTickProgress = 0;
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
@@ -420,6 +423,8 @@ export interface OfflineResult {
   winningCircuitIds: string[];
   defeatedRivalIds: string[];
   circuitWinStreaks: Record<string, number>;
+  /** Wins per venue event during the batch, so Heats and Features opened offline stay open. */
+  eventWins: EventWins;
   challengesEvaluated: boolean;
   completedChallengeIds: string[];
   challengeForgeTokens: number;
@@ -479,6 +484,7 @@ export function simulateOfflineTicks(
     winningCircuitIds: [],
     defeatedRivalIds: [],
     circuitWinStreaks: {},
+    eventWins: {},
     challengesEvaluated: true,
     completedChallengeIds: [],
     challengeForgeTokens: 0,
@@ -508,6 +514,7 @@ export function simulateOfflineTicks(
     materials: initialState.materials ?? ({} as GameState["materials"]),
     defeatedRivalIds: initialState.defeatedRivalIds ?? [],
     projects: initialState.projects ?? [],
+    eventWins: initialState.eventWins ?? {},
   };
   const offlinePartCapacity = Math.max(0, OFFLINE_LOOSE_INVENTORY_LIMIT - initialState.inventory.length);
   const stationEquipmentCapacity = Math.max(
@@ -623,6 +630,9 @@ export function simulateOfflineTicks(
       snap.raceHistory = compactRaceHistory([r.raceOutcome!, ...snap.raceHistory], 20);
       if (r.raceOutcome!.result === "win") {
         result.winsCompleted++;
+        const wonEventId = r.raceOutcome!.eventId ?? "heat";
+        snap.eventWins = addEventWin(snap.eventWins, r.raceOutcome!.circuitId, wonEventId);
+        result.eventWins = addEventWin(result.eventWins, r.raceOutcome!.circuitId, wonEventId);
         if (!result.winningCircuitIds.includes(r.raceOutcome!.circuitId)) result.winningCircuitIds.push(r.raceOutcome!.circuitId);
         currentCircuitStreak = currentCircuitStreakId === r.raceOutcome!.circuitId ? currentCircuitStreak + 1 : 1;
         currentCircuitStreakId = r.raceOutcome!.circuitId;

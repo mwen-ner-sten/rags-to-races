@@ -2,6 +2,7 @@ import type { BuiltVehicle } from "./build";
 import { getCircuitById, type CircuitDefinition } from "@/data/circuits";
 import { getLocationById } from "@/data/locations";
 import { getVehicleById } from "@/data/vehicles";
+import { isEventOpen, resolveEventCircuit, type EventCircuit, type EventWins } from "./eventLadder";
 
 export interface RaceEligibilityState {
   activeVehicleId: string | null;
@@ -10,12 +11,15 @@ export interface RaceEligibilityState {
   unlockedCircuitIds: string[];
   scrapBucks: number;
   isRacing?: boolean;
+  /** Wins per venue event; absent on older states (only Sprints are open). */
+  eventWins?: EventWins;
 }
 
 export type RaceIneligibilityReason =
   | "already_racing"
   | "no_vehicle"
   | "circuit_locked"
+  | "event_locked"
   | "vehicle_broken"
   | "vehicle_tier_low"
   | "vehicle_tier_high"
@@ -46,7 +50,19 @@ export function getVehicleCircuitIneligibilityReason(
   return null;
 }
 
-export function getRaceIneligibilityReason(state: RaceEligibilityState): RaceIneligibilityReason | null {
+/**
+ * The event this state would enter at the selected venue: the caller's
+ * resolved event when it belongs to that venue, otherwise the Sprint, which
+ * is always open once the venue is.
+ */
+function enteredEvent(circuit: CircuitDefinition, event: EventCircuit | null | undefined): EventCircuit {
+  return event && event.venueId === circuit.id ? event : resolveEventCircuit(circuit, "sprint");
+}
+
+export function getRaceIneligibilityReason(
+  state: RaceEligibilityState,
+  event?: EventCircuit | null,
+): RaceIneligibilityReason | null {
   if (state.isRacing) return "already_racing";
   const vehicle = state.garage.find((candidate) => candidate.id === state.activeVehicleId);
   if (!vehicle) return "no_vehicle";
@@ -54,12 +70,14 @@ export function getRaceIneligibilityReason(state: RaceEligibilityState): RaceIne
   if (!circuit || !state.unlockedCircuitIds.includes(circuit.id)) return "circuit_locked";
   const physicalReason = getVehicleCircuitIneligibilityReason(vehicle, circuit);
   if (physicalReason) return physicalReason;
-  if (state.scrapBucks < circuit.entryFee) return "entry_fee";
+  const entered = enteredEvent(circuit, event);
+  if (!isEventOpen(entered.eventId, state.eventWins?.[circuit.id])) return "event_locked";
+  if (state.scrapBucks < entered.entryFee) return "entry_fee";
   return null;
 }
 
-export function canEnterSelectedRace(state: RaceEligibilityState): boolean {
-  return getRaceIneligibilityReason(state) === null;
+export function canEnterSelectedRace(state: RaceEligibilityState, event?: EventCircuit | null): boolean {
+  return getRaceIneligibilityReason(state, event) === null;
 }
 
 export function canScavengeSelectedLocation(state: {

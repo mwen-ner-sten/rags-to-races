@@ -60,7 +60,19 @@ describe("vehicle stat model", () => {
     expect(heavyEdgeOnRegional).toBeGreaterThan(heavyEdgeOnNational);
   });
 
-  it("keeps every circuit contested for a decent tier-minimum build and beatable for a pristine tier-max build", () => {
+  /**
+   * Phase 2 ladder guard. The venue difficulties are the spec's geometric
+   * ladder (9 … 1050, x2.2 per venue) rather than per-venue parity fits, so
+   * this checks the ladder's shape and that no Heat is ever hopeless for a
+   * decent tier-minimum build. Per-event contest levels are printed by
+   * scripts/calibrate-circuits.ts and recorded in docs/balance.
+   */
+  it("keeps the venue ladder geometric and every Heat reachable for a decent tier-minimum build", () => {
+    for (let index = 1; index < CIRCUIT_DEFINITIONS.length; index++) {
+      const step = CIRCUIT_DEFINITIONS[index].difficulty / CIRCUIT_DEFINITIONS[index - 1].difficulty;
+      expect(step, CIRCUIT_DEFINITIONS[index].id).toBeGreaterThanOrEqual(2);
+      expect(step, CIRCUIT_DEFINITIONS[index].id).toBeLessThanOrEqual(2.5);
+    }
     for (const circuit of CIRCUIT_DEFINITIONS) {
       const minVehicle = getVehicleById(
         ["push_mower", "riding_mower", "go_kart", "beater_car", "street_racer", "rally_car", "stock_car", "prototype_racer", "supercar", "hypercar", "prototype_x"][circuit.minVehicleTier],
@@ -69,8 +81,7 @@ describe("vehicle stat model", () => {
         minVehicle.slots.filter((s) => s.required).map((s) => installed(s.slot, s.acceptableParts[0], "decent")),
       );
       const floor = getCircuitPerformance(calculateStats(minVehicle, parts), circuit) / circuit.difficulty;
-      expect(floor, circuit.id).toBeGreaterThan(0.6);
-      expect(floor, circuit.id).toBeLessThan(1.05);
+      expect(floor, circuit.id).toBeGreaterThan(0.35);
     }
   });
 });

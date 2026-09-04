@@ -28,6 +28,10 @@ import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import type { TabId } from "@/components/navigation/tabs";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
+import { getActiveEventCircuit } from "@/engine/raceExpectation";
+import { getEventDefinition, getOpenEventIds } from "@/engine/eventLadder";
+import { EVENT_LADDER } from "@/data/circuits";
+import EventLadder from "./EventLadder";
 import { buildEngineeringReport, findDiagnosticVehicle } from "@/engine/engineeringDiagnostics";
 
 // ── Event Icons ────────────────────────────────────────────────────────
@@ -373,6 +377,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const equippedLootGear = useGameStore((s) => s.equippedLootGear);
   const lootGearInventory = useGameStore((s) => s.lootGearInventory);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
+  const eventWins = useGameStore((s) => s.eventWins);
+  const pinnedEventIds = useGameStore((s) => s.pinnedEventIds);
+  const setSelectedEvent = useGameStore((s) => s.setSelectedEvent);
   const enterRace = useGameStore((s) => s.enterRace);
   const currentRacePlan = useGameStore((s) => s.currentRacePlan);
   const setRacePlan = useGameStore((s) => s.setRacePlan);
@@ -460,6 +467,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   );
 
   const selectedCircuit = availableCircuits.find((c) => c.id === selectedCircuitId);
+  // The event the next race here enters: the pinned one, or auto-race's best contestable open event.
+  // Re-derived on every render; the panel already subscribes to everything the choice depends on.
+  const activeEvent = selectedCircuit ? getActiveEventCircuit(useGameStore.getState(), selectedCircuit.id) : null;
   const resultCircuit = lastRaceOutcome
     ? CIRCUIT_DEFINITIONS.find((circuit) => circuit.id === lastRaceOutcome.circuitId)
     : undefined;
@@ -475,8 +485,10 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
     unlockedCircuitIds,
     scrapBucks,
     isRacing,
-  });
+    eventWins,
+  }, activeEvent);
   const canEnter = raceIneligibilityReason === null;
+  const activeEventName = activeEvent ? activeEvent.eventName : "";
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
@@ -512,6 +524,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
               </div>
               <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
                 Vehicle T{circuit.minVehicleTier}–T{circuit.maxVehicleTier}
+                {" · "}{getOpenEventIds(eventWins?.[circuit.id]).length}/{EVENT_LADDER.length} events open
               </div>
             </button>
           ))}
@@ -653,6 +666,15 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           </div>
         )}
 
+        {selectedCircuit && (
+          <EventLadder
+            venue={selectedCircuit}
+            activeEventId={activeEvent?.eventId ?? null}
+            pinnedEventId={pinnedEventIds?.[selectedCircuit.id] ?? null}
+            onPin={(eventId) => setSelectedEvent(selectedCircuit.id, eventId)}
+          />
+        )}
+
         {selectedCircuit && <RacePreparation profile={selectedCircuit.profile} plan={currentRacePlan} onChange={setRacePlan} onPreset={applyRacePlanPreset} />}
 
         {/* Pre-race odds */}
@@ -661,7 +683,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
           <OddsDisplay
             performance={vehiclePerformance(activeVehicle, selectedCircuit, handlingBonusPct)}
             reliability={deriveVehicleStats(activeVehicle, handlingBonusPct).reliability}
-            difficulty={selectedCircuit.difficulty}
+            difficulty={activeEvent?.difficulty ?? selectedCircuit.difficulty}
             fatigue={fatigue}
             performanceBonus={composeBonus({ equipment: gb.race_performance_pct, team: teamRacePerformance, permanent: permanentRaceBonuses.racePerformanceBonus }) - 1}
             gearDnfReduction={gb.race_dnf_reduction + permanentRaceBonuses.raceDnfFlatReduction}
@@ -750,8 +772,10 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
               ? "No vehicle"
               : raceIneligibilityReason === "circuit_locked"
               ? "Circuit is locked"
+              : raceIneligibilityReason === "event_locked"
+              ? `${activeEventName} is locked here`
               : raceIneligibilityReason === "entry_fee" && selectedCircuit
-              ? `Need $${formatNumber(selectedCircuit.entryFee)}`
+              ? `Need $${formatNumber(activeEvent?.entryFee ?? selectedCircuit.entryFee)}`
               : raceIneligibilityReason === "vehicle_tier_low" && selectedCircuit
               ? `Need T${selectedCircuit.minVehicleTier}+ vehicle`
               : raceIneligibilityReason === "vehicle_tier_high" && selectedCircuit
@@ -797,6 +821,11 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 : lastRaceOutcome.result === "dnf"
                 ? "💥 DNF"
                 : `P${lastRaceOutcome.position}/${lastRaceOutcome.totalRacers}`}
+              {lastRaceOutcome.eventId && (
+                <span className="ml-2 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  {getEventDefinition(lastRaceOutcome.eventId).name}
+                </span>
+              )}
             </div>
             {lastRaceOutcome.rivalId && (() => { const rival = getRivalById(lastRaceOutcome.rivalId!); return rival ? <div className="mb-3 flex items-center gap-3 rounded border p-2" style={{ borderColor: "var(--panel-border)" }}><GameAssetImage kind="rival" id={rival.id} width={48} /><div><strong className="text-sm" style={{ color: "var(--text-white)" }}>{rival.name}</strong><p className="text-xs" style={{ color: "var(--text-muted)" }}>{rival.flavor}</p>{lastRaceOutcome.result === "win" && <p className="text-xs" style={{ color: lastRaceOutcome.rivalRewardClaimed ? "var(--success)" : "var(--text-muted)" }}>{formatRivalWinStatus(rival, lastRaceOutcome.rivalRewardClaimed === true)}</p>}</div></div> : null; })()}
             {lastRaceOutcome.log.map((line, i) => (

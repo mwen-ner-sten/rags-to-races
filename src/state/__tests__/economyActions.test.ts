@@ -257,11 +257,26 @@ describe("released Workshop actions", () => {
 });
 
 describe("Dealer board lifecycle", () => {
-  it("fills once on the Rep unlock transition but does not refill a depleted board for free", () => {
+  it("fills once when the Dealer reveals but does not refill a depleted board for free", () => {
+    // Reveal on relevance: an empty Electronics slot and the cash to fill it.
+    const beater = {
+      id: "beater",
+      definitionId: "beater_car",
+      parts: {
+        engine: { part: { id: "e", definitionId: "engine_v4", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+        wheel: { part: { id: "w", definitionId: "wheel_basic", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+        frame: { part: { id: "f", definitionId: "frame_steel", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+        fuel: { part: { id: "u", definitionId: "fuel_tank_large", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+      },
+      stats: { speed: 10, handling: 5, reliability: 10, weight: 300, performance: 10 },
+      builtAt: 1,
+      condition: 100,
+      totalRaces: 0,
+    };
     useGameStore.setState({
       ...createInitialState(),
-      repPoints: 99,
-      lifetimeRep: 99,
+      garage: [beater],
+      activeVehicleId: beater.id,
       dealerBoard: [],
       gameTick: 100,
       scrapBucks: 500,

@@ -138,7 +138,8 @@ describe("fatigue in the store", () => {
     useGameStore.getState().purchaseUpgrade("keen_eye");
     expect(useGameStore.getState().projects).toHaveLength(1);
     useGameStore.setState({
-      garage: [{ id: "a" }, { id: "b" }, { id: "c" }] as never,
+      eventWins: { national_circuit: { sprint: 1, heat: 1, feature: 1 } },
+      defeatedRivalIds: ["rival_greasy_pete", "rival_redline_rosa"],
       lifetimeRep: 10_000,
       lifetimeScrapBucks: 100_000,
       fatigue: 55,

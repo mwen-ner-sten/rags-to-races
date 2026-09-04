@@ -10,7 +10,7 @@ import { CONDITIONS, getPartById } from "../src/data/parts";
 import { CIRCUIT_DEFINITIONS } from "../src/data/circuits";
 import { getLocationById, LOCATION_DEFINITIONS } from "../src/data/locations";
 import { getVehicleById, VEHICLE_DEFINITIONS } from "../src/data/vehicles";
-import { canScrapReset } from "../src/config/progression";
+import { canScrapReset, getScrapResetProgress } from "../src/config/progression";
 import { computeTick, computeTickSpeedMs } from "../src/engine/tick";
 import { createInitialState, getVehicleBuildCost, getVehicleRepairCost, useGameStore } from "../src/state/store";
 import { SeededRandomSource, withRandomSource } from "../src/utils/random";
@@ -25,7 +25,8 @@ function settleTick(): void {
   state.applyTickResult(result.partsFound, result.scrapsEarned, result.repEarned, result.vehicleWearAmount || undefined, result.vehicleRepairAmount || undefined, result.newRaceTickProgress, result.lootGearDrops, result.modDrops, {
     partsScavenged: result.partsScavenged, partsAutoSold: result.partsAutoSold, scavengesCompleted: result.scavengesCompleted,
     racesCompleted: outcome ? 1 : 0, winsCompleted: outcome?.result === "win" ? 1 : 0, finalWinStreak: streak, bestWinStreak: Math.max(state.bestWinStreak, streak),
-    recentRaceOutcomes: outcome ? [outcome] : [], winningCircuitIds: outcome?.result === "win" ? [outcome.circuitId] : [], defeatedRivalIds: [], circuitWinStreaks: {},
+    recentRaceOutcomes: outcome ? [outcome] : [], winningCircuitIds: outcome?.result === "win" ? [outcome.circuitId] : [],
+    defeatedRivalIds: outcome?.result === "win" && outcome.rivalId ? [outcome.rivalId] : [], circuitWinStreaks: {},
     raceSalvageFound: result.raceSalvageFound, forgeTokensFound: result.forgeTokensFound, entryFeesPaid: result.entryFeesPaid,
     challengesEvaluated: false, completedChallengeIds: [], challengeForgeTokens: 0, challengeMaterials: {}, ticksProcessed: 1,
     repDecayed: result.repDecayed,
@@ -77,19 +78,29 @@ function tryBuild(vehicleId: string): boolean {
 }
 
 function sellSurplus(): void {
-  // Keep the best part in every category; sell misc and the rest of the low-grade pile.
-  const bestByCategory = new Map<string, string>();
-  for (const part of useGameStore.getState().inventory) {
-    const category = getPartById(part.definitionId)?.category ?? "misc";
-    const current = bestByCategory.get(category);
-    const currentPart = current ? useGameStore.getState().inventory.find((p) => p.id === current) : undefined;
-    if (!currentPart || CONDITIONS.indexOf(part.condition) > CONDITIONS.indexOf(currentPart.condition)) bestByCategory.set(category, part.id);
+  // Keep the best copy of every part an unlocked-but-unbuilt blueprint can use
+  // (a pristine mower engine must not crowd out the V6 the Street Racer needs),
+  // plus the best part in every category; sell misc and the rest of the low-grade pile.
+  const state = useGameStore.getState();
+  const built = new Set(state.garage.map((v) => v.definitionId));
+  const wanted = new Set(VEHICLE_DEFINITIONS
+    .filter((vehicle) => state.unlockedVehicleIds.includes(vehicle.id) && !built.has(vehicle.id))
+    .flatMap((vehicle) => vehicle.slots.flatMap((slot) => slot.acceptableParts)));
+  const bestByKey = new Map<string, string>();
+  const consider = (key: string, part: (typeof state.inventory)[number]) => {
+    const current = bestByKey.get(key);
+    const currentPart = current ? state.inventory.find((p) => p.id === current) : undefined;
+    if (!currentPart || CONDITIONS.indexOf(part.condition) > CONDITIONS.indexOf(currentPart.condition)) bestByKey.set(key, part.id);
+  };
+  for (const part of state.inventory) {
+    consider(`category:${getPartById(part.definitionId)?.category ?? "misc"}`, part);
+    if (wanted.has(part.definitionId)) consider(`part:${part.definitionId}`, part);
   }
-  const keep = new Set(bestByCategory.values());
+  const keep = new Set(bestByKey.values());
+  // Everything else goes: a full pile (LOOSE_INVENTORY_LIMIT) would otherwise
+  // auto-sell every new find, including the higher-tier parts the next build needs.
   for (const part of useGameStore.getState().inventory) {
-    if (keep.has(part.id)) continue;
-    const category = getPartById(part.definitionId)?.category ?? "misc";
-    if (category === "misc" || CONDITIONS.indexOf(part.condition) <= CONDITIONS.indexOf("worn")) useGameStore.getState().sellPart(part.id);
+    if (!keep.has(part.id)) useGameStore.getState().sellPart(part.id);
   }
 }
 
@@ -106,9 +117,11 @@ function checkIn(): void {
     if (built.has(vehicle.id) || !useGameStore.getState().unlockedVehicleIds.includes(vehicle.id)) continue;
     if (tryBuild(vehicle.id)) { builtNow = vehicle.id; break; }
   }
-  if (process.env.DEBUG_IDLE && debugCheckIns++ < 4) {
+  if (process.env.DEBUG_IDLE && debugCheckIns++ % 20 === 0) {
     const s = useGameStore.getState();
-    console.log(`check-in: before scrap=${before.scrap} parts=${before.parts} | after sell scrap=${s.scrapBucks} parts=${s.inventory.length} built=${builtNow} unlocked=${s.unlockedVehicleIds.join(",")}`);
+    const target = [...VEHICLE_DEFINITIONS].sort((a, b) => b.tier - a.tier).find((v) => s.unlockedVehicleIds.includes(v.id) && !built.has(v.id));
+    const missing = target?.slots.filter((slot) => slot.required && !s.inventory.some((p) => slot.acceptableParts.includes(p.definitionId))).map((slot) => slot.slot) ?? [];
+    console.log(`check-in ${debugCheckIns}: before scrap=${before.scrap} parts=${before.parts} | after sell scrap=${s.scrapBucks} parts=${s.inventory.length} built=${builtNow} target=${target?.id} missing=${missing.join(",")} location=${s.selectedLocationId} inv=${[...new Set(s.inventory.map((p) => p.definitionId))].join(",")}`);
   }
   // Point automation at the best circuit any garage vehicle can enter.
   const s = useGameStore.getState();
@@ -138,7 +151,7 @@ withRandomSource(new SeededRandomSource("idle-campaign"), () => {
   let sinceCheckIn = Number.POSITIVE_INFINITY;
   while (ticks < 20_000) {
     const state = useGameStore.getState();
-    if (canScrapReset({ vehiclesBuilt: state.garage.length, reputation: state.lifetimeRep, lifetimeScrapBucks: state.lifetimeScrapBucks })) break;
+    if (canScrapReset(getScrapResetProgress(state))) break;
     if (sinceCheckIn >= CHECK_IN_MINUTES * 60_000) {
       const before = useGameStore.getState().garage.length;
       checkIn();
@@ -160,8 +173,12 @@ console.log(JSON.stringify({
   gameHours: Number((gameMs / 3_600_000).toFixed(2)),
   ticks,
   checkIns,
-  reachedReset: canScrapReset({ vehiclesBuilt: final.garage.length, reputation: final.lifetimeRep, lifetimeScrapBucks: final.lifetimeScrapBucks }),
+  reachedReset: canScrapReset(getScrapResetProgress(final)),
   vehicles: final.garage.map((v) => v.definitionId),
+  unlockedVehicles: final.unlockedVehicleIds,
+  resetProgress: getScrapResetProgress(final),
+  eventWins: final.eventWins,
+  inventory: final.inventory.length,
   rep: Math.round(final.repPoints),
   lifetimeRep: Math.round(final.lifetimeRep),
   circuits: final.unlockedCircuitIds,

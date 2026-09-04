@@ -4,8 +4,9 @@ import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { getLocationById } from "@/data/locations";
 import { getVehicleById } from "@/data/vehicles";
 import { calculateScrapResetAward, deriveHighestCircuitTier } from "@/engine/prestige";
+import { getActiveEventCircuit } from "@/engine/raceExpectation";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
-import { canScrapReset, SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
+import { canScrapReset, getScrapResetProgress, SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { createInitialState, getVehicleBuildCost, getVehicleRepairCost, useGameStore } from "../store";
 import { LEGACY_UPGRADE_DEFINITIONS } from "@/data/legacyUpgrades";
 import { computeTick } from "@/engine/tick";
@@ -56,10 +57,22 @@ function settleLiveAutomationTick(): void {
  * Rep is spent, not only accumulated: the campaign player opens the next
  * circuit a garage vehicle can enter, then the next blueprint, then the next
  * junkyard, whenever the balance covers it. One purchase per check-in.
+ *
+ * Phase 2: the first Scrap Reset needs the National Feature, two rivals
+ * (Features only) and 2,500 lifetime Rep, so the ladder now runs to the
+ * National Circuit, the Stock Car blueprint and the Military Scrapyard.
  */
 const CAMPAIGN_CIRCUITS = ["dirt_track", "regional_circuit", "national_circuit"] as const;
-const CAMPAIGN_BLUEPRINTS = ["go_kart", "street_racer"] as const;
-const CAMPAIGN_LOCATIONS = ["neighborhood_yards", "local_junkyard", "salvage_auction", "industrial_surplus"] as const;
+const CAMPAIGN_BLUEPRINTS = ["go_kart", "street_racer", "stock_car"] as const;
+const CAMPAIGN_LOCATIONS = ["neighborhood_yards", "local_junkyard", "salvage_auction", "industrial_surplus", "military_scrapyard"] as const;
+/** Vehicles built in order, with the junkyard tier whose parts can complete them. */
+const CAMPAIGN_BUILDS = [
+  { vehicleId: "riding_mower", locationTier: 1 },
+  { vehicleId: "go_kart", locationTier: 2 },
+  { vehicleId: "street_racer", locationTier: 3 },
+  { vehicleId: "stock_car", locationTier: 5 },
+] as const;
+
 function spendRepOnProgression(): void {
   const state = useGameStore.getState();
   const garageTiers = state.garage.map((vehicle) => getVehicleById(vehicle.definitionId)!.tier);
@@ -144,13 +157,36 @@ function scavengeUntilBuilt(vehicleId: string, maxActions: number): number {
   throw new Error(`Could not organically source ${vehicleId} in ${maxActions} scavenges`);
 }
 
+function resetProgress() {
+  return getScrapResetProgress(useGameStore.getState());
+}
+
+const MAX_CAMPAIGN_RACES = 3_000;
+
+/**
+ * Interim guard (phase 2, 2026-09-04). The reset needs the National Feature,
+ * two rivals and 2,500 lifetime Rep; on this seed that is ~54 engaged
+ * minutes (67 races, 308 scavenges), down from ~88 under the old gate because
+ * the spec's geometric venue ladder makes the first four venues near-locks
+ * for tier-appropriate builds (see docs/balance/phase2-event-ladder-2026-09-04.md).
+ * The charter's 2–4 day target is judged by the mixed-play simulation, not by
+ * this engaged-only harness; this band only catches drift.
+ */
+// Interim band after Phase 2 lever 1 (fatigue rhythm) landed on top of the
+// event ladder: this harness races back-to-back with no rest, so the driver
+// sits near max fatigue for most of the run and the estimate is ~115 min.
+// The mixed-play simulation with rest between sessions is the real Phase 2
+// instrument; retighten this band from that harness, never by tuning
+// fatigue or ladder constants to satisfy it.
+const CAMPAIGN_HANDS_ON_MINUTES_GUARD = { min: 35, max: 150 };
+
 afterEach(() => {
   vi.useRealTimers();
   useGameStore.setState(createInitialState());
 });
 
 describe("seeded first-campaign pacing", () => {
-  it("reaches the first Scrap Reset with three organically sourced vehicles and a useful LP award", () => {
+  it("reaches the first Scrap Reset through the event ladder with a useful LP award", () => {
     vi.useFakeTimers();
     useGameStore.setState({
       ...createInitialState(),
@@ -162,25 +198,21 @@ describe("seeded first-campaign pacing", () => {
     let firstVehicleScavenges = 0;
     let races = 0;
     let raceDurationMs = 0;
+    const eventsRaced: Record<string, number> = {};
 
     withRandomSource(random, () => {
       firstVehicleScavenges = scavengeUntilBuilt("push_mower", 80);
       scavenges += firstVehicleScavenges;
       useGameStore.getState().setActiveVehicle(useGameStore.getState().garage[0].id);
 
-      while (!canScrapReset({
-        vehiclesBuilt: useGameStore.getState().garage.length,
-        reputation: useGameStore.getState().lifetimeRep,
-        lifetimeScrapBucks: useGameStore.getState().lifetimeScrapBucks,
-      })) {
+      while (!canScrapReset(resetProgress())) {
         spendRepOnProgression();
         const state = useGameStore.getState();
         const builtTypes = new Set(state.garage.map((vehicle) => vehicle.definitionId));
-        for (const vehicleId of ["riding_mower", "go_kart", "street_racer"] as const) {
+        for (const { vehicleId, locationTier } of CAMPAIGN_BUILDS) {
           if (builtTypes.has(vehicleId) || !state.unlockedVehicleIds.includes(vehicleId)) continue;
-          const requiredLocationTier = vehicleId === "riding_mower" ? 1 : vehicleId === "go_kart" ? 2 : 3;
-          if (!state.unlockedLocationIds.some((id) => (getLocationById(id)?.tier ?? -1) >= requiredLocationTier)) continue;
-          scavenges += scavengeUntilBuilt(vehicleId, 160);
+          if (!state.unlockedLocationIds.some((id) => (getLocationById(id)?.tier ?? -1) >= locationTier)) continue;
+          scavenges += scavengeUntilBuilt(vehicleId, 400);
         }
 
         const refreshed = useGameStore.getState();
@@ -200,12 +232,13 @@ describe("seeded first-campaign pacing", () => {
         refreshed.setSelectedCircuit(bestRace.circuit.id);
         // Grind cash until the car is race-ready: the background ticks keep
         // racing (and wearing) the car while we scavenge, so the repair bill
-        // is re-read every attempt rather than fixed up front.
+        // and the entered event's fee are re-read every attempt.
         for (let attempts = 0; attempts < 400; attempts++) {
           const cashState = useGameStore.getState();
           const car = cashState.garage.find((vehicle) => vehicle.id === bestRace.vehicle.id)!;
           const needsRepair = (car.condition ?? 100) < 35;
-          const neededCash = (needsRepair ? getVehicleRepairCost(cashState, car) : 0) + bestRace.circuit.entryFee;
+          const entryFee = getActiveEventCircuit(cashState)?.entryFee ?? bestRace.circuit.entryFee;
+          const neededCash = (needsRepair ? getVehicleRepairCost(cashState, car) : 0) + entryFee;
           if (cashState.scrapBucks >= neededCash) {
             if (!needsRepair) break;
             cashState.repairVehicle(car.id);
@@ -219,16 +252,19 @@ describe("seeded first-campaign pacing", () => {
           useGameStore.getState().sellAllJunk();
           scavenges++;
         }
+        const entered = getActiveEventCircuit(useGameStore.getState())!;
         useGameStore.getState().enterRace();
         expect(useGameStore.getState().isRacing).toBe(true);
         vi.runAllTimers();
         races++;
+        const key = `${entered.venueId}:${entered.eventId}`;
+        eventsRaced[key] = (eventsRaced[key] ?? 0) + 1;
         raceDurationMs += bestRace.circuit.raceDuration;
         // A race plus its review is roughly one background tick of real time.
         settleLiveAutomationTick();
-        if (races > 400) {
+        if (races > MAX_CAMPAIGN_RACES) {
           const stalled = useGameStore.getState();
-          throw new Error(`First campaign exceeded 400 races: rep=${stalled.repPoints}, lifetimeRep=${stalled.lifetimeRep}, scrap=${stalled.lifetimeScrapBucks}, vehicles=${stalled.garage.map((vehicle) => vehicle.definitionId).join(",")}, unlocked=${stalled.unlockedVehicleIds.join(",")}, circuits=${stalled.unlockedCircuitIds.join(",")}`);
+          throw new Error(`First campaign exceeded ${MAX_CAMPAIGN_RACES} races: progress=${JSON.stringify(resetProgress())}, rep=${stalled.repPoints}, lifetimeRep=${stalled.lifetimeRep}, vehicles=${stalled.garage.map((vehicle) => vehicle.definitionId).join(",")}, unlocked=${stalled.unlockedVehicleIds.join(",")}, circuits=${stalled.unlockedCircuitIds.join(",")}, events=${JSON.stringify(stalled.eventWins)}`);
         }
       }
     });
@@ -258,12 +294,15 @@ describe("seeded first-campaign pacing", () => {
       seed: "uat-first-campaign",
       scavenges,
       races,
+      eventsRaced,
       vehicles: state.garage.map((vehicle) => vehicle.definitionId),
       vehicleStats: state.garage.map((vehicle) => ({ id: vehicle.definitionId, performance: vehicle.stats.performance, reliability: vehicle.stats.reliability })),
       reputation: state.repPoints,
       lifetimeRep: state.lifetimeRep,
       unlockedCircuits: state.unlockedCircuitIds,
       unlockedLocations: state.unlockedLocationIds,
+      eventWins: state.eventWins,
+      rivalsDefeated: state.defeatedRivalIds,
       lifetimeScrap: state.lifetimeScrapBucks,
       wins: state.lifetimeWinsAllTime,
       fatigue: state.fatigue,
@@ -272,20 +311,13 @@ describe("seeded first-campaign pacing", () => {
       estimatedHandsOnMinutes: Number(estimatedHandsOnMinutes.toFixed(1)),
     });
 
-    expect(state.garage.length).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.vehiclesBuilt);
-    expect(state.lifetimeRep).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.reputation);
-    expect(state.lifetimeScrapBucks).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks);
+    const progress = resetProgress();
+    expect(progress.featureWins).toBeGreaterThanOrEqual(1);
+    expect(progress.rivalsDefeated).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.rivalsDefeated);
+    expect(progress.lifetimeRep).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.lifetimeRep);
     expect(award.totalLp).toBeGreaterThanOrEqual(5);
-    // The first Scrap Reset is meant to be earned over an engaged 1–2 hours
-    // (see CAMPAIGN_PACING_TARGETS_HOURS.scrap), never handed out in a sprint.
-    // Interim upper bound (Phase 2, fatigue rhythm): this harness races
-    // back-to-back with no rest, so the driver sits near 99 fatigue for most
-    // of the campaign and the estimate rose from ~70 to ~155 minutes. The
-    // Phase 2 pacing instrument is the mixed-play simulation (sessions with
-    // rest between them); retune this bound to 130 with that harness rather
-    // than by changing fatigue constants here.
-    expect(estimatedHandsOnMinutes).toBeGreaterThanOrEqual(60);
-    expect(estimatedHandsOnMinutes).toBeLessThanOrEqual(170);
+    expect(estimatedHandsOnMinutes).toBeGreaterThanOrEqual(CAMPAIGN_HANDS_ON_MINUTES_GUARD.min);
+    expect(estimatedHandsOnMinutes).toBeLessThanOrEqual(CAMPAIGN_HANDS_ON_MINUTES_GUARD.max);
 
     state.prestige();
     const secondRun = useGameStore.getState();
@@ -326,5 +358,5 @@ describe("seeded first-campaign pacing", () => {
       secondRunManualScavengesToVehicle: 0,
       repetitiveClickReductionPct: 100,
     });
-  });
+  }, 120_000);
 });

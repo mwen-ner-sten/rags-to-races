@@ -4,6 +4,7 @@ import { FEATURE_AVAILABILITY } from "@/config/features";
 import { LOCATION_DEFINITIONS } from "@/data/locations";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
 import { CONDITIONS, PART_DEFINITIONS, type PartCondition } from "@/data/parts";
+import { isVariantPartId } from "@/data/partVariants";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
@@ -101,7 +102,8 @@ function fixtureVehicle(
     definition.slots
       .filter((slot) => slot.required)
       .map((slot, slotIndex) => {
-        const part = fixturePart(slot.acceptableParts.at(-1)!, index * 20 + slotIndex, partCondition);
+        // The strongest hand-written base part; Light / Sturdy siblings are player choices, not fixture defaults.
+        const part = fixturePart(slot.acceptableParts.filter((id) => !isVariantPartId(id)).at(-1)!, index * 20 + slotIndex, partCondition);
         return [slot.slot, { part, addons: [] } satisfies InstalledPart];
       }),
   );
@@ -120,7 +122,8 @@ function inventorySet(copies = 1): ScavengedPart[] {
   const parts: ScavengedPart[] = [];
   let index = 1_000;
   for (let copy = 0; copy < copies; copy++) {
-    for (const definition of PART_DEFINITIONS) {
+    // Base parts only: the fixture sets stay the size they were before Light / Sturdy siblings.
+    for (const definition of PART_DEFINITIONS.filter((part) => !isVariantPartId(part.id))) {
       parts.push(fixturePart(definition.id, index++, copy === 0 ? "decent" : "good"));
     }
   }
@@ -208,7 +211,7 @@ function firstScrapResetReady(): Partial<PersistedGameState> {
     fixtureVehicle("riding_mower", 42, 82, "pristine"),
     fixtureVehicle("go_kart", 43, 91, "pristine"),
   ];
-  const repPoints = SCRAP_RESET_REQUIREMENTS.reputation;
+  const repPoints = SCRAP_RESET_REQUIREMENTS.lifetimeRep;
   const unlockedLocationIds = LOCATION_DEFINITIONS.filter((location) => location.unlockCost <= repPoints).map((location) => location.id);
   const unlockedCircuitIds = CIRCUIT_DEFINITIONS.filter((circuit) => !circuit.requiredFeature && circuit.unlockRepCost <= repPoints).map((circuit) => circuit.id);
   const unlockedVehicleIds = VEHICLE_DEFINITIONS.filter((vehicle) => {
@@ -225,7 +228,15 @@ function firstScrapResetReady(): Partial<PersistedGameState> {
     scrapBucks: 1_000,
     repPoints,
     lifetimeRep: repPoints,
-    lifetimeScrapBucks: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks,
+    lifetimeScrapBucks: 8_000,
+    // The gate: the National Feature won once and two rivals beaten in Features.
+    eventWins: {
+      backyard_derby: { sprint: 3, heat: 2 },
+      dirt_track: { sprint: 2, heat: 2, feature: 1 },
+      regional_circuit: { sprint: 2, heat: 1, feature: 1 },
+      [SCRAP_RESET_REQUIREMENTS.featureCircuitId]: { sprint: 1, heat: 1, feature: 1 },
+    },
+    defeatedRivalIds: RIVAL_DEFINITIONS.slice(0, SCRAP_RESET_REQUIREMENTS.rivalsDefeated).map((rival) => rival.id),
     inventory: inventorySet(1).slice(0, 24),
     garage,
     activeVehicleId: garage[2].id,
@@ -243,7 +254,7 @@ function firstScrapResetReady(): Partial<PersistedGameState> {
     lifetimeRacesAllTime: 74,
     lifetimeWinsAllTime: 38,
     lifetimePartsScavengedAllTime: 441,
-    lifetimeScrapBucksAllTime: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks,
+    lifetimeScrapBucksAllTime: 8_000,
     bestWinStreak: 5,
     bestWinStreakAllTime: 5,
     uniqueVehicleTypesBuilt: ["push_mower", "riding_mower", "go_kart"],

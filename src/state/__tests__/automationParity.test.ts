@@ -86,6 +86,7 @@ function settleOffline(state: GameState, result: ReturnType<typeof simulateOffli
       winningCircuitIds: result.winningCircuitIds,
       defeatedRivalIds: result.defeatedRivalIds,
       circuitWinStreaks: result.circuitWinStreaks,
+      eventWins: result.eventWins,
       raceSalvageFound: result.raceSalvageFound,
       forgeTokensFound: result.forgeTokensFound,
       entryFeesPaid: result.entryFeesPaid,

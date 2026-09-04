@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 import { getCircuitById } from "@/data/circuits";
+import { getActiveEventCircuit } from "@/engine/raceExpectation";
 import { getPersistedGameState, mergePersistedGameState } from "../persistence";
 import { createInitialState, type GameState, useGameStore } from "../store";
 import { createGameplayFixture } from "@/testing/gameplayFixtures";
@@ -26,7 +27,9 @@ describe("manual race persistence escrow", () => {
   it("refunds an interrupted entry fee exactly once when the browser hydrates", () => {
     vi.useFakeTimers();
     const startingCash = loadRaceReadyState();
-    const circuit = getCircuitById(useGameStore.getState().selectedCircuitId)!;
+    // The fee charged is the entered event's, not the venue's Heat fee.
+    const circuit = getActiveEventCircuit(useGameStore.getState())!;
+    expect(circuit.venueId).toBe(getCircuitById(useGameStore.getState().selectedCircuitId)!.id);
 
     useGameStore.getState().enterRace();
     const inFlight = useGameStore.getState();

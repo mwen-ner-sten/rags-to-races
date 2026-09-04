@@ -1,6 +1,8 @@
-import type { CircuitDefinition } from "@/data/circuits";
+import type { CircuitDefinition, EventId } from "@/data/circuits";
 import { BASE_WEAR_PER_RACE, DNF_WEAR_BONUS, RELIABILITY_WEAR_THRESHOLD } from "@/data/vehicles";
 import { PART_DEFINITIONS, type PartCategory } from "@/data/parts";
+import { isVariantPartId, rollPartVariant } from "@/data/partVariants";
+import { isEventCircuit } from "./eventLadder";
 import { makePartId } from "./scavenge";
 import { chance, randInt, random, weightedPick } from "@/utils/random";
 import type { ScavengedPart } from "./scavenge";
@@ -29,6 +31,21 @@ export interface RaceOutcome {
   /** Garage vehicle that produced this result, used for stable diagnostics. */
   vehicleId?: string;
   circuitId: string;
+  /** Event on the venue's ladder this race was; absent on outcomes saved before the ladder (treated as a Heat). */
+  eventId?: EventId;
+}
+
+/** Rivals only turn up in Features (event ladder, phase 2). */
+export function rivalsRaceHere(circuit: CircuitDefinition): boolean {
+  return isEventCircuit(circuit) && circuit.eventId === "feature";
+}
+
+function eventIdOf(circuit: CircuitDefinition): EventId | undefined {
+  return isEventCircuit(circuit) ? circuit.eventId : undefined;
+}
+
+function raceLabel(circuit: CircuitDefinition): string {
+  return isEventCircuit(circuit) ? `${circuit.name} ${circuit.eventName}` : circuit.name;
 }
 
 const RACE_FLAVOR: Record<RaceResult, string[]> = {
@@ -161,11 +178,11 @@ export function rollSalvageDrop(
 
   // Filter eligible parts by circuit tier
   const eligible = PART_DEFINITIONS.filter(
-    (p) => p.category === category && p.minTier <= circuit.tier,
+    (p) => p.category === category && p.minTier <= circuit.tier && !isVariantPartId(p.id),
   );
   if (eligible.length === 0) return null;
 
-  const def = eligible[randInt(0, eligible.length - 1)];
+  const def = rollPartVariant(eligible[randInt(0, eligible.length - 1)]);
 
   // Wreckage from a bigger race is worth picking through: the ceiling rises
   // with circuit tier (up to "good"), and Scavenger's Eye raises it further.
@@ -207,7 +224,9 @@ export function simulateRace(
   const stats = deriveVehicleStats(vehicle, handlingBonusPct);
   const performance = getCircuitPerformance(stats, circuit);
   const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
-  const eligibleRivals = RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier);
+  const eligibleRivals = rivalsRaceHere(circuit)
+    ? RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier)
+    : [];
   const rival = eligibleRivals.length > 0 && chance(0.35) ? eligibleRivals[randInt(0, eligibleRivals.length - 1)] : undefined;
 
   // Consolation Rep on DNF — matches what a last-place loss would earn
@@ -228,6 +247,7 @@ export function simulateRace(
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
+      eventId: eventIdOf(circuit),
     };
   }
 
@@ -258,6 +278,7 @@ export function simulateRace(
       rivalId: rival?.id,
       vehicleId: vehicle.id,
       circuitId: circuit.id,
+      eventId: eventIdOf(circuit),
     };
   }
 
@@ -283,7 +304,7 @@ export function simulateRace(
   const forgeTokenDrop = won && circuit.tier >= 3 && chance(0.02 + forgeTokenChanceBonus);
 
   const log = [
-    `Circuit: ${circuit.name}`,
+    `Circuit: ${raceLabel(circuit)}`,
     `Finished: P${position}/${totalRacers}`,
     pickFlavor(result),
     won ? `+${scrapsEarned} Scrap Bucks` : scrapsEarned > 0 ? `+${scrapsEarned} Scrap Bucks (consolation)` : "No prize money.",
@@ -300,6 +321,7 @@ export function simulateRace(
     rivalId: rival?.id,
     vehicleId: vehicle.id,
     circuitId: circuit.id,
+    eventId: eventIdOf(circuit),
   };
 }
 

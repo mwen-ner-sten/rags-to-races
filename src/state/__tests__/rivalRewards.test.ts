@@ -54,6 +54,9 @@ describe("rival rewards", () => {
       activeVehicleId: testVehicle.id,
       selectedCircuitId: "dirt_track",
       unlockedCircuitIds: ["backyard_derby", "dirt_track"],
+      // Rivals only race in Features: the Dirt Track ladder is open and the Feature pinned.
+      eventWins: { dirt_track: { sprint: 1, heat: 1 } },
+      pinnedEventIds: { dirt_track: "feature" },
       tutorialStep: -1,
       lifetimeRacesAllTime: 1,
     });
@@ -82,5 +85,25 @@ describe("rival rewards", () => {
       rivalRewardClaimed: false,
     });
     expect(formatRivalWinStatus(rival, false)).toBe("Rematch won · reward already claimed");
+  });
+
+  it("never fields a rival outside a Feature", () => {
+    vi.useFakeTimers();
+    useGameStore.setState({
+      ...createInitialState(),
+      scrapBucks: 1_000,
+      garage: [testVehicle],
+      activeVehicleId: testVehicle.id,
+      selectedCircuitId: "dirt_track",
+      unlockedCircuitIds: ["backyard_derby", "dirt_track"],
+      eventWins: { dirt_track: { sprint: 1, heat: 1 } },
+      pinnedEventIds: { dirt_track: "heat" },
+      tutorialStep: -1,
+    });
+    winGreasyPeteRace();
+    const outcome = useGameStore.getState().lastRaceOutcome;
+    expect(outcome?.eventId).toBe("heat");
+    expect(outcome?.rivalId).toBeUndefined();
+    expect(useGameStore.getState().defeatedRivalIds).toEqual([]);
   });
 });

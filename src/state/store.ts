@@ -37,12 +37,16 @@ import { vehiclePerformance, withDerivedStats } from "@/engine/performance";
 import { getUpgradeEffectValue as _getUpgradeEffectValue, getUpgradeLevel as _getUpgradeLevel } from "@/engine/workshopEffects";
 import { decomposePart, decomposeMany } from "@/engine/decompose";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
-import { getCircuitById } from "@/data/circuits";
+import { getCircuitById, type EventId } from "@/data/circuits";
+import { addEventWin, eventWinsFromOutcomes, getEventDefinition, isEventOpen, mergeEventWins, newlyOpenedEventIds, type EventWins } from "@/engine/eventLadder";
+import { getActiveEventCircuit } from "@/engine/raceExpectation";
+import { evaluateSystemReveals, nextRustedPileSinceTick, SYSTEM_REVEALS_BY_ID, type WorkshopSystem } from "@/data/featureUnlocks";
+import { WORKSHOP_REVEAL_PREFIX, WORKSHOP_TABS } from "@/data/workshopTabs";
 import { getVehicleById, getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { getUpgradeById, getUpgradeCost, UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { INITIAL_MATERIALS, type MaterialType } from "@/data/materials";
 import type { DealerListing } from "@/data/dealer";
-import { generateDealerBoard, shouldRefreshDealer, DEALER_UNLOCK_REP } from "@/data/dealer";
+import { generateDealerBoard, shouldRefreshDealer, isDealerOpen } from "@/data/dealer";
 import { CHALLENGE_DEFINITIONS, type ChallengeRewardType } from "@/data/challenges";
 import { calculateEnhancementCost, canAffordEnhancement, ARTIFACT_FORGE_COST, ARTIFACT_FORGE_TOKEN_COST } from "@/data/enhancement";
 import type { CraftRecipe } from "@/data/craftRecipes";
@@ -77,7 +81,7 @@ import { getPartSaleValue } from "@/engine/sale";
 import { autoSellJunkParts, getAutoSellThreshold } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
-import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, FATIGUE, REP_DECAY } from "@/config/progression";
+import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, FATIGUE, getScrapResetProgress, REP_DECAY } from "@/config/progression";
 import { fatigueAfterRace, fatigueAfterTick, roundFatigue } from "@/engine/fatigue";
 import {
   applyCompletedProjects,
@@ -135,6 +139,8 @@ export interface AutomationSettlementMeta {
   winningCircuitIds: string[];
   defeatedRivalIds: string[];
   circuitWinStreaks: Record<string, number>;
+  /** Exact wins per venue event from a batched simulation; live ticks derive them from the outcomes. */
+  eventWins?: EventWins;
   raceSalvageFound: number;
   forgeTokensFound: number;
   entryFeesPaid: number;
@@ -233,6 +239,14 @@ export interface GameState {
   precomputedOutcome: RaceOutcome | null;
   currentRacePlan: RacePlan;
   defeatedRivalIds: string[];
+  /** Wins per venue event this run; opens Heats and Features (engine/eventLadder). */
+  eventWins: EventWins;
+  /** Event the player pinned per venue; absent means auto-race picks the best contestable one. */
+  pinnedEventIds: Record<string, EventId>;
+  /** Workshop systems that have revealed on relevance; never hidden again (data/featureUnlocks). */
+  revealedSystems: WorkshopSystem[];
+  /** Tick at which a rusted part first sat in the pile (Decompose reveals after a full tick). */
+  rustedPileSinceTick: number | null;
   discoveredBlueprintIds: string[];
   fleetAssignments: FleetAssignment[];
   ownedTrackConfig: OwnedTrackConfig;
@@ -392,6 +406,10 @@ export interface GameState {
   setAutoRaceMinCondition: (condition: number) => void;
   setAutoRaceMaxFatigue: (fatigue: number) => void;
   setSelectedCircuit: (circuitId: string) => void;
+  /** Pin an event at a venue (null lets auto-race choose the best contestable open event). */
+  setSelectedEvent: (circuitId: string, eventId: EventId | null) => void;
+  /** Record Workshop systems that have become relevant; announces the ones without a tab of their own. */
+  checkWorkshopReveals: () => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
   enterRace: () => void;
   setRacePlan: (plan: RacePlan) => void;
@@ -531,6 +549,10 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     precomputedOutcome: null,
     currentRacePlan: { ...DEFAULT_RACE_PLAN },
     defeatedRivalIds: [],
+    eventWins: {},
+    pinnedEventIds: {},
+    revealedSystems: [],
+    rustedPileSinceTick: null,
     discoveredBlueprintIds: [],
     fleetAssignments: [],
     ownedTrackConfig: { ...DEFAULT_TRACK_CONFIG },
@@ -1467,16 +1489,49 @@ function createActions(set: SetState, get: GetState) {
       set({ selectedCircuitId: circuitId });
     },
 
+    setSelectedEvent: (circuitId: string, eventId: EventId | null) => {
+      const state = get() as GameState;
+      if (!getCircuitById(circuitId)) return;
+      if (eventId && !isEventOpen(eventId, state.eventWins?.[circuitId])) return;
+      const { [circuitId]: _previous, ...rest } = state.pinnedEventIds ?? {};
+      void _previous;
+      set({ pinnedEventIds: eventId ? { ...rest, [circuitId]: eventId } : rest });
+    },
+
+    checkWorkshopReveals: () => {
+      const state = get() as GameState;
+      const rustedPileSinceTick = nextRustedPileSinceTick(state);
+      const newlyRevealed = evaluateSystemReveals({ ...state, rustedPileSinceTick });
+      if (newlyRevealed.length === 0) {
+        if (rustedPileSinceTick !== state.rustedPileSinceTick) set({ rustedPileSinceTick });
+        return;
+      }
+      const tabIds = new Set<string>(WORKSHOP_TABS.map((tab) => tab.id));
+      // Sections with a tab are announced by WorkshopRevealWatcher when they appear;
+      // systems living inside an existing section announce themselves here.
+      const announcements = newlyRevealed
+        .filter((id) => !tabIds.has(id))
+        .map((id) => `${WORKSHOP_REVEAL_PREFIX}${SYSTEM_REVEALS_BY_ID[id].label}`);
+      const dealerOpensNow = newlyRevealed.includes("dealer") && state.dealerBoard.length === 0;
+      set((s: GameState) => ({
+        revealedSystems: [...s.revealedSystems, ...newlyRevealed.filter((id) => !s.revealedSystems.includes(id))],
+        rustedPileSinceTick,
+        unlockEvents: announcements.length > 0 ? [...s.unlockEvents, ...announcements] : s.unlockEvents,
+        dealerBoard: dealerOpensNow ? generateDealerBoard(s.lifetimeRep, s.gameTick) : s.dealerBoard,
+      }));
+    },
+
     setSelectedSellBelowQuality: (threshold: PartCondition) => {
       set({ selectedSellBelowQuality: threshold });
     },
 
     enterRace: () => {
       const state = get() as GameState;
-      if (!canEnterSelectedRace(state)) return;
+      // The venue resolved to the event being entered: pinned, or the best contestable open one.
+      const circuit = getActiveEventCircuit(state);
+      if (!canEnterSelectedRace(state, circuit)) return;
 
       const vehicle = state.garage.find((v) => v.id === state.activeVehicleId);
-      const circuit = getCircuitById(state.selectedCircuitId);
       if (!vehicle || !circuit) return;
 
       // Pre-compute the outcome immediately so the UI can animate it
@@ -1641,6 +1696,13 @@ function createActions(set: SetState, get: GetState) {
             : s.inventory;
           let newDefeatedRivalIds = s.defeatedRivalIds;
           let newDiscoveredBlueprintIds = s.discoveredBlueprintIds;
+          // Event ladder: a win here counts toward opening the next event at this venue.
+          const newEventWins = outcome.result === "win"
+            ? addEventWin(s.eventWins, circuit.venueId, circuit.eventId)
+            : s.eventWins;
+          for (const openedId of newlyOpenedEventIds(s.eventWins?.[circuit.venueId], newEventWins[circuit.venueId])) {
+            newUnlockEvents.push(`${circuit.name} ${getEventDefinition(openedId).name} Unlocked! ${getEventDefinition(openedId).description}`);
+          }
           const rival = outcome.rivalId ? getRivalById(outcome.rivalId) : undefined;
           const rivalRewardClaimed = outcome.result === "win" && !!rival && !s.defeatedRivalIds.includes(rival.id);
           if (rivalRewardClaimed && rival) {
@@ -1676,8 +1738,7 @@ function createActions(set: SetState, get: GetState) {
 
           // Dealer board auto-refresh
           const newTick = s.gameTick + 1;
-          const dealerUnlockedNow = s.lifetimeRep < DEALER_UNLOCK_REP && newLifetimeRep >= DEALER_UNLOCK_REP;
-          const newDealerBoard = (newLifetimeRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newTick)))
+          const newDealerBoard = (isDealerOpen(s) && shouldRefreshDealer(s.dealerBoard, newTick))
             ? generateDealerBoard(newLifetimeRep, newTick)
             : s.dealerBoard;
 
@@ -1717,6 +1778,7 @@ function createActions(set: SetState, get: GetState) {
             reforgeShards: newReforgeShards,
             inventory: newInventory,
             defeatedRivalIds: newDefeatedRivalIds,
+            eventWins: newEventWins,
             discoveredBlueprintIds: newDiscoveredBlueprintIds,
             forgeTokens: s.forgeTokens + directForgeTokens + challengeBundle.forgeTokens,
             lifetimeTotalRaceSalvage: newRaceSalvage,
@@ -1738,10 +1800,12 @@ function createActions(set: SetState, get: GetState) {
         (get() as GameState).checkAchievements();
         // Check momentum tiers after race
         (get() as GameState).checkMomentumTiers();
+        // A lost race or a worn part on the racer can make a Workshop system relevant.
+        (get() as GameState).checkWorkshopReveals();
         const resultLabel = outcome.result === "win" ? "Won" : outcome.result === "loss" ? "Lost" : "DNF";
         const settled = (get() as GameState).lastRaceOutcome ?? outcome;
         const rewardMsg = outcome.result === "dnf" ? "" : ` +$${settled.scrapsEarned}${settled.repEarned > 0 ? `, +${Math.round(settled.repEarned)} rep` : ""}`;
-        _appendLog(set, get, "race", `Race: ${resultLabel} at ${circuit.name}!${rewardMsg}`, { scrapDelta: settled.scrapsEarned, repDelta: Math.round(settled.repEarned) });
+        _appendLog(set, get, "race", `Race: ${resultLabel} at ${circuit.name} ${circuit.eventName}!${rewardMsg}`, { scrapDelta: settled.scrapsEarned, repDelta: Math.round(settled.repEarned) });
       }, circuit.raceDuration);
     },
 
@@ -2367,11 +2431,8 @@ function createActions(set: SetState, get: GetState) {
 
     prestige: () => {
       const state = get() as GameState;
-      if (!canScrapReset({
-        vehiclesBuilt: state.garage.length,
-        reputation: state.lifetimeRep,
-        lifetimeScrapBucks: state.lifetimeScrapBucks,
-      })) return;
+      // The gate reads lifetime Rep, this run's National Feature wins and rivals defeated.
+      if (!canScrapReset(getScrapResetProgress(state))) return;
 
       // The legacy floor never falls: bank a share of this run's lifetime Rep.
       const legacyRepFloor = Math.max(
@@ -2526,6 +2587,8 @@ function createActions(set: SetState, get: GetState) {
         hostedEvents: state.hostedEvents,
         ownedTrackConfig: state.ownedTrackConfig,
         unlockedFeatures: state.unlockedFeatures,
+        // Once revealed, a Workshop system stays revealed through every reset.
+        revealedSystems: state.revealedSystems,
         defeatedRivalIds: state.defeatedRivalIds,
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime + lpEarned,
@@ -2781,6 +2844,14 @@ function createActions(set: SetState, get: GetState) {
           ? [...s.stationEquipmentInventory, ...retainedStationDrops]
           : s.stationEquipmentInventory;
         const discoveredBlueprintIds = [...s.discoveredBlueprintIds];
+        // Event ladder: batched settlements report exact per-event wins; live ticks carry them on the outcomes.
+        const newEventWins = mergeEventWins(s.eventWins, settlement.eventWins ?? eventWinsFromOutcomes(settlement.recentRaceOutcomes));
+        for (const circuitId of Object.keys(newEventWins)) {
+          for (const openedId of newlyOpenedEventIds(s.eventWins?.[circuitId], newEventWins[circuitId])) {
+            const venue = getCircuitById(circuitId);
+            if (venue) unlockEvents.push(`${venue.name} ${getEventDefinition(openedId).name} Unlocked! ${getEventDefinition(openedId).description}`);
+          }
+        }
         const defeatedRivalIds = [...s.defeatedRivalIds];
         for (const rivalId of settlement.defeatedRivalIds) {
           if (defeatedRivalIds.includes(rivalId)) continue;
@@ -2803,8 +2874,7 @@ function createActions(set: SetState, get: GetState) {
         const directAndChallengeTokens = settlement.forgeTokensFound + challengeRewards.forgeTokens;
         const earnedScrap = totalScrapsEarned + settlement.entryFeesPaid + challengeRewards.scrap;
         const newGameTick = s.gameTick + settlement.ticksProcessed;
-        const dealerUnlockedNow = s.lifetimeRep < DEALER_UNLOCK_REP && newLifetimeRep >= DEALER_UNLOCK_REP;
-        const newDealerBoard = (newLifetimeRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newGameTick)))
+        const newDealerBoard = (isDealerOpen(s) && shouldRefreshDealer(s.dealerBoard, newGameTick))
           ? generateDealerBoard(newLifetimeRep, newGameTick)
           : s.dealerBoard;
         const tickLogState = tickMessage
@@ -2850,6 +2920,7 @@ function createActions(set: SetState, get: GetState) {
           unlockedVehicleIds: unlockedVehicles,
           unlockEvents,
           defeatedRivalIds,
+          eventWins: newEventWins,
           discoveredBlueprintIds,
           forgeTokens: s.forgeTokens + directAndChallengeTokens,
           totalForgeTokensEarned: s.totalForgeTokensEarned + directAndChallengeTokens,
@@ -3219,7 +3290,7 @@ function createActions(set: SetState, get: GetState) {
 
     buyFromDealer: (listingId: string) => {
       const state = get() as GameState;
-      if (state.lifetimeRep < DEALER_UNLOCK_REP) return;
+      if (!isDealerOpen(state)) return;
       const listing = state.dealerBoard.find((l) => l.id === listingId);
       if (!listing) return;
       const price = getDealerPurchasePrice(state, listing);
@@ -3251,7 +3322,7 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const cost = getDealerRefreshCost(state);
       if (state.scrapBucks < cost) return;
-      if (state.lifetimeRep < DEALER_UNLOCK_REP) return;
+      if (!isDealerOpen(state)) return;
       const newBoard = generateDealerBoard(state.lifetimeRep, state.gameTick);
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
@@ -3345,6 +3416,9 @@ function createActions(set: SetState, get: GetState) {
               unlockedLocationIds: LOCATION_DEFINITIONS.map((l) => l.id),
               unlockedCircuitIds: CIRCUIT_DEFINITIONS.map((c) => c.id),
               unlockedVehicleIds: VEHICLE_DEFINITIONS.map((v) => v.id),
+              // Every venue's ladder fully open (one Sprint and one Heat win each).
+              eventWins: Object.fromEntries(CIRCUIT_DEFINITIONS.map((c) => [c.id, { sprint: 1, heat: 1 }])),
+              revealedSystems: Object.keys(SYSTEM_REVEALS_BY_ID) as WorkshopSystem[],
               autoScavengeUnlocked: true,
               autoRaceUnlocked: true,
             });
@@ -3358,6 +3432,8 @@ function createActions(set: SetState, get: GetState) {
         unlockedLocationIds: ["curbside"],
         unlockedCircuitIds: ["backyard_derby"],
         unlockedVehicleIds: ["push_mower"],
+        eventWins: {},
+        pinnedEventIds: {},
         autoScavengeUnlocked: false,
         autoRaceUnlocked: false,
       });
@@ -3501,6 +3577,8 @@ function createActions(set: SetState, get: GetState) {
         unlockedCircuitIds: getResetCircuitUnlockIds(state.ownerUpgradeLevels),
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
+        // Once revealed, a Workshop system stays revealed through every reset.
+        revealedSystems: state.revealedSystems,
         defeatedRivalIds: state.defeatedRivalIds,
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
@@ -3635,6 +3713,8 @@ function createActions(set: SetState, get: GetState) {
         crewSlots: academyActive ? 4 : 0,
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
+        // Once revealed, a Workshop system stays revealed through every reset.
+        revealedSystems: state.revealedSystems,
         defeatedRivalIds: state.defeatedRivalIds,
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
@@ -3774,6 +3854,7 @@ function createActions(set: SetState, get: GetState) {
         unlockedFeatures: state.unlockedFeatures.filter(
           (feature) => feature !== "vehicle_mastery" && feature !== "advanced_circuits",
         ),
+        revealedSystems: state.revealedSystems,
         defeatedRivalIds: state.defeatedRivalIds,
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
@@ -3893,6 +3974,8 @@ function createActions(set: SetState, get: GetState) {
       if (newUnlocked.length > state.unlockedFeatures.length) {
         set({ unlockedFeatures: newUnlocked, unlockEvents: newEvents });
       }
+      // Workshop systems reveal on relevance; checked wherever feature unlocks are (ticks, purchases).
+      (get() as GameState).checkWorkshopReveals();
     },
 
     checkAchievements: () => {

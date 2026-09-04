@@ -13,11 +13,15 @@ import { INITIAL_MATERIALS } from "@/data/materials";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 import { FATIGUE } from "@/config/progression";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
+import { REP_PROGRESSION } from "@/config/progression";
+import type { WorkshopSystem } from "@/data/featureUnlocks";
 
 /**
  * v6 (Phase 2): fatigue became a stateful rhythm and workshop purchases
  * became timed projects. Adds `autoRaceMaxFatigue` and `projects`; the
  * stored fatigue value carries over unchanged and simply starts recovering.
+ * The same version also adds the event ladder (`eventWins`, `pinnedEventIds`)
+ * and reveal-on-relevance (`revealedSystems`, `rustedPileSinceTick`).
  */
 export const PERSISTENCE_VERSION = 6;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
@@ -26,6 +30,7 @@ export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 const finiteNonNegative = z.number().finite().min(0);
 const finitePercentage = z.number().finite().min(0).max(100);
 const nonEmptyString = z.string().min(1);
+const eventIdSchema = z.enum(["sprint", "heat", "feature"]);
 
 const partConditionSchema = z.enum(CONDITIONS as [
   (typeof CONDITIONS)[number],
@@ -333,6 +338,10 @@ const currentStateSafetySchema = z.object({
   earnedAchievements: z.array(nonEmptyString).optional(),
   unlockedFeatures: z.array(nonEmptyString).optional(),
   defeatedRivalIds: z.array(nonEmptyString).optional(),
+  eventWins: z.record(z.string(), z.record(z.string(), finiteNonNegative)).optional(),
+  pinnedEventIds: z.record(z.string(), eventIdSchema).optional(),
+  revealedSystems: z.array(nonEmptyString).optional(),
+  rustedPileSinceTick: finiteNonNegative.nullable().optional(),
   discoveredBlueprintIds: z.array(nonEmptyString).optional(),
   unlockedPlaystyleNodes: z.array(nonEmptyString).optional(),
   uniqueVehicleTypesBuilt: z.array(nonEmptyString).optional(),
@@ -428,6 +437,10 @@ export function getPersistedGameState(state: GameState) {
     selectedCircuitId: state.selectedCircuitId,
     currentRacePlan: state.currentRacePlan,
     defeatedRivalIds: state.defeatedRivalIds,
+    eventWins: state.eventWins,
+    pinnedEventIds: state.pinnedEventIds,
+    revealedSystems: state.revealedSystems,
+    rustedPileSinceTick: state.rustedPileSinceTick,
     discoveredBlueprintIds: state.discoveredBlueprintIds,
     fleetAssignments: state.fleetAssignments,
     ownedTrackConfig: state.ownedTrackConfig,
@@ -560,14 +573,27 @@ export function migratePersistedState(
     };
   }
 
-  // v6: fatigue rhythm and timed projects. The stored fatigue (0–99 under
-  // either model) carries over and starts recovering; there were no projects
-  // to migrate, and the auto-race fatigue ceiling takes its default.
+  // v6: fatigue rhythm + timed projects (stored fatigue carries over and
+  // starts recovering; no projects to migrate), plus the event ladder and
+  // reveal-on-relevance. A venue an old save had opened
+  // stays open with its Sprint available (no event wins are invented), and
+  // any Workshop section the old bare-Rep thresholds had already shown stays
+  // shown so nothing the player could see disappears on upgrade.
   if (version < 6) {
+    const lifetimeRepAtMigration = Math.max(repPointsAtMigration, state.lifetimeRep ?? 0);
+    const revealed = new Set<WorkshopSystem>((state.revealedSystems ?? []) as WorkshopSystem[]);
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.dealer.unlock || (state.dealerBoard?.length ?? 0) > 0) revealed.add("dealer");
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.workshop.addon_bench) revealed.add("addons");
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.gear.uncommon) revealed.add("stations");
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.workshop.parts_bin) revealed.add("fabrication");
     state = {
       ...state,
       autoRaceMaxFatigue: FATIGUE.AUTO_RACE_MAX_DEFAULT,
       projects: [],
+      eventWins: state.eventWins ?? {},
+      pinnedEventIds: state.pinnedEventIds ?? {},
+      revealedSystems: [...revealed],
+      rustedPileSinceTick: state.rustedPileSinceTick ?? null,
     };
   }
 

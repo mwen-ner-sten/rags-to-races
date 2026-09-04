@@ -94,9 +94,9 @@ describe("accelerated campaign fixtures", () => {
     const expectedPost = createGameplayFixture("post_scrap_reset").payload.state;
     load("first_scrap_reset_ready");
     const ready = useGameStore.getState();
-    expect(ready.garage).toHaveLength(SCRAP_RESET_REQUIREMENTS.vehiclesBuilt);
-    expect(ready.repPoints).toBe(SCRAP_RESET_REQUIREMENTS.reputation);
-    expect(ready.lifetimeScrapBucks).toBe(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks);
+    expect(ready.lifetimeRep).toBe(SCRAP_RESET_REQUIREMENTS.lifetimeRep);
+    expect(ready.eventWins[SCRAP_RESET_REQUIREMENTS.featureCircuitId]?.feature).toBe(1);
+    expect(ready.defeatedRivalIds).toHaveLength(SCRAP_RESET_REQUIREMENTS.rivalsDefeated);
 
     ready.prestige();
     const actual = useGameStore.getState();

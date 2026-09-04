@@ -111,7 +111,8 @@ describe("finishing position uses effective performance", () => {
   });
 
   it("lets performance bonuses improve losing positions, not just win chance", () => {
-    const regional = CIRCUIT_DEFINITIONS.find((c) => c.id === "regional_circuit")!;
+    // A synthetic venue at the pre-ladder Regional difficulty keeps this build a mid-field car.
+    const regional = { ...CIRCUIT_DEFINITIONS.find((c) => c.id === "regional_circuit")!, difficulty: 166 };
     const vehicle: BuiltVehicle = {
       id: "fixture",
       definitionId: "simulation_fixture",

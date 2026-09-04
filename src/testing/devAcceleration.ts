@@ -108,6 +108,7 @@ export function applyDevSimulation(state: GameState, result: DevSimulationSummar
       winningCircuitIds: result.winningCircuitIds,
       defeatedRivalIds: result.defeatedRivalIds,
       circuitWinStreaks: result.circuitWinStreaks,
+      eventWins: result.eventWins,
       raceSalvageFound: result.raceSalvageFound,
       forgeTokensFound: result.forgeTokensFound,
       entryFeesPaid: result.entryFeesPaid,
