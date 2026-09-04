@@ -35,7 +35,7 @@ function squareAsset(kind: FixedAssetKind, folder: string, id: string, name: str
     id,
     name,
     kind,
-    src: `/sprites/${folder}/${id}.png`,
+    src: `/sprites/${folder}/${id}.webp`,
     source: { width: size, height: size },
     anchor: { x: size / 2, y: size / 2 },
     displaySizes: kind === "vehicle" || kind === "rival" ? [16, 24, 32, 64] : [24, 32, 48, 64],
@@ -48,7 +48,7 @@ function thumbnailAsset(kind: "location" | "circuit", id: string, name: string):
     id,
     name,
     kind,
-    src: `/sprites/${kind}s/${id}.png`,
+    src: `/sprites/${kind}s/${id}.webp`,
     source: { width: 512, height: 288 },
     anchor: { x: 256, y: 144 },
     displaySizes: [160, 256, 320, 512],
@@ -62,7 +62,7 @@ export const FIXED_ASSET_MANIFEST: FixedAsset[] = [
   // Light / Sturdy variants reuse their base part's sprite.
   ...PART_DEFINITIONS.map((definition) => ({
     ...squareAsset("part", "parts", definition.id, definition.name),
-    src: `/sprites/parts/${getBasePartId(definition.id)}.png`,
+    src: `/sprites/parts/${getBasePartId(definition.id)}.webp`,
   })),
   ...ADDON_DEFINITIONS.map((definition) => squareAsset("addon", "addons", definition.id, definition.name)),
   ...GARAGE_STATIONS.map((definition) => squareAsset("station", "stations", definition.id, definition.name)),

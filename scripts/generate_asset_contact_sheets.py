@@ -8,6 +8,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from convert_sprites_to_webp import AUTHORING_ROOT, REVIEW_ROOT
+
 
 BACKGROUND = (13, 17, 23, 255)
 PANEL = (19, 25, 34, 255)
@@ -74,9 +76,10 @@ def thumbnail_sheet(files: list[Path], title: str, columns: int = 2) -> Image.Im
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--root", type=Path, default=Path("public/sprites"))
+    parser.add_argument("--root", type=Path, default=AUTHORING_ROOT, help="PNG authoring tree to review")
+    parser.add_argument("--review-dir", type=Path, default=REVIEW_ROOT, help="Where contact sheets are written (never public/)")
     args = parser.parse_args()
-    review = args.root / "review"
+    review = args.review_dir
     review.mkdir(parents=True, exist_ok=True)
     groups = {
         "parts": args.root / "parts",
