@@ -123,7 +123,9 @@ These are playtest hypotheses, not balance commitments.
 | First 5 minutes | Understand scavenging, parts, selling, and the immediate vehicle goal |
 | First 15 minutes | Assemble or nearly assemble the first vehicle through understandable choices |
 | First 30 minutes | Race, identify a weakness, and make a targeted improvement |
-| First 60-120 minutes | Reach the first Scrap Reset with a clear reason to begin again |
+| First 60-120 minutes | Own a specialised build, have spent Rep on a deliberate unlock, and see a rate for every resource |
+| First day | Several same-tier builds, condition/enhancement as the long grind, a workshop project always in flight |
+| Days 2-4 | Reach the first Scrap Reset with a clear reason to begin again |
 | Second run | Feel materially different because automation or a strategic option changed |
 | Midgame | Make competing same-tier builds and promote from personal labor into crew policies |
 | Long game | Choose organizations, series, and campaign rules without losing the importance of vehicles and races |
@@ -216,6 +218,24 @@ content around it.
 - Hiding confusing gameplay behind tutorial text instead of improving the interaction
 
 ## Settled Product Decisions
+
+Decided 2026-09-04 (see the Harmony Brief for the audit behind them):
+
+- The first Scrap Reset is a **multi-day** milestone (target 2-4 days of mixed idle
+  and active play), not a 1-2 hour sprint. The early campaign gets wide before it
+  gets tall: part variants per tier, condition as the long axis, timed workshop
+  projects, a finer event ladder.
+- Every system is a producer, converter, or multiplier on one shared resource graph,
+  and every resource shows its per-second rate. A system with no rate and no sink
+  does not ship.
+- **Rep is spent**, not only accumulated: circuits, locations and workshop lines cost
+  Rep to open. Rep decays gently toward a floor that never falls below what resets
+  have earned.
+- Loot gear stays and gets a real locker screen rather than being cut.
+- Systems reveal on relevance (the player has the thing the system acts on), not on
+  bare Rep thresholds.
+- One shell, themes as token sets. Midnight Circuit (cyan/magenta) is the reference
+  identity for now.
 
 - The dominant fantasy unfolds in order: engineer a vehicle, race and influence it,
   then optimize the racing organization.
