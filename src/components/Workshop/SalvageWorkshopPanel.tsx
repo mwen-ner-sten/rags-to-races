@@ -28,6 +28,7 @@ import { CONDITION_ADDON_SLOTS } from "@/data/parts";
 import GameAssetImage from "@/components/GameAssetImage";
 import ComposedEquipmentImage from "@/components/ComposedEquipmentImage";
 import SkillsSubTab from "@/components/Locker/SkillsSubTab";
+import LockerPanel from "@/components/Locker/LockerPanel";
 import PlaystyleSubTab from "@/components/Upgrades/PlaystyleSubTab";
 import WorkshopPanel from "./WorkshopPanel";
 import MobileSubNav from "@/components/MobileSubNav";
@@ -120,6 +121,7 @@ export default function SalvageWorkshopPanel() {
       {activeTab === "addons" && <AddonBench onOpenFacilities={() => setTab("facilities")} />}
       {activeTab === "dealer" && <DealerBoard onOpenFacilities={() => setTab("facilities")} />}
       {activeTab === "stations" && <StationEquipment />}
+      {activeTab === "locker" && <LockerPanel />}
       {activeTab === "philosophy" && <Philosophy />}
       {activeTab === "skills" && <SkillsSubTab />}
       {activeTab === "facilities" && <WorkshopPanel />}

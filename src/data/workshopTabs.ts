@@ -9,7 +9,7 @@ import {
 
 export type WorkshopTab =
   | "inventory" | "fabrication" | "addons" | "dealer"
-  | "stations" | "philosophy" | "skills" | "facilities";
+  | "stations" | "locker" | "philosophy" | "skills" | "facilities";
 
 export interface WorkshopTabDefinition {
   id: WorkshopTab;
@@ -38,6 +38,7 @@ export const WORKSHOP_TABS: WorkshopTabDefinition[] = [
   { id: "dealer", label: "Dealer", revealHint: SYSTEM_REVEALS_BY_ID.dealer.trigger, guide: { what: "A rotating board of parts for sale at a markup.", why: "Buy the exact part a build is missing instead of waiting for the junkyard." } },
   { id: "fabrication", label: "Fabrication", revealHint: SYSTEM_REVEALS_BY_ID.fabrication.trigger, guide: { what: "Recipes that turn materials into parts, and enhancement past pristine.", why: "Materials come from decomposing junk; this is where junk becomes an upgrade." } },
   { id: "stations", label: "Stations", revealHint: SYSTEM_REVEALS_BY_ID.stations.trigger, guide: { what: "Reusable garage equipment with rarity and stat bonuses.", why: "Installed pieces improve scavenging, racing, and repairs across every run." } },
+  { id: "locker", label: "Locker", revealHint: SYSTEM_REVEALS_BY_ID.locker.trigger, guide: { what: "New system: Locker. Personal loot gear for six slots, with affixes, enhancement levels, and mod sockets.", why: "Equipped gear adds scavenge luck, race pace, and cost cuts on top of everything the garage gives you." } },
   { id: "skills", label: "Skills", revealHint: "Raise any racer skill to level 1.", guide: { what: "Driving, mechanics, scavenging, and endurance grow with what you do.", why: "Each level adds a small permanent edge to that activity." } },
   { id: "philosophy", label: "Philosophy", revealHint: "Earn Legacy Points from a Scrap Reset.", guide: { what: "Three exclusive garage philosophies bought with Legacy Points.", why: "The first real strategic choice a reset gives you; it shapes every later run." } },
 ];
@@ -73,6 +74,7 @@ export function isWorkshopTabAvailable(tab: WorkshopTab, state: WorkshopTabState
     case "dealer":
     case "fabrication":
     case "stations":
+    case "locker":
       return isSystemRevealed(state, tab);
     case "skills":
       return Object.values(state.racerSkills ?? {}).some((skill) => (skill?.level ?? 0) >= 1);

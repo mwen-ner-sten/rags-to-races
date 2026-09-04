@@ -96,6 +96,17 @@ describe("workshop tab disclosure", () => {
     expect(isWorkshopTabAvailable("skills", { ...state, racerSkills: { ...state.racerSkills, driving: { xp: 100, level: 1 } } })).toBe(true);
   });
 
+  it("reveals the Locker on the first loot gear drop, never on Rep", () => {
+    const state = fresh();
+    expect(isWorkshopTabAvailable("locker", state)).toBe(false);
+    expect(ids({ ...state, lifetimeRep: 1e9, repPoints: 1e9 })).not.toContain("locker");
+    const goggles = { id: "lg_1", slot: "head" as const, rarity: "common" as const, name: "Dusty Cap", effects: [], enhancementLevel: 0, modSlots: 0, mods: [], source: "test" };
+    expect(isWorkshopTabAvailable("locker", { ...state, lootGearInventory: [goggles] })).toBe(true);
+    expect(isWorkshopTabAvailable("locker", { ...state, equippedLootGear: { ...state.equippedLootGear, head: "lg_1" } })).toBe(true);
+    expect(evaluateSystemReveals({ ...state, lootGearInventory: [goggles] })).toContain("locker");
+    expect(getWorkshopRevealGuide("Locker")?.what).toContain("New system: Locker");
+  });
+
   it("keeps a recorded reveal even after the trigger is gone", () => {
     const state = { ...fresh(), revealedSystems: ["dealer" as const] };
     expect(isWorkshopTabAvailable("dealer", state)).toBe(true);

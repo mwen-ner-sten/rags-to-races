@@ -112,13 +112,14 @@ export const FEATURE_UNLOCKS_BY_ID = Object.fromEntries(
 // vehicles and workshop lines are untouched. Once a system has revealed it
 // stays revealed: the store records the id in `revealedSystems`.
 
-export type WorkshopSystem = "decompose" | "fabrication" | "addons" | "dealer" | "stations" | "refurbish";
+export type WorkshopSystem = "decompose" | "fabrication" | "addons" | "dealer" | "stations" | "refurbish" | "locker";
 
 export type SystemRevealState = Pick<
   GameState,
   | "inventory" | "materials" | "workshopLevels" | "garage" | "activeVehicleId"
   | "lastRaceOutcome" | "scrapBucks" | "stationEquipmentInventory" | "equippedStationEquipment"
   | "dealerBoard" | "lifetimeTotalDecomposed" | "gameTick" | "rustedPileSinceTick" | "revealedSystems"
+  | "lootGearInventory" | "equippedLootGear"
 >;
 
 export interface SystemRevealDefinition {
@@ -225,6 +226,13 @@ export const SYSTEM_REVEAL_DEFINITIONS: readonly SystemRevealDefinition[] = [
     label: "Refurbish",
     trigger: "Race with a part below Decent installed on your active vehicle.",
     isTriggered: (state) => subDecentPartInstalled(state) || (state.workshopLevels?.refurbishment_bench ?? 0) > 0,
+  },
+  {
+    id: "locker",
+    label: "Locker",
+    trigger: "Find your first piece of loot gear.",
+    isTriggered: (state) => (state.lootGearInventory ?? []).length > 0
+      || Object.values(state.equippedLootGear ?? {}).some(Boolean),
   },
 ];
 

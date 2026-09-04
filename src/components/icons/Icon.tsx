@@ -34,7 +34,14 @@ export type IconId =
   | "chevron"
   | "external"
   | "search"
-  | "clock";
+  | "clock"
+  | "locker"
+  | "gear-head"
+  | "gear-body"
+  | "gear-hands"
+  | "gear-feet"
+  | "gear-tool"
+  | "gear-accessory";
 
 const PATHS: Record<IconId, string> = {
   // A bin with a lid, slightly open: the junkyard.
@@ -73,6 +80,15 @@ const PATHS: Record<IconId, string> = {
   external: "M11.5 4h4.5v4.5M16 4l-7 7M14 11.5v3.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3.5",
   search: "M9 14a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12.6 12.6L16.5 16.5",
   clock: "M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM10 6.5V10l2.5 1.5",
+  // A two-door cabinet with vents: the locker.
+  locker: "M5 3h10a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5v-13A.5.5 0 0 1 5 3zM10 3v14M7 6h1.25M11.75 6H13M7 8h1.25M11.75 8H13M8.25 12v1.5M11.75 12v1.5",
+  // Loot gear slots: helmet, jacket, glove, boot, screwdriver, tag.
+  "gear-head": "M4.5 11a5.5 5.5 0 0 1 11 0v2.5h-11zM4.5 11h11M7 13.5V16M13 13.5V16",
+  "gear-body": "M7 4l3 1.5L13 4l3 2-1.5 3.5-1-.5V16h-7V9l-1 .5L4 6zM10 5.5V16",
+  "gear-hands": "M6.5 12V6a1 1 0 0 1 2 0v3M8.5 8.5V4.5a1 1 0 0 1 2 0v4M10.5 8.5V5a1 1 0 0 1 2 0v3.5M12.5 8.5a1 1 0 0 1 2 0V15a2 2 0 0 1-2 2H8.5l-3-4a1 1 0 0 1 1.5-1.3L8.5 13",
+  "gear-feet": "M6 3.5h5v6l4.5 2.5a1.5 1.5 0 0 1 .5 1.2V16H6zM6 12h5.5M9 3.5v6",
+  "gear-tool": "M4 16l6.5-6.5M9.5 8.5l2 2 4.5-4.5a1.4 1.4 0 0 0-2-2z",
+  "gear-accessory": "M4 9.5V4.5a.5.5 0 0 1 .5-.5h5l6.5 6.5-5.5 5.5zM7 7h.01",
 };
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "id"> {
