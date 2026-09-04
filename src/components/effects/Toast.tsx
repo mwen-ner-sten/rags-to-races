@@ -176,12 +176,12 @@ export default function ToastContainer() {
     return (
       <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" aria-labelledby="unlock-guide-title">
         <section
-          className={`w-full max-w-md rounded-2xl border p-5 ${active.exiting ? "animate-slide-out" : "animate-slide-in"}`}
-          style={{ borderColor: "var(--accent-border)", background: "var(--modal-bg, #041820)", boxShadow: "0 0 42px color-mix(in srgb, var(--accent) 28%, transparent), 0 24px 60px rgba(0,0,0,.7)" }}
+          className={`w-full max-w-md break-words rounded-2xl border p-5 ${active.exiting ? "animate-slide-out" : "animate-slide-in"}`}
+          style={{ maxWidth: "min(28rem, calc(100vw - 32px))", borderColor: "var(--accent-border)", background: "var(--modal-bg, #041820)", boxShadow: "0 0 42px color-mix(in srgb, var(--accent) 28%, transparent), 0 24px 60px rgba(0,0,0,.7)" }}
         >
           <div className="mb-4 flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-2xl" style={{ borderColor: "var(--accent-border)", background: "var(--accent-bg)" }}>{presentation.icon}</div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="text-[.65rem] font-bold uppercase tracking-[.2em]" style={{ color: "var(--accent)" }}>New system unlocked</div>
               <h2 id="unlock-guide-title" className="mt-1 text-lg font-bold" style={{ color: "var(--text-heading)" }}>{active.guide.title}</h2>
               <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{active.message}</p>

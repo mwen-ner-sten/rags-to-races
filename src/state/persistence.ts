@@ -11,9 +11,15 @@ import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { CONDITIONS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
+import { FATIGUE } from "@/config/progression";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 
-export const PERSISTENCE_VERSION = 5;
+/**
+ * v6 (Phase 2): fatigue became a stateful rhythm and workshop purchases
+ * became timed projects. Adds `autoRaceMaxFatigue` and `projects`; the
+ * stored fatigue value carries over unchanged and simply starts recovering.
+ */
+export const PERSISTENCE_VERSION = 6;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
 export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 
@@ -225,6 +231,24 @@ const racerSkillsSchema = z.object({
 }).passthrough();
 
 const nonNegativeNumberMap = z.record(z.string(), finiteNonNegative);
+
+const projectSchema = z.object({
+  id: nonEmptyString,
+  kind: z.enum(["upgrade", "enhance"]),
+  label: z.string(),
+  upgradeId: z.string().optional(),
+  targetLevel: finiteNonNegative.optional(),
+  partId: z.string().optional(),
+  targetCondition: partConditionSchema.optional(),
+  startedAt: finiteNonNegative,
+  durationMs: finiteNonNegative,
+  elapsedMs: finiteNonNegative,
+  paid: z.object({
+    scrap: finiteNonNegative,
+    rep: finiteNonNegative,
+    materials: z.record(z.string(), finiteNonNegative),
+  }).passthrough(),
+}).passthrough();
 const materialsSchema = z.object(
   Object.fromEntries(
     Object.keys(INITIAL_MATERIALS).map((material) => [material, finiteNonNegative.optional()]),
@@ -290,6 +314,8 @@ const currentStateSafetySchema = z.object({
   autoScavengeUnlocked: z.boolean().optional(),
   autoRaceUnlocked: z.boolean().optional(),
   autoRaceMinCondition: finiteNonNegative.optional(),
+  autoRaceMaxFatigue: finiteNonNegative.optional(),
+  projects: z.array(projectSchema).optional(),
   activeVehicleId: z.string().nullable().optional(),
   selectedLocationId: z.string().optional(),
   selectedSellBelowQuality: partConditionSchema.optional(),
@@ -411,6 +437,8 @@ export function getPersistedGameState(state: GameState) {
     scoutingOrder: state.scoutingOrder,
     autoRaceUnlocked: state.autoRaceUnlocked,
     autoRaceMinCondition: state.autoRaceMinCondition,
+    autoRaceMaxFatigue: state.autoRaceMaxFatigue,
+    projects: state.projects,
     raceTickProgress: state.raceTickProgress,
     unlockedLocationIds: state.unlockedLocationIds,
     unlockedCircuitIds: state.unlockedCircuitIds,
@@ -529,6 +557,17 @@ export function migratePersistedState(
       lifetimeRep,
       lifetimeRepAllTime: Math.max(state.lifetimeRepAllTime ?? 0, lifetimeRep),
       legacyRepFloor: state.legacyRepFloor ?? 0,
+    };
+  }
+
+  // v6: fatigue rhythm and timed projects. The stored fatigue (0–99 under
+  // either model) carries over and starts recovering; there were no projects
+  // to migrate, and the auto-race fatigue ceiling takes its default.
+  if (version < 6) {
+    state = {
+      ...state,
+      autoRaceMaxFatigue: FATIGUE.AUTO_RACE_MAX_DEFAULT,
+      projects: [],
     };
   }
 
@@ -704,6 +743,8 @@ export function migratePersistedState(
     ),
     autoRaceUnlocked: state.autoRaceUnlocked ?? true,
     autoRaceMinCondition: state.autoRaceMinCondition ?? AUTO_RACE_MIN_CONDITION_DEFAULT,
+    autoRaceMaxFatigue: Math.min(FATIGUE.MAX, state.autoRaceMaxFatigue ?? FATIGUE.AUTO_RACE_MAX_DEFAULT),
+    projects: state.projects ?? [],
   };
 
   const safe = currentStateSafetySchema.safeParse(reconciled);

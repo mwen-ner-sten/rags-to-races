@@ -11,6 +11,7 @@ import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
 import { getRaceTicksNeeded } from "@/engine/tick";
 import { AUTO_RACE_MIN_CONDITION_OPTIONS } from "@/config/gameplayLimits";
+import { FATIGUE } from "@/config/progression";
 import { formatNumber, formatRep } from "@/utils/format";
 import { useState, useEffect, useRef, useMemo } from "react";
 import Confetti from "@/components/effects/Confetti";
@@ -356,6 +357,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
   const autoRaceMinCondition = useGameStore((s) => s.autoRaceMinCondition);
   const setAutoRaceMinCondition = useGameStore((s) => s.setAutoRaceMinCondition);
+  const autoRaceMaxFatigue = useGameStore((s) => s.autoRaceMaxFatigue);
+  const setAutoRaceMaxFatigue = useGameStore((s) => s.setAutoRaceMaxFatigue);
   const raceTickProgress = useGameStore((s) => s.raceTickProgress);
   const raceEvents = useGameStore((s) => s.raceEvents);
   const raceStartTime = useGameStore((s) => s.raceStartTime);
@@ -703,6 +706,20 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                 >
                   {AUTO_RACE_MIN_CONDITION_OPTIONS.map((value) => (
                     <option key={value} value={value}>{value === 0 ? "never" : `${value}%`}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                rest above
+                <select
+                  aria-label="Rest auto-race above fatigue"
+                  value={autoRaceMaxFatigue}
+                  onChange={(event) => setAutoRaceMaxFatigue(Number(event.target.value))}
+                  className="rounded border px-1 py-0.5 text-xs"
+                  style={{ borderColor: "var(--btn-border)", background: "var(--panel-bg)", color: "var(--text-primary)" }}
+                >
+                  {FATIGUE.AUTO_RACE_MAX_OPTIONS.map((value) => (
+                    <option key={value} value={value}>{value >= FATIGUE.MAX ? "never" : `${value} fatigue`}</option>
                   ))}
                 </select>
               </label>

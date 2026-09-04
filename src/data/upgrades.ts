@@ -418,6 +418,47 @@ export function getUpgradeCost(def: UpgradeDefinition, currentLevel: number): nu
   return Math.floor(def.baseCost * Math.pow(def.costScaling, currentLevel));
 }
 
+/**
+ * Project tier of a workshop line, from the Rep its line charges (the
+ * REP_UNLOCK_COSTS.workshop band). Lines that charge no Rep but require
+ * another line inherit that line's band, so a follow-up line never finishes
+ * faster than the line it builds on. Free, prerequisite-less lines are tier 0.
+ *
+ * | Rep charged (after halving) | Tier | Base duration |
+ * |-----------------------------|------|---------------|
+ * | 0                           | 0    | 5 min         |
+ * | 1–25                        | 1    | 9.5 min       |
+ * | 26–100                      | 2    | 18 min        |
+ * | 101–300                     | 3    | 34 min        |
+ * | 301–600                     | 4    | 65 min        |
+ * | 601–3,000                   | 5    | 2 h           |
+ * | 3,001+                      | 6    | 7.8 h         |
+ */
+const PROJECT_TIER_REP_BANDS = [0, 25, 100, 300, 600, 3_000] as const;
+
+export function projectTierForRepCost(repCost: number): number {
+  let tier = 0;
+  for (const bound of PROJECT_TIER_REP_BANDS) {
+    if (repCost > bound) tier += 1;
+  }
+  return tier;
+}
+
+export function getWorkshopUpgradeProjectTier(def: UpgradeDefinition, seen: ReadonlySet<string> = new Set()): number {
+  const repCost = def.unlockRequirement?.repPoints ?? 0;
+  if (repCost > 0) return projectTierForRepCost(repCost);
+  const prerequisites = [
+    ...(def.unlockRequirement?.workshopUpgradeId ? [def.unlockRequirement.workshopUpgradeId] : []),
+    ...(def.unlockRequirement?.workshopUpgradeIds ?? []),
+  ];
+  const visited = new Set([...seen, def.id]);
+  return prerequisites.reduce((highest, id) => {
+    if (visited.has(id)) return highest;
+    const prerequisite = getUpgradeById(id);
+    return prerequisite ? Math.max(highest, getWorkshopUpgradeProjectTier(prerequisite, visited)) : highest;
+  }, 0);
+}
+
 export const UPGRADE_CATEGORIES: { id: UpgradeCategory; label: string; icon: string }[] = [
   { id: "scavenging", label: "Scavenging", icon: "🔍" },
   { id: "building", label: "Building", icon: "🔧" },

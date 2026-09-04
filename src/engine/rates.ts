@@ -10,23 +10,33 @@
  * computeResourceRates; the UI only reads the returned array.
  */
 import type { GameState } from "@/state/store";
-import { calculateFatigue } from "@/state/store";
 import { CURRENCY_DEFINITIONS } from "@/data/currencies";
 import { LOOSE_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { FATIGUE } from "@/config/progression";
 import { computeTickRepDecay, computeTickSpeedMs, getRaceTicksNeeded, autoRaceWouldFire } from "./tick";
 import { canScavengeSelectedLocation } from "./eligibility";
 import { expectedScavenge } from "./scavengeExpectation";
 import { expectedRace, type RaceExpectation } from "./raceExpectation";
-import { calculateScrapResetAward, deriveHighestCircuitTier, getLegacyEffectValue } from "./prestige";
-import { getGearBonuses } from "./gear";
-import { getSkillBonuses } from "./skills";
+import { calculateScrapResetAward, deriveHighestCircuitTier } from "./prestige";
+import { getFatigueCap, getFatigueGainPerRace, getFatigueRecoveryPerHour } from "./fatigue";
+import { getProjectSlots, getRunningProjects, projectProgress, projectRemainingMs } from "./projects";
 import { getPermanentRuntimeBonuses, multiplyReward } from "./permanentBonuses";
-import { getGameEffectValue } from "@/data/gameEffects";
-import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
-import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
-import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import { getCircuitById } from "@/data/circuits";
 import { getMaterialById, type MaterialType } from "@/data/materials";
+
+/** One running project as the rail's tooltip shows it. */
+export interface ProjectRateEntry {
+  id: string;
+  label: string;
+  remainingMs: number;
+  /** 0–1 completion. */
+  progress: number;
+}
+
+/** Non-rate details a resource row can carry; every field is optional. */
+export interface ResourceRateMeta {
+  projects?: ProjectRateEntry[];
+}
 
 export interface ResourceRate {
   /** Matches CurrencyDefinition.id, or a derived resource id such as "parts". */
@@ -45,7 +55,11 @@ export interface ResourceRate {
   visible: boolean;
   /** CSS color token for the value. */
   color: string;
+  /** Extra structured detail (e.g. per-project timers) for the UI to format. */
+  meta?: ResourceRateMeta;
 }
+
+const MS_PER_HOUR = 3_600_000;
 
 /** Horizon for the Legacy projection secant: one hour of expected ticks. */
 const LEGACY_PROJECTION_HORIZON_S = 3_600;
@@ -109,17 +123,41 @@ function fleetFlows(state: GameState): { scrapPerSecond: number; materials: Part
   return { scrapPerSecond, materials };
 }
 
-/** Fatigue after the next race, mirroring applyTickResult's settlement. */
-function fatigueAfterNextRace(state: GameState, circuitTier: number): number {
-  const gear = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
-  const offset = getLegacyEffectValue(state.legacyUpgradeLevels, "leg_fatigue_offset") + getSkillBonuses(state.racerSkills, circuitTier).enduranceFatigueOffset;
-  const raw = calculateFatigue(state.lifetimeRaces + 1, offset);
-  const reduction = gear.fatigue_rate_reduction
-    + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "fatigue_rate_reduction")
-    + getMomentumEffectValue(state.activeMomentumTiers, "fatigue_reduction")
-    + getPermanentRuntimeBonuses(state).fatigueReduction;
-  const cap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "fatigue_cap_reduction"));
-  return Math.min(cap, Math.floor(raw * Math.max(0, 1 - reduction)));
+/**
+ * Fatigue flows, mirroring engine/fatigue: races add, rest drains. The drain
+ * shows whenever there is fatigue to recover, so the rail reads "draining
+ * while resting" the moment auto-race stops for the fatigue ceiling.
+ */
+function fatigueFlows(state: GameState, circuitTier: number, racesPerSecond: number): { gainPerSecond: number; recoveryPerSecond: number } {
+  const fatigue = state.fatigue ?? 0;
+  return {
+    gainPerSecond: getFatigueGainPerRace(state, circuitTier) * racesPerSecond,
+    recoveryPerSecond: fatigue > 0 ? getFatigueRecoveryPerHour(state, circuitTier) / MS_PER_HOUR * 1_000 : 0,
+  };
+}
+
+/** Running projects as a capped resource: amount = running, cap = slots. */
+function projectsRate(state: GameState): ResourceRate {
+  const running = getRunningProjects(state);
+  const bought = Object.values(state.workshopLevels ?? {}).some((level) => level > 0);
+  return {
+    id: "projects",
+    label: "Projects",
+    amount: running.length,
+    perSecond: 0,
+    cap: getProjectSlots(state),
+    sources: [],
+    visible: running.length > 0 || bought,
+    color: "var(--info, #3b82f6)",
+    meta: {
+      projects: running.map((project) => ({
+        id: project.id,
+        label: project.label,
+        remainingMs: projectRemainingMs(project),
+        progress: projectProgress(project),
+      })),
+    },
+  };
 }
 
 function legacyAward(state: GameState, runStats: { lifetimeScrapBucks: number; lifetimeRaces: number; fatigue: number }): number {
@@ -176,18 +214,22 @@ function computeRates(state: GameState): ResourceRate[] {
   ]);
 
   const circuitTier = race?.circuitTier ?? (getCircuitById(state.selectedCircuitId)?.tier ?? 1);
-  const fatigueDelta = race ? fatigueAfterNextRace(state, circuitTier) - (state.fatigue ?? 0) : 0;
+  const fatigueFlow = fatigueFlows(state, circuitTier, flow.racesPerSecond);
   const fatigue = withSources({
     id: "fatigue",
     label: "Fatigue",
     amount: state.fatigue ?? 0,
     perSecond: 0,
-    cap: 99,
+    cap: getFatigueCap(state),
     visible: (state.lifetimeRaces ?? 0) > 0 || (state.fatigue ?? 0) > 0,
     color: "var(--danger, #d64545)",
   }, [
-    { label: "Auto-race wear", perSecond: fatigueDelta * flow.racesPerSecond },
+    { label: "Auto-race wear", perSecond: fatigueFlow.gainPerSecond },
+    { label: "Rest (recovery)", perSecond: -fatigueFlow.recoveryPerSecond },
   ]);
+  const fatigueDeltaPerSecond = fatigueFlow.gainPerSecond - fatigueFlow.recoveryPerSecond;
+
+  const projects = projectsRate(state);
 
   const lpNow = legacyAward(state, {
     lifetimeScrapBucks: state.lifetimeScrapBucks,
@@ -199,7 +241,7 @@ function computeRates(state: GameState): ResourceRate[] {
   const lpLater = legacyAward(state, {
     lifetimeScrapBucks: state.lifetimeScrapBucks + grossScrapPerSecond * LEGACY_PROJECTION_HORIZON_S,
     lifetimeRaces: state.lifetimeRaces + flow.racesPerSecond * LEGACY_PROJECTION_HORIZON_S,
-    fatigue: Math.min(99, Math.max(0, (state.fatigue ?? 0) + fatigueDelta * flow.racesPerSecond * LEGACY_PROJECTION_HORIZON_S)),
+    fatigue: Math.min(FATIGUE.MAX, Math.max(0, (state.fatigue ?? 0) + fatigueDeltaPerSecond * LEGACY_PROJECTION_HORIZON_S)),
   });
   const legacyProjection = withSources({
     id: "legacy_projection",
@@ -227,7 +269,7 @@ function computeRates(state: GameState): ResourceRate[] {
     return { ...base(state, id, definition.getValue(state), definition.name, definition.color), sources: [] };
   });
 
-  return [scrapBucks, rep, parts, forgeTokens, fatigue, legacyProjection, ...materials, ...prestigeCurrencies];
+  return [scrapBucks, rep, parts, forgeTokens, fatigue, projects, legacyProjection, ...materials, ...prestigeCurrencies];
 }
 
 /**

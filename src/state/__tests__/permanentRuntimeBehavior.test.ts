@@ -107,8 +107,37 @@ describe("Achievement runtime rewards", () => {
     });
 
     useGameStore.getState().enhancePart("legendary");
+    // Polished-and-above enhancements are timed projects: the reward lands
+    // with the tick that completes the project (engine/projects).
+    const project = useGameStore.getState().projects[0];
+    expect(project).toMatchObject({ kind: "enhance", partId: "legendary", targetCondition: "legendary" });
+    expect(useGameStore.getState().completedChallenges).not.toContain("first_legendary");
+    useGameStore.getState().applyTickResult([], 0, 0, undefined, undefined, undefined, undefined, undefined, {
+      partsScavenged: 0,
+      partsAutoSold: 0,
+      scavengesCompleted: 0,
+      racesCompleted: 0,
+      winsCompleted: 0,
+      finalWinStreak: 0,
+      bestWinStreak: 0,
+      recentRaceOutcomes: [],
+      winningCircuitIds: [],
+      defeatedRivalIds: [],
+      circuitWinStreaks: {},
+      raceSalvageFound: 0,
+      forgeTokensFound: 0,
+      entryFeesPaid: 0,
+      challengesEvaluated: false,
+      completedChallengeIds: [],
+      challengeForgeTokens: 0,
+      challengeMaterials: {},
+      ticksProcessed: 1,
+      finalProjects: [],
+      completedProjects: [{ ...project, elapsedMs: project.durationMs }],
+    });
 
     const state = useGameStore.getState();
+    expect(state.inventory[0].condition).toBe("legendary");
     expect(state.completedChallenges).toContain("first_legendary");
     expect(state.scrapBucks).toBe(300);
     expect(state.lifetimeScrapBucks).toBe(300);

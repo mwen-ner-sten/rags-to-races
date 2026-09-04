@@ -7,6 +7,7 @@ import { Section, Row, TooltipPanel, HoverTooltipWrapper } from "@/components/To
 import RateChip from "@/components/ui/RateChip";
 import ResourceGlyph from "./ResourceGlyph";
 import { capPercent, formatAmount, formatRate } from "./formatRate";
+import { formatTime } from "@/utils/format";
 
 const CURRENCY_BY_ID = new Map(CURRENCY_DEFINITIONS.map((c) => [c.id, c]));
 
@@ -39,6 +40,13 @@ function ResourceTooltip({ anchorRect, rate }: { anchorRect: DOMRect; rate: Reso
         />
         {rate.cap != null && <Row label="Cap" value={formatAmount(rate.cap)} dim />}
       </Section>
+      {rate.meta?.projects && rate.meta.projects.length > 0 && (
+        <Section label="Running">
+          {rate.meta.projects.map((project) => (
+            <Row key={project.id} label={project.label} value={`${formatTime(project.remainingMs)} left`} />
+          ))}
+        </Section>
+      )}
       {sections.map((section) => (
         <Section key={section.label} label={section.label}>
           {section.rows.map((r, i) => (

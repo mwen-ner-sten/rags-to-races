@@ -126,6 +126,8 @@ export function applyDevSimulation(state: GameState, result: DevSimulationSummar
       newAchievementIds: result.newAchievementIds,
       stationEquipmentAutoSalvaged: result.stationEquipmentAutoSalvaged,
       reforgeShardsFound: result.reforgeShardsFound,
+      finalProjects: result.finalProjects,
+      completedProjects: result.completedProjects,
     },
   );
 }

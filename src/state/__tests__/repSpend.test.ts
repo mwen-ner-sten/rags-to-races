@@ -61,11 +61,14 @@ describe("spendable Rep", () => {
     const repCost = REP_UNLOCK_COSTS.workshop.toolkit;
     useGameStore.setState({ ...createInitialState(), repPoints: repCost, lifetimeRep: repCost, scrapBucks: 100_000 });
     useGameStore.getState().purchaseUpgrade("toolkit");
-    expect(useGameStore.getState().workshopLevels.toolkit).toBe(1);
+    // The purchase is a timed project (engine/projects): Rep is charged now, the level lands later.
+    expect(useGameStore.getState().projects.map((project) => project.upgradeId)).toEqual(["toolkit"]);
+    expect(useGameStore.getState().projects[0].paid.rep).toBe(repCost);
     expect(useGameStore.getState().repPoints).toBeCloseTo(0, 9);
 
     useGameStore.setState({ ...createInitialState(), repPoints: repCost - 1, lifetimeRep: repCost - 1, scrapBucks: 100_000 });
     useGameStore.getState().purchaseUpgrade("toolkit");
+    expect(useGameStore.getState().projects).toEqual([]);
     expect(useGameStore.getState().workshopLevels.toolkit ?? 0).toBe(0);
   });
 
@@ -114,7 +117,7 @@ describe("spendable Rep", () => {
     expect(migrated.unlockedLocationIds).toEqual(expect.arrayContaining(["neighborhood_yards"]));
     // Rep-threshold blueprints already reachable at migration time are kept.
     expect(migrated.unlockedVehicleIds).toEqual(expect.arrayContaining(["go_kart", "beater_car"]));
-    expect(PERSISTENCE_VERSION).toBe(5);
+    expect(PERSISTENCE_VERSION).toBe(6);
   });
 
   it("does not hand out Rep-priced blueprints on a current-version rehydrate", () => {

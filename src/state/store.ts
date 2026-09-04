@@ -77,7 +77,20 @@ import { getPartSaleValue } from "@/engine/sale";
 import { autoSellJunkParts, getAutoSellThreshold } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
-import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, REP_DECAY } from "@/config/progression";
+import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, FATIGUE, REP_DECAY } from "@/config/progression";
+import { fatigueAfterRace, fatigueAfterTick, roundFatigue } from "@/engine/fatigue";
+import {
+  applyCompletedProjects,
+  createEnhanceProject,
+  createUpgradeProject,
+  ENHANCEMENT_PROJECT_MIN_INDEX,
+  findEnhanceProject,
+  findUpgradeProject,
+  hasFreeProjectSlot,
+  projectCancelRefund,
+  type Project,
+} from "@/engine/projects";
+import { formatTime } from "@/utils/format";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
 import { canAffordRep as canAffordRepCost, getCircuitRepCost, getLocationRepCost, getVehicleRepCost, getWorkshopLineRepCost } from "@/engine/progressionUnlocks";
 import {
@@ -144,6 +157,10 @@ export interface AutomationSettlementMeta {
   stationEquipmentAutoSalvaged?: number;
   /** Shards already aggregated by a batched/offline simulation. */
   reforgeShardsFound?: number;
+  /** Projects still running after the settled ticks (engine/projects). */
+  finalProjects?: Project[];
+  /** Projects that finished during the settled ticks; applied here exactly once. */
+  completedProjects?: Project[];
 }
 
 const MAX_LOG_ENTRIES = 200;
@@ -205,6 +222,8 @@ export interface GameState {
   autoRaceUnlocked: boolean;
   /** Auto-race waits while the active vehicle's condition is below this. */
   autoRaceMinCondition: number;
+  /** Auto-race rests while fatigue is above this (engine/fatigue). */
+  autoRaceMaxFatigue: number;
   /** Tick counter toward next auto-race fire (0 to raceTicksNeeded-1) */
   raceTickProgress: number;
   lastRaceOutcome: RaceOutcome | null;
@@ -223,9 +242,9 @@ export interface GameState {
   winStreak: number;
   bestWinStreak: number;
 
-  // Fatigue (aging mechanic)
-  fatigue: number;          // 0-99, increases with races, penalizes everything
-  lifetimeRaces: number;    // total races this run (drives fatigue curve)
+  // Fatigue (daily rhythm — engine/fatigue)
+  fatigue: number;          // 0-99, rises per race, recovers with wall-clock time
+  lifetimeRaces: number;    // total races this run (feeds LP and momentum only)
 
   // Unlock notifications (transient)
   unlockEvents: string[];
@@ -244,6 +263,8 @@ export interface GameState {
 
   // Workshop upgrades
   workshopLevels: Record<string, number>;
+  /** Timed workshop projects in flight (engine/projects). */
+  projects: Project[];
 
   // Build UI state
   pendingBuildParts: Record<string, ScavengedPart | null>;
@@ -369,6 +390,7 @@ export interface GameState {
   setSelectedLocation: (locationId: string) => void;
   setScoutingOrder: (order: PartCategory | null) => void;
   setAutoRaceMinCondition: (condition: number) => void;
+  setAutoRaceMaxFatigue: (fatigue: number) => void;
   setSelectedCircuit: (circuitId: string) => void;
   setSelectedSellBelowQuality: (threshold: PartCondition) => void;
   enterRace: () => void;
@@ -392,7 +414,12 @@ export interface GameState {
   installAddon: (vehicleId: string, slot: string, addonId: string) => void;
   removeAddon: (vehicleId: string, slot: string, addonId: string) => void;
   refurbishPart: (partId: string) => void;
+  /** Buy the next level of a workshop line: pays now, starts a timed project. */
   purchaseUpgrade: (upgradeId: string) => void;
+  /** Queue a prepared project if a slot is free; returns whether it started. */
+  startProject: (project: Project) => boolean;
+  /** Abandon a running project and refund half of what it cost. */
+  cancelProject: (projectId: string) => void;
   equipLootGear: (lootGearId: string) => void;
   unequipLootGear: (slot: GearSlot) => void;
   enhanceLootGear: (lootGearId: string) => void;
@@ -495,6 +522,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     activeRaceSessionId: null,
     autoRaceUnlocked: true,
     autoRaceMinCondition: AUTO_RACE_MIN_CONDITION_DEFAULT,
+    autoRaceMaxFatigue: FATIGUE.AUTO_RACE_MAX_DEFAULT,
     raceTickProgress: 0,
     lastRaceOutcome: null,
     raceHistory: [],
@@ -521,6 +549,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     equippedStationEquipment: Object.fromEntries(GARAGE_STATION_IDS.map((slot) => [slot, null])) as Record<GarageStationSlot, string | null>,
     reforgeShards: 0,
     workshopLevels: {},
+    projects: [],
     pendingBuildParts: {},
     pendingBuildVehicleId: "push_mower",
     unlockedLocationIds: ["curbside"],
@@ -885,13 +914,6 @@ export function getWorkshopUpgradePurchaseCost(
         (1 - Math.min(0.95, milestoneReduction + philosophyReduction)),
     ),
   );
-}
-
-/** Calculate fatigue from total races this run (logarithmic curve) */
-export function calculateFatigue(lifetimeRaces: number, fatigueOffset: number = 0): number {
-  const effectiveRaces = Math.max(0, lifetimeRaces - fatigueOffset);
-  if (effectiveRaces <= 0) return 0;
-  return Math.min(99, Math.floor(25 * Math.log2(1 + effectiveRaces / 100)));
 }
 
 /**
@@ -1437,6 +1459,10 @@ function createActions(set: SetState, get: GetState) {
       set({ autoRaceMinCondition: Math.max(0, Math.min(100, Math.floor(condition))) });
     },
 
+    setAutoRaceMaxFatigue: (fatigue: number) => {
+      set({ autoRaceMaxFatigue: Math.max(0, Math.min(FATIGUE.MAX, Math.floor(fatigue))) });
+    },
+
     setSelectedCircuit: (circuitId: string) => {
       set({ selectedCircuitId: circuitId });
     },
@@ -1523,7 +1549,6 @@ function createActions(set: SetState, get: GetState) {
           }
           settledCurrentSession = true;
           // One bonus algebra for Scrap Bucks and Rep (engine/bonuses), shared with automation.
-          const racePermanent = getPermanentRuntimeBonuses(s);
           const payout = applyRacePayout(collectBonuses(s, circuit.tier), outcome, outcome.result === "win" ? s.winStreak + 1 : 0);
           const effectiveRepEarned = payout.rep;
           const newRep = s.repPoints + effectiveRepEarned;
@@ -1585,12 +1610,8 @@ function createActions(set: SetState, get: GetState) {
           let settledOutcome: RaceOutcome = { ...outcome, scrapsEarned: finalScraps, repEarned: effectiveRepEarned };
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
-          const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + sb.enduranceFatigueOffset;
-          const rawFatigue = calculateFatigue(newLifetimeRaces, fatigueOffset);
-          const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
-          const momentumFatigueReduction = getMomentumEffectValue(s.activeMomentumTiers, "fatigue_reduction");
-          const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "fatigue_cap_reduction"));
-          const newFatigue = Math.min(fatigueCap, Math.floor(rawFatigue * Math.max(0, 1 - gb.fatigue_rate_reduction - ownerFatigueReduction - momentumFatigueReduction - racePermanent.fatigueReduction)));
+          // Fatigue rhythm: one race adds its tier's amount; rest between ticks removes it.
+          const newFatigue = fatigueAfterRace(s, s.fatigue, circuit.tier);
 
           // Gear drop roll from manual race (circuit-fitted, derived performance vs. difficulty)
           const vehiclePerf = vehiclePerformance(raceVehicle, circuit, handlingBonusPct) / (circuit.difficulty || 1);
@@ -2049,6 +2070,8 @@ function createActions(set: SetState, get: GetState) {
       if (!def) return;
       const currentLevel = state.workshopLevels[upgradeId] ?? 0;
       if (currentLevel >= def.maxLevel) return;
+      // A line can have one project in flight, and only while a slot is free.
+      if (findUpgradeProject(state, upgradeId) || !hasFreeProjectSlot(state)) return;
 
       // Opening a Rep-gated line spends Rep once, with its first level.
       const repCost = currentLevel === 0 ? (getWorkshopLineRepCost(upgradeId) ?? 0) : 0;
@@ -2068,13 +2091,48 @@ function createActions(set: SetState, get: GetState) {
       const cost = getWorkshopUpgradePurchaseCost(state, upgradeId);
       if (cost === null) return;
       if (state.scrapBucks < cost) return;
+      // The purchase pays now and the level lands when the project completes
+      // (computeTick credits wall-clock time; applyTickResult applies it).
+      // No tutorial step waits on a workshop level (TutorialOverlay's
+      // isStepConditionMet reads inventory, garage, and race state only), so
+      // the Toolkit runs as an ordinary tier-1 project. If a future step does
+      // wait on a level, give that line a zero-duration project here.
+      const project = createUpgradeProject(state, upgradeId, currentLevel + 1, { scrap: cost, rep: repCost, materials: {} }, Date.now());
+      if (!project) return;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
         repPoints: s.repPoints - repCost,
-        workshopLevels: { ...s.workshopLevels, [upgradeId]: currentLevel + 1 },
       }));
+      if (!(get() as GameState).startProject(project)) {
+        // Cannot happen after the slot check above; never keep the money if it does.
+        set((s: GameState) => ({ scrapBucks: s.scrapBucks + cost, repPoints: s.repPoints + repCost }));
+        return;
+      }
       const repNote = repCost > 0 ? ` and ${repCost} Rep` : "";
-      _appendLog(set, get, "upgrade", `Bought ${def.name} Lv.${currentLevel + 1} for $${cost}${repNote}`, { scrapDelta: -cost, repDelta: repCost > 0 ? -repCost : undefined });
+      _appendLog(set, get, "upgrade", `Started ${def.name} Lv.${currentLevel + 1} for $${cost}${repNote} · ready in ${formatTime(project.durationMs)}`, { scrapDelta: -cost, repDelta: repCost > 0 ? -repCost : undefined });
+    },
+
+    startProject: (project: Project) => {
+      const state = get() as GameState;
+      if (!hasFreeProjectSlot(state)) return false;
+      if (state.projects.some((candidate) => candidate.id === project.id)) return false;
+      set((s: GameState) => ({ projects: [...s.projects, project] }));
+      return true;
+    },
+
+    cancelProject: (projectId: string) => {
+      const state = get() as GameState;
+      const project = state.projects.find((candidate) => candidate.id === projectId);
+      if (!project) return;
+      const refund = projectCancelRefund(project);
+      set((s: GameState) => ({
+        projects: s.projects.filter((candidate) => candidate.id !== projectId),
+        scrapBucks: s.scrapBucks + refund.scrap,
+        repPoints: s.repPoints + refund.rep,
+        materials: addRewardMaterials(s.materials, refund.materials),
+      }));
+      const repNote = refund.rep > 0 ? ` and ${refund.rep} Rep` : "";
+      _appendLog(set, get, "upgrade", `Cancelled ${project.label}; refunded $${refund.scrap}${repNote}`, { scrapDelta: refund.scrap, repDelta: refund.rep > 0 ? refund.rep : undefined });
     },
 
     equipLootGear: (lootGearId: string) => {
@@ -2397,6 +2455,8 @@ function createActions(set: SetState, get: GetState) {
         unlockedCircuitIds: startingCircuits,
         fatigue: 0,
         lifetimeRaces: 0,
+        // Projects belong to the run that started them.
+        projects: [],
         // Rep: the new run starts on the legacy floor resets have earned.
         legacyRepFloor,
         repPoints: legacyRepFloor,
@@ -2607,6 +2667,7 @@ function createActions(set: SetState, get: GetState) {
       }
       const tickMessage = tickParts.length > 0 ? `Auto: ${tickParts.join(", ")}` : null;
 
+      let tickChallengeAnnouncement: { ids: string[]; bundle: ChallengeRewardBundle } | null = null;
       set((s: GameState) => {
         const raced = settlement.racesCompleted > 0;
         const newLifetimeRaces = s.lifetimeRaces + settlement.racesCompleted;
@@ -2628,16 +2689,18 @@ function createActions(set: SetState, get: GetState) {
         });
 
         const activeCircuitTier = getCircuitById(s.selectedCircuitId)?.tier ?? 1;
-        const fatigueOffset = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_fatigue_offset") + getSkillBonuses(s.racerSkills, activeCircuitTier).enduranceFatigueOffset;
-        const rawFatigue = raced ? calculateFatigue(newLifetimeRaces, fatigueOffset) : s.fatigue;
-        const ownerFatigueReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, s.ownerUpgradeLevels, "fatigue_rate_reduction");
-        const momentumFatigueReduction = getMomentumEffectValue(s.activeMomentumTiers, "fatigue_reduction");
-        const permanentFatigueReduction = getPermanentRuntimeBonuses(s).fatigueReduction;
-        const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "fatigue_cap_reduction"));
-        const calculatedFatigue = raced
-          ? Math.min(fatigueCap, Math.floor(rawFatigue * Math.max(0, 1 - gbTick.fatigue_rate_reduction - ownerFatigueReduction - momentumFatigueReduction - permanentFatigueReduction)))
-          : s.fatigue;
+        // Tick math (computeTick / simulateOfflineTicks) supplies the exact
+        // rested-then-raced fatigue. The bare fallback credits the races only.
+        const calculatedFatigue = fatigueAfterTick(s, s.fatigue, 0, settlement.racesCompleted, activeCircuitTier);
         const newFatigue = settlement.finalFatigue ?? calculatedFatigue;
+
+        // Projects: the tick math advanced them; finished ones land here once.
+        const runningProjects = settlement.finalProjects ?? s.projects;
+        const completedProjects = settlement.completedProjects ?? [];
+        const projectCompletion = applyCompletedProjects(
+          { workshopLevels: s.workshopLevels, inventory: s.inventory, lifetimeTotalEnhanced: s.lifetimeTotalEnhanced, highestConditionReached: s.highestConditionReached },
+          completedProjects,
+        );
 
         let tickSkills = s.racerSkills;
         if (settlement.scavengesCompleted > 0) tickSkills = _grantXp(tickSkills, "scavenging", settlement.scavengesCompleted);
@@ -2676,12 +2739,16 @@ function createActions(set: SetState, get: GetState) {
           if (s.bestWinStreak < threshold && newBestStreak >= threshold) unlockEvents.push(`${threshold}-Win Streak!`);
         }
         const newRaceSalvage = s.lifetimeTotalRaceSalvage + settlement.raceSalvageFound;
+        for (const project of completedProjects) unlockEvents.push(`Project complete: ${project.label}`);
         const challengeProgress = {
           ...s.challengeProgress,
           winStreak: newBestStreak,
           fatigue: newFatigue,
           lifetimeRaces: newLifetimeRaces,
           totalRaceSalvage: newRaceSalvage,
+          ...(projectCompletion.lifetimeTotalEnhanced !== s.lifetimeTotalEnhanced
+            ? { totalEnhanced: projectCompletion.lifetimeTotalEnhanced, highestConditionReached: projectCompletion.highestConditionReached }
+            : {}),
         };
         const challengeCheck = settlement.challengesEvaluated
           ? { completed: settlement.completedChallengeIds.filter((id) => !s.completedChallenges.includes(id)), rewards: [] }
@@ -2708,8 +2775,8 @@ function createActions(set: SetState, get: GetState) {
         }
 
         let inventory = retainedParts.length > 0
-          ? [...s.inventory, ...retainedParts]
-          : s.inventory;
+          ? [...projectCompletion.inventory, ...retainedParts]
+          : projectCompletion.inventory;
         let stationEquipmentInventory = retainedStationDrops.length > 0
           ? [...s.stationEquipmentInventory, ...retainedStationDrops]
           : s.stationEquipmentInventory;
@@ -2756,6 +2823,7 @@ function createActions(set: SetState, get: GetState) {
               _logIdCounter: s._logIdCounter + 1,
             }
           : {};
+        if (completed.length > 0) tickChallengeAnnouncement = { ids: completed, bundle: challengeRewards };
         return {
           inventory,
           scrapBucks: s.scrapBucks + totalScrapsEarned + challengeRewards.scrap,
@@ -2766,6 +2834,10 @@ function createActions(set: SetState, get: GetState) {
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
           fatigue: newFatigue,
+          projects: runningProjects,
+          workshopLevels: projectCompletion.workshopLevels,
+          lifetimeTotalEnhanced: projectCompletion.lifetimeTotalEnhanced,
+          highestConditionReached: projectCompletion.highestConditionReached,
           racerSkills: settlement.finalRacerSkills ?? tickSkills,
           crewRoster: settlement.finalCrewRoster ?? updatedCrew,
           stationEquipmentInventory,
@@ -2798,6 +2870,10 @@ function createActions(set: SetState, get: GetState) {
           ...tickLogState,
         };
       });
+      if (tickChallengeAnnouncement) {
+        const { ids, bundle } = tickChallengeAnnouncement as { ids: string[]; bundle: ChallengeRewardBundle };
+        announceChallengeCompletions(set, get, ids, bundle);
+      }
       const postTick = get() as GameState;
       postTick.checkMomentumTiers();
       postTick.checkFeatureUnlocks();
@@ -2947,6 +3023,24 @@ function createActions(set: SetState, get: GetState) {
         newMaterials[mat] = Math.max(0, (newMaterials[mat] ?? 0) - qty);
       }
       const newCondition = CONDITIONS[targetIdx] as PartCondition;
+
+      // Polished and above run as timed projects in the shared queue: the
+      // materials are paid now, the condition lands when the timer passes.
+      if (targetIdx >= ENHANCEMENT_PROJECT_MIN_INDEX) {
+        if (findEnhanceProject(state, partId) || !hasFreeProjectSlot(state)) return;
+        const project = createEnhanceProject(state, partId, def.name, newCondition, { scrap: 0, rep: 0, materials: cost }, Date.now());
+        set((s: GameState) => ({
+          materials: newMaterials,
+          racerSkills: _grantXp(s.racerSkills, "mechanics", 10),
+        }));
+        if (!(get() as GameState).startProject(project)) {
+          set({ materials: state.materials });
+          return;
+        }
+        _appendLog(set, get, "craft", `Started enhancing ${def.name} to ${newCondition} · ready in ${formatTime(project.durationMs)}`);
+        return;
+      }
+
       const newHighest = Math.max(state.highestConditionReached, targetIdx);
       const newEnhanced = state.lifetimeTotalEnhanced + 1;
       const newProgress = {
@@ -3199,7 +3293,7 @@ function createActions(set: SetState, get: GetState) {
       const recovered = Math.min(FATIGUE_DRINK_RECOVERY, state.fatigue);
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - FATIGUE_DRINK_COST,
-        fatigue: Math.max(0, s.fatigue - recovered),
+        fatigue: roundFatigue(Math.max(0, s.fatigue - recovered)),
         challengeProgress: {
           ...s.challengeProgress,
           [FATIGUE_DRINK_PROGRESS_KEY]: purchased + 1,

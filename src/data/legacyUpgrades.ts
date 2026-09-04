@@ -87,7 +87,7 @@ const EFFICIENT_SALVAGER: LegacyUpgradeDefinition = {
 const IRON_WILL: LegacyUpgradeDefinition = {
   id: "leg_fatigue_offset",
   name: "Iron Will",
-  description: "Fatigue curve starts 5 races later per level.",
+  description: "Fatigue recovers 10% faster per level.",
   category: "endurance",
   maxLevel: 10,
   baseCost: 10,

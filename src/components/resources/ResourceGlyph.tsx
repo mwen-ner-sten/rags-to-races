@@ -49,6 +49,13 @@ function glyphFor(id: string) {
           <circle cx="8" cy="8" r="2" {...COMMON} />
         </>
       );
+    case "projects": // clock face with a wrench hand
+      return (
+        <>
+          <circle cx="8" cy="8" r="6.25" {...COMMON} />
+          <path d="M8 4.5V8l2.5 1.5" {...COMMON} />
+        </>
+      );
     default:
       return <circle cx="8" cy="8" r="5.5" {...COMMON} />;
   }

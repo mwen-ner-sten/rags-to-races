@@ -2,15 +2,25 @@ import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { getVehicleById } from "@/data/vehicles";
 import { deriveHighestCircuitTier } from "@/engine/prestige";
 import { useGameStore } from "@/state/store";
+import { FATIGUE, fatiguePerRace } from "@/config/progression";
+
+/** Chart abstraction: Iron Will value (5 per level) → recovery rate bonus, as engine/fatigue maps it. */
+const IRON_WILL_RECOVERY_PER_VALUE = 0.02;
+/** Charts assume one race per minute of hands-on play when converting recovery into per-race relief. */
+const CHART_MINUTES_PER_RACE = 1;
 
 /**
- * Fatigue calculation for balance charts.
- * Mirrors the canonical formula in src/state/store.ts (calculateFatigue).
- * Extracted here to avoid duplicating in every chart component.
+ * Fatigue for balance charts under the rhythm model (engine/fatigue): each
+ * race adds a tier-1 amount and the minutes between races recover some of it.
+ * `fatigueOffset` is the Iron Will value (5 per level), mapped to the same
+ * recovery bonus the engine applies, so the charts keep their Iron Will axis.
  */
 export function calcFatigue(races: number, fatigueOffset: number): number {
-  const effective = Math.max(0, races - fatigueOffset);
-  return Math.min(99, Math.floor(25 * Math.log2(1 + effective / 25)));
+  if (races <= 0) return 0;
+  const recoveryPerHour = FATIGUE.RECOVERY_PER_HOUR * (1 + Math.max(0, fatigueOffset) * IRON_WILL_RECOVERY_PER_VALUE);
+  const recoveryPerRace = recoveryPerHour * (CHART_MINUTES_PER_RACE / 60);
+  const netPerRace = fatiguePerRace(1) - recoveryPerRace;
+  return Math.max(0, Math.min(FATIGUE.MAX, Math.floor(races * netPerRace)));
 }
 
 /** Snapshot of game state values relevant to balance charts */

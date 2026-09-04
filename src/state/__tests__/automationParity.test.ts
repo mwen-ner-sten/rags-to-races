@@ -44,6 +44,9 @@ function onlineSettlement(state: GameState, tick: TickResult): AutomationSettlem
     challengeMaterials: {},
     ticksProcessed: 1,
     repDecayed: tick.repDecayed,
+    finalFatigue: tick.fatigueAfterTick,
+    finalProjects: tick.projects,
+    completedProjects: tick.completedProjects,
   };
 }
 
@@ -99,6 +102,8 @@ function settleOffline(state: GameState, result: ReturnType<typeof simulateOffli
       finalCrewRoster: result.finalCrewRoster,
       finalActiveMomentumTiers: result.finalActiveMomentumTiers,
       newAchievementIds: result.newAchievementIds,
+      finalProjects: result.finalProjects,
+      completedProjects: result.completedProjects,
     },
   );
 }
@@ -148,6 +153,8 @@ describe("online and batched automation parity", () => {
       lifetimeScrapBucks: 1_000,
       repPoints: 0,
       autoRaceUnlocked: true,
+      // Never rest for fatigue: the parity check wants a race on every tick.
+      autoRaceMaxFatigue: 99,
       raceTickProgress: 0,
       lifetimeRaces: 29,
       lifetimeRacesAllTime: 29,
