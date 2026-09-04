@@ -5,6 +5,7 @@ import type { RaceOutcome } from "@/engine/race";
 import { DEALER_BOARD_SIZE, DEALER_REFRESH_INTERVAL, DEALER_UNLOCK_REP } from "@/data/dealer";
 import { computeTick } from "@/engine/tick";
 import { LOOSE_INVENTORY_LIMIT, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { REP_UNLOCK_COSTS } from "@/config/progression";
 import type { ScavengedPart } from "@/engine/scavenge";
 import type { LootGearItem } from "@/data/lootGear";
 
@@ -175,6 +176,7 @@ describe("automation unlock contracts", () => {
     useGameStore.setState({
       ...createInitialState(),
       repPoints: DEALER_UNLOCK_REP - 1,
+      lifetimeRep: DEALER_UNLOCK_REP - 1,
       gameTick: 12,
       dealerBoard: [],
     });
@@ -206,15 +208,21 @@ describe("automation unlock contracts", () => {
     expect(useGameStore.getState().raceHistory).toHaveLength(1);
   });
 
-  it("unlocks the Go-Kart blueprint from automated Rep on the shared ladder", () => {
-    useGameStore.setState({ ...createInitialState(), repPoints: 24 });
+  it("banks automated Rep into the spendable and lifetime balances without auto-unlocking", () => {
+    useGameStore.setState({ ...createInitialState(), repPoints: 24, lifetimeRep: 24 });
     useGameStore.getState().applyTickResult([], 0, 0.5, undefined, undefined, undefined, undefined, undefined, settlement({}));
-    expect(useGameStore.getState().unlockedVehicleIds).not.toContain("go_kart");
+    useGameStore.getState().applyTickResult([], 0, 0.5, undefined, undefined, undefined, undefined, undefined, settlement({}));
+    const state = useGameStore.getState();
+    expect(state.repPoints).toBeCloseTo(25, 9);
+    expect(state.lifetimeRep).toBeCloseTo(25, 9);
+    expect(state.unlockedVehicleIds).not.toContain("go_kart");
+    expect(state.unlockedCircuitIds).not.toContain("dirt_track");
+    expect(state.unlockedLocationIds).not.toContain("local_junkyard");
 
-    useGameStore.getState().applyTickResult([], 0, 0.5, undefined, undefined, undefined, undefined, undefined, settlement({}));
+    // Rep is spent on the ladder explicitly.
+    state.unlockVehicle("go_kart");
     expect(useGameStore.getState().unlockedVehicleIds).toContain("go_kart");
-    expect(useGameStore.getState().unlockedCircuitIds).toContain("dirt_track");
-    expect(useGameStore.getState().unlockedLocationIds).toContain("local_junkyard");
+    expect(useGameStore.getState().repPoints).toBeCloseTo(25 - REP_UNLOCK_COSTS.vehicles.go_kart, 9);
   });
 
   it("bounds batched race history to the most recent twenty outcomes", () => {

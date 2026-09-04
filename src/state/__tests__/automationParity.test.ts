@@ -43,6 +43,7 @@ function onlineSettlement(state: GameState, tick: TickResult): AutomationSettlem
     challengeForgeTokens: 0,
     challengeMaterials: {},
     ticksProcessed: 1,
+    repDecayed: tick.repDecayed,
   };
 }
 
@@ -90,7 +91,9 @@ function settleOffline(state: GameState, result: ReturnType<typeof simulateOffli
       challengeForgeTokens: result.challengeForgeTokens,
       challengeMaterials: result.challengeMaterials,
       ticksProcessed: result.ticksProcessed,
+      repDecayed: result.repDecayed,
       finalFatigue: result.finalFatigue,
+      finalRepPoints: result.finalRepPoints,
       finalVehicleCondition: result.finalVehicleCondition,
       finalRacerSkills: result.finalRacerSkills,
       finalCrewRoster: result.finalCrewRoster,

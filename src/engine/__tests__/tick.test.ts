@@ -152,8 +152,10 @@ describe("simulateOfflineTicks", () => {
     const state = makeState({ autoScavengeUnlocked: true });
     const result = simulateOfflineTicks(state, 10);
     expect(result.ticksProcessed).toBe(10);
-    // curbside location always yields at least 1 part per scavenge
-    expect(result.partsFound.length).toBeGreaterThanOrEqual(10);
+    // curbside location always yields at least 1 part per scavenge; rusted
+    // finds are auto-sold from the first tick, so count what was produced.
+    expect(result.partsScavenged).toBeGreaterThanOrEqual(10);
+    expect(result.partsFound.length + result.partsAutoSold).toBe(result.partsScavenged);
   });
 
   it("does not scavenge when auto-scavenge is not unlocked", () => {

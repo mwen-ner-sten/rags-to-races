@@ -27,7 +27,8 @@ export interface PrestigeMilestoneBonuses {
   // QoL flags
   autoRace: boolean;
   autoActivateVehicle: boolean;
-  autoSellRusted: boolean;
+  /** Junk Filter: the auto-sell threshold follows the player's Sell Below Quality pick. */
+  autoSellThreshold: boolean;
   freeDecomposeAll: boolean;
   autoEquipBest: boolean;
 
@@ -70,10 +71,10 @@ const PM_AUTO_ACTIVATE: PrestigeMilestoneDefinition = {
 const PM_JUNK_FILTER: PrestigeMilestoneDefinition = {
   id: "pm_junk_filter",
   name: "Junk Filter",
-  description: "Rusted parts are sold automatically when scavenged.",
+  description: "Auto-sell follows your Sell Below Quality setting instead of rusted-only.",
   prestigeRequired: 2,
-  reward: { type: "qol", qolId: "auto_sell_rusted" },
-  flavorText: "If it's rusted, it's sold. No questions asked.",
+  reward: { type: "qol", qolId: "auto_sell_threshold" },
+  flavorText: "You decide what counts as junk. The crew sells it before it hits the shelf.",
 };
 
 const PM_BULK_SCRAP: PrestigeMilestoneDefinition = {
@@ -256,7 +257,7 @@ export function getNewlyUnlockedMilestones(
 const QOL_FLAG_MAP: Record<string, keyof PrestigeMilestoneBonuses> = {
   auto_race: "autoRace",
   auto_activate_vehicle: "autoActivateVehicle",
-  auto_sell_rusted: "autoSellRusted",
+  auto_sell_threshold: "autoSellThreshold",
   free_decompose_all: "freeDecomposeAll",
   auto_equip_best: "autoEquipBest",
 };
@@ -287,7 +288,7 @@ export function getPrestigeMilestoneBonuses(
   const bonuses: PrestigeMilestoneBonuses = {
     autoRace: false,
     autoActivateVehicle: false,
-    autoSellRusted: false,
+    autoSellThreshold: false,
     freeDecomposeAll: false,
     autoEquipBest: false,
     scavengeYieldMult: 0,

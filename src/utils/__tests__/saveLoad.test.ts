@@ -173,16 +173,13 @@ describe("save envelope", () => {
     }));
 
     expect(decoded.sourceVersion).toBe(SAVE_VERSION);
+    // Race-progress and Owner-upgrade blueprints reconcile; Rep-priced ones
+    // are bought with unlockVehicle and never granted by a balance.
     expect(decoded.envelope.state.unlockedVehicleIds).toEqual([
       "push_mower",
       "hypercar",
       "prototype_x",
       "riding_mower",
-      "go_kart",
-      "beater_car",
-      "street_racer",
-      "stock_car",
-      "supercar",
     ]);
 
     const hydrated = mergePersistedGameState(

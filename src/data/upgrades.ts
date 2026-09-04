@@ -1,4 +1,4 @@
-import { REP_PROGRESSION } from "@/config/progression";
+import { REP_UNLOCK_COSTS } from "@/config/progression";
 
 export type UpgradeCategory = "scavenging" | "building" | "racing" | "maintenance" | "gear_lab";
 
@@ -56,7 +56,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 225,
     costScaling: 1,
     effect: { type: "unlock_part_swap", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.toolkit },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.toolkit },
   },
   {
     id: "bargain_builder",
@@ -77,7 +77,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 350,
     costScaling: 1,
     effect: { type: "unlock_auto_fitter", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.auto_fitter },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.auto_fitter },
   },
   {
     id: "refurbishment_bench",
@@ -88,7 +88,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 150,
     costScaling: 1,
     effect: { type: "unlock_refurbish", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.refurbishment_bench },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.refurbishment_bench },
   },
 
   // ── Racing ──
@@ -154,7 +154,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 450,
     costScaling: 3.0,
     effect: { type: "auto_repair_rate", valuePerLevel: 5 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.auto_repair },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.auto_repair },
   },
   {
     id: "gentle_swap",
@@ -178,7 +178,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 300,
     costScaling: 2.2,
     effect: { type: "gear_drop_rate_scavenge", valuePerLevel: 0.02 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.gear_scavenger },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.gear_scavenger },
   },
   {
     id: "trophy_hunter",
@@ -189,7 +189,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 450,
     costScaling: 2.5,
     effect: { type: "gear_drop_rate_race", valuePerLevel: 0.03 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.trophy_hunter },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.trophy_hunter },
   },
   {
     id: "rarity_sense",
@@ -268,7 +268,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 225,
     costScaling: 1,
     effect: { type: "unlock_addon_manage", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.addon_bench },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.addon_bench },
   },
 
   // ── New: Decomposition & Enhancement ────────────────────────────────────────
@@ -281,7 +281,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 2250,
     costScaling: 1,
     effect: { type: "unlock_enhancement", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.tuning_bench },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.tuning_bench },
   },
   {
     id: "parts_bin",
@@ -292,7 +292,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 4500,
     costScaling: 1,
     effect: { type: "unlock_crafting", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.parts_bin },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.parts_bin },
   },
   {
     id: "parts_trader",
@@ -303,7 +303,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 12000,
     costScaling: 1,
     effect: { type: "unlock_tradeup", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.parts_trader },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.parts_trader },
   },
   {
     id: "artifact_forge",
@@ -314,7 +314,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 75000,
     costScaling: 1,
     effect: { type: "unlock_artifact_forge", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.artifact_forge },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.artifact_forge },
   },
 
   // ── Efficiency (Tick Speed) ──────────────────────────────────────────────────
@@ -327,7 +327,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 2500,
     costScaling: 2.5,
     effect: { type: "tick_speed_reduction_ms", valuePerLevel: 4000 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.tick_accelerator },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.tick_accelerator },
   },
   {
     id: "overclocked_tick",
@@ -349,7 +349,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 3000,
     costScaling: 3.0,
     effect: { type: "race_tick_reduction", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.pit_crew },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.pit_crew },
   },
 
   // ── Hold-to-Scavenge ─────────────────────────────────────────────────────────
@@ -406,7 +406,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     baseCost: 3750,
     costScaling: 1,
     effect: { type: "salvage_drop_upgrade", valuePerLevel: 1 },
-    unlockRequirement: { repPoints: REP_PROGRESSION.workshop.scavengers_eye },
+    unlockRequirement: { repPoints: REP_UNLOCK_COSTS.workshop.scavengers_eye },
   },
 ];
 

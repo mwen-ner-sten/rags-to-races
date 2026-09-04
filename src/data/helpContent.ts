@@ -53,7 +53,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Explore the Workshop", description: "Review Inventory, Fabrication, Add-ons, Dealer, Stations, Philosophy, Skills, and Facilities." },
   { step: "Build an early runway", description: "Reach $500 lifetime Scrap Bucks and 100 Rep by racing, scavenging, and selling spare parts." },
   { step: "Expand the garage", description: `Keep ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} built vehicles in your Garage at the same time.` },
-  { step: "Reach the reset gate", description: `Earn $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep. Watch fatigue — it builds as you race and cuts performance.` },
+  { step: "Reach the reset gate", description: `Earn $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} lifetime Rep (spending Rep never sets you back). Watch fatigue — it builds as you race and cuts performance.` },
   { step: "Visit Upgrades", description: "Open the Upgrades tab when fatigue is high or progress stalls." },
   { step: "Prestige", description: "Hit Scrap Reset to prestige. You restart stronger with permanent bonuses." },
 ];
@@ -62,7 +62,8 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
 
 export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, facilities, and station equipment." },
-  { term: "Rep", meaning: "Progression currency from races. Unlocks locations, circuits, vehicles, the Dealer, and late-game systems." },
+  { term: "Rep", meaning: "Reputation from races. Spend it to open locations, circuits, vehicle blueprints, and Rep-gated workshop lines. The balance decays slowly (half-life three days) toward your legacy floor; lifetime Rep never falls and gates the Dealer, momentum, and the Scrap Reset." },
+  { term: "Junk Filter", meaning: "Rusted finds are sold automatically from the first tick. The Prestige 2 milestone lets your Sell Below Quality setting decide what counts as junk." },
   { term: "Fatigue", meaning: "Follows a diminishing race-count curve (0–99). Costs -0.5% performance, +0.8% wear, and +1% repair cost per point. Resets on Scrap Reset." },
   { term: "Condition", meaning: `Part quality from ${CONDITIONS[0]} (worst) to ${CONDITIONS[CONDITIONS.length - 1]} (best). Higher = more power and sale value.` },
   { term: "Prestige (Scrap Reset)", meaning: "Voluntary reset that wipes run currency, parts, and vehicles but awards Legacy Points. Station equipment, discoveries, and legacy upgrades persist." },

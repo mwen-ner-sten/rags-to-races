@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RaceOutcome } from "@/engine/race";
 import { withRandomSource } from "@/utils/random";
 import { createInitialState, useGameStore } from "../store";
-import { REP_PROGRESSION } from "@/config/progression";
+import { REP_UNLOCK_COSTS } from "@/config/progression";
 
 // Stats are derived from parts at race entry, so the test car needs real
 // parts. A pristine Push Mower is comfortably favoured on the Backyard Derby.
@@ -56,15 +56,22 @@ afterEach(() => {
 });
 
 describe("vehicle blueprint state transitions", () => {
-  it("uses the shared Beater Car Rep boundary in race settlement", () => {
-    expect(finishBackyardRace(REP_PROGRESSION.vehicles.beater_car - 3).unlockedVehicleIds).not.toContain("beater_car");
-    expect(finishBackyardRace(REP_PROGRESSION.vehicles.beater_car - 2).unlockedVehicleIds).toContain("beater_car");
+  it("never grants the Beater Car from race Rep; it is bought at the shared price", () => {
+    const settled = finishBackyardRace(REP_UNLOCK_COSTS.vehicles.beater_car + 10);
+    expect(settled.unlockedVehicleIds).not.toContain("beater_car");
+    settled.unlockVehicle("beater_car");
+    expect(useGameStore.getState().unlockedVehicleIds).toContain("beater_car");
+    expect(useGameStore.getState().repPoints).toBeCloseTo(settled.repPoints - REP_UNLOCK_COSTS.vehicles.beater_car, 9);
   });
 
-  it("unlocks the Go-Kart at 25 Rep rather than a win streak", () => {
+  it("prices the Go-Kart in Rep rather than a win streak", () => {
     expect(finishBackyardRace(0, Array.from({ length: 4 }, wonBackyardRace)).unlockedVehicleIds).not.toContain("go_kart");
-    expect(finishBackyardRace(REP_PROGRESSION.vehicles.go_kart - 3).unlockedVehicleIds).not.toContain("go_kart");
-    expect(finishBackyardRace(REP_PROGRESSION.vehicles.go_kart - 2).unlockedVehicleIds).toContain("go_kart");
+    const short = finishBackyardRace(0);
+    short.unlockVehicle("go_kart");
+    expect(useGameStore.getState().unlockedVehicleIds).not.toContain("go_kart");
+    const funded = finishBackyardRace(REP_UNLOCK_COSTS.vehicles.go_kart);
+    funded.unlockVehicle("go_kart");
+    expect(useGameStore.getState().unlockedVehicleIds).toContain("go_kart");
   });
 
   it("unlocks both Vehicle Mastery blueprints when the Owner upgrade is purchased", () => {

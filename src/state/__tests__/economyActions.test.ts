@@ -261,6 +261,7 @@ describe("Dealer board lifecycle", () => {
     useGameStore.setState({
       ...createInitialState(),
       repPoints: 99,
+      lifetimeRep: 99,
       dealerBoard: [],
       gameTick: 100,
       scrapBucks: 500,

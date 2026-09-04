@@ -13,7 +13,7 @@ import { INITIAL_MATERIALS } from "@/data/materials";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 
-export const PERSISTENCE_VERSION = 4;
+export const PERSISTENCE_VERSION = 5;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
 export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 
@@ -239,6 +239,9 @@ const materialsSchema = z.object(
 const currentStateSafetySchema = z.object({
   scrapBucks: finiteNonNegative.optional(),
   repPoints: finiteNonNegative.optional(),
+  lifetimeRep: finiteNonNegative.optional(),
+  lifetimeRepAllTime: finiteNonNegative.optional(),
+  legacyRepFloor: finiteNonNegative.optional(),
   lifetimeScrapBucks: finiteNonNegative.optional(),
   prestigeCount: finiteNonNegative.optional(),
   legacyPoints: finiteNonNegative.optional(),
@@ -345,6 +348,9 @@ const persistedStateSchema = z
   .object({
     scrapBucks: finiteNonNegative.optional(),
     repPoints: finiteNonNegative.optional(),
+    lifetimeRep: finiteNonNegative.optional(),
+    lifetimeRepAllTime: finiteNonNegative.optional(),
+    legacyRepFloor: finiteNonNegative.optional(),
     lifetimeScrapBucks: finiteNonNegative.optional(),
     prestigeCount: finiteNonNegative.optional(),
     legacyPoints: finiteNonNegative.optional(),
@@ -376,6 +382,9 @@ export function getPersistedGameState(state: GameState) {
   return {
     scrapBucks: state.scrapBucks,
     repPoints: state.repPoints,
+    lifetimeRep: state.lifetimeRep,
+    lifetimeRepAllTime: state.lifetimeRepAllTime,
+    legacyRepFloor: state.legacyRepFloor,
     lifetimeScrapBucks: state.lifetimeScrapBucks,
     prestigeCount: state.prestigeCount,
     prestigeBonus: state.prestigeBonus,
@@ -507,6 +516,22 @@ export function migratePersistedState(
     state = { ...state, autoScavengeUnlocked: true, autoRaceUnlocked: true };
   }
 
+  // Rep became spendable (v5). Whatever was already unlocked stays unlocked
+  // without charge, and the lifetime counters start from the best evidence a
+  // v4 save carries: its balance. Rep-priced blueprints the old threshold
+  // rules had already granted are reconciled below with that same figure.
+  const repPointsAtMigration = typeof state.repPoints === "number" ? state.repPoints : 0;
+  const grantsRepBlueprints = version < 5;
+  if (version < 5) {
+    const lifetimeRep = Math.max(repPointsAtMigration, state.lifetimeRep ?? 0);
+    state = {
+      ...state,
+      lifetimeRep,
+      lifetimeRepAllTime: Math.max(state.lifetimeRepAllTime ?? 0, lifetimeRep),
+      legacyRepFloor: state.legacyRepFloor ?? 0,
+    };
+  }
+
   if (version < 3) {
     // Retired systems (talent tree, static outfit shop) are refunded from the
     // frozen legacy tables; their fields are dropped from the save below.
@@ -635,7 +660,9 @@ export function migratePersistedState(
     );
   }
   for (const vehicleId of getVehicleIdsUnlockedByProgress({
-    reputation: typeof state.repPoints === "number" ? state.repPoints : 0,
+    // Current-version saves buy Rep-priced blueprints; only a pre-v5 save is
+    // credited with the ones its old balance had already reached.
+    reputation: grantsRepBlueprints ? Math.max(repPointsAtMigration, state.lifetimeRep ?? 0) : 0,
     wonCircuitIds,
     circuitWinStreaks,
     ownerUpgradeLevels,

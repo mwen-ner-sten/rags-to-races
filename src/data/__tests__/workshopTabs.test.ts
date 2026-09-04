@@ -12,9 +12,9 @@ describe("workshop tab disclosure", () => {
   });
 
   it("reveals sourcing and building sections on the shared Rep ladder", () => {
-    expect(isWorkshopTabAvailable("addons", { ...fresh(), repPoints: REP_PROGRESSION.workshop.addon_bench })).toBe(true);
-    expect(isWorkshopTabAvailable("dealer", { ...fresh(), repPoints: REP_PROGRESSION.dealer.unlock - 1 })).toBe(false);
-    expect(isWorkshopTabAvailable("dealer", { ...fresh(), repPoints: REP_PROGRESSION.dealer.unlock })).toBe(true);
+    expect(isWorkshopTabAvailable("addons", { ...fresh(), lifetimeRep: REP_PROGRESSION.workshop.addon_bench })).toBe(true);
+    expect(isWorkshopTabAvailable("dealer", { ...fresh(), lifetimeRep: REP_PROGRESSION.dealer.unlock - 1 })).toBe(false);
+    expect(isWorkshopTabAvailable("dealer", { ...fresh(), lifetimeRep: REP_PROGRESSION.dealer.unlock })).toBe(true);
   });
 
   it("reveals Fabrication the moment the player holds a material", () => {
@@ -38,7 +38,7 @@ describe("workshop tab disclosure", () => {
   });
 
   it("keeps every tab reachable in the maxed state and preserves order", () => {
-    const all = { ...fresh(), repPoints: 1e9, lifetimeLPAllTime: 1, materials: { ...fresh().materials, metalScrap: 1 }, stationEquipmentInventory: [{ id: "x" }] as GameState["stationEquipmentInventory"], racerSkills: { ...fresh().racerSkills, driving: { xp: 1, level: 1 } } };
+    const all = { ...fresh(), lifetimeRep: 1e9, lifetimeLPAllTime: 1, materials: { ...fresh().materials, metalScrap: 1 }, stationEquipmentInventory: [{ id: "x" }] as GameState["stationEquipmentInventory"], racerSkills: { ...fresh().racerSkills, driving: { xp: 1, level: 1 } } };
     expect(ids(all)).toEqual(WORKSHOP_TABS.map((tab) => tab.id));
   });
 });
