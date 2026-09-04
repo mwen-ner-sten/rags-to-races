@@ -55,14 +55,14 @@ export default function LootGearArt({ slot, rarity, affixes, empty = false, size
         <Image
           key={affix}
           {...layerProps}
-          src={`/sprites/equipment/affixes/${affix}.png`}
+          src={`/sprites/equipment/affixes/${affix}.webp`}
           alt=""
           className="absolute inset-0 object-contain"
         />
       ))}
       <Image
         {...layerProps}
-        src={`/sprites/equipment/rarity/${rarity}.png`}
+        src={`/sprites/equipment/rarity/${rarity}.webp`}
         alt=""
         className="absolute inset-0 object-contain"
       />
