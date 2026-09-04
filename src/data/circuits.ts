@@ -1,5 +1,5 @@
 import type { CircuitProfile } from "./raceStrategy";
-import { REP_PROGRESSION } from "@/config/progression";
+import { REP_UNLOCK_COSTS } from "@/config/progression";
 
 export interface CircuitDefinition {
   id: string;
@@ -32,7 +32,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 0,
     rewardBase: 10,
     repReward: 2,
-    unlockRepCost: REP_PROGRESSION.circuits.backyard_derby,
+    unlockRepCost: REP_UNLOCK_COSTS.circuits.backyard_derby,
     raceDuration: 6000,
     profile: { surface: "grass", weather: "variable", length: "short", cornerDensity: "high", demands: { power: 2, grip: 5, aero: 1, reliability: 3, fuel: 1 }, wearPressure: 0.8, breakdownPressure: 0.95, pitAvailable: false, rewardProfile: "local" },
   },
@@ -47,7 +47,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 15,
     rewardBase: 60,
     repReward: 8,
-    unlockRepCost: REP_PROGRESSION.circuits.dirt_track,
+    unlockRepCost: REP_UNLOCK_COSTS.circuits.dirt_track,
     raceDuration: 8000,
     profile: { surface: "gravel", weather: "variable", length: "short", cornerDensity: "high", demands: { power: 4, grip: 7, aero: 2, reliability: 5, fuel: 2 }, wearPressure: 1.1, breakdownPressure: 1.02, pitAvailable: false, rewardProfile: "local" },
   },
@@ -62,7 +62,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 100,
     rewardBase: 500,
     repReward: 40,
-    unlockRepCost: REP_PROGRESSION.circuits.regional_circuit,
+    unlockRepCost: REP_UNLOCK_COSTS.circuits.regional_circuit,
     raceDuration: 10000,
     profile: { surface: "asphalt", weather: "dry", length: "medium", cornerDensity: "medium", demands: { power: 8, grip: 4, aero: 3, reliability: 5, fuel: 4 }, wearPressure: 1, breakdownPressure: 1, pitAvailable: true, rewardProfile: "regional" },
   },
@@ -77,7 +77,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 800,
     rewardBase: 4000,
     repReward: 150,
-    unlockRepCost: REP_PROGRESSION.circuits.national_circuit,
+    unlockRepCost: REP_UNLOCK_COSTS.circuits.national_circuit,
     raceDuration: 12000,
     profile: { surface: "asphalt", weather: "variable", length: "medium", cornerDensity: "high", demands: { power: 6, grip: 8, aero: 7, reliability: 7, fuel: 5 }, wearPressure: 1.15, breakdownPressure: 1.04, pitAvailable: true, rewardProfile: "national" },
   },
@@ -92,7 +92,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 8000,
     rewardBase: 35000,
     repReward: 500,
-    unlockRepCost: REP_PROGRESSION.circuits.world_championship,
+    unlockRepCost: REP_UNLOCK_COSTS.circuits.world_championship,
     raceDuration: 15000,
     profile: { surface: "asphalt", weather: "variable", length: "long", cornerDensity: "medium", demands: { power: 10, grip: 4, aero: 6, reliability: 8, fuel: 8 }, wearPressure: 1.25, breakdownPressure: 1.06, pitAvailable: true, rewardProfile: "world" },
   },
@@ -107,7 +107,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 25000,
     rewardBase: 150000,
     repReward: 1500,
-    unlockRepCost: REP_PROGRESSION.circuits.continental_grand_prix,
+    unlockRepCost: REP_UNLOCK_COSTS.circuits.continental_grand_prix,
     raceDuration: 18000,
     requiredFeature: "advanced_circuits",
     profile: { surface: "asphalt", weather: "variable", length: "long", cornerDensity: "high", demands: { power: 8, grip: 9, aero: 9, reliability: 9, fuel: 8 }, wearPressure: 1.35, breakdownPressure: 1.08, pitAvailable: true, rewardProfile: "world" },
@@ -123,7 +123,7 @@ export const CIRCUIT_DEFINITIONS: CircuitDefinition[] = [
     entryFee: 100000,
     rewardBase: 500000,
     repReward: 5000,
-    unlockRepCost: REP_PROGRESSION.circuits.endurance_series,
+    unlockRepCost: REP_UNLOCK_COSTS.circuits.endurance_series,
     raceDuration: 22000,
     requiredFeature: "advanced_circuits",
     profile: { surface: "asphalt", weather: "wet", length: "long", cornerDensity: "medium", demands: { power: 6, grip: 8, aero: 6, reliability: 10, fuel: 10 }, wearPressure: 1.6, breakdownPressure: 1.12, pitAvailable: true, rewardProfile: "endurance" },

@@ -128,7 +128,9 @@ export default function Home() {
               challengeForgeTokens: r.challengeForgeTokens,
               challengeMaterials: r.challengeMaterials,
               ticksProcessed: r.ticksProcessed,
+              repDecayed: r.repDecayed,
               finalFatigue: r.finalFatigue,
+              finalRepPoints: r.finalRepPoints,
               finalVehicleCondition: r.finalVehicleCondition,
               finalRacerSkills: r.finalRacerSkills,
               finalCrewRoster: r.finalCrewRoster,
@@ -187,6 +189,7 @@ export default function Home() {
               challengeForgeTokens: 0,
               challengeMaterials: {},
               ticksProcessed: 1,
+              repDecayed: result.repDecayed,
             },
         );
       }

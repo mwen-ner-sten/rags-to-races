@@ -43,7 +43,7 @@ describe("getPrestigeMilestoneBonuses", () => {
     const bonuses = getPrestigeMilestoneBonuses(0);
     expect(bonuses.autoRace).toBe(false);
     expect(bonuses.autoActivateVehicle).toBe(false);
-    expect(bonuses.autoSellRusted).toBe(false);
+    expect(bonuses.autoSellThreshold).toBe(false);
     expect(bonuses.freeDecomposeAll).toBe(false);
     expect(bonuses.autoEquipBest).toBe(false);
     expect(bonuses.scavengeYieldMult).toBe(0);

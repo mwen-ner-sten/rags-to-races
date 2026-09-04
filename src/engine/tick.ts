@@ -23,7 +23,9 @@ import { makePartId } from "./scavenge";
 import { random } from "@/utils/random";
 import { getPartSaleValue } from "./sale";
 import { getPrestigeMilestoneBonuses } from "@/data/prestigeMilestones";
-import { autoSellRustedParts } from "./autoSell";
+import { autoSellJunkParts, getAutoSellThreshold } from "./autoSell";
+import { repDecayAmount } from "@/config/progression";
+import { getRepFloor } from "./repFloor";
 import { getPermanentRuntimeBonuses } from "./permanentBonuses";
 import { grantCrewRoleXp } from "./crew";
 import type { MaterialType } from "@/data/materials";
@@ -33,7 +35,6 @@ import type { RacerSkills } from "@/data/racerSkills";
 import type { CrewMember } from "@/data/crew";
 import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { canEnterSelectedRace, canScavengeSelectedLocation } from "./eligibility";
-import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "./progressionUnlocks";
 import { convertLegacyLootDrop } from "@/data/stationEquipment";
 import { getStationSalvageYield } from "./stationReforge";
 
@@ -57,6 +58,8 @@ export interface TickResult {
   entryFeesPaid: number;
   scrapsEarned: number;
   repEarned: number;
+  /** Rep removed by decay this tick (half-life toward the legacy floor). */
+  repDecayed: number;
   raceOutcome: ReturnType<typeof simulateRace> | null;
   vehicleWearAmount: number;
   vehicleRepairAmount: number;
@@ -161,6 +164,14 @@ export function deriveRaceVehicle(
   return withDerivedStats(vehicle, getHandlingBonusPct(state, gearHandlingPct));
 }
 
+/**
+ * Rep decay for one tick of the current speed. Measured against the pre-tick
+ * balance so live play and batched simulation apply exactly the same amount.
+ */
+export function computeTickRepDecay(state: GameState): number {
+  return repDecayAmount(state.repPoints ?? 0, getRepFloor(state), computeTickSpeedMs(state));
+}
+
 /** Pure function: compute one tick of idle progress */
 export function computeTick(state: GameState): TickResult {
   const result: TickResult = {
@@ -174,6 +185,7 @@ export function computeTick(state: GameState): TickResult {
     entryFeesPaid: 0,
     scrapsEarned: 0,
     repEarned: 0,
+    repDecayed: computeTickRepDecay(state),
     raceOutcome: null,
     vehicleWearAmount: 0,
     vehicleRepairAmount: 0,
@@ -221,7 +233,8 @@ export function computeTick(state: GameState): TickResult {
       if (doubleChance > 0 && random() < doubleChance) {
         parts.push(...parts.map((p) => ({ ...p, id: makePartId() })));
       }
-      const autoSale = autoSellRustedParts(parts, milestoneBonuses.autoSellRusted, getSellValueBonus(state));
+      // Junk is sold from the first tick; the Junk Filter milestone tunes the threshold.
+      const autoSale = autoSellJunkParts(parts, getAutoSellThreshold(state), getSellValueBonus(state));
       result.partsFound = autoSale.keptParts;
       result.partsScavenged = parts.length;
       result.scavengesCompleted = 1;
@@ -361,6 +374,8 @@ export interface OfflineResult {
   entryFeesPaid: number;
   scrapsEarned: number;
   repEarned: number;
+  /** Total Rep removed by decay across the replayed ticks. */
+  repDecayed: number;
   vehicleWearTotal: number;
   vehicleRepairTotal: number;
   raceTickProgress: number;
@@ -386,6 +401,8 @@ export interface OfflineResult {
   challengeForgeTokens: number;
   challengeMaterials: Partial<Record<MaterialType, number>>;
   finalFatigue: number;
+  /** Exact Rep balance after every earn and decay step, tick by tick. */
+  finalRepPoints: number;
   finalVehicleCondition: number | null;
   finalRacerSkills: RacerSkills;
   finalCrewRoster: CrewMember[];
@@ -417,6 +434,7 @@ export function simulateOfflineTicks(
     entryFeesPaid: 0,
     scrapsEarned: 0,
     repEarned: 0,
+    repDecayed: 0,
     vehicleWearTotal: 0,
     vehicleRepairTotal: 0,
     raceTickProgress: initialState.raceTickProgress,
@@ -438,6 +456,7 @@ export function simulateOfflineTicks(
     challengeForgeTokens: 0,
     challengeMaterials: {},
     finalFatigue: initialState.fatigue,
+    finalRepPoints: initialState.repPoints,
     finalVehicleCondition: initialState.garage.find((vehicle) => vehicle.id === initialState.activeVehicleId)?.condition ?? null,
     finalRacerSkills: initialState.racerSkills,
     finalCrewRoster: initialState.crewRoster,
@@ -507,6 +526,7 @@ export function simulateOfflineTicks(
     }
     result.scrapsEarned += r.scrapsEarned;
     result.repEarned += r.repEarned;
+    result.repDecayed += r.repDecayed;
     result.vehicleWearTotal += r.vehicleWearAmount;
     result.vehicleRepairTotal += r.vehicleRepairAmount;
     result.raceTickProgress = r.newRaceTickProgress;
@@ -537,15 +557,11 @@ export function simulateOfflineTicks(
 
     // Update scrapBucks (scrapsEarned already has entry fee subtracted)
     snap.scrapBucks += r.scrapsEarned;
-    snap.repPoints += r.repEarned;
-    snap.unlockedCircuitIds = [...new Set([
-      ...snap.unlockedCircuitIds,
-      ...getCircuitsUnlockedByReputation(snap.repPoints, snap.unlockedFeatures ?? []).map((circuit) => circuit.id),
-    ])];
-    snap.unlockedLocationIds = [...new Set([
-      ...snap.unlockedLocationIds,
-      ...getLocationsUnlockedByReputation(snap.repPoints).map((location) => location.id),
-    ])];
+    // Rep: earn, then decay measured against the pre-tick balance. Unlocks
+    // are bought explicitly, never granted by a balance crossing a threshold.
+    snap.repPoints = Math.max(0, snap.repPoints + r.repEarned - r.repDecayed);
+    snap.lifetimeRep = (snap.lifetimeRep ?? 0) + r.repEarned;
+    snap.lifetimeRepAllTime = (snap.lifetimeRepAllTime ?? 0) + r.repEarned;
     snap.forgeTokens += r.forgeTokensFound;
     snap.totalForgeTokensEarned = (snap.totalForgeTokensEarned ?? 0) + r.forgeTokensFound;
     snap.lifetimePartsScavengedAllTime = (snap.lifetimePartsScavengedAllTime ?? 0) + r.partsScavenged;
@@ -617,7 +633,8 @@ export function simulateOfflineTicks(
     snap.unlockedVehicleIds = [...new Set([
       ...snap.unlockedVehicleIds,
       ...getVehicleIdsUnlockedByProgress({
-        reputation: snap.repPoints,
+        // Rep-priced blueprints are bought with unlockVehicle, never auto-granted.
+        reputation: 0,
         wonCircuitIds,
         circuitWinStreaks: result.circuitWinStreaks,
         ownerUpgradeLevels: snap.ownerUpgradeLevels,
@@ -693,7 +710,7 @@ export function simulateOfflineTicks(
     snap.activeMomentumTiers = getActiveMomentumTiers(
       snap.lifetimeRaces,
       snap.fatigue,
-      snap.repPoints,
+      snap.lifetimeRep,
       snap.lifetimeScrapBucks,
       deriveHighestCircuitTier(snap.unlockedCircuitIds),
       getPermanentRuntimeBonuses(snap).momentumThresholdReduction,
@@ -702,6 +719,7 @@ export function simulateOfflineTicks(
   }
 
   result.finalFatigue = snap.fatigue;
+  result.finalRepPoints = snap.repPoints;
   result.finalVehicleCondition = snap.garage.find((vehicle) => vehicle.id === snap.activeVehicleId)?.condition ?? null;
   result.finalRacerSkills = snap.racerSkills;
   result.finalCrewRoster = snap.crewRoster;

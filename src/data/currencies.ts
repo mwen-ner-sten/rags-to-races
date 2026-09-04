@@ -11,6 +11,7 @@
  */
 import type { GameState } from "@/state/store";
 import type { TabId } from "@/components/navigation/tabs";
+import { getResourceRate, type ResourceRate } from "@/engine/rates";
 
 export type { TabId };
 
@@ -52,6 +53,16 @@ export interface CurrencyDefinition {
   getTooltip: (state: GameState) => CurrencyTooltipSection[];
   /** One-line description of what the currency is used for. Shown at top of tooltip. */
   description: string;
+  /**
+   * Per-second net rate for this currency, derived from the engine tick math
+   * (engine/rates). Lets the HUD show "/s" without engine knowledge.
+   */
+  getRate?: (state: GameState) => ResourceRate | undefined;
+}
+
+/** Every currency reads its rate from the one engine derivation. */
+function rateFor(id: string): (state: GameState) => ResourceRate | undefined {
+  return (state) => getResourceRate(state, id);
 }
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
@@ -84,6 +95,7 @@ const SCRAP_BUCKS: CurrencyDefinition = {
   showOnAllTabs: true,
   color: "var(--accent, #c83e0c)",
   getValue: (s) => s.scrapBucks,
+  getRate: rateFor("scrap_bucks"),
   formatValue: compact,
   description: "Primary currency. Earn from races and selling parts. Spend on building, repairs, upgrades.",
   getTooltip: (s) => [
@@ -113,13 +125,16 @@ const REP: CurrencyDefinition = {
   showOnAllTabs: true,
   color: "var(--accent-secondary, #ff0090)",
   getValue: (s) => s.repPoints,
+  getRate: rateFor("rep"),
   formatValue: rep,
-  description: "Reputation from races. Unlocks locations, circuits, vehicles, and late-game systems.",
+  description: "Reputation from races. Spend it to open locations, circuits, blueprints and workshop lines; it decays slowly toward your legacy floor.",
   getTooltip: (s) => [
     {
       label: "Rep",
       rows: [
-        { label: "Current", value: rep(s.repPoints), color: "var(--info, #6aaa3a)" },
+        { label: "Spendable", value: rep(s.repPoints), color: "var(--info, #6aaa3a)" },
+        { label: "Lifetime this run", value: rep(s.lifetimeRep ?? 0), dim: true },
+        { label: "Legacy floor", value: rep(s.legacyRepFloor ?? 0), dim: true },
       ],
     },
     ...(s.prestigeBonus && s.prestigeCount > 0
@@ -141,6 +156,7 @@ const LEGACY_POINTS: CurrencyDefinition = {
   gate: (s) => s.legacyPoints > 0 || s.lifetimeLegacyPoints > 0,
   color: "#a78bfa",
   getValue: (s) => s.legacyPoints,
+  getRate: rateFor("lp"),
   formatValue: compact,
   description: "Earned on Scrap Reset. Spend in the Legacy shop for permanent bonuses.",
   getTooltip: (s) => [
@@ -170,6 +186,7 @@ const TEAM_POINTS: CurrencyDefinition = {
   gate: (s) => s.teamEraCount > 0 || s.teamPoints > 0,
   color: "#22d3ee",
   getValue: (s) => s.teamPoints,
+  getRate: rateFor("tp"),
   formatValue: compact,
   description: "Earned on Team Reset. Spend on Team upgrades for cross-prestige bonuses.",
   getTooltip: (s) => [
@@ -198,6 +215,7 @@ const OWNER_POINTS: CurrencyDefinition = {
   gate: (s) => s.ownerEraCount > 0 || s.ownerPoints > 0,
   color: "#f472b6",
   getValue: (s) => s.ownerPoints,
+  getRate: rateFor("op"),
   formatValue: compact,
   description: "Earned on Owner Reset. Spend on Owner upgrades for team-wide bonuses.",
   getTooltip: (s) => [
@@ -226,6 +244,7 @@ const TRACK_TOKENS: CurrencyDefinition = {
   gate: (s) => s.trackEraCount > 0 || s.trackPrestigeTokens > 0,
   color: "#fbbf24",
   getValue: (s) => s.trackPrestigeTokens,
+  getRate: rateFor("pt"),
   formatValue: compact,
   description: "Earned on Track Reset. Spend on track perks for endgame bonuses.",
   getTooltip: (s) => [
@@ -254,6 +273,7 @@ const FORGE_TOKENS: CurrencyDefinition = {
   gate: (s) => s.forgeTokens > 0 || s.totalForgeTokensEarned > 0,
   color: "var(--accent-secondary, #c4872a)",
   getValue: (s) => s.forgeTokens,
+  getRate: rateFor("forge_tokens"),
   formatValue: compact,
   description: "Rare drops from high-tier races. Spend in the Forge to enhance gear.",
   getTooltip: (s) => [

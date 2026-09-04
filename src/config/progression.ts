@@ -101,6 +101,47 @@ export const REP_PROGRESSION = {
   },
 } as const;
 
+/**
+ * Rep is spent, not only accumulated (charter, 2026-09-04). Opening a
+ * location, circuit, vehicle blueprint or Rep-gated workshop line costs Rep.
+ *
+ * Costs are REP_PROGRESSION x 0.5: the threshold ladder assumed one growing
+ * balance that passed every gate in turn, but spending is cumulative — a
+ * player who opens the Dirt Track and the Local Junkyard has paid for both —
+ * so each price is halved (rounded up to whole Rep) to keep the total Rep to
+ * reach a tier roughly where the ladder put it. Tier-0 entries stay free.
+ */
+function halveLadder<T extends Record<string, number>>(ladder: T): { [K in keyof T]: number } {
+  return Object.fromEntries(
+    Object.entries(ladder).map(([key, value]) => [key, Math.ceil(value / 2)]),
+  ) as { [K in keyof T]: number };
+}
+
+export const REP_UNLOCK_COSTS = {
+  locations: halveLadder(REP_PROGRESSION.locations),
+  circuits: halveLadder(REP_PROGRESSION.circuits),
+  vehicles: halveLadder(REP_PROGRESSION.vehicles),
+  workshop: halveLadder(REP_PROGRESSION.workshop),
+} as const;
+
+/**
+ * Rep decays gently toward a floor that never falls below what resets have
+ * earned. Each tick: repPoints -= (repPoints - floor) * (1 - 0.5^(dt / HALF_LIFE)).
+ */
+export const REP_DECAY = {
+  /** Wall-clock half-life of the Rep above the floor. */
+  HALF_LIFE_MS: 3 * 24 * 60 * 60 * 1_000,
+  /** Share of lifetime Rep banked into the legacy floor at each Scrap Reset. */
+  LEGACY_FLOOR_SHARE: 0.1,
+} as const;
+
+/** Rep removed by decay over `dtMs`; zero at or below the floor. */
+export function repDecayAmount(repPoints: number, repFloor: number, dtMs: number): number {
+  const excess = repPoints - repFloor;
+  if (!(excess > 0) || !(dtMs > 0)) return 0;
+  return excess * (1 - Math.pow(0.5, dtMs / REP_DECAY.HALF_LIFE_MS));
+}
+
 export interface ScrapResetProgress {
   vehiclesBuilt: number;
   reputation: number;

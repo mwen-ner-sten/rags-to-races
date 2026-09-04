@@ -37,7 +37,7 @@ export const WORKSHOP_TABS: WorkshopTabDefinition[] = [
 
 type WorkshopTabState = Pick<
   GameState,
-  | "repPoints" | "inventory" | "materials" | "workshopLevels"
+  | "lifetimeRep" | "inventory" | "materials" | "workshopLevels"
   | "stationEquipmentInventory" | "equippedStationEquipment"
   | "racerSkills" | "lifetimeLegacyPoints" | "lifetimeLPAllTime" | "unlockedPlaystyleNodes"
 >;
@@ -45,7 +45,8 @@ type WorkshopTabState = Pick<
 export function isWorkshopTabAvailable(tab: WorkshopTab, state: WorkshopTabState): boolean {
   // Saves from older versions (and the pre-hydration render) can lack fields;
   // treat anything missing as "nothing yet".
-  const rep = state.repPoints ?? 0;
+  // Reveals are lifetime gates: spending or decay never hides a section again.
+  const rep = state.lifetimeRep ?? 0;
   const workshopLevels = state.workshopLevels ?? {};
   switch (tab) {
     case "inventory":

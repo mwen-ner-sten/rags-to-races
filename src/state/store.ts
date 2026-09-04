@@ -74,12 +74,12 @@ import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { calculateHostedEventTerms, DEFAULT_TRACK_CONFIG, normalizeHostedEventConfig, type HostedEvent, type OwnedTrackConfig } from "@/data/trackVenue";
 import { getPartSaleValue } from "@/engine/sale";
-import { autoSellRustedParts } from "@/engine/autoSell";
+import { autoSellJunkParts, getAutoSellThreshold } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
-import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset } from "@/config/progression";
+import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, REP_DECAY } from "@/config/progression";
 import { canEnterSelectedRace, canScavengeSelectedLocation, getVehicleCircuitIneligibilityReason } from "@/engine/eligibility";
-import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "@/engine/progressionUnlocks";
+import { canAffordRep as canAffordRepCost, getCircuitRepCost, getLocationRepCost, getVehicleRepCost, getWorkshopLineRepCost } from "@/engine/progressionUnlocks";
 import {
   BULK_DECOMPOSE_COST,
   FATIGUE_DRINK_COST,
@@ -130,8 +130,11 @@ export interface AutomationSettlementMeta {
   challengeForgeTokens: number;
   challengeMaterials: Partial<Record<MaterialType, number>>;
   ticksProcessed: number;
+  /** Rep removed by decay over the settled ticks (see REP_DECAY). */
+  repDecayed?: number;
   /** Exact evolved state supplied by batched/offline simulation. */
   finalFatigue?: number;
+  finalRepPoints?: number;
   finalVehicleCondition?: number | null;
   finalRacerSkills?: RacerSkills;
   finalCrewRoster?: CrewMember[];
@@ -149,7 +152,14 @@ let raceSessionCounter = 0;
 export interface GameState {
   // Currency
   scrapBucks: number;
+  /** Spendable Rep balance: pays for unlocks and decays toward the legacy floor. */
   repPoints: number;
+  /** Rep earned this run; never reduced by spending or decay. Gates lifetime thresholds. */
+  lifetimeRep: number;
+  /** Rep earned across every run; never resets. */
+  lifetimeRepAllTime: number;
+  /** Floor Rep decay cannot cross: 10% of lifetime Rep banked at each Scrap Reset. */
+  legacyRepFloor: number;
   lifetimeScrapBucks: number;
 
   // Prestige
@@ -395,8 +405,14 @@ export interface GameState {
   reforgeStationItem: (itemId: string) => void;
   enhanceStationItem: (itemId: string) => void;
   salvageStationItem: (itemId: string) => void;
+  /** Spend Rep to open a location (tier-0 entries are free). */
   unlockLocation: (locationId: string) => void;
+  /** Spend Rep to open a circuit (tier-0 entries are free). */
   unlockCircuit: (circuitId: string) => void;
+  /** Spend Rep to open a Rep-priced vehicle blueprint. */
+  unlockVehicle: (vehicleId: string) => void;
+  /** Whether the spendable Rep balance covers `cost`. */
+  canAffordRep: (cost: number) => boolean;
   prestige: () => void;
   purchaseLegacyUpgrade: (upgradeId: string) => void;
   checkMomentumTiers: () => void;
@@ -453,6 +469,9 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
   return {
     scrapBucks: 0,
     repPoints: 0,
+    lifetimeRep: 0,
+    lifetimeRepAllTime: 0,
+    legacyRepFloor: 0,
     lifetimeScrapBucks: 0,
     prestigeCount: 0,
     prestigeBonus: calculatePrestigeBonus({}),
@@ -584,24 +603,11 @@ function getResetCircuitUnlockIds(
     : ["backyard_derby"];
 }
 
-function addReputationUnlocks(
-  reputation: number,
-  unlockedFeatures: readonly string[],
-  unlockedCircuitIds: string[],
-  unlockedLocationIds: string[],
-  unlockEvents: string[],
-): void {
-  for (const circuit of getCircuitsUnlockedByReputation(reputation, unlockedFeatures)) {
-    if (unlockedCircuitIds.includes(circuit.id)) continue;
-    unlockedCircuitIds.push(circuit.id);
-    unlockEvents.push(`${circuit.name} Unlocked! ${circuit.description}`);
-  }
-  for (const location of getLocationsUnlockedByReputation(reputation)) {
-    if (unlockedLocationIds.includes(location.id)) continue;
-    unlockedLocationIds.push(location.id);
-    unlockEvents.push(`New Location: ${location.name}!`);
-  }
-}
+/**
+ * Rep-priced blueprints are bought with `unlockVehicle`; only race-progress
+ * and Owner-upgrade requirements still resolve automatically.
+ */
+const NO_AUTO_REPUTATION_UNLOCK = 0;
 
 // ── Workshop upgrade helpers (engine/workshopEffects; re-exported for tick.ts and UI) ──
 export { _getUpgradeEffectValue, _getUpgradeLevel };
@@ -1115,7 +1121,7 @@ function createActions(set: SetState, get: GetState) {
         const dupes = parts.map((p) => ({ ...p, id: makePartId() }));
         parts.push(...dupes);
       }
-      const autoSale = autoSellRustedParts(parts, milestoneBonuses.autoSellRusted, getSellValueBonus(state));
+      const autoSale = autoSellJunkParts(parts, getAutoSellThreshold(state), getSellValueBonus(state));
       // Roll for gear/mod drops
       const { gearDrops, modDrop } = rollGearDrops({
         source: "scavenge",
@@ -1150,7 +1156,7 @@ function createActions(set: SetState, get: GetState) {
       const gearMsg = gearDrops.length > 0 ? ` + ${gearDrops.map((g) => g.name).join(", ")}` : "";
       _appendLog(set, get, "scavenge", `Scavenged ${parts.length} part${parts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}`);
       if (autoSale.soldParts.length > 0) {
-        _appendLog(set, get, "sell", `Junk Filter auto-sold ${autoSale.soldParts.length} rusted part${autoSale.soldParts.length === 1 ? "" : "s"} for $${autoSale.scrapEarned}`, { scrapDelta: autoSale.scrapEarned });
+        _appendLog(set, get, "sell", `Junk Filter auto-sold ${autoSale.soldParts.length} junk part${autoSale.soldParts.length === 1 ? "" : "s"} for $${autoSale.scrapEarned}`, { scrapDelta: autoSale.scrapEarned });
       }
       (get() as GameState).checkAchievements();
     },
@@ -1514,12 +1520,11 @@ function createActions(set: SetState, get: GetState) {
           const payout = applyRacePayout(collectBonuses(s, circuit.tier), outcome, outcome.result === "win" ? s.winStreak + 1 : 0);
           const effectiveRepEarned = payout.rep;
           const newRep = s.repPoints + effectiveRepEarned;
+          const newLifetimeRep = s.lifetimeRep + effectiveRepEarned;
           const newUnlockedCircuits = [...s.unlockedCircuitIds];
           const newUnlockedLocations = [...s.unlockedLocationIds];
           const newUnlockedVehicles = [...s.unlockedVehicleIds];
           const newUnlockEvents = [...s.unlockEvents];
-
-          addReputationUnlocks(newRep, s.unlockedFeatures, newUnlockedCircuits, newUnlockedLocations, newUnlockEvents);
 
           // Win streak
           const newStreak = outcome.result === "win" ? s.winStreak + 1 : 0;
@@ -1537,7 +1542,7 @@ function createActions(set: SetState, get: GetState) {
             currentCircuitWinStreak += 1;
           }
           const unlockedByProgress = getVehicleIdsUnlockedByProgress({
-            reputation: newRep,
+            reputation: NO_AUTO_REPUTATION_UNLOCK,
             wonCircuitIds,
             circuitWinStreaks: { [outcome.circuitId]: currentCircuitWinStreak },
             ownerUpgradeLevels: s.ownerUpgradeLevels,
@@ -1643,9 +1648,9 @@ function createActions(set: SetState, get: GetState) {
 
           // Dealer board auto-refresh
           const newTick = s.gameTick + 1;
-          const dealerUnlockedNow = s.repPoints < DEALER_UNLOCK_REP && newRep >= DEALER_UNLOCK_REP;
-          const newDealerBoard = (newRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newTick)))
-            ? generateDealerBoard(newRep, newTick)
+          const dealerUnlockedNow = s.lifetimeRep < DEALER_UNLOCK_REP && newLifetimeRep >= DEALER_UNLOCK_REP;
+          const newDealerBoard = (newLifetimeRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newTick)))
+            ? generateDealerBoard(newLifetimeRep, newTick)
             : s.dealerBoard;
 
           // Grant Driving XP (10 base + 5 bonus on win)
@@ -1662,6 +1667,8 @@ function createActions(set: SetState, get: GetState) {
             scrapBucks: s.scrapBucks + finalScraps + challengeBundle.scrap,
             lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps + challengeBundle.scrap,
             repPoints: newRep,
+            lifetimeRep: newLifetimeRep,
+            lifetimeRepAllTime: s.lifetimeRepAllTime + effectiveRepEarned,
             unlockedCircuitIds: newUnlockedCircuits,
             unlockedLocationIds: newUnlockedLocations,
             unlockedVehicleIds: newUnlockedVehicles,
@@ -2036,8 +2043,10 @@ function createActions(set: SetState, get: GetState) {
       const currentLevel = state.workshopLevels[upgradeId] ?? 0;
       if (currentLevel >= def.maxLevel) return;
 
+      // Opening a Rep-gated line spends Rep once, with its first level.
+      const repCost = currentLevel === 0 ? (getWorkshopLineRepCost(upgradeId) ?? 0) : 0;
       if (def.unlockRequirement) {
-        if (def.unlockRequirement.repPoints && state.repPoints < def.unlockRequirement.repPoints) return;
+        if (!canAffordRepCost(state, repCost)) return;
         if (def.unlockRequirement.workshopUpgradeId) {
           const reqLevel = state.workshopLevels[def.unlockRequirement.workshopUpgradeId] ?? 0;
           if (reqLevel < 1) return;
@@ -2054,9 +2063,11 @@ function createActions(set: SetState, get: GetState) {
       if (state.scrapBucks < cost) return;
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
+        repPoints: s.repPoints - repCost,
         workshopLevels: { ...s.workshopLevels, [upgradeId]: currentLevel + 1 },
       }));
-      _appendLog(set, get, "upgrade", `Bought ${def.name} Lv.${currentLevel + 1} for $${cost}`, { scrapDelta: -cost });
+      const repNote = repCost > 0 ? ` and ${repCost} Rep` : "";
+      _appendLog(set, get, "upgrade", `Bought ${def.name} Lv.${currentLevel + 1} for $${cost}${repNote}`, { scrapDelta: -cost, repDelta: repCost > 0 ? -repCost : undefined });
     },
 
     equipLootGear: (lootGearId: string) => {
@@ -2241,29 +2252,67 @@ function createActions(set: SetState, get: GetState) {
       _appendLog(set, get, "gear", `Salvaged ${item.name} for ${shards} Reforge Shard${shards === 1 ? "" : "s"}`);
     },
 
+    canAffordRep: (cost: number) => canAffordRepCost(get() as GameState, cost),
+
     unlockLocation: (locationId: string) => {
+      const state = get() as GameState;
+      const location = getLocationById(locationId);
+      const cost = getLocationRepCost(locationId);
+      if (!location || cost === undefined || state.unlockedLocationIds.includes(locationId)) return;
+      if (!canAffordRepCost(state, cost)) return;
       set((s: GameState) => ({
-        unlockedLocationIds: s.unlockedLocationIds.includes(locationId)
-          ? s.unlockedLocationIds
-          : [...s.unlockedLocationIds, locationId],
+        repPoints: s.repPoints - cost,
+        unlockedLocationIds: [...s.unlockedLocationIds, locationId],
+        unlockEvents: [...s.unlockEvents, `New Location: ${location.name}!`],
       }));
+      if (cost > 0) _appendLog(set, get, "upgrade", `Opened ${location.name} for ${cost} Rep`, { repDelta: -cost });
     },
 
     unlockCircuit: (circuitId: string) => {
+      const state = get() as GameState;
+      const circuit = getCircuitById(circuitId);
+      const cost = getCircuitRepCost(circuitId);
+      if (!circuit || cost === undefined || state.unlockedCircuitIds.includes(circuitId)) return;
+      if (circuit.requiredFeature && !state.unlockedFeatures.includes(circuit.requiredFeature)) return;
+      if (!canAffordRepCost(state, cost)) return;
       set((s: GameState) => ({
-        unlockedCircuitIds: s.unlockedCircuitIds.includes(circuitId)
-          ? s.unlockedCircuitIds
-          : [...s.unlockedCircuitIds, circuitId],
+        repPoints: s.repPoints - cost,
+        unlockedCircuitIds: [...s.unlockedCircuitIds, circuitId],
+        unlockEvents: [...s.unlockEvents, `${circuit.name} Unlocked! ${circuit.description}`],
       }));
+      if (cost > 0) _appendLog(set, get, "upgrade", `Opened ${circuit.name} for ${cost} Rep`, { repDelta: -cost });
+      (get() as GameState).checkFeatureUnlocks();
+    },
+
+    unlockVehicle: (vehicleId: string) => {
+      const state = get() as GameState;
+      const definition = getVehicleById(vehicleId);
+      const cost = getVehicleRepCost(vehicleId);
+      if (!definition || cost === undefined || state.unlockedVehicleIds.includes(vehicleId)) return;
+      // Only Rep-priced blueprints are bought; the rest are earned through progress.
+      if (definition.unlockRequirement.type !== "reputation") return;
+      if (!canAffordRepCost(state, cost)) return;
+      set((s: GameState) => ({
+        repPoints: s.repPoints - cost,
+        unlockedVehicleIds: [...s.unlockedVehicleIds, vehicleId],
+        unlockEvents: [...s.unlockEvents, `${definition.name} Blueprint Unlocked!`],
+      }));
+      if (cost > 0) _appendLog(set, get, "upgrade", `Bought the ${definition.name} blueprint for ${cost} Rep`, { repDelta: -cost });
     },
 
     prestige: () => {
       const state = get() as GameState;
       if (!canScrapReset({
         vehiclesBuilt: state.garage.length,
-        reputation: state.repPoints,
+        reputation: state.lifetimeRep,
         lifetimeScrapBucks: state.lifetimeScrapBucks,
       })) return;
+
+      // The legacy floor never falls: bank a share of this run's lifetime Rep.
+      const legacyRepFloor = Math.max(
+        state.legacyRepFloor,
+        Math.floor(state.lifetimeRep * REP_DECAY.LEGACY_FLOOR_SHARE),
+      );
 
       // Build run stats for LP calculation
       const runStats: RunStats = {
@@ -2341,6 +2390,11 @@ function createActions(set: SetState, get: GetState) {
         unlockedCircuitIds: startingCircuits,
         fatigue: 0,
         lifetimeRaces: 0,
+        // Rep: the new run starts on the legacy floor resets have earned.
+        legacyRepFloor,
+        repPoints: legacyRepFloor,
+        lifetimeRep: legacyRepFloor,
+        lifetimeRepAllTime: Math.max(state.lifetimeRepAllTime, state.lifetimeRep),
         // Seed Money: starting scrap
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
@@ -2456,7 +2510,7 @@ function createActions(set: SetState, get: GetState) {
       const newTiers = getActiveMomentumTiers(
         state.lifetimeRaces,
         state.fatigue,
-        state.repPoints,
+        state.lifetimeRep,
         state.lifetimeScrapBucks,
         highestTier,
         getPermanentRuntimeBonuses(state).momentumThresholdReduction,
@@ -2590,9 +2644,11 @@ function createActions(set: SetState, get: GetState) {
         updatedCrew = grantCrewRoleXp(updatedCrew, "driver", 10 * settlement.racesCompleted, getCrewXpMultiplier(s));
         if (settlement.partsAutoSold > 0) updatedCrew = grantTraderSaleXp({ ...s, crewRoster: updatedCrew }, settlement.partsAutoSold);
 
-        const newRep = s.repPoints + repEarned;
-        const unlockedCircuits = [...s.unlockedCircuitIds];
-        const unlockedLocations = [...s.unlockedLocationIds];
+        // Decay was measured by the tick math against the pre-tick balance and
+        // floor, so applying it here matches offline simulation exactly.
+        const repDecayed = Math.min(settlement.repDecayed ?? 0, Math.max(0, s.repPoints + repEarned));
+        const newRep = settlement.finalRepPoints ?? Math.max(0, s.repPoints + repEarned - repDecayed);
+        const newLifetimeRep = s.lifetimeRep + repEarned;
         const unlockedVehicles = [...s.unlockedVehicleIds];
         const unlockEvents = [...s.unlockEvents];
         const addUnlock = (collection: string[], id: string, message: string) => {
@@ -2600,11 +2656,10 @@ function createActions(set: SetState, get: GetState) {
           collection.push(id);
           unlockEvents.push(message);
         };
-        addReputationUnlocks(newRep, s.unlockedFeatures, unlockedCircuits, unlockedLocations, unlockEvents);
         const combinedOutcomes = [...settlement.recentRaceOutcomes, ...s.raceHistory];
         const wonCircuitIds = [...new Set(combinedOutcomes.filter((race) => race.result === "win").map((race) => race.circuitId))];
         const circuitWinStreaks = settlement.circuitWinStreaks;
-        for (const vehicleId of getVehicleIdsUnlockedByProgress({ reputation: newRep, wonCircuitIds, circuitWinStreaks, ownerUpgradeLevels: s.ownerUpgradeLevels })) {
+        for (const vehicleId of getVehicleIdsUnlockedByProgress({ reputation: NO_AUTO_REPUTATION_UNLOCK, wonCircuitIds, circuitWinStreaks, ownerUpgradeLevels: s.ownerUpgradeLevels })) {
           const definition = getVehicleById(vehicleId);
           addUnlock(unlockedVehicles, vehicleId, `${definition?.name ?? vehicleId} Blueprint Unlocked!`);
         }
@@ -2674,9 +2729,9 @@ function createActions(set: SetState, get: GetState) {
         const directAndChallengeTokens = settlement.forgeTokensFound + challengeRewards.forgeTokens;
         const earnedScrap = totalScrapsEarned + settlement.entryFeesPaid + challengeRewards.scrap;
         const newGameTick = s.gameTick + settlement.ticksProcessed;
-        const dealerUnlockedNow = s.repPoints < DEALER_UNLOCK_REP && newRep >= DEALER_UNLOCK_REP;
-        const newDealerBoard = (newRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newGameTick)))
-          ? generateDealerBoard(newRep, newGameTick)
+        const dealerUnlockedNow = s.lifetimeRep < DEALER_UNLOCK_REP && newLifetimeRep >= DEALER_UNLOCK_REP;
+        const newDealerBoard = (newLifetimeRep >= DEALER_UNLOCK_REP && (dealerUnlockedNow || shouldRefreshDealer(s.dealerBoard, newGameTick)))
+          ? generateDealerBoard(newLifetimeRep, newGameTick)
           : s.dealerBoard;
         const tickLogState = tickMessage
           ? {
@@ -2699,6 +2754,8 @@ function createActions(set: SetState, get: GetState) {
           scrapBucks: s.scrapBucks + totalScrapsEarned + challengeRewards.scrap,
           lifetimeScrapBucks: s.lifetimeScrapBucks + earnedScrap,
           repPoints: newRep,
+          lifetimeRep: newLifetimeRep,
+          lifetimeRepAllTime: s.lifetimeRepAllTime + repEarned,
           garage: updatedGarage,
           lifetimeRaces: newLifetimeRaces,
           fatigue: newFatigue,
@@ -2711,8 +2768,6 @@ function createActions(set: SetState, get: GetState) {
           raceHistory: history,
           winStreak: raced ? settlement.finalWinStreak : s.winStreak,
           bestWinStreak: newBestStreak,
-          unlockedCircuitIds: unlockedCircuits,
-          unlockedLocationIds: unlockedLocations,
           unlockedVehicleIds: unlockedVehicles,
           unlockEvents,
           defeatedRivalIds,
@@ -3063,7 +3118,7 @@ function createActions(set: SetState, get: GetState) {
 
     buyFromDealer: (listingId: string) => {
       const state = get() as GameState;
-      if (state.repPoints < DEALER_UNLOCK_REP) return;
+      if (state.lifetimeRep < DEALER_UNLOCK_REP) return;
       const listing = state.dealerBoard.find((l) => l.id === listingId);
       if (!listing) return;
       const price = getDealerPurchasePrice(state, listing);
@@ -3095,8 +3150,8 @@ function createActions(set: SetState, get: GetState) {
       const state = get() as GameState;
       const cost = getDealerRefreshCost(state);
       if (state.scrapBucks < cost) return;
-      if (state.repPoints < DEALER_UNLOCK_REP) return;
-      const newBoard = generateDealerBoard(state.repPoints, state.gameTick);
+      if (state.lifetimeRep < DEALER_UNLOCK_REP) return;
+      const newBoard = generateDealerBoard(state.lifetimeRep, state.gameTick);
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
         dealerBoard: newBoard,
@@ -3160,11 +3215,19 @@ function createActions(set: SetState, get: GetState) {
     },
 
     devSetRepPoints: (amount: number) => {
-      set({ repPoints: amount });
+      set((s: GameState) => ({
+        repPoints: amount,
+        lifetimeRep: Math.max(s.lifetimeRep, amount),
+        lifetimeRepAllTime: Math.max(s.lifetimeRepAllTime, amount),
+      }));
     },
 
     devAddRepPoints: (amount: number) => {
-      set((s: GameState) => ({ repPoints: s.repPoints + amount }));
+      set((s: GameState) => ({
+        repPoints: s.repPoints + amount,
+        lifetimeRep: s.lifetimeRep + Math.max(0, amount),
+        lifetimeRepAllTime: s.lifetimeRepAllTime + Math.max(0, amount),
+      }));
     },
 
     devSetPrestigeCount: (count: number) => {
@@ -3341,6 +3404,11 @@ function createActions(set: SetState, get: GetState) {
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
+        // The Rep legacy floor is kept across every reset layer.
+        legacyRepFloor: state.legacyRepFloor,
+        repPoints: state.legacyRepFloor,
+        lifetimeRep: state.legacyRepFloor,
+        lifetimeRepAllTime: state.lifetimeRepAllTime,
         // Challenges persist
         completedChallenges: state.completedChallenges,
         // Crew resets on Team Reset
@@ -3470,6 +3538,11 @@ function createActions(set: SetState, get: GetState) {
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
+        // The Rep legacy floor is kept across every reset layer.
+        legacyRepFloor: state.legacyRepFloor,
+        repPoints: state.legacyRepFloor,
+        lifetimeRep: state.legacyRepFloor,
+        lifetimeRepAllTime: state.lifetimeRepAllTime,
         completedChallenges: state.completedChallenges,
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
@@ -3604,6 +3677,11 @@ function createActions(set: SetState, get: GetState) {
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
+        // The Rep legacy floor is kept across every reset layer.
+        legacyRepFloor: state.legacyRepFloor,
+        repPoints: state.legacyRepFloor,
+        lifetimeRep: state.legacyRepFloor,
+        lifetimeRepAllTime: state.lifetimeRepAllTime,
         completedChallenges: state.completedChallenges,
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
@@ -3823,6 +3901,8 @@ function createActions(set: SetState, get: GetState) {
         scrapBucks: Math.max(state.scrapBucks, 500),
         lifetimeScrapBucks: Math.max(state.lifetimeScrapBucks, 500),
         repPoints: Math.max(state.repPoints, 50),
+        lifetimeRep: Math.max(state.lifetimeRep, 50),
+        lifetimeRepAllTime: Math.max(state.lifetimeRepAllTime, 50),
         garage: [...state.garage, built],
         activeVehicleId: built.id,
         _vehicleIdCounter: state._vehicleIdCounter + 1,

@@ -44,8 +44,46 @@ function settleLiveAutomationTick(): void {
       challengeForgeTokens: 0,
       challengeMaterials: {},
       ticksProcessed: 1,
+      repDecayed: result.repDecayed,
     },
   );
+}
+
+/**
+ * Rep is spent, not only accumulated: the campaign player opens the next
+ * circuit a garage vehicle can enter, then the next blueprint, then the next
+ * junkyard, whenever the balance covers it. One purchase per check-in.
+ */
+const CAMPAIGN_CIRCUITS = ["dirt_track", "regional_circuit", "national_circuit"] as const;
+const CAMPAIGN_BLUEPRINTS = ["go_kart", "street_racer"] as const;
+const CAMPAIGN_LOCATIONS = ["neighborhood_yards", "local_junkyard", "salvage_auction", "industrial_surplus"] as const;
+function spendRepOnProgression(): void {
+  const state = useGameStore.getState();
+  const garageTiers = state.garage.map((vehicle) => getVehicleById(vehicle.definitionId)!.tier);
+  for (const circuitId of CAMPAIGN_CIRCUITS) {
+    if (state.unlockedCircuitIds.includes(circuitId)) continue;
+    const circuit = CIRCUIT_DEFINITIONS.find((candidate) => candidate.id === circuitId)!;
+    const enterable = garageTiers.some((tier) => tier >= circuit.minVehicleTier && tier <= circuit.maxVehicleTier);
+    if (enterable && state.canAffordRep(circuit.unlockRepCost)) {
+      state.unlockCircuit(circuitId);
+      return;
+    }
+    break;
+  }
+  for (const vehicleId of CAMPAIGN_BLUEPRINTS) {
+    if (state.unlockedVehicleIds.includes(vehicleId)) continue;
+    const requirement = getVehicleById(vehicleId)!.unlockRequirement;
+    if (requirement.type === "reputation" && state.canAffordRep(requirement.amount)) {
+      state.unlockVehicle(vehicleId);
+      return;
+    }
+    break;
+  }
+  for (const locationId of CAMPAIGN_LOCATIONS) {
+    if (state.unlockedLocationIds.includes(locationId)) continue;
+    if (state.canAffordRep(getLocationById(locationId)!.unlockCost)) state.unlockLocation(locationId);
+    return;
+  }
 }
 
 function tryBuild(vehicleId: string): boolean {
@@ -129,9 +167,10 @@ describe("seeded first-campaign pacing", () => {
 
       while (!canScrapReset({
         vehiclesBuilt: useGameStore.getState().garage.length,
-        reputation: useGameStore.getState().repPoints,
+        reputation: useGameStore.getState().lifetimeRep,
         lifetimeScrapBucks: useGameStore.getState().lifetimeScrapBucks,
       })) {
+        spendRepOnProgression();
         const state = useGameStore.getState();
         const builtTypes = new Set(state.garage.map((vehicle) => vehicle.definitionId));
         for (const vehicleId of ["riding_mower", "go_kart", "street_racer"] as const) {
@@ -156,22 +195,26 @@ describe("seeded first-campaign pacing", () => {
         if (!bestRace) throw new Error("No eligible race during campaign cohort");
         refreshed.setActiveVehicle(bestRace.vehicle.id);
         refreshed.setSelectedCircuit(bestRace.circuit.id);
-        if ((bestRace.vehicle.condition ?? 100) < 35 || useGameStore.getState().scrapBucks < bestRace.circuit.entryFee) {
-          const repairCost = (bestRace.vehicle.condition ?? 100) < 35
-            ? getVehicleRepairCost(useGameStore.getState(), bestRace.vehicle)
-            : 0;
-          const neededCash = repairCost + bestRace.circuit.entryFee;
-          for (let attempts = 0; attempts < 100 && useGameStore.getState().scrapBucks < neededCash; attempts++) {
-            const cashState = useGameStore.getState();
-            const bestLocationId = cashState.unlockedLocationIds
-              .map((id) => getLocationById(id)!)
-              .sort((left, right) => right.tier - left.tier)[0].id;
-            cashState.setSelectedLocation(bestLocationId);
-            manualScavengeWithBackgroundTick();
-            useGameStore.getState().sellAllJunk();
-            scavenges++;
+        // Grind cash until the car is race-ready: the background ticks keep
+        // racing (and wearing) the car while we scavenge, so the repair bill
+        // is re-read every attempt rather than fixed up front.
+        for (let attempts = 0; attempts < 400; attempts++) {
+          const cashState = useGameStore.getState();
+          const car = cashState.garage.find((vehicle) => vehicle.id === bestRace.vehicle.id)!;
+          const needsRepair = (car.condition ?? 100) < 35;
+          const neededCash = (needsRepair ? getVehicleRepairCost(cashState, car) : 0) + bestRace.circuit.entryFee;
+          if (cashState.scrapBucks >= neededCash) {
+            if (!needsRepair) break;
+            cashState.repairVehicle(car.id);
+            continue;
           }
-          if ((bestRace.vehicle.condition ?? 100) < 35) useGameStore.getState().repairVehicle(bestRace.vehicle.id);
+          const bestLocationId = cashState.unlockedLocationIds
+            .map((id) => getLocationById(id)!)
+            .sort((left, right) => right.tier - left.tier)[0].id;
+          cashState.setSelectedLocation(bestLocationId);
+          manualScavengeWithBackgroundTick();
+          useGameStore.getState().sellAllJunk();
+          scavenges++;
         }
         useGameStore.getState().enterRace();
         expect(useGameStore.getState().isRacing).toBe(true);
@@ -182,7 +225,7 @@ describe("seeded first-campaign pacing", () => {
         settleLiveAutomationTick();
         if (races > 400) {
           const stalled = useGameStore.getState();
-          throw new Error(`First campaign exceeded 400 races: rep=${stalled.repPoints}, scrap=${stalled.lifetimeScrapBucks}, vehicles=${stalled.garage.map((vehicle) => vehicle.definitionId).join(",")}, unlocked=${stalled.unlockedVehicleIds.join(",")}`);
+          throw new Error(`First campaign exceeded 400 races: rep=${stalled.repPoints}, lifetimeRep=${stalled.lifetimeRep}, scrap=${stalled.lifetimeScrapBucks}, vehicles=${stalled.garage.map((vehicle) => vehicle.definitionId).join(",")}, unlocked=${stalled.unlockedVehicleIds.join(",")}, circuits=${stalled.unlockedCircuitIds.join(",")}`);
         }
       }
     });
@@ -215,6 +258,9 @@ describe("seeded first-campaign pacing", () => {
       vehicles: state.garage.map((vehicle) => vehicle.definitionId),
       vehicleStats: state.garage.map((vehicle) => ({ id: vehicle.definitionId, performance: vehicle.stats.performance, reliability: vehicle.stats.reliability })),
       reputation: state.repPoints,
+      lifetimeRep: state.lifetimeRep,
+      unlockedCircuits: state.unlockedCircuitIds,
+      unlockedLocations: state.unlockedLocationIds,
       lifetimeScrap: state.lifetimeScrapBucks,
       wins: state.lifetimeWinsAllTime,
       fatigue: state.fatigue,
@@ -224,7 +270,7 @@ describe("seeded first-campaign pacing", () => {
     });
 
     expect(state.garage.length).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.vehiclesBuilt);
-    expect(state.repPoints).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.reputation);
+    expect(state.lifetimeRep).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.reputation);
     expect(state.lifetimeScrapBucks).toBeGreaterThanOrEqual(SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks);
     expect(award.totalLp).toBeGreaterThanOrEqual(5);
     // The first Scrap Reset is meant to be earned over an engaged 1–2 hours

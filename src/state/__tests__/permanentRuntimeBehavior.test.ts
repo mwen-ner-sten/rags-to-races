@@ -192,6 +192,7 @@ describe("Garage Philosophy and Crew behavior", () => {
     useGameStore.setState({
       ...createInitialState(),
       repPoints: 8_000,
+      lifetimeRep: 8_000,
       scrapBucks: 100,
       crewRoster: [trader],
       dealerBoard: [listing],
@@ -208,6 +209,7 @@ describe("Garage Philosophy and Crew behavior", () => {
     useGameStore.setState({
       ...createInitialState(),
       repPoints: 8_000,
+      lifetimeRep: 8_000,
       scrapBucks: 10,
       teamUpgradeLevels: { team_crew_xp: 1 },
       crewRoster: [trader],
@@ -340,6 +342,7 @@ describe("released Team, Owner, and Track effects", () => {
       ...createInitialState(),
       garage: [vehicle("one"), vehicle("two"), vehicle("three")],
       repPoints: 750,
+      lifetimeRep: 750,
       lifetimeScrapBucks: 20_000,
       ownerUpgradeLevels: { owner_adv_circuits: 1 },
       unlockedFeatures: ["advanced_circuits"],

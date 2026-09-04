@@ -8,7 +8,7 @@
  */
 import { CONDITIONS, getPartById } from "../src/data/parts";
 import { CIRCUIT_DEFINITIONS } from "../src/data/circuits";
-import { getLocationById } from "../src/data/locations";
+import { getLocationById, LOCATION_DEFINITIONS } from "../src/data/locations";
 import { getVehicleById, VEHICLE_DEFINITIONS } from "../src/data/vehicles";
 import { canScrapReset } from "../src/config/progression";
 import { computeTick, computeTickSpeedMs } from "../src/engine/tick";
@@ -28,7 +28,30 @@ function settleTick(): void {
     recentRaceOutcomes: outcome ? [outcome] : [], winningCircuitIds: outcome?.result === "win" ? [outcome.circuitId] : [], defeatedRivalIds: [], circuitWinStreaks: {},
     raceSalvageFound: result.raceSalvageFound, forgeTokensFound: result.forgeTokensFound, entryFeesPaid: result.entryFeesPaid,
     challengesEvaluated: false, completedChallengeIds: [], challengeForgeTokens: 0, challengeMaterials: {}, ticksProcessed: 1,
+    repDecayed: result.repDecayed,
   });
+}
+
+/** Rep is spent: open the next enterable circuit, then blueprint, then junkyard, one per check-in. */
+function spendRep(): void {
+  const s = useGameStore.getState();
+  const garageTiers = s.garage.map((v) => getVehicleById(v.definitionId)!.tier);
+  for (const circuit of [...CIRCUIT_DEFINITIONS].sort((a, b) => a.unlockRepCost - b.unlockRepCost)) {
+    if (s.unlockedCircuitIds.includes(circuit.id) || circuit.requiredFeature) continue;
+    const enterable = garageTiers.some((tier) => tier >= circuit.minVehicleTier && tier <= circuit.maxVehicleTier);
+    if (enterable && s.canAffordRep(circuit.unlockRepCost)) { s.unlockCircuit(circuit.id); return; }
+    break;
+  }
+  for (const vehicle of [...VEHICLE_DEFINITIONS].sort((a, b) => a.tier - b.tier)) {
+    if (s.unlockedVehicleIds.includes(vehicle.id) || vehicle.unlockRequirement.type !== "reputation") continue;
+    if (s.canAffordRep(vehicle.unlockRequirement.amount)) { s.unlockVehicle(vehicle.id); return; }
+    break;
+  }
+  for (const location of [...LOCATION_DEFINITIONS].sort((a, b) => a.unlockCost - b.unlockCost)) {
+    if (s.unlockedLocationIds.includes(location.id)) continue;
+    if (s.canAffordRep(location.unlockCost)) s.unlockLocation(location.id);
+    return;
+  }
 }
 
 function tryBuild(vehicleId: string): boolean {
@@ -73,6 +96,7 @@ function sellSurplus(): void {
 let debugCheckIns = 0;
 function checkIn(): void {
   const before = { scrap: useGameStore.getState().scrapBucks, parts: useGameStore.getState().inventory.length };
+  spendRep();
   // Fund the build first, then build.
   sellSurplus();
   // Build the best vehicle we don't already own, highest tier first.
@@ -114,7 +138,7 @@ withRandomSource(new SeededRandomSource("idle-campaign"), () => {
   let sinceCheckIn = Number.POSITIVE_INFINITY;
   while (ticks < 20_000) {
     const state = useGameStore.getState();
-    if (canScrapReset({ vehiclesBuilt: state.garage.length, reputation: state.repPoints, lifetimeScrapBucks: state.lifetimeScrapBucks })) break;
+    if (canScrapReset({ vehiclesBuilt: state.garage.length, reputation: state.lifetimeRep, lifetimeScrapBucks: state.lifetimeScrapBucks })) break;
     if (sinceCheckIn >= CHECK_IN_MINUTES * 60_000) {
       const before = useGameStore.getState().garage.length;
       checkIn();
@@ -136,9 +160,12 @@ console.log(JSON.stringify({
   gameHours: Number((gameMs / 3_600_000).toFixed(2)),
   ticks,
   checkIns,
-  reachedReset: canScrapReset({ vehiclesBuilt: final.garage.length, reputation: final.repPoints, lifetimeScrapBucks: final.lifetimeScrapBucks }),
+  reachedReset: canScrapReset({ vehiclesBuilt: final.garage.length, reputation: final.lifetimeRep, lifetimeScrapBucks: final.lifetimeScrapBucks }),
   vehicles: final.garage.map((v) => v.definitionId),
   rep: Math.round(final.repPoints),
+  lifetimeRep: Math.round(final.lifetimeRep),
+  circuits: final.unlockedCircuitIds,
+  locations: final.unlockedLocationIds,
   lifetimeScrap: final.lifetimeScrapBucks,
   races: final.lifetimeRaces,
   wins: final.lifetimeWinsAllTime,

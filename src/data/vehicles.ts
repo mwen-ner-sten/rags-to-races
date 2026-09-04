@@ -1,6 +1,6 @@
 import type { CoreSlot } from "./parts";
 import { getCircuitById } from "./circuits";
-import { REP_PROGRESSION } from "@/config/progression";
+import { REP_UNLOCK_COSTS } from "@/config/progression";
 
 export type VehicleUnlockRequirement =
   | { type: "start" }
@@ -83,7 +83,7 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "fuel", required: true, acceptableParts: ["fuel_tank_small", "fuel_tank_large"] },
     ],
     baseStats: { speed: 35, handling: 30, reliability: 20, weight: 120 },
-    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.go_kart },
+    unlockRequirement: { type: "reputation", amount: REP_UNLOCK_COSTS.vehicles.go_kart },
     buildCost: 120,
     sellValue: 150,
   },
@@ -100,7 +100,7 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "electronics", required: false, acceptableParts: ["elec_none", "elec_basic", "elec_ecu"] },
     ],
     baseStats: { speed: 60, handling: 35, reliability: 30, weight: 900 },
-    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.beater_car },
+    unlockRequirement: { type: "reputation", amount: REP_UNLOCK_COSTS.vehicles.beater_car },
     buildCost: 300,
     sellValue: 400,
   },
@@ -118,7 +118,7 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "drivetrain", required: true, acceptableParts: ["drive_chain", "drive_manual"] },
     ],
     baseStats: { speed: 110, handling: 65, reliability: 45, weight: 1100 },
-    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.street_racer },
+    unlockRequirement: { type: "reputation", amount: REP_UNLOCK_COSTS.vehicles.street_racer },
     buildCost: 900,
     sellValue: 1200,
   },
@@ -157,7 +157,7 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "suspension", required: true, acceptableParts: ["susp_coilovers", "susp_adjustable"] },
     ],
     baseStats: { speed: 220, handling: 70, reliability: 80, weight: 1450 },
-    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.stock_car },
+    unlockRequirement: { type: "reputation", amount: REP_UNLOCK_COSTS.vehicles.stock_car },
     buildCost: 6000,
     sellValue: 8000,
   },
@@ -199,7 +199,7 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
       { slot: "aero", required: true, acceptableParts: ["aero_diffuser", "aero_carbon"] },
     ],
     baseStats: { speed: 450, handling: 200, reliability: 85, weight: 1050 },
-    unlockRequirement: { type: "reputation", amount: REP_PROGRESSION.vehicles.supercar },
+    unlockRequirement: { type: "reputation", amount: REP_UNLOCK_COSTS.vehicles.supercar },
     buildCost: 60000,
     sellValue: 80000,
   },
@@ -267,7 +267,7 @@ export function formatVehicleUnlockRequirement(requirement: VehicleUnlockRequire
     case "start":
       return "Start";
     case "reputation":
-      return `Reach ${requirement.amount.toLocaleString("en-US")} Reputation`;
+      return `Costs ${requirement.amount.toLocaleString("en-US")} Rep`;
     case "circuit_win":
       return `Win a ${getCircuitById(requirement.circuitId)?.name ?? titleCaseIdentifier(requirement.circuitId)} race`;
     case "circuit_win_streak":

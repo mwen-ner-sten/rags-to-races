@@ -5,7 +5,7 @@ import {
   isVehicleUnlockRequirementMet,
   type VehicleUnlockProgress,
 } from "../vehicles";
-import { REP_PROGRESSION } from "@/config/progression";
+import { REP_UNLOCK_COSTS } from "@/config/progression";
 
 function progress(overrides: Partial<VehicleUnlockProgress> = {}): VehicleUnlockProgress {
   return {
@@ -19,26 +19,26 @@ function progress(overrides: Partial<VehicleUnlockProgress> = {}): VehicleUnlock
 
 describe("vehicle blueprint unlock contracts", () => {
   it.each([
-    ["beater_car", REP_PROGRESSION.vehicles.beater_car],
-    ["street_racer", REP_PROGRESSION.vehicles.street_racer],
-    ["stock_car", REP_PROGRESSION.vehicles.stock_car],
-    ["supercar", REP_PROGRESSION.vehicles.supercar],
-  ] as const)("unlocks %s at the exact displayed reputation boundary", (vehicleId, amount) => {
+    ["beater_car", REP_UNLOCK_COSTS.vehicles.beater_car],
+    ["street_racer", REP_UNLOCK_COSTS.vehicles.street_racer],
+    ["stock_car", REP_UNLOCK_COSTS.vehicles.stock_car],
+    ["supercar", REP_UNLOCK_COSTS.vehicles.supercar],
+  ] as const)("prices %s at the exact displayed Rep cost", (vehicleId, amount) => {
     const requirement = getVehicleById(vehicleId)!.unlockRequirement;
 
     expect(formatVehicleUnlockRequirement(requirement)).toBe(
-      `Reach ${amount.toLocaleString("en-US")} Reputation`,
+      `Costs ${amount.toLocaleString("en-US")} Rep`,
     );
     expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: amount - 1 }))).toBe(false);
     expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: amount }))).toBe(true);
   });
 
-  it("unlocks the Go-Kart on the shared Rep ladder alongside Dirt Track and the Local Junkyard", () => {
+  it("prices the Go-Kart on the halved shared Rep ladder", () => {
     const requirement = getVehicleById("go_kart")!.unlockRequirement;
 
-    expect(formatVehicleUnlockRequirement(requirement)).toBe("Reach 25 Reputation");
-    expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: 24 }))).toBe(false);
-    expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: 25 }))).toBe(true);
+    expect(formatVehicleUnlockRequirement(requirement)).toBe("Costs 13 Rep");
+    expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: 12 }))).toBe(false);
+    expect(isVehicleUnlockRequirementMet(requirement, progress({ reputation: 13 }))).toBe(true);
   });
 
   it("keeps the streak requirement type evaluable for future blueprints", () => {
