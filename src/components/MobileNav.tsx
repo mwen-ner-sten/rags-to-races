@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { isFeatureAvailable } from "@/config/features";
 import { PRIMARY_TABS, OVERFLOW_TABS, type TabId } from "@/components/navigation/tabs";
+import { Icon } from "@/components/icons/Icon";
 
 const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
 
@@ -103,7 +104,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
                 minWidth: 0,
               }}
             >
-              <span style={{ fontSize: "1.15rem", lineHeight: 1 }}>{t.icon}</span>
+              <Icon id={t.icon} size={22} />
               <span
                 style={{
                   fontSize: ".58rem",
@@ -202,7 +203,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
                       transition: "color .12s, background .12s",
                     }}
                   >
-                    <span>{t.icon}</span>
+                    <Icon id={t.icon} size={18} />
                     <span>{t.label}</span>
                   </button>
                 );
