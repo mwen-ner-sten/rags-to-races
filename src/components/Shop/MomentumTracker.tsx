@@ -7,7 +7,8 @@ export default function MomentumTracker() {
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
   const lifetimeRaces = useGameStore((s) => s.lifetimeRaces);
   const fatigue = useGameStore((s) => s.fatigue);
-  const repPoints = useGameStore((s) => s.repPoints);
+  // Momentum tiers are lifetime milestones: spending Rep never loses one.
+  const lifetimeRep = useGameStore((s) => s.lifetimeRep);
 
   if (MOMENTUM_TIERS.length === 0) return null;
 
@@ -34,7 +35,7 @@ export default function MomentumTracker() {
               tier.condition.value,
               lifetimeRaces,
               fatigue,
-              repPoints,
+              lifetimeRep,
             );
             const progressPct = Math.min(100, Math.round(progress * 100));
 
@@ -92,7 +93,7 @@ function getMomentumProgress(
   target: number,
   lifetimeRaces: number,
   fatigue: number,
-  repPoints: number,
+  lifetimeRep: number,
 ): number {
   let current = 0;
   switch (type) {
@@ -103,7 +104,7 @@ function getMomentumProgress(
       current = fatigue;
       break;
     case "rep_gte":
-      current = repPoints;
+      current = lifetimeRep;
       break;
     default:
       return 0;

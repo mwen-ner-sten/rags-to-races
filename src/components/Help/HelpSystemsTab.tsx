@@ -221,11 +221,11 @@ export default function HelpSystemsTab() {
           {/* Dealer */}
           <SystemSection icon="🏪" title="Dealer">
             <div className="space-y-2">
-              <p>Unlocks at {formatNumber(HELP_DEALER.unlockRep)} Rep. Shows {HELP_DEALER.boardSize} rotating part listings, refreshing every {HELP_DEALER.refreshInterval} ticks.</p>
+              <p>Opens at {formatNumber(HELP_DEALER.unlockRep)} lifetime Rep — a milestone, so spending Rep elsewhere never delays it. Shows {HELP_DEALER.boardSize} rotating part listings, refreshing every {HELP_DEALER.refreshInterval} ticks.</p>
               <ul className="list-disc space-y-1 pl-4">
-                <li><strong>{formatNumber(HELP_DEALER.unlockRep)} Rep:</strong> Tier 0–1 parts, decent–good conditions</li>
-                <li><strong>{formatNumber(HELP_DEALER.tier2Rep)} Rep:</strong> Tier 0–2 parts, up to pristine conditions</li>
-                <li><strong>{formatNumber(HELP_DEALER.tier3Rep)} Rep:</strong> Tier 0–4 parts, still capped at pristine condition</li>
+                <li><strong>{formatNumber(HELP_DEALER.unlockRep)} lifetime Rep:</strong> Tier 0–1 parts, decent–good conditions</li>
+                <li><strong>{formatNumber(HELP_DEALER.tier2Rep)} lifetime Rep:</strong> Tier 0–2 parts, up to pristine conditions</li>
+                <li><strong>{formatNumber(HELP_DEALER.tier3Rep)} lifetime Rep:</strong> Tier 0–4 parts, still capped at pristine condition</li>
               </ul>
               <p>Dealer refreshes can be earned as challenge rewards.</p>
             </div>

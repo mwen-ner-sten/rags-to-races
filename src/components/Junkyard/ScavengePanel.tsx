@@ -12,6 +12,8 @@ import { formatNumber, capitalize } from "@/utils/format";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { getPartSaleValue } from "@/engine/sale";
+import { formatSpendableRep } from "@/engine/repPurchase";
+import RepUnlockControl from "@/components/ui/RepUnlockControl";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -94,6 +96,7 @@ export default function ScavengePanel() {
   const selectedLocationId = useGameStore((s) => s.selectedLocationId);
   const unlockedLocationIds = useGameStore((s) => s.unlockedLocationIds);
   const repPoints = useGameStore((s) => s.repPoints);
+  const unlockLocation = useGameStore((s) => s.unlockLocation);
   const manualScavenge = useGameStore((s) => s.manualScavenge);
   const sellPart = useGameStore((s) => s.sellPart);
   const sellAllJunk = useGameStore((s) => s.sellAllJunk);
@@ -256,30 +259,42 @@ export default function ScavengePanel() {
 
         {lockedLocations[0] && (
           <div
-            className="rounded-lg border p-2.5 opacity-70 lg:hidden"
+            className="rounded-lg border p-2.5 lg:hidden"
             style={{ borderColor: "var(--divider)", background: "var(--panel-bg)" }}
           >
             <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>🔒 Next: {lockedLocations[0].name}</div>
-            <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-              Need {lockedLocations[0].unlockCost} Rep (you have {Math.floor(repPoints)})
-            </div>
+            <RepUnlockControl
+              cost={lockedLocations[0].unlockCost}
+              repPoints={repPoints}
+              onUnlock={() => unlockLocation(lockedLocations[0].id)}
+              testId={`unlock-location-${lockedLocations[0].id}`}
+            />
           </div>
         )}
 
         {lockedLocations.map((loc) => (
           <div
             key={loc.id}
-            className="hidden lg:block rounded-lg border p-3 opacity-50"
+            className="hidden lg:block rounded-lg border p-3"
             style={{ borderColor: "var(--divider)", background: "var(--panel-bg)" }}
           >
             <div className="font-semibold" style={{ color: "var(--text-muted)" }}>🔒 {loc.name}</div>
-            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              {loc.unlockCost > repPoints
-                ? `Need ${loc.unlockCost} Rep (you have ${Math.floor(repPoints)})`
-                : "Unlocks with reputation"}
+            <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              T{loc.tier} · {loc.maxPartsPerScavenge} parts
             </div>
+            <RepUnlockControl
+              cost={loc.unlockCost}
+              repPoints={repPoints}
+              onUnlock={() => unlockLocation(loc.id)}
+              testId={`unlock-location-${loc.id}`}
+            />
           </div>
         ))}
+        {lockedLocations.length > 0 && (
+          <div className="text-xs" style={{ color: "var(--text-muted)" }} data-testid="scavenge-spendable-rep">
+            {formatSpendableRep(repPoints)}
+          </div>
+        )}
       </div>
 
       {/* Scavenge action + inventory */}

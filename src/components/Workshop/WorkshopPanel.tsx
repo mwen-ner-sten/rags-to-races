@@ -1,27 +1,20 @@
 "use client";
 
 import { getWorkshopUpgradePurchaseCost, useGameStore } from "@/state/store";
-import { UPGRADE_DEFINITIONS, UPGRADE_CATEGORIES, type UpgradeCategory } from "@/data/upgrades";
+import { UPGRADE_DEFINITIONS, UPGRADE_CATEGORIES, type UpgradeCategory, type UpgradeDefinition } from "@/data/upgrades";
 import { formatNumber } from "@/utils/format";
+import { formatSpendableRep } from "@/engine/repPurchase";
+import RepUnlockControl from "@/components/ui/RepUnlockControl";
 
-function isUpgradeUnlocked(
-  upgradeId: string,
-  repPoints: number,
-  workshopLevels: Record<string, number>,
-): boolean {
-  const def = UPGRADE_DEFINITIONS.find((u) => u.id === upgradeId);
-  if (!def?.unlockRequirement) return true;
-  if (def.unlockRequirement.repPoints && repPoints < def.unlockRequirement.repPoints) return false;
-  if (def.unlockRequirement.workshopUpgradeId) {
-    const reqLevel = workshopLevels[def.unlockRequirement.workshopUpgradeId] ?? 0;
-    if (reqLevel < 1) return false;
-  }
-  if (def.unlockRequirement.workshopUpgradeIds) {
-    for (const reqId of def.unlockRequirement.workshopUpgradeIds) {
-      if ((workshopLevels[reqId] ?? 0) < 1) return false;
-    }
-  }
-  return true;
+/** Names of the workshop lines this upgrade still needs at level 1, in order. */
+function missingPrerequisites(def: UpgradeDefinition, workshopLevels: Record<string, number>): string[] {
+  const required = [
+    ...(def.unlockRequirement?.workshopUpgradeId ? [def.unlockRequirement.workshopUpgradeId] : []),
+    ...(def.unlockRequirement?.workshopUpgradeIds ?? []),
+  ];
+  return required
+    .filter((id) => (workshopLevels[id] ?? 0) < 1)
+    .map((id) => UPGRADE_DEFINITIONS.find((u) => u.id === id)?.name ?? id);
 }
 
 export default function WorkshopPanel() {
@@ -35,20 +28,25 @@ export default function WorkshopPanel() {
   const purchaseUpgrade = useGameStore((s) => s.purchaseUpgrade);
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-      {UPGRADE_CATEGORIES.map((cat) => (
-        <CategoryCard
-          key={cat.id}
-          category={cat.id}
-          label={cat.label}
-          icon={cat.icon}
-          scrapBucks={scrapBucks}
-          repPoints={repPoints}
-          workshopLevels={workshopLevels}
-          upgradeCosts={upgradeCosts}
-          purchaseUpgrade={purchaseUpgrade}
-        />
-      ))}
+    <div className="flex flex-col gap-3">
+      <div className="text-xs text-zinc-400" data-testid="workshop-spendable-rep">
+        {formatSpendableRep(repPoints)} · Rep-priced lines charge their Rep once, with the first level.
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+        {UPGRADE_CATEGORIES.map((cat) => (
+          <CategoryCard
+            key={cat.id}
+            category={cat.id}
+            label={cat.label}
+            icon={cat.icon}
+            scrapBucks={scrapBucks}
+            repPoints={repPoints}
+            workshopLevels={workshopLevels}
+            upgradeCosts={upgradeCosts}
+            purchaseUpgrade={purchaseUpgrade}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -84,15 +82,18 @@ function CategoryCard({
         {upgrades.map((upgrade) => {
           const level = workshopLevels[upgrade.id] ?? 0;
           const maxed = level >= upgrade.maxLevel;
-          const unlocked = isUpgradeUnlocked(upgrade.id, repPoints, workshopLevels);
+          const missing = missingPrerequisites(upgrade, workshopLevels);
+          const prereqsMet = missing.length === 0;
           const cost = maxed ? 0 : upgradeCosts[upgrade.id];
           const canAfford = scrapBucks >= cost;
+          const repCost = level === 0 ? (upgrade.unlockRequirement?.repPoints ?? 0) : 0;
+          const isRepPurchase = !maxed && repCost > 0;
 
           return (
             <div
               key={upgrade.id}
               className={`rounded-md border p-2.5 sm:p-3 ${
-                !unlocked
+                !prereqsMet
                   ? "border-zinc-800 bg-zinc-900/50 opacity-50"
                   : maxed
                     ? "border-green-800/50 bg-green-900/10"
@@ -106,26 +107,29 @@ function CategoryCard({
                     <LevelPips level={level} max={upgrade.maxLevel} />
                   </div>
                   <p className="mt-0.5 text-xs text-zinc-400">{upgrade.description}</p>
-                  {!unlocked && upgrade.unlockRequirement && (
-                    <p className="mt-1 text-xs text-zinc-600">
-                      {upgrade.unlockRequirement.repPoints
-                        ? `Requires ${formatNumber(upgrade.unlockRequirement.repPoints)} Rep`
-                        : ""}
-                      {upgrade.unlockRequirement.workshopUpgradeId
-                        ? `Requires: ${UPGRADE_DEFINITIONS.find((u) => u.id === upgrade.unlockRequirement?.workshopUpgradeId)?.name ?? "?"}`
-                        : ""}
-                      {upgrade.unlockRequirement.workshopUpgradeIds
-                        ? `Requires: ${upgrade.unlockRequirement.workshopUpgradeIds.map((id) => UPGRADE_DEFINITIONS.find((u) => u.id === id)?.name ?? id).join(" + ")}`
-                        : ""}
-                    </p>
+                  {!prereqsMet && (
+                    <p className="mt-1 text-xs text-zinc-600">Requires: {missing.join(" + ")}</p>
+                  )}
+                  {isRepPurchase && (
+                    <RepUnlockControl
+                      cost={repCost}
+                      repPoints={repPoints}
+                      suffix={`· $${formatNumber(cost)}`}
+                      blockedReason={prereqsMet ? undefined : `Requires ${missing.join(" + ")}`}
+                      secondaryReason={canAfford ? undefined : `Need $${formatNumber(cost - scrapBucks)} more`}
+                      onUnlock={() => purchaseUpgrade(upgrade.id)}
+                      testId={`unlock-workshop-${upgrade.id}`}
+                      tutorialTarget="workshop-upgrade-btn"
+                    />
                   )}
                 </div>
                 <div className="shrink-0">
-                  {unlocked && !maxed && (
+                  {prereqsMet && !maxed && !isRepPurchase && (
                     <button
                       data-tutorial="workshop-upgrade-btn"
                       onClick={() => purchaseUpgrade(upgrade.id)}
                       disabled={!canAfford}
+                      title={canAfford ? undefined : `Need $${formatNumber(cost - scrapBucks)} more`}
                       className="rounded border border-orange-600 px-2.5 py-1 text-xs font-semibold text-orange-400 transition-colors hover:bg-orange-600/20 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       ${formatNumber(cost)}

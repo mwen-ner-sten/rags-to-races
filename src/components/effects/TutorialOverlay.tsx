@@ -554,12 +554,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // saves from becoming trapped on an empty, non-actionable step.
     const tutorialRaceOutcome = lastRaceOutcome ?? raceHistory[0];
     if (tutorialRaceOutcome?.result === "win") {
-      effectiveTip = "You won! From the curb to the podium \u2014 that\u2019s how legends start. You earned **Scrap Bucks** and **Rep** \u2014 Rep unlocks new locations and gear.";
+      effectiveTip = "You won! From the curb to the podium \u2014 that\u2019s how legends start. You earned **Scrap Bucks** and **Rep** \u2014 spend Rep to open new locations, circuits and gear.";
     } else if (tutorialRaceOutcome?.result === "dnf") {
-      effectiveTip = "Your mower exploded. Classic. **Repair** it and try again \u2014 that\u2019s racing! Even losses earn a little **Rep** \u2014 it unlocks new locations and gear.";
+      effectiveTip = "Your mower exploded. Classic. **Repair** it and try again \u2014 that\u2019s racing! Even losses earn a little **Rep** \u2014 spend it to open new locations, circuits and gear.";
     } else if (tutorialRaceOutcome?.result === "loss") {
       effectiveTip = tutorialRaceOutcome.scrapsEarned > 0
-        ? "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 it unlocks new locations and gear."
+        ? "Not first, but you finished and earned cash. **Keep racing** \u2014 the mower believes in you. You\u2019re also earning **Rep** \u2014 spend it to open new locations, circuits and gear."
         : "Not first, but you finished and earned **Rep**. Higher finishes pay Scrap Bucks, so keep improving the mower and try again.";
     } else {
       effectiveTip = "The race ended before its result could be restored. Continue to the **Garage**; repair any damage, then keep racing for Scrap Bucks and Rep.";

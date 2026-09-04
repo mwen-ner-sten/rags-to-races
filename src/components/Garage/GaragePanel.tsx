@@ -12,6 +12,8 @@ import { formatNumber } from "@/utils/format";
 import type { ScavengedPart } from "@/engine/scavenge";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import GameAssetImage from "@/components/GameAssetImage";
+import RepUnlockControl from "@/components/ui/RepUnlockControl";
+import { formatSpendableRep } from "@/engine/repPurchase";
 
 const CONDITION_COLORS: Record<string, string> = {
   rusted:    "#f87171",
@@ -60,6 +62,8 @@ export default function GaragePanel() {
   const inventory = useGameStore((s) => s.inventory);
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const unlockedVehicleIds = useGameStore((s) => s.unlockedVehicleIds);
+  const repPoints = useGameStore((s) => s.repPoints);
+  const unlockVehicle = useGameStore((s) => s.unlockVehicle);
   const pendingBuildVehicleId = useGameStore((s) => s.pendingBuildVehicleId);
   const pendingBuildParts = useGameStore((s) => s.pendingBuildParts);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
@@ -152,6 +156,24 @@ export default function GaragePanel() {
           {visibleBlueprints.map((v) => {
             const isUnlocked = unlockedVehicleIds.includes(v.id);
             const isSelected = pendingBuildVehicleId === v.id;
+            if (!isUnlocked && v.unlockRequirement.type === "reputation") {
+              return (
+                <div
+                  key={v.id}
+                  className="flex flex-col items-start rounded-lg border border-dashed px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm"
+                  style={{ borderColor: "var(--panel-border)", color: "var(--text-muted)" }}
+                  data-testid={`blueprint-locked-${v.id}`}
+                >
+                  <span>{"\u{1F512}"} T{v.tier} {v.name}</span>
+                  <RepUnlockControl
+                    cost={v.unlockRequirement.amount}
+                    repPoints={repPoints}
+                    onUnlock={() => unlockVehicle(v.id)}
+                    testId={`unlock-vehicle-${v.id}`}
+                  />
+                </div>
+              );
+            }
             return (
               <button
                 key={v.id}
@@ -180,7 +202,10 @@ export default function GaragePanel() {
           })}
         </div>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Locked blueprints show how to unlock them on hover. Most unlock via <strong style={{ color: "var(--text-secondary)" }}>Rep</strong> or <strong style={{ color: "var(--text-secondary)" }}>circuit wins</strong>.
+          Most blueprints are bought with <strong style={{ color: "var(--text-secondary)" }}>Rep</strong>; the rest are earned through <strong style={{ color: "var(--text-secondary)" }}>circuit wins</strong> (hover a locked one to see how).
+          {visibleBlueprints.some((v) => !unlockedVehicleIds.includes(v.id) && v.unlockRequirement.type === "reputation") && (
+            <span className="ml-1" data-testid="garage-spendable-rep">{formatSpendableRep(repPoints)}</span>
+          )}
         </p>
 
         {pendingDef && (

@@ -2,7 +2,7 @@
 
 import { HELP_LOCATIONS, HELP_CIRCUITS, HELP_VEHICLES, HELP_CHALLENGES, HELP_DEALER } from "@/data/helpContent";
 import { formatNumber } from "@/utils/format";
-import { REP_PROGRESSION } from "@/config/progression";
+import { REP_UNLOCK_COSTS } from "@/config/progression";
 import { WORKSHOP_TABS } from "@/data/workshopTabs";
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -27,10 +27,10 @@ export default function HelpProgressionTab() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {[
             { label: "Auto-Scavenge", value: "From the start" },
-            { label: "Dealer", value: `${formatNumber(HELP_DEALER.unlockRep)} Rep` },
-            { label: "Crafting", value: `${formatNumber(REP_PROGRESSION.workshop.parts_bin)} Rep` },
-            { label: "Dealer T2", value: `${formatNumber(HELP_DEALER.tier2Rep)} Rep` },
-            { label: "Dealer T3", value: `${formatNumber(HELP_DEALER.tier3Rep)} Rep` },
+            { label: "Dealer", value: `${formatNumber(HELP_DEALER.unlockRep)} lifetime Rep` },
+            { label: "Crafting", value: `Costs ${formatNumber(REP_UNLOCK_COSTS.workshop.parts_bin)} Rep` },
+            { label: "Dealer T2", value: `${formatNumber(HELP_DEALER.tier2Rep)} lifetime Rep` },
+            { label: "Dealer T3", value: `${formatNumber(HELP_DEALER.tier3Rep)} lifetime Rep` },
             { label: "Auto-Race", value: "First vehicle" },
             { label: "Junk Filter", value: "Prestige 2" },
             { label: "Garage Philosophy", value: "Scrap Reset 1" },
@@ -78,7 +78,7 @@ export default function HelpProgressionTab() {
                     T{loc.tier} · {loc.name}
                   </div>
                   <div style={{ color: "var(--text-secondary)" }}>
-                    Unlock: {formatNumber(loc.unlockCost)} Rep · up to {loc.maxPartsPerScavenge} part(s)
+                    {loc.unlockCost > 0 ? `Costs ${formatNumber(loc.unlockCost)} Rep` : "Free"} · up to {loc.maxPartsPerScavenge} part(s)
                   </div>
                 </div>
               ))}

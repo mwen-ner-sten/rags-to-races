@@ -51,7 +51,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up; the first guided repair is free." },
   { step: "Upgrade your run", description: "Open Workshop > Facilities and buy a run upgrade such as Keen Eye or Budget Repairs." },
   { step: "Explore the Workshop", description: "Review Inventory, Fabrication, Add-ons, Dealer, Stations, Philosophy, Skills, and Facilities." },
-  { step: "Build an early runway", description: "Reach $500 lifetime Scrap Bucks and 100 Rep by racing, scavenging, and selling spare parts." },
+  { step: "Build an early runway", description: "Reach $500 lifetime Scrap Bucks and 100 lifetime Rep by racing, scavenging, and selling spare parts. Spend Rep as you go to open new locations and circuits — spending never lowers lifetime Rep." },
   { step: "Expand the garage", description: `Keep ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} built vehicles in your Garage at the same time.` },
   { step: "Reach the reset gate", description: `Earn $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} lifetime Rep (spending Rep never sets you back). Watch fatigue — it builds as you race and cuts performance.` },
   { step: "Visit Upgrades", description: "Open the Upgrades tab when fatigue is high or progress stalls." },
@@ -70,7 +70,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Legacy Points (LP)", meaning: "Earned on Scrap Reset based on run stats. Spent on permanent upgrades and Garage Philosophy nodes." },
   { term: "Momentum", meaning: `${MOMENTUM_TIERS.length} conditional bonuses that activate during a run (e.g., "${MOMENTUM_TIERS[0].name}" at ${MOMENTUM_TIERS[0].condition.value}+ races). Reset on prestige.` },
   { term: "Forge Tokens", meaning: "Rare drop from high-tier race wins (~2%). Used with materials in the Artifact Forge for top-tier parts." },
-  { term: "Dealer Board", meaning: `Rotating part market unlocking at ${DEALER_UNLOCK_REP.toLocaleString()} Rep. ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
+  { term: "Dealer Board", meaning: `Rotating part market that opens at ${DEALER_UNLOCK_REP.toLocaleString()} lifetime Rep (a milestone — spending Rep never delays it). ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
   { term: "DNF (Did Not Finish)", meaning: "Vehicle broke down mid-race. Baseline chance is 30% minus reliability/200, then equipment, crew, skills, philosophy, and the race plan modify it." },
   { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve station-equipment drop rarity by +0.5% per win (cap +10%)." },
   { term: "Vehicle Condition", meaning: `Starts at 100, degrades from racing. Below ${CONDITION_PENALTY_THRESHOLD}, stats drop linearly. Repair in the Garage.` },
@@ -111,7 +111,7 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "How do I unlock the Dealer?",
-    answer: `Earn ${DEALER_UNLOCK_REP.toLocaleString()} Rep. The Dealer shows ${DEALER_BOARD_SIZE} rotating part listings. Stock improves at ${DEALER_TIER2_REP.toLocaleString()} Rep (better conditions and parts through T2) and ${DEALER_TIER3_REP.toLocaleString()} Rep (parts through T4).`,
+    answer: `Reach ${DEALER_UNLOCK_REP.toLocaleString()} lifetime Rep — it is a milestone, not a purchase, so spending Rep on locations or circuits never delays it. The Dealer shows ${DEALER_BOARD_SIZE} rotating part listings. Stock improves at ${DEALER_TIER2_REP.toLocaleString()} lifetime Rep (better conditions and parts through T2) and ${DEALER_TIER3_REP.toLocaleString()} lifetime Rep (parts through T4).`,
   },
   {
     question: "How does fatigue work?",

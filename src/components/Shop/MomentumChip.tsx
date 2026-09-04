@@ -23,7 +23,8 @@ export default function MomentumChip({ onActivate }: Props) {
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
   const lifetimeRaces = useGameStore((s) => s.lifetimeRaces);
   const fatigue = useGameStore((s) => s.fatigue);
-  const repPoints = useGameStore((s) => s.repPoints);
+  // Momentum tiers are lifetime milestones: spending Rep never loses one.
+  const lifetimeRep = useGameStore((s) => s.lifetimeRep);
 
   if (!mounted || MOMENTUM_TIERS.length === 0) return null;
 
@@ -38,7 +39,7 @@ export default function MomentumChip({ onActivate }: Props) {
     const current =
       type === "races_gte" ? lifetimeRaces :
       type === "fatigue_gte" ? fatigue :
-      type === "rep_gte" ? repPoints :
+      type === "rep_gte" ? lifetimeRep :
       0;
     nextProgress = Math.min(1, current / value);
   }
