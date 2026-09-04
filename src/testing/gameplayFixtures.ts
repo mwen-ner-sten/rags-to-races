@@ -264,7 +264,6 @@ function firstScrapResetAward(state: Partial<PersistedGameState>): number {
       lifetimeScrapBucks: state.lifetimeScrapBucks ?? 0,
       lifetimeRaces: state.lifetimeRaces ?? 0,
       fatigue: state.fatigue ?? 0,
-      repPoints: state.repPoints ?? 0,
       highestCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds ?? ["backyard_derby"]),
       workshopUpgradesBought: Object.values(state.workshopLevels ?? {}).reduce((sum, level) => sum + level, 0),
     },

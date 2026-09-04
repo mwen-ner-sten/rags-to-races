@@ -34,11 +34,19 @@ export const AUTOMATION_DROP_DETAIL_LIMIT = 250;
 export const MAX_OFFLINE_DURATION_MS = 8 * 60 * 60 * 1_000;
 
 /**
- * Offline catch-up never schedules more than one simulated tick per elapsed
- * second. Endgame online automation may run faster, but replaying hundreds of
- * thousands of UI-era ticks on resume would block the browser main thread.
+ * Offline catch-up runs at the same tick floor as live play so a short absence
+ * yields exactly what the garage would have produced online.
  */
-export const OFFLINE_TICK_MS_MIN = 1_000;
+export const OFFLINE_TICK_MS_MIN = 100;
+
+/**
+ * Hard ceiling on ticks replayed in one catch-up. Every tick runs the full
+ * per-tick math, so this bounds main-thread work on resume (30,000 ticks is
+ * roughly the old 8 h @ 1 s budget). Tradeoff: at sub-second tick speeds a
+ * long absence is truncated to this many ticks rather than the full 8 hours;
+ * the ticks that do run are exact — we stop early instead of scaling results.
+ */
+export const OFFLINE_TICK_CAP = 30_000;
 
 /**
  * Backward-compatible numeric escrow stored inside the existing generic

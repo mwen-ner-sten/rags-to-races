@@ -38,7 +38,8 @@ function simulationVehicle(build: CampaignRaceBuild): BuiltVehicle {
   const config = BUILD_CONFIG[build];
   return {
     id: `campaign_${build}`,
-    definitionId: "street_racer",
+    // Not a real chassis: the simulation sets stats directly and must not derive them from its (empty) parts.
+    definitionId: "campaign_simulation_fixture",
     parts: {},
     stats: { speed: config.performance, handling: config.performance, reliability: config.reliability, weight: 1_000, performance: config.performance },
     builtAt: 0,
@@ -69,14 +70,14 @@ export function runCampaignRaceSimulation(build: CampaignRaceBuild, seed: string
 
   withRandomSource(new SeededRandomSource(seed), () => {
     for (let index = 0; index < races; index += 1) {
-      const odds = calculateOdds(getCircuitPerformance(vehicle.stats, circuit), vehicle.stats.reliability, circuit.difficulty, 1, fatigue, 0, 0, 0, 0, 0, false, planEvaluation);
+      const odds = calculateOdds(getCircuitPerformance(vehicle.stats, circuit), vehicle.stats.reliability, circuit.difficulty, fatigue, 0, 0, 0, 0, 0, false, planEvaluation);
       const forecast = buildRaceForecast(odds.winChance, odds.dnfChance, 5, planEvaluation, 0);
       displayedWinMin += forecast.winChance.min;
       displayedWinMax += forecast.winChance.max;
       displayedDnfMin += forecast.dnfRisk.min;
       displayedDnfMax += forecast.dnfRisk.max;
 
-      const outcome = simulateRace(vehicle, circuit, 1, fatigue, 0, 0, 0, 1, 0, 0, 0, 0, false, config.plan);
+      const outcome = simulateRace(vehicle, circuit, fatigue, 0, 0, 0, 1, 0, 0, 0, 0, false, config.plan);
       wins += outcome.result === "win" ? 1 : 0;
       losses += outcome.result === "loss" ? 1 : 0;
       dnfs += outcome.result === "dnf" ? 1 : 0;

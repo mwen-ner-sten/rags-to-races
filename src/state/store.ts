@@ -35,6 +35,9 @@ import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
 import { buildVehicle, calculateStats, calculateRepairCost, calculateRefurbishCost, degradeCondition, validateBuildSelection } from "@/engine/build";
 import { simulateRace, calculateWear, compactRaceHistory } from "@/engine/race";
+import { applyRacePayout, collectBonuses, racePerformanceMultiplier, sellValueBonus } from "@/engine/bonuses";
+import { vehiclePerformance, withDerivedStats } from "@/engine/performance";
+import { getUpgradeEffectValue as _getUpgradeEffectValue, getUpgradeLevel as _getUpgradeLevel } from "@/engine/workshopEffects";
 import { decomposePart, decomposeMany } from "@/engine/decompose";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
@@ -622,18 +625,8 @@ function addReputationUnlocks(
   }
 }
 
-// ── Workshop upgrade helpers (exported for tick.ts and UI) ───────────────────
-export function _getUpgradeLevel(state: GameState, upgradeId: string): number {
-  return state.workshopLevels[upgradeId] ?? 0;
-}
-export function _getUpgradeEffectValue(state: GameState, upgradeId: string): number {
-  const level = _getUpgradeLevel(state, upgradeId);
-  if (level === 0) return 0;
-  const def = getUpgradeById(upgradeId);
-  if (!def) return 0;
-  const philosophyEffectBonus = getPermanentRuntimeBonuses(state).workshopEffectBonus;
-  return def.effect.valuePerLevel * level * (1 + philosophyEffectBonus);
-}
+// ── Workshop upgrade helpers (engine/workshopEffects; re-exported for tick.ts and UI) ──
+export { _getUpgradeEffectValue, _getUpgradeLevel };
 
 function recalculateGarageStatsForStationEquipment(
   state: GameState,
@@ -658,19 +651,13 @@ function recalculateGarageStatsForStationEquipment(
   });
 }
 
-/** Exact additive sell-value bonus used by manual, bulk, and automated sales. */
+/**
+ * Sell-value bonus (multiplier − 1) used by manual, bulk, and automated
+ * sales. Composed by engine/bonuses so equipment, momentum ("+10% scrap from
+ * all sources") and permanent bonuses follow the one algebra.
+ */
 export function getSellValueBonus(state: GameState): number {
-  const equipmentBonus = getGearBonuses(
-    state.equippedGear,
-    state.equippedLootGear,
-    state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
-    state.equippedStationEquipment,
-    state.stationEquipmentInventory,
-  ).sell_value_bonus_pct;
-  const permanent = getPermanentRuntimeBonuses(state);
-  return equipmentBonus + permanent.sellValueMult + permanent.allScrapIncomeMult;
+  return sellValueBonus(collectBonuses(state));
 }
 
 export function grantTraderSaleXp(state: GameState, itemsSold: number): CrewMember[] {
@@ -1496,26 +1483,25 @@ function createActions(set: SetState, get: GetState) {
       const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
       const sb = getSkillBonuses(state.racerSkills, circuit.tier);
       const permanentBonuses = getPermanentRuntimeBonuses(state);
-      // Stats are derived at entry from parts + condition, matching automation.
-      const vehicleDefinition = getVehicleById(vehicle.definitionId);
-      const raceVehicle = vehicleDefinition
-        ? { ...vehicle, stats: calculateStats(vehicleDefinition, vehicle.parts, vehicle.condition ?? 100, _getUpgradeEffectValue(state, "tuned_suspension") + gb.race_handling_pct) }
-        : vehicle;
+      const bonuses = collectBonuses(state, circuit.tier);
+      // Stats are derived at entry from parts + condition (engine/performance), matching automation.
+      const handlingBonusPct = _getUpgradeEffectValue(state, "tuned_suspension") + gb.race_handling_pct;
+      const raceVehicle = withDerivedStats(vehicle, handlingBonusPct);
       const outcome = simulateRace(
         raceVehicle, circuit,
-        1,
         state.fatigue,
-        gb.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance") + permanentBonuses.racePerformanceBonus,
+        racePerformanceMultiplier(bonuses) - 1,
         gb.race_dnf_reduction + permanentBonuses.raceDnfFlatReduction,
         salvageDropChance,
         salvageMaxCondition,
         momentumWinBonus,
         gb.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"),
-        sb.drivingPerformanceMult,
+        0, // racer skills are already inside the composed performance bonus
         sb.drivingDnfReduction,
         false,
         state.currentRacePlan,
         permanentBonuses.raceDnfChanceMultiplier,
+        handlingBonusPct,
       );
       const events = generateRaceEvents(outcome, circuit, circuit.raceDuration);
       const racingVehicleId = vehicle.id; // capture for timeout callback
@@ -1557,11 +1543,10 @@ function createActions(set: SetState, get: GetState) {
             };
           }
           settledCurrentSession = true;
-          // Apply prestige + momentum rep multiplier
-          const mRepMult = getMomentumEffectValue(s.activeMomentumTiers, "rep_multiplier");
-          const raceMilestones = getPrestigeMilestoneBonuses(s.prestigeCount);
+          // One bonus algebra for Scrap Bucks and Rep (engine/bonuses), shared with automation.
           const racePermanent = getPermanentRuntimeBonuses(s);
-          const effectiveRepEarned = outcome.repEarned * s.prestigeBonus.repMultiplier * (1 + mRepMult) * (1 + raceMilestones.raceRepMult + racePermanent.allRepIncomeMult + racePermanent.raceRepMult);
+          const payout = applyRacePayout(collectBonuses(s, circuit.tier), outcome, outcome.result === "win" ? s.winStreak + 1 : 0);
+          const effectiveRepEarned = payout.rep;
           const newRep = s.repPoints + effectiveRepEarned;
           const newUnlockedCircuits = [...s.unlockedCircuitIds];
           const newUnlockedLocations = [...s.unlockedLocationIds];
@@ -1603,8 +1588,8 @@ function createActions(set: SetState, get: GetState) {
           // Apply vehicle wear to the vehicle that started the race
           const wearReduction = _getUpgradeEffectValue(s, "reinforced_chassis");
           const legacyWearReduction = getLegacyEffectValue(s.legacyUpgradeLevels, "leg_wear_reduction");
-          const racingV = s.garage.find((v) => v.id === racingVehicleId);
-          const wearAmount = racingV ? calculateWear(racingV, outcome.result, wearReduction + legacyWearReduction, s.fatigue, gb.race_wear_reduction_pct, sb.enduranceWearReduction, outcome.planEvaluation?.wearMultiplier ?? 1) : 0;
+          // calculateWear derives reliability from parts + condition — the same numbers the race used.
+          const wearAmount = calculateWear(raceVehicle, outcome.result, wearReduction + legacyWearReduction, s.fatigue, gb.race_wear_reduction_pct, sb.enduranceWearReduction, outcome.planEvaluation?.wearMultiplier ?? 1);
           const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gb.race_handling_pct;
           const updatedGarage = s.garage.map((v) => {
             if (v.id !== racingVehicleId) return v;
@@ -1618,20 +1603,7 @@ function createActions(set: SetState, get: GetState) {
             };
           });
 
-          // Apply consolation sponsor bonus
-          const consolationBonus = _getUpgradeEffectValue(s, "consolation_sponsor");
-          let finalScraps = outcome.result !== "win" && consolationBonus > 0
-            ? Math.floor(outcome.scrapsEarned * (1 + consolationBonus))
-            : outcome.scrapsEarned;
-          // Gear race scrap bonus
-          if (gb.race_scrap_bonus_pct > 0) {
-            finalScraps = Math.floor(finalScraps * (1 + gb.race_scrap_bonus_pct));
-          }
-          // Momentum scrap multiplier
-          const mScrapMult = getMomentumEffectValue(s.activeMomentumTiers, "scrap_multiplier");
-          if (mScrapMult > 0) finalScraps = Math.floor(finalScraps * (1 + mScrapMult));
-          const streakScrapBonus = Math.min(racePermanent.winStreakScrapCap, newStreak * racePermanent.winStreakScrapBonus);
-          finalScraps = multiplyReward(finalScraps, (s.prestigeBonus.scrapMultiplier - 1) + raceMilestones.raceScrapMult + racePermanent.allScrapIncomeMult + racePermanent.raceScrapMult + streakScrapBonus);
+          const finalScraps = payout.scraps;
           let settledOutcome: RaceOutcome = { ...outcome, scrapsEarned: finalScraps, repEarned: effectiveRepEarned };
 
           const newLifetimeRaces = s.lifetimeRaces + 1;
@@ -1642,11 +1614,8 @@ function createActions(set: SetState, get: GetState) {
           const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "fatigue_cap_reduction"));
           const newFatigue = Math.min(fatigueCap, Math.floor(rawFatigue * Math.max(0, 1 - gb.fatigue_rate_reduction - ownerFatigueReduction - momentumFatigueReduction - racePermanent.fatigueReduction)));
 
-          // Gear drop roll from manual race
-          const raceVehicle = s.garage.find((v) => v.id === racingVehicleId);
-          const vehiclePerf = raceVehicle?.stats
-            ? raceVehicle.stats.speed / (circuit.difficulty || 1)
-            : 1;
+          // Gear drop roll from manual race (circuit-fitted, derived performance vs. difficulty)
+          const vehiclePerf = vehiclePerformance(raceVehicle, circuit, handlingBonusPct) / (circuit.difficulty || 1);
           const { gearDrops: raceGearDrops, modDrop: raceModDrop } = rollGearDrops({
             source: "race",
             sourceTier: circuit.tier,
@@ -2389,18 +2358,11 @@ function createActions(set: SetState, get: GetState) {
         lifetimeScrapBucks: state.lifetimeScrapBucks,
         lifetimeRaces: state.lifetimeRaces,
         fatigue: state.fatigue,
-        repPoints: state.repPoints,
         highestCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds),
         workshopUpgradesBought: Object.values(state.workshopLevels).reduce((a, b) => a + b, 0),
       };
 
-      const result = doPrestige(
-        state.prestigeCount,
-        runStats,
-        state.legacyUpgradeLevels,
-        state.activeMomentumTiers,
-        state.workshopLevels,
-      );
+      const result = doPrestige(state.prestigeCount, state.legacyUpgradeLevels, state.workshopLevels);
 
       const newPrestigeCount = result.prestigeCount;
       const milestoneBonuses = getPrestigeMilestoneBonuses(newPrestigeCount);
@@ -2418,7 +2380,7 @@ function createActions(set: SetState, get: GetState) {
         ...result.startingCircuitIds,
       ]));
 
-      // LP earned
+      // LP earned — the one formula, shared with the confirmation screen.
       const lpEarned = calculateScrapResetAward({
         currentPrestigeCount: state.prestigeCount,
         runStats,

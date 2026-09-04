@@ -15,7 +15,6 @@ export default function PrestigeConfirm({
   const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
   const lifetimeRaces = useGameStore((s) => s.lifetimeRaces);
   const fatigue = useGameStore((s) => s.fatigue);
-  const repPoints = useGameStore((s) => s.repPoints);
   const unlockedCircuitIds = useGameStore((s) => s.unlockedCircuitIds);
   const workshopLevels = useGameStore((s) => s.workshopLevels);
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
@@ -31,7 +30,6 @@ export default function PrestigeConfirm({
     lifetimeScrapBucks,
     lifetimeRaces,
     fatigue,
-    repPoints,
     highestCircuitTier: deriveHighestCircuitTier(unlockedCircuitIds),
     workshopUpgradesBought: Object.values(workshopLevels).reduce((a, b) => a + b, 0),
   };

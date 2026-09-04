@@ -8,7 +8,7 @@ import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
 import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_INTERVAL, DEALER_BOARD_SIZE } from "@/data/dealer";
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
-import { OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 import { GARAGE_STATIONS } from "@/data/garageStations";
@@ -85,7 +85,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 currency earned from Track Reset. Spent on venue, event, and endgame fleet perks." },
   { term: "Crew", meaning: "NPC helpers unlocked after the first Team Reset. Four roles (Mechanic, Scout, Driver, Trader) have distinct specializations. Crew persist through Scrap Resets and reset on Team Reset." },
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
-  { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 8 hours). Catch-up uses at most one tick per ${OFFLINE_TICK_MS_MIN / 1_000} second of elapsed time. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts and ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
+  { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 8 hours). Catch-up runs at your live tick speed, up to ${OFFLINE_TICK_CAP.toLocaleString()} ticks per return. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts and ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
   { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
   { term: "Prestige Milestone", meaning: "Free reward earned at prestige count thresholds. Some shape your run strategy. View in Upgrades > Prestige." },
   { term: "Garage Philosophy", meaning: "LP-funded specialization in Scrapper, Racer, and Engineer paths. Persists through Scrap Reset and resets at the Team layer." },

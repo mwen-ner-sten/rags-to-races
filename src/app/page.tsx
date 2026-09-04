@@ -16,7 +16,7 @@ import TutorialOverlay, { getAdaptiveAllowedTabs } from "@/components/effects/Tu
 import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import WorkshopRevealWatcher from "@/components/effects/WorkshopRevealWatcher";
 import { useGameStore, type GameState } from "@/state/store";
-import { computeOfflineTickSpeedMs, computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
+import { computeOfflineTickBudget, computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
 import type { RaceOutcome } from "@/engine/race";
 import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
@@ -77,10 +77,8 @@ export default function Home() {
     const state = useGameStore.getState();
     if (state.lastActiveTimestamp > 0) {
       const elapsed = Date.now() - state.lastActiveTimestamp;
-      const tickMs = computeOfflineTickSpeedMs(state);
-      // Cap at 8 hours of offline ticks
-      const maxOfflineTicks = Math.floor(MAX_OFFLINE_DURATION_MS / tickMs);
-      const offlineTicks = Math.min(Math.floor(elapsed / tickMs), maxOfflineTicks);
+      // Elapsed time → bounded tick budget (live tick floor, capped iteration count).
+      const { ticks: offlineTicks } = computeOfflineTickBudget(state, elapsed);
 
       if (offlineTicks > 0) {
         advanceFleetAssignments(offlineTicks);

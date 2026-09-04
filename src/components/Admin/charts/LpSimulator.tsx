@@ -47,7 +47,6 @@ export default function LpSimulator({ snapshot }: { snapshot?: GameSnapshot }) {
       lifetimeScrapBucks: scrap,
       lifetimeRaces: breakdownRaces,
       fatigue,
-      repPoints: 0,
       highestCircuitTier: circuitTier,
       workshopUpgradesBought: workshopCount,
     };
@@ -78,7 +77,7 @@ export default function LpSimulator({ snapshot }: { snapshot?: GameSnapshot }) {
       const fatigue = calcFatigue(r, ironWill * 5);
       const stats: RunStats = {
         lifetimeScrapBucks: scrap, lifetimeRaces: r, fatigue,
-        repPoints: 0, highestCircuitTier: circuitTier, workshopUpgradesBought: workshopCount,
+        highestCircuitTier: circuitTier, workshopUpgradesBought: workshopCount,
       };
       const lp = calculateLegacyPoints(stats);
       base.points.push({ x: r, y: lp });

@@ -34,8 +34,8 @@ export function calculatePrestigeBonus(
 export interface RunStats {
   lifetimeScrapBucks: number;
   lifetimeRaces: number;
+  /** Only feeds the Deep Run milestone bonus; the LP base never depends on it. */
   fatigue: number;
-  repPoints: number;
   highestCircuitTier: number;
   workshopUpgradesBought: number;
 }
@@ -117,7 +117,6 @@ export function calculateScrapResetAward(input: ScrapResetAwardInput): ScrapRese
 
 export interface PrestigeResult {
   prestigeCount: number;
-  legacyPointsEarned: number;
   bonuses: PrestigeBonus;
   /** Workshop upgrades to keep (id -> level 1) from Blueprint Memory */
   keptWorkshopUpgrades: Record<string, number>;
@@ -129,18 +128,17 @@ export interface PrestigeResult {
   startingCircuitIds: string[];
 }
 
+/**
+ * Starting conditions for the next run. Legacy Points are NOT computed here:
+ * `calculateScrapResetAward` is the one LP formula, shared by the confirmation
+ * screen and the reset itself.
+ */
 export function doPrestige(
   currentPrestigeCount: number,
-  runStats: RunStats,
   legacyUpgradeLevels: Record<string, number>,
-  activeMomentumTierIds: string[],
   currentWorkshopLevels: Record<string, number>,
 ): PrestigeResult {
   const newCount = currentPrestigeCount + 1;
-
-  // Calculate LP earned
-  const baseLp = calculateLegacyPoints(runStats);
-  const lp = applyMomentumLpBonus(baseLp, activeMomentumTierIds);
 
   // Compute bonuses from legacy upgrades
   const bonuses = calculatePrestigeBonus(legacyUpgradeLevels);
@@ -168,7 +166,6 @@ export function doPrestige(
 
   return {
     prestigeCount: newCount,
-    legacyPointsEarned: lp,
     bonuses,
     keptWorkshopUpgrades: keptWorkshop,
     startingScrap,

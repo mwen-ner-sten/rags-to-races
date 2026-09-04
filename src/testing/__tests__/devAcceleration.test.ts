@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, type GameState } from "@/state/store";
 import { createGameplayFixture } from "../gameplayFixtures";
 import { MAX_OFFLINE_MS, offlineTicksForDuration, runSeededOffline, runSeededTicks } from "../devAcceleration";
-import { AUTOMATION_DROP_DETAIL_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTOMATION_DROP_DETAIL_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 
 function stateFor(name: Parameters<typeof createGameplayFixture>[0]): GameState {
   return { ...createInitialState(), ...createGameplayFixture(name).payload.state } as GameState;
@@ -30,10 +30,12 @@ describe("deterministic DEV acceleration", () => {
     expect(result.partsScavenged + result.raceSalvageFound).toBe(result.partsFound.length + result.partsAutoSold);
   });
 
-  it("uses the documented offline tick floor for a maxed save", () => {
+  it("uses the live tick floor and the bounded tick cap for a maxed save", () => {
     const duration = offlineTicksForDuration(stateFor("maxed"), MAX_OFFLINE_MS);
     expect(duration.tickSpeedMs).toBe(OFFLINE_TICK_MS_MIN);
-    expect(duration.ticks).toBe(MAX_OFFLINE_MS / OFFLINE_TICK_MS_MIN);
+    // 8 h at a 100 ms tick would be 288,000 ticks; catch-up replays at most OFFLINE_TICK_CAP of them.
+    expect(duration.ticks).toBe(OFFLINE_TICK_CAP);
+    expect(offlineTicksForDuration(stateFor("maxed"), 10 * 60_000).ticks).toBe((10 * 60_000) / OFFLINE_TICK_MS_MIN);
   });
 
   it("does not mutate the supplied gameplay state", () => {

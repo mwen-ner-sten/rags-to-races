@@ -30,7 +30,7 @@ export default function PrestigeRoiTable({ snapshot }: { snapshot?: GameSnapshot
       const fatigue = calcFatigue(raceCount, ironWill * 5);
       const stats: RunStats = {
         lifetimeScrapBucks: scrapBucks, lifetimeRaces: raceCount, fatigue,
-        repPoints: 0, highestCircuitTier: tier, workshopUpgradesBought: workshopCount,
+        highestCircuitTier: tier, workshopUpgradesBought: workshopCount,
       };
       const baseLp = calculateLegacyPoints(stats);
       // Derive LP multiplier from canonical momentum tier data

@@ -194,7 +194,6 @@ describe("seeded first-campaign pacing", () => {
         lifetimeScrapBucks: state.lifetimeScrapBucks,
         lifetimeRaces: state.lifetimeRaces,
         fatigue: state.fatigue,
-        repPoints: state.repPoints,
         highestCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds),
         workshopUpgradesBought: Object.values(state.workshopLevels).reduce((sum, level) => sum + level, 0),
       },

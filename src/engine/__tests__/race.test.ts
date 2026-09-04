@@ -22,12 +22,12 @@ describe("winChanceFromRatio", () => {
 describe("calculateOdds", () => {
   it("clamps win chance to the floor", () => {
     expect(calculateOdds(1, 100, 1000).winChance).toBeCloseTo(WIN_CHANCE_FLOOR, 5);
-    expect(calculateOdds(1, 100, 1000, 1, 0, 0, 0, 0, 0, -0.5).winChance).toBe(WIN_CHANCE_FLOOR);
+    expect(calculateOdds(1, 100, 1000, 0, 0, 0, 0, 0, -0.5).winChance).toBe(WIN_CHANCE_FLOOR);
   });
 
   it("clamps win chance to the cap so no race is a lock", () => {
     expect(calculateOdds(1000, 100, 1).winChance).toBeCloseTo(WIN_CHANCE_CAP, 5);
-    expect(calculateOdds(1000, 100, 1, 1, 0, 0, 0, 0, 0, 0.5).winChance).toBe(WIN_CHANCE_CAP);
+    expect(calculateOdds(1000, 100, 1, 0, 0, 0, 0, 0, 0.5).winChance).toBe(WIN_CHANCE_CAP);
   });
 
   it("returns the parity win chance when performance matches difficulty", () => {
@@ -36,11 +36,11 @@ describe("calculateOdds", () => {
 
   it("applies fatigue as a performance penalty", () => {
     // fatigue=50 → ×0.75 performance → ratio 0.75
-    expect(calculateOdds(100, 100, 100, 1, 50).winChance).toBeCloseTo(winChanceFromRatio(0.75));
+    expect(calculateOdds(100, 100, 100, 50).winChance).toBeCloseTo(winChanceFromRatio(0.75));
   });
 
   it("applies gear performance bonus multiplicatively", () => {
-    expect(calculateOdds(40, 100, 50, 1, 0, 0.5).winChance).toBeCloseTo(winChanceFromRatio(1.2));
+    expect(calculateOdds(40, 100, 50, 0, 0.5).winChance).toBeCloseTo(winChanceFromRatio(1.2));
   });
 
   it("decays DNF chance smoothly with reliability instead of cliffing to zero", () => {
@@ -58,7 +58,7 @@ describe("calculateOdds", () => {
 
   it("applies gear DNF reduction as a flat subtraction", () => {
     const base = calculateOdds(50, 0, 50).dnfChance;
-    expect(calculateOdds(50, 0, 50, 1, 0, 0, 0.1).dnfChance).toBeCloseTo(base - 0.1);
+    expect(calculateOdds(50, 0, 50, 0, 0, 0.1).dnfChance).toBeCloseTo(base - 0.1);
   });
 
   it("returns correct odds labels", () => {

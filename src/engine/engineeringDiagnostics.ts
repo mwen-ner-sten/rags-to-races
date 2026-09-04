@@ -2,6 +2,7 @@ import type { CircuitDefinition } from "@/data/circuits";
 import { CONDITION_LABELS, CONDITIONS, getPartById, type CoreSlot } from "@/data/parts";
 import { getVehicleById } from "@/data/vehicles";
 import { expectedLoadedWeight, type BuiltVehicle, type InstalledPart } from "./build";
+import { deriveVehicleStats } from "./performance";
 import type { RaceOutcome } from "./race";
 
 export type EngineeringFocus = "power" | "grip" | "weight" | "reliability" | "fuel";
@@ -54,10 +55,12 @@ export function diagnoseFocus(vehicle: BuiltVehicle, circuit: CircuitDefinition,
   const { power, grip, aero, fuel } = circuit.profile.demands;
   if (fuel >= 8 && (outcome.planEvaluation?.fuelRisk ?? 0) > 0.1) return "fuel";
 
+  // Stats are derived from the installed parts, never read off the cached snapshot.
+  const stats = deriveVehicleStats(vehicle);
   const definition = getVehicleById(vehicle.definitionId);
   if (definition) {
-    const expected = expectedLoadedWeight(definition);
-    if (expected > 0 && (vehicle.stats.weight - expected) / expected > WEIGHT_FOCUS_THRESHOLD) return "weight";
+    const expected = expectedLoadedWeight(definition, vehicle.parts);
+    if (expected > 0 && (stats.weight - expected) / expected > WEIGHT_FOCUS_THRESHOLD) return "weight";
   }
 
   // Speed outweighs handling in raw numbers on every chassis, so measure how
@@ -65,7 +68,7 @@ export function diagnoseFocus(vehicle: BuiltVehicle, circuit: CircuitDefinition,
   // relative to an even power / grip+aero split.
   const base = definition?.baseStats;
   const baseShare = base ? base.speed / Math.max(1, base.speed + base.handling) : 0.5;
-  const buildShare = vehicle.stats.speed / Math.max(1, vehicle.stats.speed + vehicle.stats.handling);
+  const buildShare = stats.speed / Math.max(1, stats.speed + stats.handling);
   const buildLean = buildShare - baseShare;             // > 0: built for pace
   const circuitLean = power / Math.max(1, power + grip + aero) - 0.5; // > 0: rewards pace
   if (circuitLean > 0) return buildLean <= circuitLean ? "power" : "grip";

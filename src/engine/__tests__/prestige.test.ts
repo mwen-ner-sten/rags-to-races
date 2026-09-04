@@ -14,7 +14,6 @@ describe("calculateLegacyPoints", () => {
     lifetimeScrapBucks: 10000,
     lifetimeRaces: 80,
     fatigue: 35,
-    repPoints: 5000,
     highestCircuitTier: 2,
     workshopUpgradesBought: 10,
   };
@@ -24,7 +23,6 @@ describe("calculateLegacyPoints", () => {
       lifetimeScrapBucks: 0,
       lifetimeRaces: 0,
       fatigue: 0,
-      repPoints: 0,
       highestCircuitTier: 0,
       workshopUpgradesBought: 0,
     };

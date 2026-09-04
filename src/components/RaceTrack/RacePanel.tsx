@@ -1,10 +1,12 @@
 "use client";
 
-import { useGameStore } from "@/state/store";
+import { _getUpgradeEffectValue, useGameStore } from "@/state/store";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
-import { calculateOdds, getCircuitPerformance } from "@/engine/race";
+import { calculateOdds } from "@/engine/race";
+import { composeBonus } from "@/engine/bonuses";
+import { deriveVehicleStats, vehiclePerformance } from "@/engine/performance";
 import { getGearBonuses } from "@/engine/gear";
 import { getSkillBonuses } from "@/engine/skills";
 import { getRaceTicksNeeded } from "@/engine/tick";
@@ -216,9 +218,8 @@ function OddsDisplay({
   performance,
   reliability,
   difficulty,
-  prestigeBonus,
   fatigue,
-  gearPerformanceBonus,
+  performanceBonus,
   gearDnfReduction,
   skillPerformanceMult,
   skillDnfReduction,
@@ -231,9 +232,9 @@ function OddsDisplay({
   performance: number;
   reliability: number;
   difficulty: number;
-  prestigeBonus: number;
   fatigue: number;
-  gearPerformanceBonus: number;
+  /** Composed bonus multiplier minus one (engine/bonuses); skills are passed separately. */
+  performanceBonus: number;
   gearDnfReduction: number;
   skillPerformanceMult: number;
   skillDnfReduction: number;
@@ -245,8 +246,8 @@ function OddsDisplay({
 }) {
   const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
   const odds = useMemo(
-    () => calculateOdds(performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, false, evaluation, dnfChanceMultiplier),
-    [performance, reliability, difficulty, prestigeBonus, fatigue, gearPerformanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, evaluation, dnfChanceMultiplier],
+    () => calculateOdds(performance, reliability, difficulty, fatigue, performanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, false, evaluation, dnfChanceMultiplier),
+    [performance, reliability, difficulty, fatigue, performanceBonus, gearDnfReduction, skillPerformanceMult, skillDnfReduction, momentumWinBonus, evaluation, dnfChanceMultiplier],
   );
   const forecast = useMemo(() => buildRaceForecast(odds.winChance, odds.dnfChance, 5, evaluation, diagnosticsLevel), [odds, evaluation, diagnosticsLevel]);
 
@@ -441,6 +442,9 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
     teamUpgradeLevels,
     "base_race_performance",
   );
+  const tunedSuspension = useGameStore((s) => _getUpgradeEffectValue(s, "tuned_suspension"));
+  // The same handling bonus the race derives stats with (engine/performance).
+  const handlingBonusPct = tunedSuspension + gb.race_handling_pct;
 
   const availableCircuits = CIRCUIT_DEFINITIONS.filter((c) =>
     !c.requiredFeature || (
@@ -639,12 +643,11 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         {activeVehicle && selectedCircuit && (
           <div data-tutorial="odds-display">
           <OddsDisplay
-            performance={getCircuitPerformance(activeVehicle.stats, selectedCircuit)}
-            reliability={activeVehicle.stats.reliability}
+            performance={vehiclePerformance(activeVehicle, selectedCircuit, handlingBonusPct)}
+            reliability={deriveVehicleStats(activeVehicle, handlingBonusPct).reliability}
             difficulty={selectedCircuit.difficulty}
-            prestigeBonus={1}
             fatigue={fatigue}
-            gearPerformanceBonus={gb.race_performance_pct + teamRacePerformance + permanentRaceBonuses.racePerformanceBonus}
+            performanceBonus={composeBonus({ equipment: gb.race_performance_pct, team: teamRacePerformance, permanent: permanentRaceBonuses.racePerformanceBonus }) - 1}
             gearDnfReduction={gb.race_dnf_reduction + permanentRaceBonuses.raceDnfFlatReduction}
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}

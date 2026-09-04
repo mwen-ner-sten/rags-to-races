@@ -55,7 +55,7 @@ describe("1,000-seed campaign simulation guardrails", () => {
           const plan = strategy === "optimized" ? tunedPlan(circuit.profile) : DEFAULT_RACE_PLAN;
           const outcome = withRandomSource(
             new SeededRandomSource(`${seed}:${circuit.id}:${strategy}`),
-            () => simulateRace(vehicleFor(strategy, circuit.difficulty), circuit, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, false, plan),
+            () => simulateRace(vehicleFor(strategy, circuit.difficulty), circuit, 0, 0, 0, 0, 1, 0, 0, 0, 0, false, plan),
           );
           expect(outcome.circuitId).toBe(circuit.id);
           expect(outcome.vehicleId).toBe(`sim-${strategy}`);
