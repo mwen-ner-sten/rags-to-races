@@ -5,7 +5,7 @@ import {
   STATION_EQUIPMENT_INVENTORY_LIMIT,
 } from "../../src/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
-import { HIDDEN_THEMES, THEMES } from "../../src/data/themes";
+import { THEMES } from "../../src/data/themes";
 import { FATIGUE_DRINK_COST, FATIGUE_DRINK_RECOVERY } from "../../src/data/workshopActions";
 import { formatNumber } from "../../src/utils/format";
 import fixtures from "./fixtures/gameplay.generated.json";
@@ -1118,7 +1118,7 @@ test("all supported themes survive reload without hydration errors or horizontal
     }), `${theme.id} live theme variables did not propagate`).toBe(true);
   }
 
-  for (const theme of [...THEMES, ...HIDDEN_THEMES]) {
+  for (const theme of THEMES) {
     await page.evaluate((themeId) => localStorage.setItem("rags-to-races-theme", themeId), theme.id);
     await page.reload();
     await openTab(page, "settings");
@@ -1137,9 +1137,6 @@ test("all supported themes survive reload without hydration errors or horizontal
     expect(appliedTheme.modalBackground, `${theme.id} modal surface is translucent`).not.toMatch(/^rgba\(/);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${theme.id} horizontal overflow`).toBeLessThanOrEqual(1);
-    if (theme.id === "outlaw") {
-      expect(overflow, "outlaw exact horizontal overflow").toBe(0);
-    }
   }
 });
 

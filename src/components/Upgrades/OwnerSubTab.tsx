@@ -180,7 +180,6 @@ function formatEffect(type: string, value: number): string {
     case "legacy_starting_level":
       return value >= 1 ? "Active" : "Inactive";
     case "keep_team_upgrades":
-    case "talent_cost_reduction":
     case "fatigue_rate_reduction":
     case "unlock_cost_reduction":
       return `${Math.round(value * 100)}%`;

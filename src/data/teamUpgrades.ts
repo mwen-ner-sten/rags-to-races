@@ -156,17 +156,6 @@ const CREW_RETENTION: TeamUpgradeDefinition = {
 
 // ── Racer Development ──────────────────────────────────────────────────────
 
-const ATTRIBUTE_POINTS: TeamUpgradeDefinition = {
-  id: "team_attr_points",
-  name: "Attribute Points",
-  description: "+2 attribute points per level.",
-  category: "racer_dev",
-  maxLevel: 10,
-  baseCost: 5,
-  costScaling: 1.8,
-  effect: { type: "bonus_attr_points", valuePerLevel: 2 },
-};
-
 const SECOND_WIND: TeamUpgradeDefinition = {
   id: "team_second_wind",
   name: "Second Wind",
@@ -224,17 +213,6 @@ const MATERIAL_RESONANCE: TeamUpgradeDefinition = {
   effect: { type: "starting_materials", valuePerLevel: 1 },
 };
 
-const TALENT_EXPANSION: TeamUpgradeDefinition = {
-  id: "team_talent_exp",
-  name: "Talent Expansion",
-  description: "Unlock T4/T5 talent nodes.",
-  category: "fortune",
-  maxLevel: 2,
-  baseCost: 15,
-  costScaling: 2.0,
-  effect: { type: "talent_tier_unlock", valuePerLevel: 1 },
-};
-
 const FORGE_AFFINITY: TeamUpgradeDefinition = {
   id: "team_forge_affinity",
   name: "Forge Affinity",
@@ -262,7 +240,7 @@ export const TEAM_UPGRADE_DEFINITIONS: TeamUpgradeDefinition[] = [
 ];
 
 /** Retained design experiments; deliberately excluded from released purchase surfaces. */
-export const DEFERRED_TEAM_UPGRADE_DEFINITIONS: TeamUpgradeDefinition[] = [LEGACY_VAULT, MOMENTUM_MASTERY, EXTENDED_WORKSHOP, EXOTIC_PARTS_PIPELINE, ADVANCED_TOOLS, CREW_SPECIALIZATION, CREW_RETENTION, ATTRIBUTE_POINTS, GENERATIONAL_WISDOM, TALENT_EXPANSION];
+export const DEFERRED_TEAM_UPGRADE_DEFINITIONS: TeamUpgradeDefinition[] = [LEGACY_VAULT, MOMENTUM_MASTERY, EXTENDED_WORKSHOP, EXOTIC_PARTS_PIPELINE, ADVANCED_TOOLS, CREW_SPECIALIZATION, CREW_RETENTION, GENERATIONAL_WISDOM];
 
 export const TEAM_UPGRADES_BY_ID = Object.fromEntries(
   TEAM_UPGRADE_DEFINITIONS.map((u) => [u.id, u]),

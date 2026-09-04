@@ -235,10 +235,7 @@ function formatEffect(type: string, value: number): string {
     case "active_vehicle_slot":
     case "crew_slot":
     case "starting_materials":
-    case "talent_tier_unlock":
       return `${value}`;
-    case "bonus_attr_points":
-      return `${value} pts`;
     case "fatigue_cap_reduction":
       return `-${value}`;
     case "unlock_t6_parts":

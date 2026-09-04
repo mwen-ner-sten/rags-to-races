@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { FEATURE_AVAILABILITY, isFeatureAvailable } from "../features";
 
 describe("feature availability", () => {
-  it("ships completed responsibility layers while keeping legacy experiments hidden", () => {
+  it("ships completed responsibility layers while keeping developer surfaces hidden", () => {
     expect(isFeatureAvailable("crew_system", "released")).toBe(true);
     expect(isFeatureAvailable("track_customization", "released")).toBe(true);
-    expect(isFeatureAvailable("racer_attributes", "uat")).toBe(false);
+    expect(isFeatureAvailable("new_workshop_cats", "uat")).toBe(false);
   });
 
   it("makes released features available in every channel", () => {
@@ -14,8 +14,9 @@ describe("feature availability", () => {
     expect(isFeatureAvailable("save_recovery", "released")).toBe(true);
   });
 
-  it("requires explicit opt-in for experimental surfaces", () => {
-    expect(isFeatureAvailable("design_mock", "experimental")).toBe(true);
-    expect(isFeatureAvailable("design_mock", "dev")).toBe(false);
+  it("exposes dev-only features to the experimental channel but not beyond", () => {
+    expect(isFeatureAvailable("admin_tools", "experimental")).toBe(true);
+    expect(isFeatureAvailable("admin_tools", "dev")).toBe(true);
+    expect(isFeatureAvailable("admin_tools", "uat")).toBe(false);
   });
 });

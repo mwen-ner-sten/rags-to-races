@@ -64,20 +64,6 @@ export function checkFeatureUnlock(
 
 // ── Feature Unlock Definitions ─────────────────────────────────────────────
 
-const RACER_ATTRIBUTES: FeatureUnlockCondition = {
-  id: "racer_attributes",
-  name: "Racer Attributes",
-  description: "Unlocks the racer attribute system for point allocation.",
-  conditions: { lifetimeScrapResets: 5 },
-};
-
-const EXPANDED_TALENTS: FeatureUnlockCondition = {
-  id: "expanded_talents",
-  name: "Expanded Talents",
-  description: "Unlocks additional talent tree nodes.",
-  conditions: { lifetimeLPAllTime: 100 },
-};
-
 const CREW_SYSTEM: FeatureUnlockCondition = {
   id: "crew_system",
   name: "Crew System",
@@ -102,8 +88,6 @@ const TRACK_CUSTOMIZATION: FeatureUnlockCondition = {
 // ── Export ──────────────────────────────────────────────────────────────────
 
 export const FEATURE_UNLOCK_DEFINITIONS: FeatureUnlockCondition[] = [
-  RACER_ATTRIBUTES,
-  EXPANDED_TALENTS,
   CREW_SYSTEM,
   NEW_WORKSHOP_CATS,
   TRACK_CUSTOMIZATION,

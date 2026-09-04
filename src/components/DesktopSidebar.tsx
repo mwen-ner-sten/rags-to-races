@@ -2,19 +2,7 @@
 
 import { useGameStore } from "@/state/store";
 import { isFeatureAvailable } from "@/config/features";
-
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: "junkyard", label: "Junkyard" },
-  { id: "garage",   label: "Garage" },
-  { id: "race",     label: "Race" },
-  { id: "gear",     label: "Workshop" },
-  { id: "upgrades", label: "Upgrades" },
-  { id: "help",     label: "Help" },
-  { id: "log",      label: "Activity" },
-  { id: "dev",      label: "Dev" },
-];
+import { TABS, type TabId } from "@/components/navigation/tabs";
 
 const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
 
@@ -26,7 +14,8 @@ interface Props {
 
 export default function DesktopSidebar({ activeTab, setActiveTab, themeVars }: Props) {
   const autoScavengeUnlocked = useGameStore((s) => s.autoScavengeUnlocked);
-  const visibleTabs = TABS.filter((t) => SHOW_DEV_TAB || t.id !== "dev");
+  // Settings is rendered separately at the bottom of the sidebar.
+  const visibleTabs = TABS.filter((t) => t.id !== "settings" && (SHOW_DEV_TAB || t.id !== "dev"));
 
   return (
     <aside

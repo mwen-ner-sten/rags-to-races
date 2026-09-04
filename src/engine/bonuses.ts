@@ -41,7 +41,6 @@ import { getPrestigeMilestoneBonuses } from "@/data/prestigeMilestones";
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
-import { TALENT_NODES } from "@/data/talentNodes";
 import type { RaceResult } from "./race";
 
 export type BonusClass =
@@ -94,11 +93,8 @@ export function composeBonus(...stacks: BonusStack[]): number {
 /** Collect every multiplier source in the current state into named channels. */
 export function collectBonuses(state: GameState, circuitTier: number = 0): Bonuses {
   const gear = getGearBonuses(
-    state.equippedGear,
     state.equippedLootGear,
     state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
     state.equippedStationEquipment,
     state.stationEquipmentInventory,
   );

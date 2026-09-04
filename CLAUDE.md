@@ -76,7 +76,8 @@ In bonus-description text inside `achievements.ts` / `upgrades.ts`, prefer the f
 
 ## Theming
 
-- There are **16 theme shells** in `ThemeShell.tsx`, each with inline `<header>/<nav>/<main>/<footer>` styles. Global CSS rules for these elements need `!important` to override the inline styles.
+- There are **6 theme shells** in `ThemeShell.tsx` (one per entry in `src/data/themes.ts`), each with inline `<header>/<main>/<footer>` styles. Navigation lives in `DesktopSidebar`/`MobileNav`, not in the shells. Global CSS rules for these elements need `!important` to override the inline styles.
+- Top-level tab ids/labels/icons live in `src/components/navigation/tabs.ts`. Never redeclare `TabId` or a `TABS` array locally.
 - Never hardcode colors. Use CSS variables: `var(--panel-bg)`, `var(--accent)`, `var(--text-primary)`, `var(--text-secondary)`, `var(--text-muted)`, `var(--text-white)`, `var(--text-heading)`, `var(--success)`, `var(--danger)`, `var(--panel-border)`, `var(--accent-bg)`, `var(--accent-border)`, `var(--btn-primary-bg)`, `var(--btn-primary-text)`.
 - Provide fallback colors for CSS vars on inline styles: `"var(--accent, #c83e0c)"`.
 

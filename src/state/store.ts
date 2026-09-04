@@ -21,13 +21,10 @@ import type { PartCategory, PartCondition } from "@/data/parts";
 import { CONDITIONS, CONDITION_ADDON_SLOTS, getPartById } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import type { InstalledPart } from "@/engine/build";
-import type { GearSlot } from "@/data/gear";
-import { getGearById, DEFAULT_EQUIPPED_GEAR, DEFAULT_OWNED_GEAR } from "@/data/gear";
 import { getGearBonuses } from "@/engine/gear";
 import { random } from "@/utils/random";
-import type { LootGearItem, InstalledMod } from "@/data/lootGear";
+import type { GearSlot, LootGearItem, InstalledMod } from "@/data/lootGear";
 import { getModTemplateById } from "@/data/gearMods";
-import { TALENT_NODES, getTalentNodeById } from "@/data/talentNodes";
 import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
 import { rollGearDrops } from "@/engine/gearDrop";
 import { calculatePrestigeBonus, calculateScrapResetAward, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
@@ -54,8 +51,6 @@ import { randInt } from "@/utils/random";
 import type { RacerSkills, SkillName } from "@/data/racerSkills";
 import { createDefaultSkills, levelFromXp, MAX_SKILL_LEVEL } from "@/data/racerSkills";
 import { getSkillBonuses } from "@/engine/skills";
-import type { RacerAttributes, AttributeName } from "@/data/racerAttributes";
-import { createDefaultAttributes } from "@/data/racerAttributes";
 import { TEAM_UPGRADES_BY_ID, teamUpgradeCost } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS, OWNER_UPGRADES_BY_ID, ownerUpgradeCost } from "@/data/ownerUpgrades";
 import { TRACK_PERK_DEFINITIONS, TRACK_PERKS_BY_ID, trackPerkCost } from "@/data/trackPerks";
@@ -229,15 +224,10 @@ export interface GameState {
   activityLog: ActivityLogEntry[];
   _logIdCounter: number;
 
-  // Gear (persists through prestige)
-  equippedGear: Record<GearSlot, string>;
-  ownedGearIds: string[];
-
   // Loot gear (persists through prestige)
   lootGearInventory: LootGearItem[];
   equippedLootGear: Record<GearSlot, string | null>;
   gearModInventory: InstalledMod[];
-  unlockedTalentNodes: string[];
   stationEquipmentInventory: StationEquipment[];
   equippedStationEquipment: Record<GarageStationSlot, string | null>;
   reforgeShards: number;
@@ -324,9 +314,6 @@ export interface GameState {
   trackEraCount: number;
   lifetimeOPThisTrackEra: number;
 
-  // Racer Attributes (persists through Scrap Reset, resets on Team Reset)
-  racerAttributes: RacerAttributes;
-
   // Feature unlocks (progressive, never reset)
   unlockedFeatures: string[];
 
@@ -396,16 +383,12 @@ export interface GameState {
   removeAddon: (vehicleId: string, slot: string, addonId: string) => void;
   refurbishPart: (partId: string) => void;
   purchaseUpgrade: (upgradeId: string) => void;
-  purchaseGear: (gearId: string) => void;
-  equipGear: (gearId: string) => void;
   equipLootGear: (lootGearId: string) => void;
   unequipLootGear: (slot: GearSlot) => void;
   enhanceLootGear: (lootGearId: string) => void;
   salvageLootGear: (lootGearId: string) => void;
   installMod: (lootGearId: string, modInstanceId: string) => void;
   removeMod: (lootGearId: string, modIndex: number) => void;
-  unlockTalentNode: (nodeId: string) => void;
-  respecTalentTree: (treeId: string) => void;
   forgeStationItem: (slot: GarageStationSlot, rarity: StationEquipmentRarity) => void;
   equipStationItem: (itemId: string) => void;
   unequipStationItem: (slot: GarageStationSlot) => void;
@@ -440,7 +423,6 @@ export interface GameState {
   purchaseOwnerUpgrade: (upgradeId: string) => void;
   trackReset: () => void;
   purchaseTrackPerk: (perkId: string) => void;
-  allocateAttribute: (attr: AttributeName, delta: number) => void;
   specializeCrewMember: (crewId: string, spec: string) => void;
   recruitCrewMember: (role: CrewRole) => void;
   checkFeatureUnlocks: () => void;
@@ -513,12 +495,9 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     unlockEvents: [],
     activityLog: [],
     _logIdCounter: 0,
-    equippedGear: { ...DEFAULT_EQUIPPED_GEAR },
-    ownedGearIds: [...DEFAULT_OWNED_GEAR],
     lootGearInventory: [],
     equippedLootGear: { head: null, body: null, hands: null, feet: null, tool: null, accessory: null },
     gearModInventory: [],
-    unlockedTalentNodes: [],
     stationEquipmentInventory: [],
     equippedStationEquipment: Object.fromEntries(GARAGE_STATION_IDS.map((slot) => [slot, null])) as Record<GarageStationSlot, string | null>,
     reforgeShards: 0,
@@ -565,7 +544,6 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     trackPerkLevels: {},
     trackEraCount: 0,
     lifetimeOPThisTrackEra: 0,
-    racerAttributes: createDefaultAttributes(),
     unlockedFeatures: [],
     lifetimeLPAllTime: 0,
     lifetimeScrapResets: 0,
@@ -634,11 +612,8 @@ function recalculateGarageStatsForStationEquipment(
   stationEquipmentInventory: StationEquipment[],
 ): BuiltVehicle[] {
   const gear = getGearBonuses(
-    state.equippedGear,
     state.equippedLootGear,
     state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
     equippedStationEquipment,
     stationEquipmentInventory,
   );
@@ -704,11 +679,8 @@ export function getVehicleRepairCost(state: GameState, vehicle: BuiltVehicle): n
   const definition = getVehicleById(vehicle.definitionId);
   if (!definition || (vehicle.condition ?? 100) >= 100) return 0;
   const gear = getGearBonuses(
-    state.equippedGear,
     state.equippedLootGear,
     state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
     state.equippedStationEquipment,
     state.stationEquipmentInventory,
   );
@@ -730,11 +702,8 @@ export function getVehicleBuildCost(
   definition: NonNullable<ReturnType<typeof getVehicleById>>,
 ): number {
   const gear = getGearBonuses(
-    state.equippedGear,
     state.equippedLootGear,
     state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
     state.equippedStationEquipment,
     state.stationEquipmentInventory,
   );
@@ -751,11 +720,8 @@ export function getPartRefurbishQuote(
   part: ScavengedPart,
 ): ReturnType<typeof calculateRefurbishCost> {
   const gear = getGearBonuses(
-    state.equippedGear,
     state.equippedLootGear,
     state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
     state.equippedStationEquipment,
     state.stationEquipmentInventory,
   );
@@ -1106,7 +1072,7 @@ function createActions(set: SetState, get: GetState) {
       const extraLuck = _getUpgradeEffectValue(state, "keen_eye");
       const extraParts = Math.floor(_getUpgradeEffectValue(state, "deep_pockets"));
       const fatigue = state.fatigue;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gb = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const scavSkill = getSkillBonuses(state.racerSkills, location.tier);
       const milestoneBonuses = getPrestigeMilestoneBonuses(state.prestigeCount);
       const permanentBonuses = getPermanentRuntimeBonuses(state);
@@ -1417,7 +1383,7 @@ function createActions(set: SetState, get: GetState) {
       const resolved = resolveVehicleLoadout(vehicle, state.inventory, loadout);
       if (!resolved.valid) return;
 
-      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gear = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
       const definition = getVehicleById(vehicle.definitionId);
       if (!definition) return;
@@ -1475,7 +1441,7 @@ function createActions(set: SetState, get: GetState) {
       if (!vehicle || !circuit) return;
 
       // Pre-compute the outcome immediately so the UI can animate it
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gb = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       // Scavenger's Eye upgrade increases salvage drop chance and max condition
       const scavengerEyeLevel = _getUpgradeLevel(state, "scavengers_eye");
       const salvageDropChance = scavengerEyeLevel >= 1 ? 0.30 : 0.15;
@@ -1813,7 +1779,7 @@ function createActions(set: SetState, get: GetState) {
       const crewXpMultiplier = 1 + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "crew_xp_multiplier");
       const crewXpAward = Math.floor(5 * crewXpMultiplier);
       set((current: GameState) => {
-        const gear = getGearBonuses(current.equippedGear, current.equippedLootGear, current.lootGearInventory, current.unlockedTalentNodes, TALENT_NODES, current.equippedStationEquipment, current.stationEquipmentInventory);
+        const gear = getGearBonuses(current.equippedLootGear, current.lootGearInventory, current.equippedStationEquipment, current.stationEquipmentInventory);
         const handlingBonus = _getUpgradeEffectValue(current, "tuned_suspension") + gear.race_handling_pct;
         return {
           scrapBucks: current.scrapBucks + assignment.rewards.scrap,
@@ -1920,7 +1886,7 @@ function createActions(set: SetState, get: GetState) {
       if (!vehicle || isVehicleMutationLocked(state, vehicleId) || (vehicle.condition ?? 100) >= 100) return;
       const vehicleDef = getVehicleById(vehicle.definitionId);
       if (!vehicleDef) return;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gb = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const cost = getVehicleRepairCost(state, vehicle);
       // Free repair during tutorial repair step
       const isTutorialRepair = state.tutorialStep === 13;
@@ -1969,7 +1935,7 @@ function createActions(set: SetState, get: GetState) {
       const retainedAddons = installed.addons.slice(0, capacity);
       const returnedAddons = installed.addons.slice(capacity);
       const newParts = { ...vehicle.parts, [slot]: { part: newPart, addons: retainedAddons } };
-      const gbSwap = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gbSwap = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gbSwap.race_handling_pct;
       const newStats = calculateStats(vehicleDef, newParts, vehicle.condition ?? 100, handlingBonus);
 
@@ -2005,7 +1971,7 @@ function createActions(set: SetState, get: GetState) {
         ...vehicle.parts,
         [slot]: { ...installed, addons: [...installed.addons, addon] },
       };
-      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gear = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
       set((current: GameState) => ({
         inventory: current.inventory.filter((part) => part.id !== addonId),
@@ -2029,7 +1995,7 @@ function createActions(set: SetState, get: GetState) {
         ...vehicle.parts,
         [slot]: { ...installed, addons: installed.addons.filter((candidate) => candidate.id !== addonId) },
       };
-      const gear = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gear = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gear.race_handling_pct;
       set((current: GameState) => ({
         inventory: [...current.inventory, addon],
@@ -2091,31 +2057,6 @@ function createActions(set: SetState, get: GetState) {
         workshopLevels: { ...s.workshopLevels, [upgradeId]: currentLevel + 1 },
       }));
       _appendLog(set, get, "upgrade", `Bought ${def.name} Lv.${currentLevel + 1} for $${cost}`, { scrapDelta: -cost });
-    },
-
-    purchaseGear: (gearId: string) => {
-      const state = get() as GameState;
-      const def = getGearById(gearId);
-      if (!def) return;
-      if (state.ownedGearIds.includes(gearId)) return;
-      if (def.unlockRequirement?.repPoints && state.repPoints < def.unlockRequirement.repPoints) return;
-      if (state.scrapBucks < def.cost) return;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - def.cost,
-        ownedGearIds: [...s.ownedGearIds, gearId],
-        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
-      }));
-      _appendLog(set, get, "gear", `Bought ${def.name} for $${def.cost}`, { scrapDelta: -def.cost });
-    },
-
-    equipGear: (gearId: string) => {
-      const state = get() as GameState;
-      if (!state.ownedGearIds.includes(gearId)) return;
-      const def = getGearById(gearId);
-      if (!def) return;
-      set((s: GameState) => ({
-        equippedGear: { ...s.equippedGear, [def.slot]: gearId },
-      }));
     },
 
     equipLootGear: (lootGearId: string) => {
@@ -2209,35 +2150,6 @@ function createActions(set: SetState, get: GetState) {
         gearModInventory: preserveMod
           ? [...s.gearModInventory, mod]
           : s.gearModInventory,
-      }));
-    },
-
-    unlockTalentNode: (nodeId: string) => {
-      const state = get() as GameState;
-      if (state.unlockedTalentNodes.includes(nodeId)) return;
-      const node = getTalentNodeById(nodeId);
-      if (!node) return;
-      if (node.prerequisiteNodeId && !state.unlockedTalentNodes.includes(node.prerequisiteNodeId)) return;
-      if (node.mutuallyExclusiveWith && state.unlockedTalentNodes.includes(node.mutuallyExclusiveWith)) return;
-      if (state.scrapBucks < node.cost) return;
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - node.cost,
-        unlockedTalentNodes: [...s.unlockedTalentNodes, nodeId],
-      }));
-    },
-
-    respecTalentTree: (treeId: string) => {
-      const state = get() as GameState;
-      const treeNodes = TALENT_NODES.filter((n) => n.treeId === treeId);
-      const unlockedInTree = treeNodes.filter((n) => state.unlockedTalentNodes.includes(n.id));
-      if (unlockedInTree.length === 0) return;
-      const totalCost = unlockedInTree.reduce((sum, n) => sum + n.cost, 0);
-      const respecCost = Math.floor(totalCost * 1.5);
-      if (state.scrapBucks < respecCost) return;
-      const unlockedInTreeIds = new Set(unlockedInTree.map((n) => n.id));
-      set((s: GameState) => ({
-        scrapBucks: s.scrapBucks - respecCost,
-        unlockedTalentNodes: s.unlockedTalentNodes.filter((id) => !unlockedInTreeIds.has(id)),
       }));
     },
 
@@ -2442,14 +2354,10 @@ function createActions(set: SetState, get: GetState) {
         stationEquipmentInventory: state.stationEquipmentInventory,
         equippedStationEquipment: state.equippedStationEquipment,
         reforgeShards: state.reforgeShards,
-        // Legacy compatibility fields persist until migration removes them
-        equippedGear: state.equippedGear,
-        ownedGearIds: state.ownedGearIds,
         // Loot gear persists through prestige
         lootGearInventory: state.lootGearInventory,
         equippedLootGear: state.equippedLootGear,
         gearModInventory: state.gearModInventory,
-        unlockedTalentNodes: state.unlockedTalentNodes,
         // New systems: materials, tokens, challenges persist
         materials: newMaterials,
         forgeTokens: state.forgeTokens + challengeBundle.forgeTokens,
@@ -2496,7 +2404,6 @@ function createActions(set: SetState, get: GetState) {
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
         hostedEvents: state.hostedEvents,
         ownedTrackConfig: state.ownedTrackConfig,
-        racerAttributes: state.racerAttributes,
         unlockedFeatures: state.unlockedFeatures,
         defeatedRivalIds: state.defeatedRivalIds,
         discoveredBlueprintIds: state.discoveredBlueprintIds,
@@ -2642,7 +2549,7 @@ function createActions(set: SetState, get: GetState) {
       set((s: GameState) => {
         const raced = settlement.racesCompleted > 0;
         const newLifetimeRaces = s.lifetimeRaces + settlement.racesCompleted;
-        const gbTick = getGearBonuses(s.equippedGear, s.equippedLootGear, s.lootGearInventory, s.unlockedTalentNodes, TALENT_NODES, s.equippedStationEquipment, s.stationEquipmentInventory);
+        const gbTick = getGearBonuses(s.equippedLootGear, s.lootGearInventory, s.equippedStationEquipment, s.stationEquipmentInventory);
         const handlingBonus = _getUpgradeEffectValue(s, "tuned_suspension") + gbTick.race_handling_pct;
         const updatedGarage = s.garage.map((vehicle) => {
           if (vehicle.id !== s.activeVehicleId) return vehicle;
@@ -2857,7 +2764,7 @@ function createActions(set: SetState, get: GetState) {
         getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield") +
         permanent.materialYieldMult +
         permanent.decomposeYieldMult;
-      const gb = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gb = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const newMaterials = { ...state.materials };
       const awardedMaterials: Partial<Record<MaterialType, number>> = {};
       for (const [mat, qty] of Object.entries(result.materials) as [MaterialType, number][]) {
@@ -2911,7 +2818,7 @@ function createActions(set: SetState, get: GetState) {
         getLegacyEffectValue(state.legacyUpgradeLevels, "leg_decompose_yield") +
         permanent.materialYieldMult +
         permanent.decomposeYieldMult;
-      const gbDecompose = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+      const gbDecompose = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
       const newMaterials = { ...state.materials };
       const awardedMaterials: Partial<Record<MaterialType, number>> = {};
       for (const [mat, qty] of Object.entries(matYield) as [MaterialType, number][]) {
@@ -3428,18 +3335,12 @@ function createActions(set: SetState, get: GetState) {
         workshopLevels: (state.trackPerkLevels.track_eternal ?? 0) > 0 ? state.workshopLevels : {},
         unlockedVehicleIds: getResetVehicleUnlockIds(state.ownerUpgradeLevels),
         unlockedCircuitIds: getResetCircuitUnlockIds(state.ownerUpgradeLevels),
-        // Attributes are Team-era progression: Scrap Reset preserves them,
-        // while Team Reset and every higher reset start them over.
-        racerAttributes: createDefaultAttributes(),
         // Feature unlocks never reset
         unlockedFeatures: state.unlockedFeatures,
         defeatedRivalIds: state.defeatedRivalIds,
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
-        // Standard gear persists
-        equippedGear: state.equippedGear,
-        ownedGearIds: state.ownedGearIds,
         // Challenges persist
         completedChallenges: state.completedChallenges,
         // Crew resets on Team Reset
@@ -3569,9 +3470,6 @@ function createActions(set: SetState, get: GetState) {
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
-        // Standard gear persists
-        equippedGear: state.equippedGear,
-        ownedGearIds: state.ownedGearIds,
         completedChallenges: state.completedChallenges,
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
@@ -3706,9 +3604,6 @@ function createActions(set: SetState, get: GetState) {
         discoveredBlueprintIds: state.discoveredBlueprintIds,
         lifetimeLPAllTime: state.lifetimeLPAllTime,
         lifetimeScrapResets: state.lifetimeScrapResets,
-        // Standard gear persists
-        equippedGear: state.equippedGear,
-        ownedGearIds: state.ownedGearIds,
         completedChallenges: state.completedChallenges,
         activityLog: state.activityLog,
         _logIdCounter: state._logIdCounter,
@@ -3765,20 +3660,6 @@ function createActions(set: SetState, get: GetState) {
         unlockedFeatures,
         crewRoster,
         crewSlots,
-      });
-    },
-
-    allocateAttribute: (attr: AttributeName, delta: number) => {
-      const state = get() as GameState;
-      const current = state.racerAttributes[attr];
-      const newVal = Math.max(0, Math.min(20, current + delta));
-      if (newVal === current) return;
-      // Check available points
-      const maxPoints = (state.teamUpgradeLevels["team_attr_points"] ?? 0) * 2;
-      const totalUsed = Object.values(state.racerAttributes).reduce((a, b) => a + b, 0);
-      if (delta > 0 && totalUsed >= maxPoints) return;
-      set({
-        racerAttributes: { ...state.racerAttributes, [attr]: newVal },
       });
     },
 

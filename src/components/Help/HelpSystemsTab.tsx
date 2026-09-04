@@ -117,7 +117,7 @@ export default function HelpSystemsTab() {
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>What Persists</p>
-                <p>Legacy Points and upgrades, Garage Philosophy, station equipment and Reforge Shards, Forge Tokens, crew, attributes, completed challenges, discoveries, achievements, lifetime history, and higher-layer progress.</p>
+                <p>Legacy Points and upgrades, Garage Philosophy, station equipment and Reforge Shards, Forge Tokens, crew, completed challenges, discoveries, achievements, lifetime history, and higher-layer progress.</p>
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>LP Formula</p>

@@ -8,7 +8,6 @@ import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { VEHICLE_DEFINITIONS, getVehicleById } from "@/data/vehicles";
-import { GEAR_DEFINITIONS } from "@/data/gear";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { calculateStats, type BuiltVehicle, type InstalledPart } from "@/engine/build";
 import type { ScavengedPart } from "@/engine/scavenge";
@@ -350,7 +349,6 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
         lifetimeRaces: 80,
         fatigue: 32,
         activeMomentumTiers: ["momentum_warmed_up", "momentum_in_the_zone", "momentum_reputation"],
-        racerAttributes: { reflexes: 3, endurance: 3, instinct: 3, engineering: 3, charisma: 3, fortune: 3 },
         lifetimeLPAllTime: 250,
         lifetimeTeamPoints: 600,
         teamEraCount: 3,
@@ -531,15 +529,6 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
           mechanics: { xp: 1_000_000, level: 20 },
           scavenging: { xp: 1_000_000, level: 20 },
           endurance: { xp: 1_000_000, level: 20 },
-        },
-        ownedGearIds: GEAR_DEFINITIONS.map((gear) => gear.id),
-        equippedGear: {
-          head: "head_racing_helmet",
-          body: "body_race_suit",
-          hands: "hands_racing",
-          feet: "feet_racing_boots",
-          tool: "tool_power_tools",
-          accessory: "acc_sponsor_bag",
         },
         lootGearInventory: [
           {

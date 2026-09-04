@@ -199,7 +199,7 @@ export default function StartOverPanel() {
             </p>
             <p style={{ color: "var(--text-muted)" }} className="mt-1 text-xs">
               This will permanently erase all progress — scrap, vehicles, prestige,
-              legacy points, gear, talents, everything. This cannot be undone.
+              legacy points, gear, everything. This cannot be undone.
             </p>
           </div>
 

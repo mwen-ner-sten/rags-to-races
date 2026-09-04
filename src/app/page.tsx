@@ -21,8 +21,7 @@ import type { OfflineResult } from "@/engine/tick";
 import type { RaceOutcome } from "@/engine/race";
 import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
 import { isFeatureAvailable } from "@/config/features";
-
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
+import type { TabId } from "@/components/navigation/tabs";
 
 const SHOW_DEV_TAB = isFeatureAvailable("admin_tools");
 

@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { GameState } from "./store";
-import { TALENT_NODES } from "@/data/talentNodes";
 import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStations";
 import type { StationEquipment, StationEquipmentEffect } from "@/data/stationEquipment";
-import { DEFAULT_EQUIPPED_GEAR, DEFAULT_OWNED_GEAR, getGearById, type GearSlot } from "@/data/gear";
+import type { GearSlot } from "@/data/lootGear";
+import { LEGACY_DEFAULT_OWNED_GEAR, LEGACY_STATIC_GEAR_TIERS, LEGACY_TALENT_NODE_TIERS } from "./legacySaveData";
 import { ensureAcademyRoster } from "@/engine/crew";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
@@ -223,14 +223,6 @@ const racerSkillsSchema = z.object({
   scavenging: skillStateSchema,
   endurance: skillStateSchema,
 }).passthrough();
-const racerAttributesSchema = z.object({
-  reflexes: finiteNonNegative,
-  endurance: finiteNonNegative,
-  charisma: finiteNonNegative,
-  instinct: finiteNonNegative,
-  engineering: finiteNonNegative,
-  fortune: finiteNonNegative,
-}).passthrough();
 
 const nonNegativeNumberMap = z.record(z.string(), finiteNonNegative);
 const materialsSchema = z.object(
@@ -342,13 +334,9 @@ const currentStateSafetySchema = z.object({
   crewRoster: z.array(crewMemberSchema).optional(),
   activityLog: z.array(activityLogSchema).optional(),
   racerSkills: racerSkillsSchema.optional(),
-  racerAttributes: racerAttributesSchema.optional(),
-  equippedGear: z.record(gearSlotSchema, nonEmptyString).optional(),
-  ownedGearIds: z.array(nonEmptyString).optional(),
   lootGearInventory: z.array(lootGearSchema).optional(),
   equippedLootGear: z.record(gearSlotSchema, z.string().nullable()).optional(),
   gearModInventory: z.array(installedModSchema).optional(),
-  unlockedTalentNodes: z.array(nonEmptyString).optional(),
   stationEquipmentInventory: z.array(stationEquipmentSchema).optional(),
   equippedStationEquipment: z.record(stationSlotSchema, z.string().nullable()).optional(),
 }).strip();
@@ -425,12 +413,9 @@ export function getPersistedGameState(state: GameState) {
     fatigue: state.fatigue,
     lifetimeRaces: state.lifetimeRaces,
     workshopLevels: state.workshopLevels,
-    equippedGear: state.equippedGear,
-    ownedGearIds: state.ownedGearIds,
     lootGearInventory: state.lootGearInventory,
     equippedLootGear: state.equippedLootGear,
     gearModInventory: state.gearModInventory,
-    unlockedTalentNodes: state.unlockedTalentNodes,
     stationEquipmentInventory: state.stationEquipmentInventory,
     equippedStationEquipment: state.equippedStationEquipment,
     reforgeShards: state.reforgeShards,
@@ -471,7 +456,6 @@ export function getPersistedGameState(state: GameState) {
     trackPerkLevels: state.trackPerkLevels,
     trackEraCount: state.trackEraCount,
     lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
-    racerAttributes: state.racerAttributes,
     unlockedFeatures: state.unlockedFeatures,
     lifetimeLPAllTime: state.lifetimeLPAllTime,
     lifetimeScrapResets: state.lifetimeScrapResets,
@@ -524,11 +508,14 @@ export function migratePersistedState(
   }
 
   if (version < 3) {
-    const oldNodes = Array.isArray(state.unlockedTalentNodes) ? state.unlockedTalentNodes : [];
+    // Retired systems (talent tree, static outfit shop) are refunded from the
+    // frozen legacy tables; their fields are dropped from the save below.
+    const legacy = parsed.data as Record<string, unknown>;
+    const oldNodes = Array.isArray(legacy.unlockedTalentNodes) ? (legacy.unlockedTalentNodes as unknown[]) : [];
     const tierRefund = { 1: 8, 2: 15, 3: 30, 4: 60, 5: 60 } as Record<number, number>;
-    const lpRefund = TALENT_NODES
-      .filter((node) => oldNodes.includes(node.id))
-      .reduce((total, node) => total + (tierRefund[node.tier] ?? 0), 0);
+    const lpRefund = oldNodes
+      .filter((id): id is string => typeof id === "string" && id in LEGACY_TALENT_NODE_TIERS)
+      .reduce((total, id) => total + (tierRefund[LEGACY_TALENT_NODE_TIERS[id]] ?? 0), 0);
     const legacySlotMap: Record<GearSlot, GarageStationSlot> = { head: "diagnostics", body: "lift", hands: "workbench", feet: "logistics", tool: "fabrication", accessory: "pit_equipment" };
     const bonusIds = new Set(["scavenge_luck_bonus", "scavenge_yield_pct", "sell_value_bonus_pct", "race_performance_pct", "race_dnf_reduction", "race_handling_pct", "race_wear_reduction_pct", "race_scrap_bonus_pct", "build_cost_reduction_pct", "repair_cost_reduction_pct", "refurb_cost_reduction_pct", "tick_speed_reduction_ms", "fatigue_rate_reduction", "material_bonus_pct", "forge_token_chance_bonus"]);
     let salvageRefund = 0;
@@ -551,20 +538,19 @@ export function migratePersistedState(
     const equippedStationEquipment = Object.fromEntries(GARAGE_STATION_IDS.map((slot) => [slot, null])) as Record<GarageStationSlot, string | null>;
     for (const [legacySlot, itemId] of Object.entries(oldEquipped)) if (itemId && legacySlotMap[legacySlot as GearSlot]) equippedStationEquipment[legacySlotMap[legacySlot as GearSlot]] = itemId;
     const materials = { ...(state.materials ?? {}) } as PersistedGameState["materials"];
-    const oldOwnedGear = Array.isArray(state.ownedGearIds) ? state.ownedGearIds : [];
-    const staticGearRefund = oldOwnedGear.filter((id) => !DEFAULT_OWNED_GEAR.includes(id)).reduce((total, id) => total + (getGearById(id)?.tier ?? 0) * 5, 0);
+    const oldOwnedGear = Array.isArray(legacy.ownedGearIds) ? (legacy.ownedGearIds as unknown[]) : [];
+    const staticGearRefund = oldOwnedGear
+      .filter((id): id is string => typeof id === "string" && !LEGACY_DEFAULT_OWNED_GEAR.has(id))
+      .reduce((total, id) => total + (LEGACY_STATIC_GEAR_TIERS[id] ?? 0) * 5, 0);
     materials.metalScrap = (materials.metalScrap ?? 0) + salvageRefund + staticGearRefund;
     state = {
       ...state,
       legacyPoints: (state.legacyPoints ?? 0) + lpRefund,
-      unlockedTalentNodes: [],
       vehicleLoadouts: [],
       stationEquipmentInventory,
       equippedStationEquipment,
       reforgeShards: Array.isArray(state.gearModInventory) ? state.gearModInventory.length : 0,
       materials,
-      equippedGear: { ...DEFAULT_EQUIPPED_GEAR },
-      ownedGearIds: [...DEFAULT_OWNED_GEAR],
       lootGearInventory: [],
       equippedLootGear: { head: null, body: null, hands: null, feet: null, tool: null, accessory: null },
       gearModInventory: [],

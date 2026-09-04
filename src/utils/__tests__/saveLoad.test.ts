@@ -144,7 +144,7 @@ describe("save envelope", () => {
     }));
 
     expect(decoded.envelope.state.legacyPoints).toBe(25);
-    expect(decoded.envelope.state.unlockedTalentNodes).toEqual([]);
+    expect(decoded.envelope.state).not.toHaveProperty("unlockedTalentNodes");
     expect(decoded.envelope.state.vehicleLoadouts).toEqual([]);
   });
 
@@ -252,7 +252,6 @@ describe("save envelope", () => {
     ["null hosted events", { hostedEvents: [null] }],
     ["null activity entries", { activityLog: [null] }],
     ["malformed racer skills", { racerSkills: { driving: null } }],
-    ["malformed racer attributes", { racerAttributes: { reflexes: "bad" } }],
     ["null loot-gear entries", { lootGearInventory: [null] }],
     ["a null equipped-loot map", { equippedLootGear: null }],
     ["null gear mods", { gearModInventory: [null] }],

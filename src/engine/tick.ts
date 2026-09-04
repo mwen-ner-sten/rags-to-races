@@ -10,7 +10,6 @@ import { applyRacePayout, collectBonuses, racePerformanceMultiplier } from "./bo
 import { deriveVehicleStats, vehiclePerformance, withDerivedStats } from "./performance";
 import { rollGearDrops } from "./gearDrop";
 import type { LootGearItem, InstalledMod } from "@/data/lootGear";
-import { TALENT_NODES } from "@/data/talentNodes";
 import { getActiveMomentumTiers, getMomentumEffectValue } from "@/data/momentumBonuses";
 import { deriveHighestCircuitTier, getLegacyEffectValue } from "./prestige";
 import { getSkillBonuses } from "./skills";
@@ -80,7 +79,7 @@ export function computeTickSpeedMs(state: GameState): number {
     _getUpgradeEffectValue(state, "overclocked_tick");
   // Time Dilation is authored in seconds; every other reduction is already in ms.
   const trackReductionMs = getGameEffectValue(TRACK_PERK_DEFINITIONS, state.trackPerkLevels, "tick_speed_reduction") * MS_PER_SECOND;
-  const gearBonuses = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
+  const gearBonuses = getGearBonuses(state.equippedLootGear, state.lootGearInventory, state.equippedStationEquipment, state.stationEquipmentInventory);
   const gearReductionMs = (gearBonuses.tick_speed_reduction_ms ?? 0);
   const milestoneReductionMs = getPrestigeMilestoneBonuses(state.prestigeCount).tickSpeedReductionMs;
   return Math.max(TICK_MS_MIN, Math.floor(TICK_MS_DEFAULT - upgradeReductionMs - gearReductionMs - trackReductionMs - milestoneReductionMs));
@@ -132,11 +131,8 @@ export function autoRaceWouldFire(state: GameState): boolean {
 /** Handling bonus every derived stat block uses: Tuned Suspension plus equipment. */
 export function getHandlingBonusPct(state: GameState, gearHandlingPct?: number): number {
   const gearPct = gearHandlingPct ?? getGearBonuses(
-    state.equippedGear,
     state.equippedLootGear,
     state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
     state.equippedStationEquipment,
     state.stationEquipmentInventory,
   ).race_handling_pct;
@@ -187,11 +183,8 @@ export function computeTick(state: GameState): TickResult {
   };
 
   const gearBonuses = getGearBonuses(
-    state.equippedGear,
     state.equippedLootGear,
     state.lootGearInventory,
-    state.unlockedTalentNodes,
-    TALENT_NODES,
     state.equippedStationEquipment,
     state.stationEquipmentInventory,
   );
@@ -609,7 +602,7 @@ export function simulateOfflineTicks(
       const circuitTier = getCircuitById(r.raceOutcome!.circuitId)?.tier ?? 1;
       const enduranceFatigueOffset = getSkillBonuses(tickState.racerSkills, circuitTier).enduranceFatigueOffset;
       const fatigueOffset = getLegacyEffectValue(snap.legacyUpgradeLevels, "leg_fatigue_offset") + enduranceFatigueOffset;
-      const gearBonuses = getGearBonuses(snap.equippedGear, snap.equippedLootGear, snap.lootGearInventory, snap.unlockedTalentNodes, TALENT_NODES, snap.equippedStationEquipment, snap.stationEquipmentInventory);
+      const gearBonuses = getGearBonuses(snap.equippedLootGear, snap.lootGearInventory, snap.equippedStationEquipment, snap.stationEquipmentInventory);
       const rawFatigue = calculateFatigue(snap.lifetimeRaces, fatigueOffset);
       const ownerReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, snap.ownerUpgradeLevels, "fatigue_rate_reduction");
       const momentumReduction = getMomentumEffectValue(snap.activeMomentumTiers, "fatigue_reduction");

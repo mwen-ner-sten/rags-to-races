@@ -1,5 +1,22 @@
-import type { GearSlot } from "@/data/gear";
 import { random } from "@/utils/random";
+
+export type GearSlot = "head" | "body" | "hands" | "feet" | "tool" | "accessory";
+
+export const GEAR_SLOTS: GearSlot[] = ["head", "body", "hands", "feet", "tool", "accessory"];
+
+export const GEAR_SLOT_LABELS: Record<GearSlot, { label: string; icon: string }> = {
+  head: { label: "Head", icon: "🪖" },
+  body: { label: "Body", icon: "👕" },
+  hands: { label: "Hands", icon: "🧤" },
+  feet: { label: "Feet", icon: "👟" },
+  tool: { label: "Tool", icon: "🔧" },
+  accessory: { label: "Accessory", icon: "🎒" },
+};
+
+/** Empty loadout — every slot unequipped. Used on fresh start and after Team Reset. */
+export const EMPTY_EQUIPPED_LOOT_GEAR: Record<GearSlot, string | null> = {
+  head: null, body: null, hands: null, feet: null, tool: null, accessory: null,
+};
 
 export type GearRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 

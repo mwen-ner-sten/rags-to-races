@@ -39,7 +39,18 @@ describe("inventory sale valuation", () => {
     const part = inventoryItem("engine", "engine_v4", "pristine");
     useGameStore.setState((state) => ({
       ...state,
-      equippedGear: { ...state.equippedGear, accessory: "acc_plastic_bag" },
+      lootGearInventory: [{
+        id: "test_loot_bag",
+        slot: "accessory",
+        rarity: "common",
+        name: "Test Kit Bag",
+        effects: [{ type: "sell_value_bonus_pct", value: 0.05 }],
+        enhancementLevel: 0,
+        modSlots: 0,
+        mods: [],
+        source: "test",
+      }],
+      equippedLootGear: { ...state.equippedLootGear, accessory: "test_loot_bag" },
     }));
 
     const bonus = getSellValueBonus(useGameStore.getState());

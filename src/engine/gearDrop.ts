@@ -1,5 +1,6 @@
-import { GEAR_SLOTS, type GearSlot } from "@/data/gear";
 import {
+  GEAR_SLOTS,
+  type GearSlot,
   type GearRarity,
   type LootGearItem,
   type InstalledMod,

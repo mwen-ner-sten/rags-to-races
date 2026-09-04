@@ -121,17 +121,6 @@ const TEAM_LEGACY: OwnerUpgradeDefinition = {
   effect: { type: "keep_team_upgrades", valuePerLevel: 0.5 },
 };
 
-const TALENT_PIPELINE: OwnerUpgradeDefinition = {
-  id: "owner_talent_pipeline",
-  name: "Talent Pipeline",
-  description: "Talent nodes cost 50% less LP.",
-  category: "management",
-  maxLevel: 1,
-  baseCost: 15,
-  costScaling: 1,
-  effect: { type: "talent_cost_reduction", valuePerLevel: 0.5 },
-};
-
 const BORN_RICH: OwnerUpgradeDefinition = {
   id: "owner_born_rich",
   name: "Born Rich",
@@ -214,7 +203,7 @@ export const OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [
 ];
 
 /** Multiplier-only and obsolete definitions retained for design history, hidden from released purchase surfaces. */
-export const DEFERRED_OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [SCRAP_EMPIRE, REP_DYNASTY, LP_PRINTING_PRESS, RD_LAB, INFINITE_GARAGE, TEAM_LEGACY, TALENT_PIPELINE, OWNERS_INSIGHT];
+export const DEFERRED_OWNER_UPGRADE_DEFINITIONS: OwnerUpgradeDefinition[] = [SCRAP_EMPIRE, REP_DYNASTY, LP_PRINTING_PRESS, RD_LAB, INFINITE_GARAGE, TEAM_LEGACY, OWNERS_INSIGHT];
 
 export const OWNER_UPGRADES_BY_ID = Object.fromEntries(
   OWNER_UPGRADE_DEFINITIONS.map((u) => [u.id, u]),

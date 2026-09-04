@@ -59,8 +59,8 @@ html {
 }
 
 /* ── Mobile responsive overrides for theme shells ────────────────────────── */
-/* All shells use semantic <header>, <nav>, <main>, <footer> with inline     */
-/* styles, so we need !important to override at mobile breakpoints.          */
+/* All shells use semantic <header>, <main>, <footer> with inline styles,    */
+/* so we need !important to override at mobile breakpoints.                  */
 
 @media (max-width: 640px) {
   /* The condensed display face becomes difficult to scan below 12px on real
@@ -88,8 +88,6 @@ html {
     gap: .75rem !important;
     flex-wrap: wrap !important;
   }
-
-  /* nav hidden via .shell-content rule below */
 
   /* Content: less padding on mobile */
   main {
@@ -146,9 +144,6 @@ html {
   }
 }
 
-/* ── Shell nav hidden — replaced by sidebar (desktop) and hamburger (mobile)
-   Keep nested semantic navigation (for example Workshop pagination) visible. */
-.shell-content > div > nav { display: none !important; }
 .shell-content { --text-dim: var(--text-muted); }
 
 /* ── Desktop sidebar ───────────────────────────────────────────────────── */

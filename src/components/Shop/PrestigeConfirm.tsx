@@ -121,7 +121,7 @@ export default function PrestigeConfirm({
           Will keep:
         </div>
         <div style={{ color: "var(--text-secondary)" }} className="text-xs">
-          Legacy Points & Upgrades, Philosophy, Gear & Station Equipment, Forge Tokens, Talents, Crew, Discoveries, Challenges & Achievements
+          Legacy Points & Upgrades, Philosophy, Gear & Station Equipment, Forge Tokens, Crew, Discoveries, Challenges & Achievements
         </div>
       </div>
 

@@ -23,7 +23,7 @@ import { formatRivalWinStatus, getRivalById } from "@/data/rivals";
 import { getPermanentRuntimeBonuses } from "@/engine/permanentBonuses";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
-import { TALENT_NODES } from "@/data/talentNodes";
+import type { TabId } from "@/components/navigation/tabs";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
 import { buildEngineeringReport, findDiagnosticVehicle } from "@/engine/engineeringDiagnostics";
 
@@ -338,8 +338,6 @@ function StreakDisplay({ streak, best }: { streak: number; best: number }) {
 
 // ── Main RacePanel ──────────────────────────────────────────────────────
 
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "settings" | "dev";
-
 export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId) => void }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
@@ -365,10 +363,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const teamUpgradeLevels = useGameStore((s) => s.teamUpgradeLevels);
   const activeMomentumTiers = useGameStore((s) => s.activeMomentumTiers);
   const fatigue = useGameStore((s) => s.fatigue);
-  const equippedGear = useGameStore((s) => s.equippedGear);
   const equippedLootGear = useGameStore((s) => s.equippedLootGear);
   const lootGearInventory = useGameStore((s) => s.lootGearInventory);
-  const unlockedTalentNodes = useGameStore((s) => s.unlockedTalentNodes);
   const setSelectedCircuit = useGameStore((s) => s.setSelectedCircuit);
   const enterRace = useGameStore((s) => s.enterRace);
   const currentRacePlan = useGameStore((s) => s.currentRacePlan);
@@ -422,15 +418,12 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const diagnosticsLevel = diagnosticsItem ? diagnosticsItem.enhancementLevel + ({ common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 }[diagnosticsItem.rarity]) : 0;
   const gb = useMemo(
     () => getGearBonuses(
-      equippedGear,
       equippedLootGear,
       lootGearInventory,
-      unlockedTalentNodes,
-      TALENT_NODES,
       equippedStationEquipment,
       stationEquipmentInventory,
     ),
-    [equippedGear, equippedLootGear, lootGearInventory, unlockedTalentNodes, equippedStationEquipment, stationEquipmentInventory],
+    [equippedLootGear, lootGearInventory, equippedStationEquipment, stationEquipmentInventory],
   );
   const racerSkills = useGameStore((s) => s.racerSkills);
   const permanentRaceBonuses = useMemo(

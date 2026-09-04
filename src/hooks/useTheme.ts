@@ -3,15 +3,20 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 
-export type Theme = "grease" | "neon" | "prestige" | "rustbelt" | "arctic" | "vaporwave" | "tactical" | "sunset" | "deepsix" | "bloodmoon" | "sakura" | "outlaw" | "chrome" | "terminal" | "sandstorm" | "midnight";
+export const THEME_IDS = ["grease", "neon", "prestige", "vaporwave", "terminal", "midnight"] as const;
+
+export type Theme = (typeof THEME_IDS)[number];
 
 const STORAGE_KEY = "rags-to-races-theme";
+
+function isTheme(value: string | null): value is Theme {
+  return value !== null && (THEME_IDS as readonly string[]).includes(value);
+}
 
 function readStored(): Theme {
   if (typeof window === "undefined") return "neon";
   const v = localStorage.getItem(STORAGE_KEY);
-  if (v === "grease" || v === "neon" || v === "prestige" || v === "rustbelt" || v === "arctic" || v === "vaporwave" || v === "tactical" || v === "sunset" || v === "deepsix" || v === "bloodmoon" || v === "sakura" || v === "outlaw" || v === "chrome" || v === "terminal" || v === "sandstorm" || v === "midnight") return v;
-  return "neon";
+  return isTheme(v) ? v : "neon";
 }
 
 interface ThemeStore {

@@ -10,10 +10,9 @@
  *   - Its own tooltip content (rows function)
  */
 import type { GameState } from "@/state/store";
+import type { TabId } from "@/components/navigation/tabs";
 
-export type TabId =
-  | "junkyard" | "garage" | "race" | "gear" | "upgrades"
-  | "help" | "log" | "settings" | "dev";
+export type { TabId };
 
 export interface CurrencyTooltipRow {
   label: string;

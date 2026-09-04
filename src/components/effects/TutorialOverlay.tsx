@@ -6,10 +6,9 @@ import { useGameStore } from "@/state/store";
 import { isFeatureAvailable } from "@/config/features";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { formatNumber } from "@/utils/format";
+import type { TabId } from "@/components/navigation/tabs";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
-
-type TabId = "junkyard" | "garage" | "race" | "gear" | "upgrades" | "help" | "log" | "settings" | "dev";
 
 interface TutorialStepDef {
   icon: string;

@@ -1,6 +1,5 @@
 import type { GarageStationSlot } from "./garageStations";
-import type { GearSlot } from "./gear";
-import type { LootGearItem } from "./lootGear";
+import type { GearSlot, LootGearItem } from "./lootGear";
 
 export type StationEquipmentRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 export type StationAttribute = "reflexes" | "endurance" | "instinct" | "engineering" | "charisma" | "fortune" | "power" | "grip" | "aero" | "weight_reduction";

@@ -72,22 +72,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -98,7 +82,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -170,14 +153,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [],
         "lifetimeLPAllTime": 0,
         "lifetimeScrapResets": 0,
@@ -292,22 +267,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -318,7 +277,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -405,14 +363,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [],
         "lifetimeLPAllTime": 0,
         "lifetimeScrapResets": 0,
@@ -557,22 +507,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -583,7 +517,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -655,14 +588,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [],
         "lifetimeLPAllTime": 0,
         "lifetimeScrapResets": 0,
@@ -1997,22 +1922,6 @@
           "gear_scavenger": 1,
           "trophy_hunter": 1
         },
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -2023,7 +1932,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [
           {
             "id": "fixture_station_workbench",
@@ -2133,14 +2041,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 1,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 3,
-          "endurance": 3,
-          "instinct": 3,
-          "engineering": 3,
-          "charisma": 3,
-          "fortune": 3
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -2298,22 +2198,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -2324,7 +2208,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -2396,14 +2279,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -2884,22 +2759,6 @@
           "budget_repairs": 2,
           "reinforced_chassis": 2
         },
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -2910,7 +2769,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -2985,14 +2843,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [],
         "lifetimeLPAllTime": 0,
         "lifetimeScrapResets": 0,
@@ -3095,22 +2945,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -3121,7 +2955,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -3197,14 +3030,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [],
         "lifetimeLPAllTime": 43,
         "lifetimeScrapResets": 1,
@@ -4209,22 +4034,6 @@
           "refurbishment_bench": 1,
           "bargain_builder": 1
         },
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -4235,7 +4044,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -4310,14 +4118,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -4434,22 +4234,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -4460,7 +4244,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -4532,14 +4315,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -5536,22 +5311,6 @@
           "refurbishment_bench": 1,
           "bargain_builder": 1
         },
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -5562,7 +5321,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -5637,14 +5395,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -5750,22 +5500,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -5776,7 +5510,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -5848,14 +5581,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 102,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -6852,22 +6577,6 @@
           "refurbishment_bench": 1,
           "bargain_builder": 1
         },
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -6878,7 +6587,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -6953,14 +6661,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 2,
         "lifetimeOPThisTrackEra": 1500,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -7066,22 +6766,6 @@
         "fatigue": 0,
         "lifetimeRaces": 0,
         "workshopLevels": {},
-        "equippedGear": {
-          "head": "head_bare",
-          "body": "body_rags",
-          "hands": "hands_bare",
-          "feet": "feet_bare",
-          "tool": "tool_stick",
-          "accessory": "acc_empty"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "body_rags",
-          "hands_bare",
-          "feet_bare",
-          "tool_stick",
-          "acc_empty"
-        ],
         "lootGearInventory": [],
         "equippedLootGear": {
           "head": null,
@@ -7092,7 +6776,6 @@
           "accessory": null
         },
         "gearModInventory": [],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [],
         "equippedStationEquipment": {
           "workbench": null,
@@ -7164,14 +6847,6 @@
         "trackPerkLevels": {},
         "trackEraCount": 3,
         "lifetimeOPThisTrackEra": 0,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",
@@ -10671,46 +10346,6 @@
           "thorough_search": 5,
           "scavengers_eye": 1
         },
-        "equippedGear": {
-          "head": "head_racing_helmet",
-          "body": "body_race_suit",
-          "hands": "hands_racing",
-          "feet": "feet_racing_boots",
-          "tool": "tool_power_tools",
-          "accessory": "acc_sponsor_bag"
-        },
-        "ownedGearIds": [
-          "head_bare",
-          "head_bandana",
-          "head_goggles",
-          "head_mechanic_helmet",
-          "head_racing_helmet",
-          "body_rags",
-          "body_coveralls",
-          "body_overalls",
-          "body_jumpsuit",
-          "body_race_suit",
-          "hands_bare",
-          "hands_garden",
-          "hands_work",
-          "hands_mechanic",
-          "hands_racing",
-          "feet_bare",
-          "feet_sneakers",
-          "feet_boots",
-          "feet_mechanic_boots",
-          "feet_racing_boots",
-          "tool_stick",
-          "tool_screwdriver",
-          "tool_wrench",
-          "tool_pro_toolbox",
-          "tool_power_tools",
-          "acc_empty",
-          "acc_plastic_bag",
-          "acc_satchel",
-          "acc_belt",
-          "acc_sponsor_bag"
-        ],
         "lootGearInventory": [
           {
             "id": "fixture_loot_head",
@@ -10770,7 +10405,6 @@
             "value": 0.03
           }
         ],
-        "unlockedTalentNodes": [],
         "stationEquipmentInventory": [
           {
             "id": "fixture_station_workbench",
@@ -11016,14 +10650,6 @@
         },
         "trackEraCount": 10,
         "lifetimeOPThisTrackEra": 10000,
-        "racerAttributes": {
-          "reflexes": 0,
-          "endurance": 0,
-          "charisma": 0,
-          "instinct": 0,
-          "engineering": 0,
-          "fortune": 0
-        },
         "unlockedFeatures": [
           "crew_system",
           "advanced_circuits",

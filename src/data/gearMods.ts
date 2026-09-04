@@ -1,4 +1,4 @@
-import type { GearSlot } from "@/data/gear";
+import type { GearSlot } from "@/data/lootGear";
 
 export interface GearModTemplate {
   id: string;
