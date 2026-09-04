@@ -24,6 +24,10 @@ import {
   type LegacyUpgradeCategory,
 } from "@/data/helpContent";
 import { formatNumber, capitalize } from "@/utils/format";
+import { GEAR_SLOTS, GEAR_SLOT_LABELS, RARITY_EFFECT_COUNT, RARITY_LABELS, type GearRarity } from "@/data/lootGear";
+import { GEAR_MOD_TEMPLATES } from "@/data/gearMods";
+import { SYSTEM_REVEALS_BY_ID } from "@/data/featureUnlocks";
+import { Icon } from "@/components/icons/Icon";
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -39,11 +43,11 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
-function SystemSection({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
+function SystemSection({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
     <details className="rounded border" style={{ borderColor: "var(--panel-border)" }}>
       <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm font-semibold" style={{ color: "var(--text-white)" }}>
-        <span>{icon}</span>
+        <span className="inline-flex items-center">{icon}</span>
         <span>{title}</span>
       </summary>
       <div className="border-t px-3 py-3 text-xs" style={{ borderColor: "var(--panel-border)", color: "var(--text-secondary)" }}>
@@ -172,6 +176,23 @@ export default function HelpSystemsTab() {
                 <p>Forge a chosen station and rarity, enhance its values up to +13, or spend shards from salvaged spares to reroll secondary attributes while preserving the primary.</p>
               </div>
               <p>Station equipment persists through Scrap Reset and resets at the Team layer.</p>
+            </div>
+          </SystemSection>
+
+          {/* Locker: loot gear */}
+          <SystemSection icon={<Icon id="locker" size={16} />} title="Locker">
+            <div className="space-y-2">
+              <p>Personal loot gear for {GEAR_SLOTS.length} slots: {GEAR_SLOTS.map((slot) => GEAR_SLOT_LABELS[slot].label).join(", ")}. Opens in the Workshop when you {SYSTEM_REVEALS_BY_ID.locker.trigger.toLowerCase().replace(/\.$/, "")}.</p>
+              <div>
+                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Rarity and affixes</p>
+                <p>{(Object.keys(RARITY_LABELS) as GearRarity[]).map((rarity) => `${RARITY_LABELS[rarity]} rolls ${RARITY_EFFECT_COUNT[rarity][0]}–${RARITY_EFFECT_COUNT[rarity][1]}`).join(", ")} affixes from the slot&apos;s pool; higher rarity also multiplies each value.</p>
+              </div>
+              <div>
+                <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>Enhance and mod</p>
+                <Formula label="Enhancement" formula="cost = rarity base × (level + 1)^1.8; every affix × (1 + 0.12 × level)" />
+                <p>Enhancing always succeeds. A socket opens at Lv.3 and a second at Lv.7; {GEAR_MOD_TEMPLATES.length} mod templates drop as spares and only fit the slots they name. Removing a mod destroys it unless Precision Reforge is owned.</p>
+              </div>
+              <p>Salvaging pays Scrap Bucks by rarity and level and returns installed mods to the bag. The Locker shows the delta every piece would make before you equip it.</p>
             </div>
           </SystemSection>
 

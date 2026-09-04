@@ -1322,3 +1322,40 @@ test("@smoke default semantic text palette preserves readable contrast", async (
   });
   for (const [variable, ratio] of Object.entries(ratios)) expect(ratio, `${variable} contrast`).toBeGreaterThanOrEqual(4.5);
 });
+
+test("@smoke Locker equips loot gear and the loadout survives a reload", async ({ page }) => {
+  // The maxed fixture holds two loot gear pieces with the hands slot empty.
+  await loadFixture(page, "maxed");
+  await openTab(page, "gear");
+  await workshopTab(page, "Locker");
+
+  const locker = page.getByTestId("locker-panel");
+  await expect(locker).toBeVisible();
+  await expect(page.getByTestId("locker-slot-head")).toContainText("Fixture Rally Goggles");
+  await expect(page.getByTestId("locker-slot-hands")).toContainText("Empty");
+  await expect(page.getByTestId("locker-total-build_cost_reduction_pct")).toHaveText("0%");
+
+  const glovesCard = page.getByTestId("locker-item-fixture_loot_hands");
+  await expect(glovesCard).toContainText("If equipped");
+  await page.getByTestId("locker-equip-fixture_loot_hands").click();
+  await expect(page.getByTestId("locker-slot-hands")).toContainText("Fixture Pit Gloves");
+  await expect(page.getByTestId("locker-total-build_cost_reduction_pct")).toHaveText("−6.7%");
+  await expect(glovesCard).toContainText("Equipped");
+  expect((await persistedState(page)).equippedLootGear).toMatchObject({ head: "fixture_loot_head", hands: "fixture_loot_hands" });
+
+  // The maxed garage ticks fast enough that even a reload's gap yields offline progress.
+  const welcomeBack = page.getByRole("heading", { name: "Welcome Back!" }).locator("..");
+  await page.addLocatorHandler(welcomeBack.getByRole("button", { name: "Continue" }), async (button) => { await button.click(); });
+  await page.reload();
+  await expect(page).toHaveTitle("Rags to Races");
+  await openTab(page, "gear");
+  await workshopTab(page, "Locker");
+  await expect(page.getByTestId("locker-slot-hands")).toContainText("Fixture Pit Gloves");
+  await expect(page.getByTestId("locker-total-build_cost_reduction_pct")).toHaveText("−6.7%");
+
+  await page.getByTestId("locker-filter-slot").selectOption("head");
+  await expect(page.getByTestId("locker-item-fixture_loot_hands")).toHaveCount(0);
+  await expect(page.getByTestId("locker-item-fixture_loot_head")).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
