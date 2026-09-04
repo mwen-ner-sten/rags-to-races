@@ -5,7 +5,9 @@ describe("getUnlockGuide", () => {
   it.each([
     ["Dirt Track Unlocked! A figure-eight on a gravel lot.", "circuits"],
     ["Go-Kart Blueprint Unlocked! Surprisingly quick.", "blueprints"],
-    ["Station Equipment: Decent Loadout!", "station-equipment"],
+    ["Station Equipment: Common Lift Rig!", "station-equipment"],
+    ["Found Rare Chrome Gloves", "loot-gear"],
+    ["Gear Mod: Grip Tape!", "gear-mods"],
     ["Challenge Complete: On a Roll!", "challenges"],
     ["5 WINS! Unstoppable!", "win-streaks"],
     ["Achievement: First Win!", "achievements"],

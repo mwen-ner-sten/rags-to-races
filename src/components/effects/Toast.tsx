@@ -43,9 +43,23 @@ export function getUnlockGuide(message: string): UnlockGuide | null {
   if (/Station Equipment:/i.test(message)) return {
     id: "station-equipment",
     title: "Station equipment found",
-    what: "Station equipment is reusable workshop gear with rarity, stat bonuses, and sometimes set bonuses.",
+    what: "Station equipment is shop gear (benches, lifts, rigs) turned up while scavenging. It has rarity, stat bonuses, and sometimes set bonuses.",
     where: "Inspect and install it in Workshop > Stations.",
     why: "Installed pieces improve activities across the game. Spare pieces can be salvaged for Reforge Shards.",
+  };
+  if (/^Found (Common|Uncommon|Rare|Epic|Legendary) /.test(message)) return {
+    id: "loot-gear",
+    title: "Loot gear won",
+    what: "Loot gear is the driver's kit: helmet, jacket, gloves, boots, tool, and accessory. You win it at the track; each piece has a rarity and rolled affixes.",
+    where: "Equip, enhance, and mod it in Workshop > Locker.",
+    why: "Equipped kit adds scavenge luck, race pace, and cost cuts. Spare pieces salvage for Scrap Bucks.",
+  };
+  if (/^Gear Mod:/.test(message)) return {
+    id: "gear-mods",
+    title: "Gear mod won",
+    what: "Gear mods are socketable bonuses that drop from race wins.",
+    where: "Install them into loot gear with open sockets in Workshop > Locker.",
+    why: "Sockets open as a piece is enhanced (Lv.3 and Lv.7), so a mod stacks on top of the affixes the kit already rolled.",
   };
   if (/Challenge Complete:/i.test(message)) return {
     id: "challenges",
@@ -59,7 +73,7 @@ export function getUnlockGuide(message: string): UnlockGuide | null {
     title: "Win streaks explained",
     what: "A win streak counts consecutive victories and ends when you fail to win.",
     where: "Your current and best streak are recorded in Activity and the detailed stats menu.",
-    why: "Longer streaks improve the rarity odds of station-equipment drops.",
+    why: "Longer streaks raise the chance a race drops loot gear (+0.5% per win, up to +10%).",
   };
   if (/Achievement:/i.test(message)) return {
     id: "achievements",

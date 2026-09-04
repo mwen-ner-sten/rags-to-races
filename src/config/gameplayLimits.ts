@@ -24,8 +24,19 @@ export const LOOSE_INVENTORY_LIMIT = 250;
 /** Backward-compatible name for the shared live/offline inventory ceiling. */
 export const OFFLINE_LOOSE_INVENTORY_LIMIT = LOOSE_INVENTORY_LIMIT;
 
-/** Maximum station-equipment records retained from automated drops. */
+/**
+ * Maximum station-equipment records retained from scavenge drops. A drop
+ * that finds the shelf full is salvaged on the spot for Reforge Shards.
+ */
 export const STATION_EQUIPMENT_INVENTORY_LIMIT = 250;
+
+/**
+ * Maximum loot gear (the driver's kit, kept in the Locker) retained from race
+ * drops. A drop that finds the Locker full is auto-salvaged for Scrap Bucks at
+ * the same value the Locker's Salvage button would pay, so no run ever grows
+ * an unbounded kit. Owned pieces are never salvaged, only the new drop.
+ */
+export const LOOT_GEAR_INVENTORY_LIMIT = 250;
 
 /** Maximum transient mod-drop records retained in one batched simulation. */
 export const AUTOMATION_DROP_DETAIL_LIMIT = 250;

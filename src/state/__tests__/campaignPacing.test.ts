@@ -50,6 +50,8 @@ function settleLiveAutomationTick(): void {
       ticksProcessed: 1,
       repDecayed: result.repDecayed,
       finalFatigue: result.fatigueAfterTick,
+      stationEquipmentDrops: result.stationDrops,
+      reforgeShardDrops: result.reforgeShardDrops,
       finalProjects: result.projects,
       completedProjects: result.completedProjects,
     },
@@ -173,12 +175,18 @@ const MAX_CAMPAIGN_RACES = 3_000;
  * harness's). Rest is wall time, not hands-on time, and is reported separately.
  *
  * Measured 2026-09-04 after the event-ladder anchor retune
- * (docs/balance/phase2-mixed-play-2026-09-04.md): ~185 hands-on
- * minutes on this seed. The band is that value +-20%; it catches drift. The
- * charter's 2-4 wall-day target is judged by src/engine/__tests__/mixedCampaign.test.ts,
- * never by tuning fatigue or ladder constants to satisfy this band.
+ * (docs/balance/phase2-mixed-play-2026-09-04.md): ~185 hands-on minutes on
+ * this seed. Re-measured the same day once race drops moved to the Locker and
+ * scavenge drops to Stations: the drop rolls consume the seeded stream
+ * differently, so this seed now lands at ~138 minutes. That is RNG divergence,
+ * not a balance change — a five-seed sweep put the pre-change code at 126-185
+ * minutes and the post-change code at 127-185 on the same seeds, and the
+ * harness never equips a drop. The band is the re-measured value +-20%; it
+ * catches drift. The charter's 2-4 wall-day target is judged by
+ * src/engine/__tests__/mixedCampaign.test.ts, never by tuning fatigue or
+ * ladder constants to satisfy this band.
  */
-const CAMPAIGN_HANDS_ON_MINUTES_GUARD = { min: 148, max: 222 };
+const CAMPAIGN_HANDS_ON_MINUTES_GUARD = { min: 110, max: 166 };
 /** Fatigue the engaged player rests down to before racing again. */
 const RESTED_FATIGUE = 20;
 

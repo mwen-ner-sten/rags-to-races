@@ -7,7 +7,7 @@ import { computeTick } from "@/engine/tick";
 import { LOOSE_INVENTORY_LIMIT, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { REP_UNLOCK_COSTS } from "@/config/progression";
 import type { ScavengedPart } from "@/engine/scavenge";
-import type { LootGearItem } from "@/data/lootGear";
+import type { StationEquipment } from "@/data/stationEquipment";
 
 function settlement(overrides: Partial<AutomationSettlementMeta> = {}): AutomationSettlementMeta {
   return {
@@ -135,26 +135,25 @@ describe("automation unlock contracts", () => {
       enhancementLevel: 0,
       source: "test",
     }));
-    const gearDrops: LootGearItem[] = [0, 1].map((index) => ({
+    const stationDrops: StationEquipment[] = [0, 1].map((index) => ({
       id: `drop-${index}`,
-      slot: "head",
+      slot: "lift",
       rarity: "common",
       name: `Drop ${index}`,
       effects: [],
       enhancementLevel: 0,
-      modSlots: 0,
-      mods: [],
       source: "test",
     }));
     useGameStore.setState({ ...createInitialState(), stationEquipmentInventory });
 
-    useGameStore.getState().applyTickResult([], 0, 0, undefined, undefined, undefined, gearDrops, undefined, settlement());
+    useGameStore.getState().applyTickResult([], 0, 0, undefined, undefined, undefined, undefined, undefined, settlement({ stationEquipmentDrops: stationDrops }));
     const after = useGameStore.getState();
 
     expect(after.stationEquipmentInventory).toBe(stationEquipmentInventory);
     expect(after.stationEquipmentInventory).toHaveLength(STATION_EQUIPMENT_INVENTORY_LIMIT);
+    expect(after.lootGearInventory).toHaveLength(0);
     expect(after.reforgeShards).toBe(2);
-    expect(after.activityLog.at(-1)?.message).toContain("2 gear auto-salvaged");
+    expect(after.activityLog.at(-1)?.message).toContain("2 station equipment auto-salvaged");
   });
 
   it("advances the global clock on a no-op tick without generating resources", () => {

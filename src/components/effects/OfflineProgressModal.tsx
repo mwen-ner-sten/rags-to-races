@@ -101,13 +101,22 @@ export default function OfflineProgressModal({
     rows.push({ icon: "\u{1F3C5}", label: "Achievements earned", value: names.join(", ") });
   }
   if (result.lootGearDrops.length > 0) {
-    rows.push({ icon: "\u{1F392}", label: "Station Equipment", value: `+${result.lootGearDrops.length}` });
+    rows.push({ icon: "\u{1F392}", label: "Loot gear won", value: `+${result.lootGearDrops.length}` });
+  }
+  if (result.lootGearAutoSalvaged > 0) {
+    rows.push({ icon: "\u267B\uFE0F", label: "Loot gear auto-salvaged (Locker full)", value: `${result.lootGearAutoSalvaged} for $${result.lootGearSalvageScrap}` });
+  }
+  if (result.modDrops.length > 0) {
+    rows.push({ icon: "\u{1F529}", label: "Gear Mods won", value: `+${result.modDrops.length}` });
+  }
+  if (result.stationEquipmentDrops.length > 0) {
+    rows.push({ icon: "\u{1F6E0}\uFE0F", label: "Station Equipment found", value: `+${result.stationEquipmentDrops.length}` });
   }
   if (result.stationEquipmentAutoSalvaged > 0) {
-    rows.push({ icon: "\u267B\uFE0F", label: "Equipment auto-salvaged", value: `${result.stationEquipmentAutoSalvaged}` });
+    rows.push({ icon: "\u267B\uFE0F", label: "Station Equipment auto-salvaged (shelf full)", value: `${result.stationEquipmentAutoSalvaged}` });
   }
-  if (result.modDrops.length + result.reforgeShardsFound > 0) {
-    rows.push({ icon: "\u{1F527}", label: "Reforge Shards", value: `+${result.modDrops.length + result.reforgeShardsFound}` });
+  if (result.reforgeShardsFound > 0) {
+    rows.push({ icon: "\u{1F527}", label: "Reforge Shards", value: `+${result.reforgeShardsFound}` });
   }
   if (result.vehicleWearTotal > 0) {
     rows.push({ icon: "\u{1F6E0}\uFE0F", label: "Vehicle wear", value: `−${result.vehicleWearTotal}` });
