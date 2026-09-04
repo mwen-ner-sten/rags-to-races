@@ -88,10 +88,11 @@ describe("engineering debrief", () => {
   });
 
   it("calls out weight when the build is far over the chassis' expected load", () => {
-    const overloaded = build("street_racer", { ...streetRacer.heavyPower, frame: "frame_steel" });
+    // A go-kart with a V6 and a steel unibody carries ~33% more than the chassis expects.
+    const overloaded = build("go_kart", { engine: "engine_v6", wheel: "wheel_sport", frame: "frame_steel", fuel: "fuel_tank_large" });
     const regional = CIRCUIT_DEFINITIONS.find((c) => c.id === "regional_circuit")!;
-    // Push the load well past the threshold by pretending the frame is even heavier.
-    const heavier = { ...overloaded, stats: { ...overloaded.stats, weight: overloaded.stats.weight + 600 } };
+    // Diagnostics derive weight from the installed parts, so a stale snapshot cannot hide the overload.
+    const heavier = { ...overloaded, stats: { ...overloaded.stats, weight: 0 } };
     const report = buildEngineeringReport(heavier, regional, loss());
     expect(report.focus).toBe("weight");
     expect(report.component).toBe("Steel Unibody");

@@ -103,13 +103,18 @@ export const RELIABILITY_CONDITION_FLOOR = 0.4;
 
 /**
  * The weight a chassis is designed to carry: base weight plus the average
- * compatible part in every required slot. Building heavier than that costs
- * pace and grip; building lighter earns a little of both.
+ * compatible part in every required slot and in every optional slot that is
+ * actually filled. Building heavier than that costs pace and grip; building
+ * lighter earns a little of both.
+ *
+ * Optional slots count only when installed so an optional part is judged
+ * against its slot's average rather than being a pure weight penalty; add-on
+ * weight stays a real cost because add-ons have no expected load.
  */
-export function expectedLoadedWeight(vehicleDef: VehicleDefinition): number {
+export function expectedLoadedWeight(vehicleDef: VehicleDefinition, parts?: BuiltVehicle["parts"]): number {
   let weight = vehicleDef.baseStats.weight;
   for (const slot of vehicleDef.slots) {
-    if (!slot.required) continue;
+    if (!slot.required && !parts?.[slot.slot]) continue;
     const weights = slot.acceptableParts.map((id) => getPartById(id)?.baseWeight ?? 0);
     if (weights.length === 0) continue;
     weight += weights.reduce((sum, value) => sum + value, 0) / weights.length;
@@ -164,7 +169,7 @@ export function calculateStats(
   }
 
   // Weight is a real trade: excess over the expected load costs pace and, doubly, grip.
-  const expected = expectedLoadedWeight(vehicleDef);
+  const expected = expectedLoadedWeight(vehicleDef, parts);
   const excess = expected > 0 ? (totalWeight - expected) / expected : 0;
   const speedAdj = clamp(excess * WEIGHT_SPEED_FACTOR, WEIGHT_SPEED_ADJ.min, WEIGHT_SPEED_ADJ.max);
   const handlingAdj = clamp(excess * WEIGHT_HANDLING_FACTOR, WEIGHT_HANDLING_ADJ.min, WEIGHT_HANDLING_ADJ.max);
@@ -181,10 +186,16 @@ export function calculateStats(
   );
   const weight = totalWeight;
 
-  // Neutral composite for display; races weight these by the circuit's demands.
-  const performance = speed * 0.5 + handling * 0.3 + reliability * 0.2;
+  const stats = { speed, handling, reliability, weight };
+  return { ...stats, performance: compositePerformance(stats) };
+}
 
-  return { speed, handling, reliability, weight, performance };
+/**
+ * Neutral composite for display (garage, HUD). Races never use it directly;
+ * they fit the same stats to the circuit via `getCircuitPerformance`.
+ */
+export function compositePerformance(stats: Pick<VehicleStats, "speed" | "handling" | "reliability">): number {
+  return stats.speed * 0.5 + stats.handling * 0.3 + stats.reliability * 0.2;
 }
 
 export function buildVehicle(

@@ -5,6 +5,7 @@ import { makePartId } from "./scavenge";
 import { chance, randInt, random, weightedPick } from "@/utils/random";
 import type { ScavengedPart } from "./scavenge";
 import type { BuiltVehicle } from "./build";
+import { deriveVehicleStats, getCircuitPerformance } from "./performance";
 import { DEFAULT_RACE_PLAN, evaluateRacePlan, type RacePlan, type RacePlanEvaluation } from "@/data/raceStrategy";
 import { RIVAL_DEFINITIONS } from "@/data/rivals";
 
@@ -82,22 +83,8 @@ const WIN_CURVE_STEEPNESS = 3;
 const DNF_BASE_RISK = 0.32;
 const DNF_RELIABILITY_SCALE = 45;
 
-/**
- * How well a build fits a circuit: speed and handling are weighted by the
- * circuit's power vs. grip/aero demands, reliability by its reliability demand.
- */
-export function getCircuitPerformance(
-  stats: Pick<BuiltVehicle["stats"], "speed" | "handling" | "reliability">,
-  circuit: Pick<CircuitDefinition, "profile">,
-): number {
-  const { power, grip, aero, reliability } = circuit.profile.demands;
-  const reliabilityWeight = 0.15 + reliability * 0.01;
-  const paceWeight = 1 - reliabilityWeight;
-  const total = Math.max(1, power + grip + aero);
-  const speedWeight = paceWeight * (power / total);
-  const handlingWeight = paceWeight * ((grip + aero) / total);
-  return stats.speed * speedWeight + stats.handling * handlingWeight + stats.reliability * reliabilityWeight;
-}
+/** The circuit-fit formula lives in performance.ts; re-exported for existing callers. */
+export { getCircuitPerformance } from "./performance";
 
 /** Win chance from the ratio of circuit-fitted performance to circuit difficulty. */
 export function winChanceFromRatio(ratio: number): number {
@@ -105,14 +92,18 @@ export function winChanceFromRatio(ratio: number): number {
   return WIN_CURVE_BASE + WIN_CURVE_RANGE * (shaped / (1 + shaped));
 }
 
-/** Calculate pre-race odds for display. `performance` is the circuit-fitted value. */
+/**
+ * Calculate pre-race odds for display. `performance` is the circuit-fitted
+ * value; `performanceBonus` is the composed bonus multiplier minus one (see
+ * bonuses.ts) and `ratio` is the effective performance over difficulty that
+ * drives both the win curve and the finishing position.
+ */
 export function calculateOdds(
   performance: number,
   reliability: number,
   difficulty: number,
-  prestigeBonus: number = 1,
   fatigue: number = 0,
-  gearPerformanceBonus: number = 0,
+  performanceBonus: number = 0,
   gearDnfReduction: number = 0,
   skillPerformanceMult: number = 0,
   skillDnfReduction: number = 0,
@@ -120,9 +111,9 @@ export function calculateOdds(
   forceDNF: boolean = false,
   planEvaluation?: RacePlanEvaluation,
   dnfChanceMultiplier: number = 1,
-): { winChance: number; dnfChance: number; oddsLabel: string } {
+): { winChance: number; dnfChance: number; oddsLabel: string; ratio: number } {
   const fatigueMult = 1 - fatigue * 0.005; // at 50 fatigue: -25% performance
-  const effectivePerformance = performance * prestigeBonus * fatigueMult * (1 + gearPerformanceBonus) * (1 + skillPerformanceMult) * (planEvaluation?.performanceMultiplier ?? 1);
+  const effectivePerformance = performance * fatigueMult * (1 + performanceBonus) * (1 + skillPerformanceMult) * (planEvaluation?.performanceMultiplier ?? 1);
   const ratio = effectivePerformance / Math.max(1, difficulty);
   const winChance = forceDNF
     ? 0
@@ -147,7 +138,7 @@ export function calculateOdds(
   else if (winChance >= 0.2) oddsLabel = "Underdog";
   else oddsLabel = "Long Shot";
 
-  return { winChance, dnfChance, oddsLabel };
+  return { winChance, dnfChance, oddsLabel, ratio };
 }
 
 /**
@@ -191,13 +182,15 @@ export function rollSalvageDrop(
   };
 }
 
-/** Simulate a race. Returns outcome. */
+/**
+ * Simulate a race. Stats are derived from the vehicle's parts and condition
+ * (see performance.ts); the persisted `vehicle.stats` cache is never consulted.
+ */
 export function simulateRace(
   vehicle: BuiltVehicle,
   circuit: CircuitDefinition,
-  prestigeBonus: number = 1,
   fatigue: number = 0,
-  gearPerformanceBonus: number = 0,
+  performanceBonus: number = 0,
   gearDnfReduction: number = 0,
   salvageDropChance: number = 0.15,
   salvageMaxCondition: number = 1,
@@ -208,9 +201,11 @@ export function simulateRace(
   forceDNF: boolean = false,
   racePlan: RacePlan = DEFAULT_RACE_PLAN,
   dnfChanceMultiplier: number = 1,
+  handlingBonusPct: number = 0,
 ): RaceOutcome {
   const totalRacers = 8;
-  const performance = getCircuitPerformance(vehicle.stats, circuit);
+  const stats = deriveVehicleStats(vehicle, handlingBonusPct);
+  const performance = getCircuitPerformance(stats, circuit);
   const planEvaluation = evaluateRacePlan(circuit.profile, racePlan);
   const eligibleRivals = RIVAL_DEFINITIONS.filter((rival) => circuit.tier >= rival.minCircuitTier && circuit.tier <= rival.maxCircuitTier);
   const rival = eligibleRivals.length > 0 && chance(0.35) ? eligibleRivals[randInt(0, eligibleRivals.length - 1)] : undefined;
@@ -238,11 +233,10 @@ export function simulateRace(
 
   const odds = calculateOdds(
     performance,
-    vehicle.stats.reliability,
+    stats.reliability,
     circuit.difficulty,
-    prestigeBonus,
     fatigue,
-    gearPerformanceBonus,
+    performanceBonus,
     gearDnfReduction,
     skillPerformanceMult,
     skillDnfReduction,
@@ -268,7 +262,8 @@ export function simulateRace(
   }
 
   const won = random() < odds.winChance;
-  const position = won ? 1 : losingPosition(performance / Math.max(1, circuit.difficulty), totalRacers);
+  // Finishing position follows the same effective performance as the win roll.
+  const position = won ? 1 : losingPosition(odds.ratio, totalRacers);
 
   const result: RaceResult = won ? "win" : "loss";
 
@@ -346,9 +341,10 @@ export function calculateWear(
   let wear = BASE_WEAR_PER_RACE;
   if (result === "dnf") wear += DNF_WEAR_BONUS;
 
-  // Higher reliability = slower degradation
-  if (vehicle.stats.reliability > RELIABILITY_WEAR_THRESHOLD) {
-    const reliabilityBonus = (vehicle.stats.reliability - RELIABILITY_WEAR_THRESHOLD) / 200;
+  // Higher reliability = slower degradation (derived from parts + condition, never the cache)
+  const reliability = deriveVehicleStats(vehicle).reliability;
+  if (reliability > RELIABILITY_WEAR_THRESHOLD) {
+    const reliabilityBonus = (reliability - RELIABILITY_WEAR_THRESHOLD) / 200;
     wear *= Math.max(0.3, 1 - reliabilityBonus);
   }
 

@@ -6,6 +6,8 @@ import { getGearBonuses } from "./gear";
 import { getLocationById } from "@/data/locations";
 import { getCircuitById } from "@/data/circuits";
 import { simulateRace, calculateWear, compactRaceHistory, type RaceOutcome } from "./race";
+import { applyRacePayout, collectBonuses, racePerformanceMultiplier } from "./bonuses";
+import { deriveVehicleStats, vehiclePerformance, withDerivedStats } from "./performance";
 import { rollGearDrops } from "./gearDrop";
 import type { LootGearItem, InstalledMod } from "@/data/lootGear";
 import { TALENT_NODES } from "@/data/talentNodes";
@@ -16,22 +18,21 @@ import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
-import { AUTOMATION_DROP_DETAIL_LIMIT, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT, MANUAL_SCAVENGE_COOLDOWN_MS_MIN, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTOMATION_DROP_DETAIL_LIMIT, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT, MANUAL_SCAVENGE_COOLDOWN_MS_MIN, MAX_OFFLINE_DURATION_MS, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { normalizeScoutingOrder } from "@/data/locations";
 import { makePartId } from "./scavenge";
 import { random } from "@/utils/random";
 import { getPartSaleValue } from "./sale";
 import { getPrestigeMilestoneBonuses } from "@/data/prestigeMilestones";
 import { autoSellRustedParts } from "./autoSell";
-import { getPermanentRuntimeBonuses, multiplyReward } from "./permanentBonuses";
+import { getPermanentRuntimeBonuses } from "./permanentBonuses";
 import { grantCrewRoleXp } from "./crew";
 import type { MaterialType } from "@/data/materials";
 import { checkAchievements } from "./achievements";
 import type { AchievementStats } from "@/data/achievements";
 import type { RacerSkills } from "@/data/racerSkills";
 import type { CrewMember } from "@/data/crew";
-import { calculateStats } from "./build";
-import { getVehicleById, getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
+import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { canEnterSelectedRace, canScavengeSelectedLocation } from "./eligibility";
 import { getCircuitsUnlockedByReputation, getLocationsUnlockedByReputation } from "./progressionUnlocks";
 import { convertLegacyLootDrop } from "@/data/stationEquipment";
@@ -51,8 +52,6 @@ export interface TickResult {
   partsScavenged: number;
   partsAutoSold: number;
   scrapsFromAutoSoldParts: number;
-  junkFilteredParts: number;
-  junkFilterScrap: number;
   scavengesCompleted: number;
   raceSalvageFound: number;
   forgeTokensFound: number;
@@ -68,19 +67,23 @@ export interface TickResult {
   newRaceTickProgress: number;
 }
 
+const MS_PER_SECOND = 1_000;
+
 /**
- * Returns the current tick interval in ms, factoring in workshop upgrades and gear.
+ * Returns the current tick interval in whole milliseconds, factoring in
+ * workshop upgrades, gear, track perks and milestones.
  * Clamped to [TICK_MS_MIN, TICK_MS_DEFAULT].
  */
 export function computeTickSpeedMs(state: GameState): number {
   const upgradeReductionMs =
     _getUpgradeEffectValue(state, "tick_accelerator") +
     _getUpgradeEffectValue(state, "overclocked_tick");
-  const trackReductionMs = getGameEffectValue(TRACK_PERK_DEFINITIONS, state.trackPerkLevels, "tick_speed_reduction") * 1000;
+  // Time Dilation is authored in seconds; every other reduction is already in ms.
+  const trackReductionMs = getGameEffectValue(TRACK_PERK_DEFINITIONS, state.trackPerkLevels, "tick_speed_reduction") * MS_PER_SECOND;
   const gearBonuses = getGearBonuses(state.equippedGear, state.equippedLootGear, state.lootGearInventory, state.unlockedTalentNodes, TALENT_NODES, state.equippedStationEquipment, state.stationEquipmentInventory);
   const gearReductionMs = (gearBonuses.tick_speed_reduction_ms ?? 0);
   const milestoneReductionMs = getPrestigeMilestoneBonuses(state.prestigeCount).tickSpeedReductionMs;
-  return Math.max(TICK_MS_MIN, TICK_MS_DEFAULT - upgradeReductionMs - gearReductionMs - trackReductionMs - milestoneReductionMs);
+  return Math.max(TICK_MS_MIN, Math.floor(TICK_MS_DEFAULT - upgradeReductionMs - gearReductionMs - trackReductionMs - milestoneReductionMs));
 }
 
 /**
@@ -106,13 +109,46 @@ export function getManualScavengeCooldownMs(state: GameState): number {
   return Math.max(MANUAL_SCAVENGE_COOLDOWN_MS_MIN, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT - reduction);
 }
 
+/** Condition points auto-repair restores before an auto-race attempt. */
+function autoRepairAmount(state: GameState, vehicleCondition: number): number {
+  const autoRepairRate = _getUpgradeEffectValue(state, "auto_repair");
+  if (autoRepairRate <= 0 || vehicleCondition >= 100) return 0;
+  return Math.min(Math.floor(autoRepairRate), 100 - vehicleCondition);
+}
+
+/**
+ * Whether an auto-race would fire for the active vehicle right now: the
+ * shared eligibility gate plus the condition floor after any auto-repair.
+ * computeTick and the HUD idle rates share this so they never disagree.
+ */
+export function autoRaceWouldFire(state: GameState): boolean {
+  if (!state.autoRaceUnlocked || !state.activeVehicleId || !state.selectedCircuitId) return false;
+  const vehicle = state.garage.find((candidate) => candidate.id === state.activeVehicleId);
+  if (!vehicle || !canEnterSelectedRace(state)) return false;
+  const condition = vehicle.condition ?? 100;
+  return condition + autoRepairAmount(state, condition) >= (state.autoRaceMinCondition ?? 0);
+}
+
+/** Handling bonus every derived stat block uses: Tuned Suspension plus equipment. */
+export function getHandlingBonusPct(state: GameState, gearHandlingPct?: number): number {
+  const gearPct = gearHandlingPct ?? getGearBonuses(
+    state.equippedGear,
+    state.equippedLootGear,
+    state.lootGearInventory,
+    state.unlockedTalentNodes,
+    TALENT_NODES,
+    state.equippedStationEquipment,
+    state.stationEquipmentInventory,
+  ).race_handling_pct;
+  return _getUpgradeEffectValue(state, "tuned_suspension") + gearPct;
+}
+
 /** Effective per-hour rates for the HUD, derived from the current tick contract. */
 export function getIdleRates(state: GameState): { scavengesPerHour: number; racesPerHour: number } {
   const tickMs = computeTickSpeedMs(state);
   const ticksPerHour = 3_600_000 / tickMs;
   const scavengesPerHour = state.autoScavengeUnlocked && canScavengeSelectedLocation(state) ? ticksPerHour : 0;
-  const canRace = state.autoRaceUnlocked && Boolean(state.activeVehicleId) && canEnterSelectedRace(state);
-  const racesPerHour = canRace ? ticksPerHour / getRaceTicksNeeded(state) : 0;
+  const racesPerHour = autoRaceWouldFire(state) ? ticksPerHour / getRaceTicksNeeded(state) : 0;
   return { scavengesPerHour, racesPerHour };
 }
 
@@ -126,10 +162,7 @@ export function deriveRaceVehicle(
   vehicle: GameState["garage"][number],
   gearHandlingPct: number,
 ): GameState["garage"][number] {
-  const definition = getVehicleById(vehicle.definitionId);
-  if (!definition) return vehicle;
-  const handlingBonus = _getUpgradeEffectValue(state, "tuned_suspension") + gearHandlingPct;
-  return { ...vehicle, stats: calculateStats(definition, vehicle.parts, vehicle.condition ?? 100, handlingBonus) };
+  return withDerivedStats(vehicle, getHandlingBonusPct(state, gearHandlingPct));
 }
 
 /** Pure function: compute one tick of idle progress */
@@ -139,8 +172,6 @@ export function computeTick(state: GameState): TickResult {
     partsScavenged: 0,
     partsAutoSold: 0,
     scrapsFromAutoSoldParts: 0,
-    junkFilteredParts: 0,
-    junkFilterScrap: 0,
     scavengesCompleted: 0,
     raceSalvageFound: 0,
     forgeTokensFound: 0,
@@ -203,8 +234,6 @@ export function computeTick(state: GameState): TickResult {
       result.scavengesCompleted = 1;
       result.partsAutoSold = autoSale.soldParts.length;
       result.scrapsFromAutoSoldParts = autoSale.scrapEarned;
-      result.junkFilteredParts = autoSale.soldParts.length;
-      result.junkFilterScrap = autoSale.scrapEarned;
       result.scrapsEarned += autoSale.scrapEarned;
 
       // Gear drop roll from auto-scavenge
@@ -230,8 +259,8 @@ export function computeTick(state: GameState): TickResult {
     const newRaceProgress = state.raceTickProgress + 1;
 
     if (newRaceProgress >= raceTicksNeeded) {
-      // Time to race — reset progress
-      result.newRaceTickProgress = 0;
+      // Progress is banked until the race actually fires; it resets only then.
+      result.newRaceTickProgress = Math.min(newRaceProgress, raceTicksNeeded);
 
       const vehicle = state.garage.find((v) => v.id === state.activeVehicleId);
       const circuit = getCircuitById(state.selectedCircuitId);
@@ -240,10 +269,7 @@ export function computeTick(state: GameState): TickResult {
         const vehicleCondition = vehicle.condition ?? 100;
 
         // Auto-repair if upgrade exists and vehicle needs it
-        const autoRepairRate = _getUpgradeEffectValue(state, "auto_repair");
-        if (autoRepairRate > 0 && vehicleCondition < 100) {
-          result.vehicleRepairAmount = Math.min(Math.floor(autoRepairRate), 100 - vehicleCondition);
-        }
+        result.vehicleRepairAmount = autoRepairAmount(state, vehicleCondition);
 
         // Unattended racing pauses on a damaged car rather than grinding it to nothing.
         const conditionAfterRepair = vehicleCondition + result.vehicleRepairAmount;
@@ -251,34 +277,39 @@ export function computeTick(state: GameState): TickResult {
 
         // Manual and automated races share the same authoritative gate.
         if (conditionFloorMet && canEnterSelectedRace(state)) {
+          result.newRaceTickProgress = 0;
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
           const skillBonuses = getSkillBonuses(state.racerSkills, circuit.tier);
           const enhancedRaceSalvage = _getUpgradeEffectValue(state, "scavengers_eye") > 0;
-          const raceVehicle = deriveRaceVehicle(state, vehicle, gearBonuses.race_handling_pct);
-          result.raceOutcome = simulateRace(raceVehicle, circuit, 1, fatigue, gearBonuses.race_performance_pct + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance") + permanentBonuses.racePerformanceBonus, gearBonuses.race_dnf_reduction + permanentBonuses.raceDnfFlatReduction, enhancedRaceSalvage ? 0.30 : 0.15, enhancedRaceSalvage ? 2 : 1, momentumWinBonus, gearBonuses.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"), skillBonuses.drivingPerformanceMult, skillBonuses.drivingDnfReduction, false, state.currentRacePlan, permanentBonuses.raceDnfChanceMultiplier);
+          const bonuses = collectBonuses(state, circuit.tier);
+          const handlingBonusPct = getHandlingBonusPct(state, gearBonuses.race_handling_pct);
+          const raceVehicle = withDerivedStats(vehicle, handlingBonusPct);
+          result.raceOutcome = simulateRace(
+            raceVehicle,
+            circuit,
+            fatigue,
+            racePerformanceMultiplier(bonuses) - 1,
+            gearBonuses.race_dnf_reduction + permanentBonuses.raceDnfFlatReduction,
+            enhancedRaceSalvage ? 0.30 : 0.15,
+            enhancedRaceSalvage ? 2 : 1,
+            momentumWinBonus,
+            gearBonuses.forge_token_chance_bonus + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "forge_token_rate"),
+            0, // racer skills are already inside the composed performance bonus
+            skillBonuses.drivingDnfReduction,
+            false,
+            state.currentRacePlan,
+            permanentBonuses.raceDnfChanceMultiplier,
+            handlingBonusPct,
+          );
 
-          // Apply consolation sponsor bonus
-          const consolationBonus = _getUpgradeEffectValue(state, "consolation_sponsor");
-          let scraps = result.raceOutcome.scrapsEarned;
-          if (result.raceOutcome.result !== "win" && consolationBonus > 0) {
-            scraps = Math.floor(scraps * (1 + consolationBonus));
-          }
-          // Gear race scrap bonus
-          if (gearBonuses.race_scrap_bonus_pct > 0) {
-            scraps = Math.floor(scraps * (1 + gearBonuses.race_scrap_bonus_pct));
-          }
-          // Apply momentum scrap/rep multipliers
-          const momentumScrapMult = getMomentumEffectValue(state.activeMomentumTiers, "scrap_multiplier");
-          const momentumRepMult = getMomentumEffectValue(state.activeMomentumTiers, "rep_multiplier");
+          // One bonus algebra for Scrap Bucks and Rep (engine/bonuses), shared with manual races.
           const projectedStreak = result.raceOutcome.result === "win" ? state.winStreak + 1 : 0;
-          const streakScrapBonus = Math.min(permanentBonuses.winStreakScrapCap, projectedStreak * permanentBonuses.winStreakScrapBonus);
-          const grossScraps = multiplyReward(Math.floor(scraps * (1 + momentumScrapMult)), (state.prestigeBonus.scrapMultiplier - 1) + milestoneBonuses.raceScrapMult + permanentBonuses.allScrapIncomeMult + permanentBonuses.raceScrapMult + streakScrapBonus);
-          const finalRep = result.raceOutcome.repEarned * state.prestigeBonus.repMultiplier * (1 + momentumRepMult) * (1 + milestoneBonuses.raceRepMult + permanentBonuses.allRepIncomeMult + permanentBonuses.raceRepMult);
-          result.scrapsEarned += grossScraps - circuit.entryFee;
+          const payout = applyRacePayout(bonuses, result.raceOutcome, projectedStreak);
+          result.scrapsEarned += payout.scraps - circuit.entryFee;
           result.entryFeesPaid = circuit.entryFee;
-          result.repEarned += finalRep;
-          result.raceOutcome = { ...result.raceOutcome, scrapsEarned: grossScraps, repEarned: finalRep };
+          result.repEarned += payout.rep;
+          result.raceOutcome = { ...result.raceOutcome, scrapsEarned: payout.scraps, repEarned: payout.rep };
           if (result.raceOutcome.salvageDrop) {
             result.partsFound.push(result.raceOutcome.salvageDrop);
             result.raceSalvageFound = 1;
@@ -290,10 +321,8 @@ export function computeTick(state: GameState): TickResult {
           const legacyWearReduction = getLegacyEffectValue(state.legacyUpgradeLevels, "leg_wear_reduction");
           result.vehicleWearAmount = calculateWear(raceVehicle, result.raceOutcome.result, wearReduction + legacyWearReduction, fatigue, gearBonuses.race_wear_reduction_pct, skillBonuses.enduranceWearReduction, result.raceOutcome.planEvaluation?.wearMultiplier ?? 1);
 
-          // Gear drop roll from auto-race
-          const vehiclePerf = vehicle.stats
-            ? vehicle.stats.speed / (circuit.difficulty || 1)
-            : 1;
+          // Gear drop roll from auto-race (circuit-fitted, derived performance vs. difficulty)
+          const vehiclePerf = vehiclePerformance(raceVehicle, circuit, handlingBonusPct) / (circuit.difficulty || 1);
           const { gearDrops, modDrop } = rollGearDrops({
             source: "race",
             sourceTier: circuit.tier,
@@ -331,8 +360,6 @@ export interface OfflineResult {
   partsAutoSold: number;
   /** Portion of scrapsEarned produced by selling overflow parts. */
   scrapsFromAutoSoldParts: number;
-  junkFilteredParts: number;
-  junkFilterScrap: number;
   overflowPartsAutoSold: number;
   overflowScrap: number;
   scavengesCompleted: number;
@@ -389,8 +416,6 @@ export function simulateOfflineTicks(
     partsScavenged: 0,
     partsAutoSold: 0,
     scrapsFromAutoSoldParts: 0,
-    junkFilteredParts: 0,
-    junkFilterScrap: 0,
     overflowPartsAutoSold: 0,
     overflowScrap: 0,
     scavengesCompleted: 0,
@@ -465,8 +490,6 @@ export function simulateOfflineTicks(
     result.partsScavenged += r.partsScavenged;
     result.partsAutoSold += r.partsAutoSold;
     result.scrapsFromAutoSoldParts += r.scrapsFromAutoSoldParts;
-    result.junkFilteredParts += r.junkFilteredParts;
-    result.junkFilterScrap += r.junkFilterScrap;
     result.scavengesCompleted += r.scavengesCompleted;
     result.raceSalvageFound += r.raceSalvageFound;
     result.forgeTokensFound += r.forgeTokensFound;
@@ -616,12 +639,7 @@ export function simulateOfflineTicks(
         if (r.vehicleRepairAmount > 0) cond = Math.min(100, cond + r.vehicleRepairAmount);
         if (r.vehicleWearAmount > 0) cond = Math.max(0, cond - r.vehicleWearAmount);
         vehicle.condition = cond;
-        const definition = getVehicleById(vehicle.definitionId);
-        if (definition) {
-          const gearBonuses = getGearBonuses(snap.equippedGear, snap.equippedLootGear, snap.lootGearInventory, snap.unlockedTalentNodes, TALENT_NODES, snap.equippedStationEquipment, snap.stationEquipmentInventory);
-          const handlingBonus = _getUpgradeEffectValue(snap, "tuned_suspension") + gearBonuses.race_handling_pct;
-          vehicle.stats = calculateStats(definition, vehicle.parts, cond, handlingBonus);
-        }
+        vehicle.stats = deriveVehicleStats(vehicle, getHandlingBonusPct(snap));
       }
     }
 
@@ -703,4 +721,26 @@ export function simulateOfflineTicks(
 /** Effective interval used only when converting elapsed real time to catch-up ticks. */
 export function computeOfflineTickSpeedMs(state: GameState): number {
   return Math.max(OFFLINE_TICK_MS_MIN, computeTickSpeedMs(state));
+}
+
+export interface OfflineTickBudget {
+  /** Per-tick interval used for the conversion (the live floor applies). */
+  tickMs: number;
+  /** Ticks to replay: elapsed time at that interval, bounded by OFFLINE_TICK_CAP. */
+  ticks: number;
+  /** Elapsed time actually credited, after the 8 h offline limit. */
+  cappedElapsedMs: number;
+}
+
+/**
+ * Elapsed real time → bounded catch-up budget. Short absences replay at the
+ * live tick speed; long absences at fast tick speeds stop at OFFLINE_TICK_CAP
+ * ticks (see gameplayLimits for the tradeoff).
+ */
+export function computeOfflineTickBudget(state: GameState, elapsedMs: number): OfflineTickBudget {
+  const safeElapsedMs = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
+  const cappedElapsedMs = Math.min(safeElapsedMs, MAX_OFFLINE_DURATION_MS);
+  const tickMs = computeOfflineTickSpeedMs(state);
+  const ticks = Math.min(OFFLINE_TICK_CAP, Math.floor(cappedElapsedMs / tickMs));
+  return { tickMs, ticks, cappedElapsedMs };
 }

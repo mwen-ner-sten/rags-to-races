@@ -1,4 +1,4 @@
-import { computeOfflineTickSpeedMs, computeTickSpeedMs, simulateOfflineTicks, type OfflineResult } from "@/engine/tick";
+import { computeOfflineTickBudget, computeTickSpeedMs, simulateOfflineTicks, type OfflineResult } from "@/engine/tick";
 import type { GameState } from "@/state/store";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
 import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
@@ -19,13 +19,12 @@ export function offlineTicksForDuration(
   requestedDurationMs: number,
 ): { ticks: number; requestedDurationMs: number; cappedDurationMs: number; tickSpeedMs: number } {
   const safeDuration = Number.isFinite(requestedDurationMs) ? Math.max(0, requestedDurationMs) : 0;
-  const cappedDurationMs = Math.min(safeDuration, MAX_OFFLINE_MS);
-  const tickSpeedMs = computeOfflineTickSpeedMs(state);
+  const budget = computeOfflineTickBudget(state, safeDuration);
   return {
-    ticks: Math.floor(cappedDurationMs / tickSpeedMs),
+    ticks: budget.ticks,
     requestedDurationMs: safeDuration,
-    cappedDurationMs,
-    tickSpeedMs,
+    cappedDurationMs: budget.cappedElapsedMs,
+    tickSpeedMs: budget.tickMs,
   };
 }
 

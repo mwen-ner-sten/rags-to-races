@@ -31,8 +31,8 @@ describe("strategic race preparation", () => {
   it("uses the same evaluation in displayed odds calculations", () => {
     const wet = evaluateRacePlan(profile, RACE_PLAN_PRESETS.wet);
     const sprint = evaluateRacePlan(profile, RACE_PLAN_PRESETS.sprint);
-    const wetOdds = calculateOdds(80, 50, 75, 1, 0, 0, 0, 0, 0, 0, false, wet);
-    const sprintOdds = calculateOdds(80, 50, 75, 1, 0, 0, 0, 0, 0, 0, false, sprint);
+    const wetOdds = calculateOdds(80, 50, 75, 0, 0, 0, 0, 0, 0, false, wet);
+    const sprintOdds = calculateOdds(80, 50, 75, 0, 0, 0, 0, 0, 0, false, sprint);
     expect(wetOdds.dnfChance).toBeLessThan(sprintOdds.dnfChance);
   });
 

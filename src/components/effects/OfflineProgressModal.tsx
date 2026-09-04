@@ -58,8 +58,11 @@ export default function OfflineProgressModal({
   if (result.partsFound.length > 0) {
     rows.push({ icon: "\u{1F4E6}", label: "Kept in inventory", value: `${result.partsFound.length}` });
   }
-  if (result.junkFilteredParts > 0) {
-    rows.push({ icon: "\u{1F5D1}\uFE0F", label: "Junk Filter auto-sold", value: `${result.junkFilteredParts} · +$${result.junkFilterScrap.toLocaleString()}` });
+  // partsAutoSold covers Junk Filter sales plus inventory overflow; overflow is itemised separately below.
+  const junkFilteredParts = result.partsAutoSold - result.overflowPartsAutoSold;
+  const junkFilterScrap = result.scrapsFromAutoSoldParts - result.overflowScrap;
+  if (junkFilteredParts > 0) {
+    rows.push({ icon: "\u{1F5D1}\uFE0F", label: "Junk Filter auto-sold", value: `${junkFilteredParts} · +$${junkFilterScrap.toLocaleString()}` });
   }
   if (result.overflowPartsAutoSold > 0) {
     rows.push({ icon: "\u{267B}\uFE0F", label: "Inventory overflow sold", value: `${result.overflowPartsAutoSold} · +$${result.overflowScrap.toLocaleString()}` });
