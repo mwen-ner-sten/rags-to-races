@@ -1121,6 +1121,10 @@ function createActions(set: SetState, get: GetState) {
         const dupes = parts.map((p) => ({ ...p, id: makePartId() }));
         parts.push(...dupes);
       }
+      // Tick-one auto-sell is the rule on every path, manual clicks included:
+      // a rusted find never reaches inventory, it becomes Scrap Bucks the
+      // instant it is found. The player still gets to see what they found via
+      // the activity log below, which names each auto-sold part and its price.
       const autoSale = autoSellJunkParts(parts, getAutoSellThreshold(state), getSellValueBonus(state));
       // Roll for gear/mod drops
       const { gearDrops, modDrop } = rollGearDrops({
@@ -1156,7 +1160,10 @@ function createActions(set: SetState, get: GetState) {
       const gearMsg = gearDrops.length > 0 ? ` + ${gearDrops.map((g) => g.name).join(", ")}` : "";
       _appendLog(set, get, "scavenge", `Scavenged ${parts.length} part${parts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}`);
       if (autoSale.soldParts.length > 0) {
-        _appendLog(set, get, "sell", `Junk Filter auto-sold ${autoSale.soldParts.length} junk part${autoSale.soldParts.length === 1 ? "" : "s"} for $${autoSale.scrapEarned}`, { scrapDelta: autoSale.scrapEarned });
+        const soldNames = autoSale.soldParts
+          .map((p) => `${(p.type === "addon" ? getAddonById(p.definitionId) : getPartById(p.definitionId))?.name ?? p.definitionId} (${p.condition})`)
+          .join(", ");
+        _appendLog(set, get, "sell", `Auto-sold ${soldNames} for $${autoSale.scrapEarned}`, { scrapDelta: autoSale.scrapEarned });
       }
       (get() as GameState).checkAchievements();
     },
