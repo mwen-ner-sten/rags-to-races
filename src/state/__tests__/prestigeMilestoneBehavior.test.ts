@@ -33,6 +33,9 @@ function autoRaceTick(prestigeCount: number, seed: string) {
     garage: [vehicle],
     activeVehicleId: vehicle.id,
     selectedCircuitId: "backyard_derby",
+    // Race the Feature so a percentage bonus is visible on a whole-dollar prize.
+    eventWins: { backyard_derby: { sprint: 1, heat: 1 } },
+    pinnedEventIds: { backyard_derby: "feature" },
     scrapBucks: 1_000,
   })));
 }
@@ -48,6 +51,9 @@ function performReset(prestigeCount: number, overrides: Partial<GameState> = {},
     fatigue: 30,
     garage: [vehicle, { ...vehicle, id: "milestone-car-2" }, { ...vehicle, id: "milestone-car-3" }],
     activeVehicleId: vehicle.id,
+    // The Scrap Reset gate: National Feature won, two rivals beaten, 2,500 lifetime Rep (set above).
+    eventWins: { national_circuit: { sprint: 1, heat: 1, feature: 1 } },
+    defeatedRivalIds: ["rival_greasy_pete", "rival_redline_rosa"],
     ...overrides,
   });
   withRandomSource(new SeededRandomSource(seed), () => useGameStore.getState().prestige());
@@ -136,8 +142,9 @@ describe("prestige milestone runtime behavior", () => {
   });
 
   it("Racer's Momentum increases real auto-race Scrap and Rep at Prestige 10", () => {
-    const before = autoRaceTick(9, "racer-momentum");
-    const after = autoRaceTick(10, "racer-momentum");
+    // Seed chosen so the Feature is finished, not DNF'd: a DNF pays no Scrap Bucks to compare.
+    const before = autoRaceTick(9, "racer-momentum-1");
+    const after = autoRaceTick(10, "racer-momentum-1");
     expect(after.scrapsEarned).toBeGreaterThan(before.scrapsEarned);
     expect(after.repEarned).toBeGreaterThan(before.repEarned);
 

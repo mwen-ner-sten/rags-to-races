@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState, useGameStore, type AutomationSettlementMeta } from "../store";
 import { createGameplayFixture } from "@/testing/gameplayFixtures";
 import type { RaceOutcome } from "@/engine/race";
-import { DEALER_BOARD_SIZE, DEALER_REFRESH_INTERVAL, DEALER_UNLOCK_REP } from "@/data/dealer";
+import { DEALER_BOARD_SIZE, DEALER_REFRESH_INTERVAL } from "@/data/dealer";
 import { computeTick } from "@/engine/tick";
 import { LOOSE_INVENTORY_LIMIT, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { REP_UNLOCK_COSTS } from "@/config/progression";
@@ -172,11 +172,27 @@ describe("automation unlock contracts", () => {
     });
   });
 
-  it("initializes the Dealer board when an automated reward crosses its Rep gate", () => {
+  it("initializes the Dealer board when an automated reward makes the Dealer relevant", () => {
+    // A Beater Car with its Electronics slot empty and the cash for the cheapest fit.
+    const beater = {
+      id: "beater",
+      definitionId: "beater_car",
+      parts: {
+        engine: { part: { id: "e", definitionId: "engine_v4", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+        wheel: { part: { id: "w", definitionId: "wheel_basic", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+        frame: { part: { id: "f", definitionId: "frame_steel", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+        fuel: { part: { id: "u", definitionId: "fuel_tank_large", condition: "decent" as const, foundAt: "t", type: "part" as const }, addons: [] },
+      },
+      stats: { speed: 10, handling: 5, reliability: 10, weight: 300, performance: 10 },
+      builtAt: 1,
+      condition: 100,
+      totalRaces: 0,
+    };
     useGameStore.setState({
       ...createInitialState(),
-      repPoints: DEALER_UNLOCK_REP - 1,
-      lifetimeRep: DEALER_UNLOCK_REP - 1,
+      garage: [beater],
+      activeVehicleId: beater.id,
+      scrapBucks: 500,
       gameTick: 12,
       dealerBoard: [],
     });

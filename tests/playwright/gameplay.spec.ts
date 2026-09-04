@@ -299,12 +299,13 @@ test("@smoke locked circuits and locations are bought with spendable Rep", async
 
 test("@smoke first Scrap Reset uses the shared exact gate and awards the previewed LP with both automations", async ({ page }) => {
   const exactGate = {
-    repPoints: SCRAP_RESET_REQUIREMENTS.reputation,
-    lifetimeScrapBucks: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks,
+    lifetimeRep: SCRAP_RESET_REQUIREMENTS.lifetimeRep,
+    eventWins: { [SCRAP_RESET_REQUIREMENTS.featureCircuitId]: { sprint: 1, heat: 1, feature: 1 } },
+    defeatedRivalIds: ["rival_greasy_pete", "rival_redline_rosa"],
   };
   await loadFixture(page, "first_scrap_reset_ready", {
     ...exactGate,
-    lifetimeScrapBucks: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks - 1,
+    lifetimeRep: SCRAP_RESET_REQUIREMENTS.lifetimeRep - 1,
   });
   await openResetTab(page);
   const resetButton = page.locator('[data-tutorial="prestige-btn"]');

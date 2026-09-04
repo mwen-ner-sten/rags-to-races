@@ -12,14 +12,17 @@ import { CONDITIONS } from "@/data/parts";
 import { INITIAL_MATERIALS } from "@/data/materials";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY } from "@/config/gameplayLimits";
 import { getLocationById, normalizeScoutingOrder } from "@/data/locations";
+import { REP_PROGRESSION } from "@/config/progression";
+import type { WorkshopSystem } from "@/data/featureUnlocks";
 
-export const PERSISTENCE_VERSION = 5;
+export const PERSISTENCE_VERSION = 6;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
 export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 
 const finiteNonNegative = z.number().finite().min(0);
 const finitePercentage = z.number().finite().min(0).max(100);
 const nonEmptyString = z.string().min(1);
+const eventIdSchema = z.enum(["sprint", "heat", "feature"]);
 
 const partConditionSchema = z.enum(CONDITIONS as [
   (typeof CONDITIONS)[number],
@@ -307,6 +310,10 @@ const currentStateSafetySchema = z.object({
   earnedAchievements: z.array(nonEmptyString).optional(),
   unlockedFeatures: z.array(nonEmptyString).optional(),
   defeatedRivalIds: z.array(nonEmptyString).optional(),
+  eventWins: z.record(z.string(), z.record(z.string(), finiteNonNegative)).optional(),
+  pinnedEventIds: z.record(z.string(), eventIdSchema).optional(),
+  revealedSystems: z.array(nonEmptyString).optional(),
+  rustedPileSinceTick: finiteNonNegative.nullable().optional(),
   discoveredBlueprintIds: z.array(nonEmptyString).optional(),
   unlockedPlaystyleNodes: z.array(nonEmptyString).optional(),
   uniqueVehicleTypesBuilt: z.array(nonEmptyString).optional(),
@@ -402,6 +409,10 @@ export function getPersistedGameState(state: GameState) {
     selectedCircuitId: state.selectedCircuitId,
     currentRacePlan: state.currentRacePlan,
     defeatedRivalIds: state.defeatedRivalIds,
+    eventWins: state.eventWins,
+    pinnedEventIds: state.pinnedEventIds,
+    revealedSystems: state.revealedSystems,
+    rustedPileSinceTick: state.rustedPileSinceTick,
     discoveredBlueprintIds: state.discoveredBlueprintIds,
     fleetAssignments: state.fleetAssignments,
     ownedTrackConfig: state.ownedTrackConfig,
@@ -529,6 +540,26 @@ export function migratePersistedState(
       lifetimeRep,
       lifetimeRepAllTime: Math.max(state.lifetimeRepAllTime ?? 0, lifetimeRep),
       legacyRepFloor: state.legacyRepFloor ?? 0,
+    };
+  }
+
+  // Event ladder and reveal-on-relevance (v6). A venue an old save had opened
+  // stays open with its Sprint available (no event wins are invented), and
+  // any Workshop section the old bare-Rep thresholds had already shown stays
+  // shown so nothing the player could see disappears on upgrade.
+  if (version < 6) {
+    const lifetimeRepAtMigration = Math.max(repPointsAtMigration, state.lifetimeRep ?? 0);
+    const revealed = new Set<WorkshopSystem>((state.revealedSystems ?? []) as WorkshopSystem[]);
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.dealer.unlock || (state.dealerBoard?.length ?? 0) > 0) revealed.add("dealer");
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.workshop.addon_bench) revealed.add("addons");
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.gear.uncommon) revealed.add("stations");
+    if (lifetimeRepAtMigration >= REP_PROGRESSION.workshop.parts_bin) revealed.add("fabrication");
+    state = {
+      ...state,
+      eventWins: state.eventWins ?? {},
+      pinnedEventIds: state.pinnedEventIds ?? {},
+      revealedSystems: [...revealed],
+      rustedPileSinceTick: state.rustedPileSinceTick ?? null,
     };
   }
 

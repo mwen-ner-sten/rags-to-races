@@ -1,4 +1,5 @@
-import type { CoreSlot } from "./parts";
+import { getPartById, type CoreSlot } from "./parts";
+import { expandAcceptablePartIds } from "./partVariants";
 import { getCircuitById } from "./circuits";
 import { REP_UNLOCK_COSTS } from "@/config/progression";
 
@@ -41,7 +42,8 @@ export interface VehicleDefinition {
   requiredFeature?: string;
 }
 
-export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
+/** Hand-written blueprints; slots list base parts only (variants are added below). */
+const HANDWRITTEN_VEHICLE_DEFINITIONS: VehicleDefinition[] = [
   {
     id: "push_mower",
     name: "Push Mower",
@@ -248,6 +250,15 @@ export const VEHICLE_DEFINITIONS: VehicleDefinition[] = [
     requiredFeature: "vehicle_mastery",
   },
 ];
+
+/** Blueprints with every slot accepting the Light / Sturdy siblings of its base parts. */
+export const VEHICLE_DEFINITIONS: VehicleDefinition[] = HANDWRITTEN_VEHICLE_DEFINITIONS.map((vehicle) => ({
+  ...vehicle,
+  slots: vehicle.slots.map((slot) => ({
+    ...slot,
+    acceptableParts: expandAcceptablePartIds(slot.acceptableParts, getPartById),
+  })),
+}));
 
 export function getVehicleById(id: string): VehicleDefinition | undefined {
   return VEHICLE_DEFINITIONS.find((v) => v.id === id);

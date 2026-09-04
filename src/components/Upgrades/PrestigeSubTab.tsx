@@ -6,7 +6,7 @@ import { formatNumber } from "@/utils/format";
 import MomentumTracker from "@/components/Shop/MomentumTracker";
 import PrestigeMilestoneTrack from "./PrestigeMilestoneTrack";
 import PrestigeConfirm from "@/components/Shop/PrestigeConfirm";
-import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, RESPONSIBILITY_RESET_REQUIREMENTS, scrapResetRequirementText } from "@/config/progression";
+import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, getScrapResetProgress, RESPONSIBILITY_RESET_REQUIREMENTS, SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "@/config/progression";
 import { calculateOwnerPoints, calculateTeamPoints, calculateTrackTokens } from "@/engine/prestige";
 
 type ResponsibilityResetLayer = "team" | "owner" | "track";
@@ -16,6 +16,8 @@ export default function PrestigeSubTab() {
   const repPoints = useGameStore((s) => s.repPoints);
   const lifetimeRep = useGameStore((s) => s.lifetimeRep);
   const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
+  const eventWins = useGameStore((s) => s.eventWins);
+  const defeatedRivalIds = useGameStore((s) => s.defeatedRivalIds);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
   const legacyPoints = useGameStore((s) => s.legacyPoints);
@@ -44,8 +46,10 @@ export default function PrestigeSubTab() {
   const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false);
   const [confirmingResponsibilityReset, setConfirmingResponsibilityReset] = useState<ResponsibilityResetLayer | null>(null);
 
-  // The Scrap Reset gate reads lifetime Rep: spending Rep never sets it back.
-  const canPrestige = canScrapReset({ vehiclesBuilt: garage.length, reputation: lifetimeRep, lifetimeScrapBucks });
+  // The Scrap Reset gate reads lifetime Rep (spending never sets it back), this
+  // run's National Feature wins and the rivals defeated in Features.
+  const scrapResetProgress = getScrapResetProgress({ eventWins, defeatedRivalIds, lifetimeRep });
+  const canPrestige = canScrapReset(scrapResetProgress);
   const canTeam = canTeamReset({ lifetimeLegacyPoints: lifetimeLPAllTime, lifetimeLPThisTeamEra, unspentLegacyPoints: legacyPoints });
   const canOwner = canOwnerReset({ lifetimeTeamPoints, teamEras: teamEraCount, lifetimeTPThisOwnerEra, unspentTeamPoints: teamPoints });
   const canTrack = canTrackReset({ lifetimeOwnerPoints, ownerEras: ownerEraCount, lifetimeOPThisTrackEra, unspentOwnerPoints: ownerPoints });
@@ -147,9 +151,14 @@ export default function PrestigeSubTab() {
             </p>
           )}
           {!canPrestige && (
-            <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-              Requirements: {scrapResetRequirementText()}
-            </p>
+            <div className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
+              <p>Requirements: {scrapResetRequirementText()}</p>
+              <p className="mt-1" data-testid="scrap-reset-progress">
+                {SCRAP_RESET_REQUIREMENTS.featureLabel}: {scrapResetProgress.featureWins > 0 ? "won" : "not yet"}
+                {" · "}Rivals defeated: {scrapResetProgress.rivalsDefeated}/{SCRAP_RESET_REQUIREMENTS.rivalsDefeated}
+                {" · "}Lifetime Rep: {formatNumber(Math.floor(scrapResetProgress.lifetimeRep))}/{formatNumber(SCRAP_RESET_REQUIREMENTS.lifetimeRep)}
+              </p>
+            </div>
           )}
           <button
             data-tutorial="prestige-btn"

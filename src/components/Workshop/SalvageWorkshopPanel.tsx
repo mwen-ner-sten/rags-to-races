@@ -13,7 +13,8 @@ import {
 import { PART_DEFINITIONS, CONDITIONS, CONDITION_MULTIPLIERS, type PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
-import { DEALER_UNLOCK_REP } from "@/data/dealer";
+import { isDealerOpen } from "@/data/dealer";
+import { SYSTEM_REVEALS_BY_ID } from "@/data/featureUnlocks";
 import { MATERIAL_DEFINITIONS, type MaterialType } from "@/data/materials";
 import { GARAGE_STATIONS, type GarageStationSlot } from "@/data/garageStations";
 import { getVehicleById } from "@/data/vehicles";
@@ -411,10 +412,10 @@ function AddonBench({ onOpenFacilities }: { onOpenFacilities: () => void }) {
 
 function DealerBoard({ onOpenFacilities }: { onOpenFacilities: () => void }) {
   const gameState = useGameStore.getState();
-  const lifetimeRep = useGameStore((s) => s.lifetimeRep); const cash = useGameStore((s) => s.scrapBucks); const board = useGameStore((s) => s.dealerBoard);
+  const dealerOpen = useGameStore(isDealerOpen); const cash = useGameStore((s) => s.scrapBucks); const board = useGameStore((s) => s.dealerBoard);
   const buy = useGameStore((s) => s.buyFromDealer); const refresh = useGameStore((s) => s.refreshDealer);
   const refreshCost = getDealerRefreshCost(gameState);
-  if (lifetimeRep < DEALER_UNLOCK_REP) return <LockedAction text={`Dealer sourcing opens at ${formatNumber(DEALER_UNLOCK_REP)} lifetime Rep (you have earned ${formatNumber(lifetimeRep)}). It is a milestone, not a purchase — spending Rep never delays it. Upgrade sourcing facilities while you race.`} action="Open Facilities" onClick={onOpenFacilities} />;
+  if (!dealerOpen) return <LockedAction text={`Dealer sourcing opens when it matters: ${SYSTEM_REVEALS_BY_ID.dealer.trigger} Upgrade sourcing facilities while you race.`} action="Open Facilities" onClick={onOpenFacilities} />;
   return <div className="flex flex-col gap-3"><div className="flex items-center justify-between"><p className="text-xs" style={{ color: "var(--text-muted)" }}>A bounded alternative when scavenging will not provide a required part.</p><Action disabledReason={cash < refreshCost ? `Need $${formatNumber(refreshCost - cash)} more` : undefined} onClick={refresh}>Refresh ${formatNumber(refreshCost)}</Action></div>
     {board.length === 0 ? <Empty text="No listings remain. Refresh the board to source new stock." /> : <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{board.map((listing) => { const part = PART_DEFINITIONS.find((item) => item.id === listing.definitionId); const price = getDealerPurchasePrice(gameState, listing); return <article key={listing.id} className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}><GameAssetImage kind="part" id={listing.definitionId} width={64} /><strong className="block" style={{ color: "var(--text-white)" }}>{part?.name}</strong><p className="mb-2 text-xs uppercase" style={{ color: "var(--accent)" }}>{listing.condition}</p><Action disabledReason={cash < price ? `Need $${formatNumber(price - cash)} more` : undefined} onClick={() => buy(listing.id)}>Buy ${formatNumber(price)}</Action></article>; })}</div>}
   </div>;

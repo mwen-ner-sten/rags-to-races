@@ -194,6 +194,7 @@ describe("Garage Philosophy and Crew behavior", () => {
       repPoints: 8_000,
       lifetimeRep: 8_000,
       scrapBucks: 100,
+      revealedSystems: ["dealer"],
       crewRoster: [trader],
       dealerBoard: [listing],
     });
@@ -211,6 +212,7 @@ describe("Garage Philosophy and Crew behavior", () => {
       repPoints: 8_000,
       lifetimeRep: 8_000,
       scrapBucks: 10,
+      revealedSystems: ["dealer"],
       teamUpgradeLevels: { team_crew_xp: 1 },
       crewRoster: [trader],
       dealerBoard: [listing],

@@ -1,5 +1,6 @@
-import type { PartCondition } from "./parts";
+import type { PartCondition, PartDefinition } from "./parts";
 import { PART_DEFINITIONS } from "./parts";
+import { isVariantPartId, rollPartVariant } from "./partVariants";
 import { randInt, SeededRandomSource, withRandomSource } from "@/utils/random";
 import { REP_PROGRESSION } from "@/config/progression";
 
@@ -26,6 +27,29 @@ export const DEALER_TIER2_REP = REP_PROGRESSION.dealer.tier2;
 
 /** Rep threshold for tier-3 stock (high-tier parts available) */
 export const DEALER_TIER3_REP = REP_PROGRESSION.dealer.tier3;
+
+/** Price = 2x–5x scrap value depending on condition. */
+export const DEALER_CONDITION_PRICE_MULT: Record<PartCondition, number> = {
+  rusted: 1.0,
+  worn: 1.5,
+  decent: 2.0,
+  good: 3.5,
+  pristine: 5.0,
+  polished: 7.0,
+  legendary: 12.0,
+  mythic: 20.0,
+  artifact: 40.0,
+};
+
+/** Board price of a part before crew or bonus discounts (never below $5). */
+export function dealerListingPrice(part: Pick<PartDefinition, "scrapValue">, condition: PartCondition): number {
+  return Math.max(5, Math.floor(part.scrapValue * (DEALER_CONDITION_PRICE_MULT[condition] ?? 2.0)));
+}
+
+/** The Dealer opens by relevance (see featureUnlocks.ts), never by a bare Rep threshold. */
+export function isDealerOpen(state: { revealedSystems?: readonly string[] }): boolean {
+  return (state.revealedSystems ?? []).includes("dealer");
+}
 
 let _listingCounter = 0;
 function makeListingId(): string {
@@ -66,8 +90,9 @@ function buildDealerListings(
     : ["decent", "good"];
 
   // Eligible parts by tier
+  // Stock is drawn over base parts, then each listing rolls base / Light / Sturdy.
   const eligible = PART_DEFINITIONS.filter(
-    (p) => p.minTier <= maxPartTier && p.category !== "misc" && p.scrapValue > 0,
+    (p) => p.minTier <= maxPartTier && p.category !== "misc" && p.scrapValue > 0 && !isVariantPartId(p.id),
   );
 
   if (eligible.length === 0) return listings;
@@ -83,22 +108,10 @@ function buildDealerListings(
       attempts++;
     }
     usedDefIds.add(def.id);
+    def = rollPartVariant(def);
 
     const condition = availableConditions[randInt(0, availableConditions.length - 1)];
-
-    // Price = 2x–5x scrap value depending on condition
-    const conditionPriceMult: Record<PartCondition, number> = {
-      rusted: 1.0,
-      worn: 1.5,
-      decent: 2.0,
-      good: 3.5,
-      pristine: 5.0,
-      polished: 7.0,
-      legendary: 12.0,
-      mythic: 20.0,
-      artifact: 40.0,
-    };
-    const price = Math.max(5, Math.floor(def.scrapValue * (conditionPriceMult[condition] ?? 2.0)));
+    const price = dealerListingPrice(def, condition);
 
     listings.push({
       id: makeListingId(),

@@ -10,6 +10,7 @@ import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_I
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
 import { OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
+import { resolveEventCircuit } from "@/engine/eventLadder";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 import { GARAGE_STATIONS } from "@/data/garageStations";
 import { SKILL_DEFINITIONS, MAX_SKILL_LEVEL, RATING_PER_LEVEL } from "@/data/racerSkills";
@@ -52,8 +53,8 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Upgrade your run", description: "Open Workshop > Facilities and buy a run upgrade such as Keen Eye or Budget Repairs." },
   { step: "Explore the Workshop", description: "Review Inventory, Fabrication, Add-ons, Dealer, Stations, Philosophy, Skills, and Facilities." },
   { step: "Build an early runway", description: "Reach $500 lifetime Scrap Bucks and 100 lifetime Rep by racing, scavenging, and selling spare parts. Spend Rep as you go to open new locations and circuits — spending never lowers lifetime Rep." },
-  { step: "Expand the garage", description: `Keep ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} built vehicles in your Garage at the same time.` },
-  { step: "Reach the reset gate", description: `Earn $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks and ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} lifetime Rep (spending Rep never sets you back). Watch fatigue — it builds as you race and cuts performance.` },
+  { step: "Climb the event ladder", description: "Every venue hosts a Sprint, a Heat and a Feature. Win a Sprint to open the Heat, win the Heat to open the Feature. Features pay the most and are the only races rivals enter." },
+  { step: "Reach the reset gate", description: `Win the ${SCRAP_RESET_REQUIREMENTS.featureLabel}, defeat ${SCRAP_RESET_REQUIREMENTS.rivalsDefeated} rivals in Features, and earn ${SCRAP_RESET_REQUIREMENTS.lifetimeRep.toLocaleString()} lifetime Rep (spending Rep never sets you back). Watch fatigue — it builds as you race and cuts performance.` },
   { step: "Visit Upgrades", description: "Open the Upgrades tab when fatigue is high or progress stalls." },
   { step: "Prestige", description: "Hit Scrap Reset to prestige. You restart stronger with permanent bonuses." },
 ];
@@ -62,7 +63,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
 
 export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, facilities, and station equipment." },
-  { term: "Rep", meaning: "Reputation from races. Spend it to open locations, circuits, vehicle blueprints, and Rep-gated workshop lines. The balance decays slowly (half-life three days) toward your legacy floor; lifetime Rep never falls and gates the Dealer, momentum, and the Scrap Reset." },
+  { term: "Rep", meaning: "Reputation from races. Spend it to open locations, circuits, vehicle blueprints, and Rep-gated workshop lines. The balance decays slowly (half-life three days) toward your legacy floor; lifetime Rep never falls and gates momentum and the Scrap Reset." },
   { term: "Junk Filter", meaning: "Rusted finds are sold automatically from the first tick. The Prestige 2 milestone lets your Sell Below Quality setting decide what counts as junk." },
   { term: "Fatigue", meaning: "Follows a diminishing race-count curve (0–99). Costs -0.5% performance, +0.8% wear, and +1% repair cost per point. Resets on Scrap Reset." },
   { term: "Condition", meaning: `Part quality from ${CONDITIONS[0]} (worst) to ${CONDITIONS[CONDITIONS.length - 1]} (best). Higher = more power and sale value.` },
@@ -70,7 +71,9 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Legacy Points (LP)", meaning: "Earned on Scrap Reset based on run stats. Spent on permanent upgrades and Garage Philosophy nodes." },
   { term: "Momentum", meaning: `${MOMENTUM_TIERS.length} conditional bonuses that activate during a run (e.g., "${MOMENTUM_TIERS[0].name}" at ${MOMENTUM_TIERS[0].condition.value}+ races). Reset on prestige.` },
   { term: "Forge Tokens", meaning: "Rare drop from high-tier race wins (~2%). Used with materials in the Artifact Forge for top-tier parts." },
-  { term: "Dealer Board", meaning: `Rotating part market that opens at ${DEALER_UNLOCK_REP.toLocaleString()} lifetime Rep (a milestone — spending Rep never delays it). ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
+  { term: "Dealer Board", meaning: `Rotating part market that opens once you can afford the cheapest part for an empty slot on your active vehicle. ${DEALER_BOARD_SIZE} listings, refreshes every ${DEALER_REFRESH_INTERVAL} ticks.` },
+  { term: "Events (Sprint / Heat / Feature)", meaning: "Every venue hosts three events. Sprint (×0.75 difficulty, ×0.5 prize) opens with the venue; a Sprint win here opens the Heat (the venue's base numbers); a Heat win opens the Feature (×1.4 difficulty, ×1.8 prize, ×1.6 Rep). Rivals only race in Features. Entry fees are 15% of the prize." },
+  { term: "Light / Sturdy parts", meaning: "Every core part has two siblings. Light: −25% weight, −10% reliability. Sturdy: +20% reliability, +15% weight, −5% power. Same tier and sell value; the junkyard and the Dealer roll all three with equal weight." },
   { term: "DNF (Did Not Finish)", meaning: "Vehicle broke down mid-race. Baseline chance is 30% minus reliability/200, then equipment, crew, skills, philosophy, and the race plan modify it." },
   { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve station-equipment drop rarity by +0.5% per win (cap +10%)." },
   { term: "Vehicle Condition", meaning: `Starts at 100, degrades from racing. Below ${CONDITION_PENALTY_THRESHOLD}, stats drop linearly. Repair in the Garage.` },
@@ -111,7 +114,7 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "How do I unlock the Dealer?",
-    answer: `Reach ${DEALER_UNLOCK_REP.toLocaleString()} lifetime Rep — it is a milestone, not a purchase, so spending Rep on locations or circuits never delays it. The Dealer shows ${DEALER_BOARD_SIZE} rotating part listings. Stock improves at ${DEALER_TIER2_REP.toLocaleString()} lifetime Rep (better conditions and parts through T2) and ${DEALER_TIER3_REP.toLocaleString()} lifetime Rep (parts through T4).`,
+    answer: `The Dealer reveals itself when it becomes relevant: the moment you hold the Scrap Bucks for the cheapest part that would fill an empty slot on your active vehicle. Once open it stays open. It shows ${DEALER_BOARD_SIZE} rotating part listings, including Light and Sturdy variants. Stock improves at ${DEALER_TIER2_REP.toLocaleString()} lifetime Rep (better conditions and parts through T2) and ${DEALER_TIER3_REP.toLocaleString()} lifetime Rep (parts through T4).`,
   },
   {
     question: "How does fatigue work?",
@@ -288,6 +291,10 @@ export const HELP_CIRCUITS = CIRCUIT_DEFINITIONS.map((c) => ({
   id: c.id, name: c.name, tier: c.tier,
   difficulty: c.difficulty, entryFee: c.entryFee,
   rewardBase: c.rewardBase, repReward: c.repReward,
+  events: c.events.map((event) => {
+    const resolved = resolveEventCircuit(c, event.id);
+    return { id: event.id, name: event.name, difficulty: resolved.difficulty, entryFee: resolved.entryFee, rewardBase: resolved.rewardBase, repReward: resolved.repReward };
+  }),
 }));
 
 // Vehicles

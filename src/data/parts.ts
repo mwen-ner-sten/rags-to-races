@@ -1,3 +1,5 @@
+import { generatePartVariants } from "./partVariants";
+
 export type PartCondition =
   | "rusted"     // index 0 — scavengeable
   | "worn"       // index 1 — scavengeable
@@ -113,7 +115,8 @@ export const CONDITION_LABELS: Record<PartCondition, string> = {
   artifact:  "Artifact",
 };
 
-export const PART_DEFINITIONS: PartDefinition[] = [
+/** Hand-written core parts. Light / Sturdy siblings are generated from these (partVariants.ts). */
+export const CORE_PART_DEFINITIONS: PartDefinition[] = [
   // ── Engines ───────────────────────────────────────────────────────────────
   { id: "engine_small", name: "Small Engine", category: "engine", basePower: 10, baseHandling: 0, baseReliability: 8, baseWeight: 15, scrapValue: 5, minTier: 0 },
   { id: "engine_lawn", name: "Lawn Mower Engine", category: "engine", basePower: 15, baseHandling: 0, baseReliability: 10, baseWeight: 20, scrapValue: 8, minTier: 1 },
@@ -176,6 +179,14 @@ export const PART_DEFINITIONS: PartDefinition[] = [
   { id: "misc_roll_cage", name: "Roll Cage", category: "misc", basePower: 0, baseHandling: 0, baseReliability: 20, baseWeight: 30, scrapValue: 40, minTier: 3 },
 ];
 
+/** Every part the game knows: the core parts followed by their generated variants. */
+export const PART_DEFINITIONS: PartDefinition[] = [
+  ...CORE_PART_DEFINITIONS,
+  ...generatePartVariants(CORE_PART_DEFINITIONS),
+];
+
+const PARTS_BY_ID = new Map(PART_DEFINITIONS.map((part) => [part.id, part]));
+
 export function getPartById(id: string): PartDefinition | undefined {
-  return PART_DEFINITIONS.find((p) => p.id === id);
+  return PARTS_BY_ID.get(id);
 }

@@ -81,13 +81,14 @@ describe("spendable Rep", () => {
   });
 
   it("gates the Scrap Reset on lifetime Rep and stores a legacy floor", () => {
-    const lifetimeRep = SCRAP_RESET_REQUIREMENTS.reputation * 2;
+    const lifetimeRep = SCRAP_RESET_REQUIREMENTS.lifetimeRep * 2;
     useGameStore.setState({
       ...createInitialState(),
       garage: [vehicle("a"), vehicle("b"), vehicle("c")],
       repPoints: 10,
       lifetimeRep,
-      lifetimeScrapBucks: SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks,
+      eventWins: { [SCRAP_RESET_REQUIREMENTS.featureCircuitId]: { sprint: 1, heat: 1, feature: 1 } },
+      defeatedRivalIds: ["rival_greasy_pete", "rival_redline_rosa"],
     });
     useGameStore.getState().prestige();
     const reset = useGameStore.getState();
@@ -114,7 +115,7 @@ describe("spendable Rep", () => {
     expect(migrated.unlockedLocationIds).toEqual(expect.arrayContaining(["neighborhood_yards"]));
     // Rep-threshold blueprints already reachable at migration time are kept.
     expect(migrated.unlockedVehicleIds).toEqual(expect.arrayContaining(["go_kart", "beater_car"]));
-    expect(PERSISTENCE_VERSION).toBe(5);
+    expect(PERSISTENCE_VERSION).toBe(6);
   });
 
   it("does not hand out Rep-priced blueprints on a current-version rehydrate", () => {

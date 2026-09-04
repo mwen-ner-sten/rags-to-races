@@ -1,5 +1,6 @@
 import { getPartById, CONDITION_MULTIPLIERS, CONDITION_REPAIR_COST, CONDITIONS, type PartCondition } from "@/data/parts";
 import { getAddonById } from "@/data/addons";
+import { isVariantPartId } from "@/data/partVariants";
 import type { VehicleDefinition } from "@/data/vehicles";
 import { CONDITION_PENALTY_THRESHOLD, REPAIR_COST_BASE, REPAIR_COST_PER_POINT_PER_TIER } from "@/data/vehicles";
 import type { ScavengedPart } from "./scavenge";
@@ -115,7 +116,10 @@ export function expectedLoadedWeight(vehicleDef: VehicleDefinition, parts?: Buil
   let weight = vehicleDef.baseStats.weight;
   for (const slot of vehicleDef.slots) {
     if (!slot.required && !parts?.[slot.slot]) continue;
-    const weights = slot.acceptableParts.map((id) => getPartById(id)?.baseWeight ?? 0);
+    // Expected load is set by the hand-written base parts; Light / Sturdy siblings are the tradeoff around it.
+    const weights = slot.acceptableParts
+      .filter((id) => !isVariantPartId(id))
+      .map((id) => getPartById(id)?.baseWeight ?? 0);
     if (weights.length === 0) continue;
     weight += weights.reduce((sum, value) => sum + value, 0) / weights.length;
   }

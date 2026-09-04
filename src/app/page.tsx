@@ -120,6 +120,7 @@ export default function Home() {
               winningCircuitIds: r.winningCircuitIds,
               defeatedRivalIds: r.defeatedRivalIds,
               circuitWinStreaks: r.circuitWinStreaks,
+              eventWins: r.eventWins,
               raceSalvageFound: r.raceSalvageFound,
               forgeTokensFound: r.forgeTokensFound,
               entryFeesPaid: r.entryFeesPaid,

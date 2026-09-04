@@ -94,9 +94,11 @@ export default function HelpProgressionTab() {
                   <div className="font-semibold" style={{ color: "var(--text-white)" }}>
                     T{c.tier} · {c.name}
                   </div>
-                  <div style={{ color: "var(--text-secondary)" }}>
-                    Diff {c.difficulty} · Entry ${formatNumber(c.entryFee)} · Win ${formatNumber(c.rewardBase)} + {c.repReward} Rep
-                  </div>
+                  {c.events.map((event) => (
+                    <div key={event.id} style={{ color: "var(--text-secondary)" }}>
+                      {event.name}: Diff {event.difficulty} · Entry ${formatNumber(event.entryFee)} · Win ${formatNumber(event.rewardBase)} + {event.repReward} Rep
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

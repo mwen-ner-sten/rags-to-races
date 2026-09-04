@@ -1,5 +1,6 @@
 import { PART_DEFINITIONS, getScavengeCap, type PartCondition } from "@/data/parts";
 import { ADDON_DEFINITIONS } from "@/data/addons";
+import { isVariantPartId, rollPartVariant } from "@/data/partVariants";
 import type { LocationDefinition } from "@/data/locations";
 import { weightedPick, rollCondition, randInt, random } from "@/utils/random";
 import type { PartCategory, CoreSlot } from "@/data/parts";
@@ -46,8 +47,9 @@ export function scavenge(
     const category = weightedPick(categoryWeights);
 
     // Filter eligible parts by category and tier
+    // Tier bias runs over the base parts; the Light / Sturdy roll comes after.
     const eligible = PART_DEFINITIONS.filter(
-      (p) => p.category === category && p.minTier <= (location.maxPartTier ?? location.tier),
+      (p) => p.category === category && p.minTier <= (location.maxPartTier ?? location.tier) && !isVariantPartId(p.id),
     );
     if (eligible.length === 0) continue;
 
@@ -58,6 +60,7 @@ export function scavenge(
       const highTierParts = eligible.filter((candidate) => candidate.minTier === highestAvailableTier);
       def = highTierParts[randInt(0, highTierParts.length - 1)];
     }
+    def = rollPartVariant(def);
 
     results.push({
       id: makePartId(),

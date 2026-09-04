@@ -1,7 +1,14 @@
+/**
+ * First Scrap Reset (phase 2): win the National Feature, defeat two rivals,
+ * and reach 2,500 lifetime Rep. Rivals only race in Features, so the rival
+ * count is itself a ladder requirement.
+ */
 export const SCRAP_RESET_REQUIREMENTS = {
-  vehiclesBuilt: 3,
-  reputation: 500,
-  lifetimeScrapBucks: 8_000,
+  /** Venue whose Feature must be won this run. */
+  featureCircuitId: "national_circuit",
+  featureLabel: "National Circuit Feature",
+  rivalsDefeated: 2,
+  lifetimeRep: 2_500,
 } as const;
 
 export const RESPONSIBILITY_RESET_REQUIREMENTS = {
@@ -143,17 +150,31 @@ export function repDecayAmount(repPoints: number, repFloor: number, dtMs: number
 }
 
 export interface ScrapResetProgress {
-  vehiclesBuilt: number;
-  reputation: number;
-  lifetimeScrapBucks: number;
+  /** Wins in the required venue's Feature this run. */
+  featureWins: number;
+  rivalsDefeated: number;
+  lifetimeRep: number;
+}
+
+/** The exact fields the gate reads, from any state-shaped object (store, fixture, script). */
+export function getScrapResetProgress(state: {
+  eventWins?: Record<string, Partial<Record<string, number>>>;
+  defeatedRivalIds?: readonly string[];
+  lifetimeRep: number;
+}): ScrapResetProgress {
+  return {
+    featureWins: state.eventWins?.[SCRAP_RESET_REQUIREMENTS.featureCircuitId]?.feature ?? 0,
+    rivalsDefeated: state.defeatedRivalIds?.length ?? 0,
+    lifetimeRep: state.lifetimeRep,
+  };
 }
 
 export function canScrapReset(progress: ScrapResetProgress): boolean {
-  return progress.vehiclesBuilt >= SCRAP_RESET_REQUIREMENTS.vehiclesBuilt
-    && progress.reputation >= SCRAP_RESET_REQUIREMENTS.reputation
-    && progress.lifetimeScrapBucks >= SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks;
+  return progress.featureWins >= 1
+    && progress.rivalsDefeated >= SCRAP_RESET_REQUIREMENTS.rivalsDefeated
+    && progress.lifetimeRep >= SCRAP_RESET_REQUIREMENTS.lifetimeRep;
 }
 
 export function scrapResetRequirementText(): string {
-  return `${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} vehicles built, ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep, $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks`;
+  return `win the ${SCRAP_RESET_REQUIREMENTS.featureLabel}, defeat ${SCRAP_RESET_REQUIREMENTS.rivalsDefeated} rivals, ${SCRAP_RESET_REQUIREMENTS.lifetimeRep.toLocaleString()} lifetime Rep`;
 }

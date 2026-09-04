@@ -5,7 +5,7 @@
     "description": "Generated fresh gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -41,6 +41,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -181,7 +185,7 @@
     "description": "Generated first build ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 25,
         "repPoints": 8,
@@ -239,6 +243,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -394,7 +402,7 @@
     "description": "Generated first race ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100,
         "repPoints": 25,
@@ -482,6 +490,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -624,7 +636,7 @@
     "description": "Generated workshop ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000000,
         "repPoints": 250000,
@@ -1866,6 +1878,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -2085,7 +2101,7 @@
     "description": "Generated auto scavenge boundary gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000,
         "repPoints": 0,
@@ -2158,6 +2174,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -2326,11 +2346,11 @@
     "description": "Generated first scrap reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000,
-        "repPoints": 500,
-        "lifetimeRep": 500,
+        "repPoints": 2500,
+        "lifetimeRep": 2500,
         "lifetimeRepAllTime": 0,
         "legacyRepFloor": 0,
         "lifetimeScrapBucks": 8000,
@@ -2657,7 +2677,7 @@
         ],
         "activeVehicleId": "fixture_vehicle_43_go_kart",
         "vehicleLoadouts": [],
-        "selectedLocationId": "industrial_surplus",
+        "selectedLocationId": "military_scrapyard",
         "selectedSellBelowQuality": "decent",
         "selectedCircuitId": "dirt_track",
         "currentRacePlan": {
@@ -2669,7 +2689,34 @@
           "aggression": "balanced",
           "pitStrategy": "reactive"
         },
-        "defeatedRivalIds": [],
+        "defeatedRivalIds": [
+          "rival_greasy_pete",
+          "rival_redline_rosa"
+        ],
+        "eventWins": {
+          "backyard_derby": {
+            "sprint": 3,
+            "heat": 2
+          },
+          "dirt_track": {
+            "sprint": 2,
+            "heat": 2,
+            "feature": 1
+          },
+          "regional_circuit": {
+            "sprint": 2,
+            "heat": 1,
+            "feature": 1
+          },
+          "national_circuit": {
+            "sprint": 1,
+            "heat": 1,
+            "feature": 1
+          }
+        },
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [
           "push_mower",
           "riding_mower",
@@ -2697,13 +2744,15 @@
           "neighborhood_yards",
           "local_junkyard",
           "salvage_auction",
-          "industrial_surplus"
+          "industrial_surplus",
+          "military_scrapyard"
         ],
         "unlockedCircuitIds": [
           "backyard_derby",
           "dirt_track",
           "regional_circuit",
-          "national_circuit"
+          "national_circuit",
+          "world_championship"
         ],
         "unlockedVehicleIds": [
           "push_mower",
@@ -2711,7 +2760,8 @@
           "go_kart",
           "beater_car",
           "street_racer",
-          "stock_car"
+          "stock_car",
+          "supercar"
         ],
         "_vehicleIdCounter": 0,
         "raceHistory": [
@@ -2894,7 +2944,7 @@
     "description": "Generated post scrap reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -2908,8 +2958,8 @@
           "luckBonus": 0,
           "repMultiplier": 1
         },
-        "legacyPoints": 54,
-        "lifetimeLegacyPoints": 54,
+        "legacyPoints": 65,
+        "lifetimeLegacyPoints": 65,
         "legacyUpgradeLevels": {},
         "activeMomentumTiers": [],
         "currentEra": 1,
@@ -2930,6 +2980,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [
           "push_mower",
           "riding_mower",
@@ -3042,7 +3096,7 @@
         "lifetimeTeamPoints": 0,
         "teamUpgradeLevels": {},
         "teamEraCount": 0,
-        "lifetimeLPThisTeamEra": 54,
+        "lifetimeLPThisTeamEra": 65,
         "ownerPoints": 0,
         "lifetimeOwnerPoints": 0,
         "ownerUpgradeLevels": {},
@@ -3054,7 +3108,7 @@
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
         "unlockedFeatures": [],
-        "lifetimeLPAllTime": 54,
+        "lifetimeLPAllTime": 65,
         "lifetimeScrapResets": 1,
         "crewRoster": [],
         "crewSlots": 0,
@@ -3081,7 +3135,7 @@
     "description": "Generated team reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -3985,6 +4039,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [
           "push_mower",
           "riding_mower",
@@ -4193,7 +4251,7 @@
     "description": "Generated post team reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -4229,6 +4287,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -4376,7 +4438,7 @@
     "description": "Generated owner reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -5280,6 +5342,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [
           "push_mower",
           "riding_mower",
@@ -5465,7 +5531,7 @@
     "description": "Generated post owner reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -5501,6 +5567,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -5648,7 +5718,7 @@
     "description": "Generated track reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -6552,6 +6622,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [
           "push_mower",
           "riding_mower",
@@ -6737,7 +6811,7 @@
     "description": "Generated post track reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -6773,6 +6847,10 @@
           "pitStrategy": "reactive"
         },
         "defeatedRivalIds": [],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
         "ownedTrackConfig": {
@@ -6920,7 +6998,7 @@
     "description": "Generated maxed gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000000000,
         "repPoints": 1000000000,
@@ -10276,6 +10354,10 @@
           "rival_scrap_queen",
           "rival_dust_storm"
         ],
+        "eventWins": {},
+        "pinnedEventIds": {},
+        "revealedSystems": [],
+        "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [
           "push_mower",
           "riding_mower",
