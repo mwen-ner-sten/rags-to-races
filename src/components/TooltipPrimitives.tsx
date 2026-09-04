@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useThemeStore } from "@/hooks/useTheme";
-import { THEME_VARS } from "@/components/ThemeShell";
+import { themeStyleVars } from "@/data/themes";
 
 /* ── Section ─────────────────────────────────────────────────────────────── */
 
@@ -50,7 +50,7 @@ export function Row({
       <span
         style={{
           fontWeight: 600,
-          fontFamily: "monospace",
+          fontVariantNumeric: "tabular-nums",
           color: dim ? "var(--text-muted, #7a6040)" : color ?? "var(--text-primary, #d4b896)",
         }}
       >
@@ -75,13 +75,14 @@ export function TooltipPanel({
 
   return createPortal(
     <div
+      role="tooltip"
       style={{
-        ...THEME_VARS[theme] as React.CSSProperties,
+        ...(themeStyleVars(theme) as CSSProperties),
         position: "fixed",
         top,
         right: Math.max(8, right),
         zIndex: 9999,
-        background: "var(--panel-bg, #181008)",
+        background: "var(--modal-bg, var(--panel-bg, #181008))",
         border: "1px solid var(--panel-border, #3a2510)",
         borderRadius: 6,
         padding: "0.75rem 1rem",
@@ -91,8 +92,7 @@ export function TooltipPanel({
         color: "var(--text-primary, #d4b896)",
         fontSize: "0.72rem",
         lineHeight: 1.6,
-        fontFamily: "inherit",
-        backdropFilter: "blur(8px)",
+        fontFamily: "var(--font-body, inherit)",
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -107,35 +107,47 @@ export function TooltipPanel({
 export function HoverTooltipWrapper({
   children,
   renderTooltip,
+  block = false,
 }: {
   children: React.ReactNode;
   renderTooltip: (anchorRect: DOMRect) => React.ReactNode;
+  /** Fill the parent's width (rail rows) instead of shrink-wrapping. */
+  block?: boolean;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
-  const handleEnter = () => {
+  const show = () => {
     if (wrapperRef.current) {
       setAnchorRect(wrapperRef.current.getBoundingClientRect());
     }
-    setHovered(true);
+    setOpen(true);
   };
+  const hide = () => setOpen(false);
 
   return (
     <div
       ref={wrapperRef}
-      onMouseEnter={handleEnter}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={(e) => {
+        if (!wrapperRef.current?.contains(e.relatedTarget as Node | null)) hide();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") hide();
+      }}
       style={{
-        display: "inline-flex",
+        display: block ? "flex" : "inline-flex",
+        width: block ? "100%" : undefined,
         alignItems: "center",
         cursor: "help",
         position: "relative",
       }}
     >
       {children}
-      {hovered && anchorRect && renderTooltip(anchorRect)}
+      {open && anchorRect && renderTooltip(anchorRect)}
     </div>
   );
 }

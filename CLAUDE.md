@@ -17,8 +17,8 @@ npm test            # Vitest unit tests
 ## Breakpoints & responsive layout
 
 - **Mobile breakpoint is `640px`** (`max-width: 640px`). Check every UI change at both ≤640px and ≥641px before reporting done.
-- The app uses **two different nav components**: `DesktopSidebar` (fixed left, 200px) and `MobileNav` (fixed bottom, 56px). When you change navigation, you must update BOTH.
-- Desktop reserves left space via `.shell-content { margin-left: 200px }`. Mobile reserves bottom space via `.shell-content { padding-bottom: 56px }`. If you change nav dimensions, update these too.
+- The app uses **two different nav components**: `shell/TabBar` (desktop, horizontal under the header) and `MobileNav` (fixed bottom, 56px). When you change navigation, you must update BOTH. The desktop left rail is `resources/ResourceRail` (fixed left, 240px) and is NOT navigation.
+- Desktop reserves left space via `.shell-content { margin-left: 240px }` (the resource rail). Mobile reserves bottom space via `.shell-content { padding-bottom: 56px }`. If you change rail/nav dimensions, update these too.
 - There is a 3rd nav pattern: `MobileSubNav` used inside panels for sub-tabs. Don't confuse it with `MobileNav`.
 
 ## Fixed-position elements (the #1 source of bugs)
@@ -35,7 +35,7 @@ When you add or move any `position: fixed` element, you must answer ALL of these
 | Range | Use |
 |-------|-----|
 | 0–99 | Background decoration (scanlines, grids, ambient effects) |
-| 100–199 | DesktopSidebar (100), panel sticky headers |
+| 100–199 | ResourceRail (100), panel sticky headers |
 | 1000 | Mobile bottom nav |
 | 1001 | Mobile nav popovers |
 | 9996–9999 | Tutorial highlights and halos |
@@ -76,7 +76,9 @@ In bonus-description text inside `achievements.ts` / `upgrades.ts`, prefer the f
 
 ## Theming
 
-- There are **6 theme shells** in `ThemeShell.tsx` (one per entry in `src/data/themes.ts`), each with inline `<header>/<main>/<footer>` styles. Navigation lives in `DesktopSidebar`/`MobileNav`, not in the shells. Global CSS rules for these elements need `!important` to override the inline styles.
+- There is **one shell**: `src/components/shell/GameShell.tsx`. Its look comes entirely from `THEME_TOKENS` + `fonts` + `decoration` in `src/data/themes.ts` (one entry per theme). Shell layout lives in `globals.css` under `.game-shell`, `.shell-header`, `.tab-bar`, `.resource-rail`, `.resource-strip`; no inline `<style>` blocks and no element-selector `!important` overrides. Fonts load once via `next/font/google` in `src/app/layout.tsx` and are exposed as `--font-*` variables.
+- Shared primitives live in `src/components/ui/` (`Button`, `Panel`, `Stat`, `RateChip`); prefer them over new one-off buttons. Every theme must define `--success` (a green, not the accent) and `--warning` (an amber, not the danger colour) — `src/data/__tests__/themes.test.ts` enforces this.
+- The resource rail (`src/components/resources/`) reads `computeResourceRates` from `src/engine/rates.ts` through `useResourceRates` (throttled to once per second). Resources with `visible: false` never render.
 - Top-level tab ids/labels/icons live in `src/components/navigation/tabs.ts`. Never redeclare `TabId` or a `TABS` array locally.
 - Never hardcode colors. Use CSS variables: `var(--panel-bg)`, `var(--accent)`, `var(--text-primary)`, `var(--text-secondary)`, `var(--text-muted)`, `var(--text-white)`, `var(--text-heading)`, `var(--success)`, `var(--danger)`, `var(--panel-border)`, `var(--accent-bg)`, `var(--accent-border)`, `var(--btn-primary-bg)`, `var(--btn-primary-text)`.
 - Provide fallback colors for CSS vars on inline styles: `"var(--accent, #c83e0c)"`.

@@ -1,30 +1,40 @@
 "use client";
 
-import { useGameStore } from "@/state/store";
-import { getVisibleCurrencies, type TabId } from "@/data/currencies";
-import CurrencyDisplay from "./CurrencyDisplay";
+import type { ResourceRate } from "@/engine/rates";
+import type { TabId } from "@/components/navigation/tabs";
+import Stat from "@/components/ui/Stat";
+import { formatAmount } from "@/components/resources/formatRate";
+import { selectRelevantRates } from "@/components/resources/selectRelevant";
 
 interface Props {
   activeTab: TabId;
-  /** Font-size variant passed to each CurrencyDisplay. */
+  /** Rates from useResourceRates; the bar never talks to the store itself. */
+  rates: readonly ResourceRate[];
+  /** How many currencies to show, most relevant to `activeTab` first. */
+  limit?: number;
   size?: "sm" | "md";
-  /** Horizontal gap between currency cells. */
-  gap?: string;
 }
 
 /**
- * Context-aware currency bar. Renders only currencies relevant to the active
- * tab (per their `relevantTabs` / `showOnAllTabs` definitions) and gated by
- * their unlock conditions.
+ * Context-aware inline currency strip built from <Stat>. Picks the resources
+ * most relevant to the active tab (CurrencyDefinition.relevantTabs, then
+ * showOnAllTabs) and gated by their unlock conditions.
  */
-export default function CurrencyBar({ activeTab, size = "md", gap = "1.75rem" }: Props) {
-  const state = useGameStore((s) => s);
-  const currencies = getVisibleCurrencies(activeTab, state);
+export default function CurrencyBar({ activeTab, rates, limit = 3, size = "md" }: Props) {
+  const shown = selectRelevantRates(rates, activeTab, limit);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap }}>
-      {currencies.map((c) => (
-        <CurrencyDisplay key={c.id} currency={c} size={size} />
+    <div className="currency-bar" data-testid="currency-bar">
+      {shown.map((rate) => (
+        <Stat
+          key={rate.id}
+          className="currency-bar__item"
+          size={size}
+          label={rate.label}
+          value={`${rate.prefix ?? ""}${formatAmount(rate.amount)}`}
+          rate={rate.perSecond}
+          color={rate.color}
+        />
       ))}
     </div>
   );
