@@ -28,20 +28,26 @@ export interface CampaignRaceSimulationResult {
   finalFatigue: number;
 }
 
-const BUILD_CONFIG: Record<CampaignRaceBuild, { performance: number; reliability: number; plan: RacePlan }> = {
-  underdog: { performance: 28, reliability: 30, plan: RACE_PLAN_PRESETS.wet },
-  favored: { performance: 55, reliability: 70, plan: DEFAULT_RACE_PLAN },
-  dominant: { performance: 100, reliability: 120, plan: DEFAULT_RACE_PLAN },
+/**
+ * Archetypes are stated relative to the venue's Heat difficulty so they keep
+ * their meaning when the ladder anchor moves: an underdog at ~0.6x parity, a
+ * favoured build at ~1.2x, a dominant one at ~2.2x.
+ */
+const BUILD_CONFIG: Record<CampaignRaceBuild, { performanceRatio: number; reliability: number; plan: RacePlan }> = {
+  underdog: { performanceRatio: 0.62, reliability: 30, plan: RACE_PLAN_PRESETS.wet },
+  favored: { performanceRatio: 1.22, reliability: 70, plan: DEFAULT_RACE_PLAN },
+  dominant: { performanceRatio: 2.22, reliability: 120, plan: DEFAULT_RACE_PLAN },
 };
 
-function simulationVehicle(build: CampaignRaceBuild): BuiltVehicle {
+function simulationVehicle(build: CampaignRaceBuild, difficulty: number): BuiltVehicle {
   const config = BUILD_CONFIG[build];
+  const performance = Math.round(config.performanceRatio * difficulty);
   return {
     id: `campaign_${build}`,
     // Not a real chassis: the simulation sets stats directly and must not derive them from its (empty) parts.
     definitionId: "campaign_simulation_fixture",
     parts: {},
-    stats: { speed: config.performance, handling: config.performance, reliability: config.reliability, weight: 1_000, performance: config.performance },
+    stats: { speed: performance, handling: performance, reliability: config.reliability, weight: 1_000, performance },
     builtAt: 0,
     condition: 100,
     totalRaces: 0,
@@ -56,7 +62,7 @@ const SESSION_REST_HOURS = 6;
 export function runCampaignRaceSimulation(build: CampaignRaceBuild, seed: string, races = 100): CampaignRaceSimulationResult {
   const circuit = CIRCUIT_DEFINITIONS.find((candidate) => candidate.id === "regional_circuit")!;
   const config = BUILD_CONFIG[build];
-  const vehicle = simulationVehicle(build);
+  const vehicle = simulationVehicle(build, circuit.difficulty);
   let fatigue = 0;
   let condition = 100;
   let wins = 0;

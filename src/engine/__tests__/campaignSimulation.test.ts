@@ -82,8 +82,13 @@ describe("1,000-seed campaign simulation guardrails", () => {
   });
 
   it("keeps pacing targets ordered and decision sessions bounded", () => {
-    const layers = Object.values(CAMPAIGN_PACING_TARGETS_HOURS);
-    for (const target of layers) expect(target.min).toBeLessThan(target.max);
+    for (const target of Object.values(CAMPAIGN_PACING_TARGETS_HOURS)) expect(target.min).toBeLessThan(target.max);
+    // The Scrap layer is wall-clock time for mixed play (2-4 days); the
+    // responsibility layers are hours of play and must still stack in order.
+    expect(CAMPAIGN_PACING_TARGETS_HOURS.scrap).toEqual({ min: 48, max: 96 });
+    const { scrap: _scrap, ...playHourLayers } = CAMPAIGN_PACING_TARGETS_HOURS;
+    void _scrap;
+    const layers = Object.values(playHourLayers);
     for (let index = 1; index < layers.length; index += 1) {
       expect(layers[index].min).toBeGreaterThan(layers[index - 1].max);
     }

@@ -5,6 +5,9 @@
  * CHECK_IN_MINUTES of game time to sell junk, build the best vehicle the
  * inventory allows, repair, and point auto-race at the best eligible circuit.
  * Run with: npx tsx scripts/simulate-idle-campaign.ts [checkInMinutes]
+ *
+ * This is the game-hours probe (ticks run continuously, no offline cap). The
+ * wall-clock pacing instrument is scripts/simulate-mixed-campaign.ts.
  */
 import { CONDITIONS, getPartById } from "../src/data/parts";
 import { CIRCUIT_DEFINITIONS } from "../src/data/circuits";
@@ -30,6 +33,9 @@ function settleTick(): void {
     raceSalvageFound: result.raceSalvageFound, forgeTokensFound: result.forgeTokensFound, entryFeesPaid: result.entryFeesPaid,
     challengesEvaluated: false, completedChallengeIds: [], challengeForgeTokens: 0, challengeMaterials: {}, ticksProcessed: 1,
     repDecayed: result.repDecayed,
+    finalFatigue: result.fatigueAfterTick,
+    finalProjects: result.projects,
+    completedProjects: result.completedProjects,
   });
 }
 

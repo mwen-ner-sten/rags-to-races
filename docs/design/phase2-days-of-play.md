@@ -14,9 +14,15 @@ and Phase 1 (rates everywhere, spendable Rep).
 | Walls needing a guide | T0→T1 (×7 difficulty) | none: every next step is visible and its cost is on screen |
 
 Mixed play is the new pacing instrument: `scripts/simulate-mixed-campaign.ts`
-runs 4 sessions/day, each session = N greedy decisions (buy what's affordable,
-enter the best contestable event, start a project), then idles until the next
-session. The pacing test guard becomes **40–100 wall hours** on that model.
+(`npm run sim:mixed`) runs 4 sessions/day of up to 15 min, each session a run
+of greedy decisions through the real store (sell, spend Rep, build, swap parts,
+start a project, race until the fatigue ceiling, scavenge otherwise), then the
+app's offline catch-up until the next session. The pacing guard is
+**48–96 wall hours** (`CAMPAIGN_PACING_TARGETS_HOURS.scrap`) on that model,
+enforced by `src/engine/__tests__/mixedCampaign.test.ts`. Measured 2026-09-04:
+mixed **3.0 days**, pure idle **11 days** (the idle target above is not met;
+see `docs/balance/phase2-mixed-play-2026-09-04.md` for why and for the
+idle-only levers).
 
 ## Five levers, in build order
 
@@ -49,11 +55,13 @@ Seven circuits stay as venues. Each venue hosts three **events**:
 | Heat | 1.0 | 1.0 | 1.0 | won a Sprint here |
 | Feature | 1.4 | 1.8 | 1.6 | won a Heat here |
 
-Venue base difficulty re-curved geometrically: `9, 20, 45, 100, 220, 480, 1050`
-(×2.2 per venue; with events the ladder is 21 steps at ~×1.3). Base prizes follow
-`10, 22, 50, 110, 250, 560, 1250` (×2.25) so prize never outruns difficulty by
-more than the event multipliers. `minVehicleTier` stays per venue. Entry fees
-scale with prize at 15%.
+Venue base difficulty was specified geometrically (`9 … 1050`, ×2.2 per venue)
+and re-anchored on 2026-09-04 to the measured parity performance of each
+venue's tier-minimum build: `8, 58, 140, 230, 380, 385, 385` (a decent
+tier-minimum build wins the Heat 39–55% of the time, a pristine tier-maximum
+build 65–78%; see `docs/balance/phase2-mixed-play-2026-09-04.md`). Base prizes
+stay `10, 22, 50, 110, 250, 560, 1250` (×2.25). `minVehicleTier` stays per
+venue. Entry fees scale with prize at 15%.
 
 Rivals attach to venues as today; a rival can only be met in a Feature.
 
@@ -112,6 +120,6 @@ existing manifest.
 - Unit: fatigue model, event unlock chain, project timers online/offline parity,
   variant generation integrity (every variant id unique, stats in range).
 - Simulation: `simulate-mixed-campaign.ts` prints wall days to reset for mixed
-  and pure-idle; `calibrate-circuits.ts` extended to events; guard 40–100 h.
+  and pure-idle; `calibrate-circuits.ts` extended to events; guard 48–96 h.
 - Playwright smoke unchanged; add one e2e for "start a project, reload, timer
   persisted".

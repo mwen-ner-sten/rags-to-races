@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "fixtures:generate": "tsx scripts/generate-gameplay-fixtures.ts",
+    "sim:mixed": "tsx scripts/simulate-mixed-campaign.ts",
     "test:e2e": "npm run fixtures:generate && playwright test",
     "test:e2e:smoke": "npm run fixtures:generate && playwright test --grep @smoke",
     "test:e2e:full": "cross-env PLAYWRIGHT_FULL_MATRIX=1 npm run test:e2e",

@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { calculateStats, expectedLoadedWeight, RELIABILITY_CONDITION_FLOOR, type BuiltVehicle, type InstalledPart } from "../build";
 import { getVehicleById } from "@/data/vehicles";
 import { getPartById, type PartCondition } from "@/data/parts";
+import { isVariantPartId } from "@/data/partVariants";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
-import { getCircuitPerformance } from "../race";
+import { getCircuitPerformance, winChanceFromRatio } from "../race";
 import { buildEngineeringReport, diagnoseFocus } from "../engineeringDiagnostics";
 import type { RaceOutcome } from "../race";
 
@@ -61,27 +62,46 @@ describe("vehicle stat model", () => {
   });
 
   /**
-   * Phase 2 ladder guard. The venue difficulties are the spec's geometric
-   * ladder (9 … 1050, x2.2 per venue) rather than per-venue parity fits, so
-   * this checks the ladder's shape and that no Heat is ever hopeless for a
-   * decent tier-minimum build. Per-event contest levels are printed by
-   * scripts/calibrate-circuits.ts and recorded in docs/balance.
+   * Phase 2 ladder guard (anchor retuned 2026-09-04). Every venue's Heat is a
+   * contest for a decent tier-minimum build (35-55% win) and a strong but not
+   * safe bet for a pristine tier-maximum build (65-80%). The Backyard Derby
+   * is the tutorial venue: its ceiling build is the Riding Mower, which runs
+   * into the 85% cap, so only its floor is guarded. Per-event numbers are
+   * printed by scripts/calibrate-circuits.ts and recorded in docs/balance.
    */
-  it("keeps the venue ladder geometric and every Heat reachable for a decent tier-minimum build", () => {
+  it("keeps every Heat a contest for a decent tier-minimum build and beatable-but-not-safe for a pristine tier-maximum build", () => {
+    const byTier = ["push_mower", "riding_mower", "go_kart", "beater_car", "street_racer", "rally_car", "stock_car", "prototype_racer", "supercar", "hypercar", "prototype_x"];
+    // Same builds as scripts/calibrate-circuits.ts: base parts only (the
+    // Light / Sturdy siblings are the tradeoff around these numbers), the
+    // lightest per required slot for the floor, the strongest per slot for the ceiling.
+    const baseParts = (ids: readonly string[]) => ids.filter((id) => !isVariantPartId(id)).map((id) => getPartById(id)!);
+    const floorOf = (vehicleId: string, circuit: (typeof CIRCUIT_DEFINITIONS)[number]) => {
+      const vehicle = getVehicleById(vehicleId)!;
+      const parts = Object.fromEntries(vehicle.slots.filter((s) => s.required).map((s) => {
+        const lightest = baseParts(s.acceptableParts).reduce((a, b) => (b.baseWeight < a.baseWeight ? b : a));
+        return installed(s.slot, lightest.id, "decent");
+      }));
+      return getCircuitPerformance(calculateStats(vehicle, parts), circuit) / circuit.difficulty;
+    };
+    const ceilOf = (vehicleId: string, circuit: (typeof CIRCUIT_DEFINITIONS)[number]) => {
+      const vehicle = getVehicleById(vehicleId)!;
+      const parts = Object.fromEntries(vehicle.slots.map((s) => {
+        const best = baseParts(s.acceptableParts).reduce((a, b) => (b.basePower + b.baseHandling + b.baseReliability > a.basePower + a.baseHandling + a.baseReliability ? b : a));
+        return installed(s.slot, best.id, "pristine");
+      }));
+      return getCircuitPerformance(calculateStats(vehicle, parts), circuit) / circuit.difficulty;
+    };
     for (let index = 1; index < CIRCUIT_DEFINITIONS.length; index++) {
-      const step = CIRCUIT_DEFINITIONS[index].difficulty / CIRCUIT_DEFINITIONS[index - 1].difficulty;
-      expect(step, CIRCUIT_DEFINITIONS[index].id).toBeGreaterThanOrEqual(2);
-      expect(step, CIRCUIT_DEFINITIONS[index].id).toBeLessThanOrEqual(2.5);
+      expect(CIRCUIT_DEFINITIONS[index].difficulty, CIRCUIT_DEFINITIONS[index].id).toBeGreaterThanOrEqual(CIRCUIT_DEFINITIONS[index - 1].difficulty);
     }
     for (const circuit of CIRCUIT_DEFINITIONS) {
-      const minVehicle = getVehicleById(
-        ["push_mower", "riding_mower", "go_kart", "beater_car", "street_racer", "rally_car", "stock_car", "prototype_racer", "supercar", "hypercar", "prototype_x"][circuit.minVehicleTier],
-      )!;
-      const parts = Object.fromEntries(
-        minVehicle.slots.filter((s) => s.required).map((s) => installed(s.slot, s.acceptableParts[0], "decent")),
-      );
-      const floor = getCircuitPerformance(calculateStats(minVehicle, parts), circuit) / circuit.difficulty;
-      expect(floor, circuit.id).toBeGreaterThan(0.35);
+      const floor = winChanceFromRatio(floorOf(byTier[circuit.minVehicleTier], circuit));
+      expect(floor, `${circuit.id} floor`).toBeGreaterThanOrEqual(0.35);
+      expect(floor, `${circuit.id} floor`).toBeLessThanOrEqual(0.55);
+      if (circuit.id === "backyard_derby") continue;
+      const ceil = winChanceFromRatio(ceilOf(byTier[circuit.maxVehicleTier], circuit));
+      expect(ceil, `${circuit.id} ceiling`).toBeGreaterThanOrEqual(0.65);
+      expect(ceil, `${circuit.id} ceiling`).toBeLessThanOrEqual(0.80);
     }
   });
 });

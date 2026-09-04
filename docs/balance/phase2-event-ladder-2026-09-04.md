@@ -48,6 +48,10 @@ Dirt Feature 14, Backyard Feature 10); the National Feature was won first time.
 
 ## Contest calibration (`scripts/calibrate-circuits.ts`)
 
+> Superseded the same day: the anchor was retuned and the mixed-play
+> instrument built in `phase2-mixed-play-2026-09-04.md`. The table below is
+> the pre-retune measurement that motivated it.
+
 Win chance for a decent tier-minimum build (floor) and a pristine tier-max build
 (ceiling), per event:
 
