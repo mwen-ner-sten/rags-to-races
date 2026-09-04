@@ -443,12 +443,12 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // Collect tab buttons from ALL navs (sidebar nav + content nav + mobile nav)
     const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
     const allNavs = document.querySelectorAll("nav");
-    const allSidebarBtns = document.querySelectorAll(".desktop-sidebar button");
+    const allSidebarBtns = document.querySelectorAll(".tab-bar button");
     const navButtons: HTMLButtonElement[] = [];
     allNavs.forEach((nav) => {
       navButtons.push(...(Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[]));
     });
-    // Also include sidebar buttons (sidebar uses <aside> not <nav> wrapper at top level)
+    // Also include tab bar buttons explicitly in case the bar is rendered outside a <nav>
     allSidebarBtns.forEach((btn) => {
       if (!navButtons.includes(btn as HTMLButtonElement)) navButtons.push(btn as HTMLButtonElement);
     });

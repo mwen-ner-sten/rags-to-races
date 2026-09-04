@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import ThemeShell from "@/components/ThemeShell";
+import GameShell from "@/components/shell/GameShell";
 import ScavengePanel from "@/components/Junkyard/ScavengePanel";
 import GaragePanel from "@/components/Garage/GaragePanel";
 import RacePanel from "@/components/RaceTrack/RacePanel";
@@ -209,7 +209,7 @@ export default function Home() {
           onDismiss={() => setOfflineResult(null)}
         />
       )}
-      <ThemeShell activeTab={displayedTab} setActiveTab={guardedSetActiveTab}>
+      <GameShell activeTab={displayedTab} setActiveTab={guardedSetActiveTab}>
         <TutorialOverlay activeTab={displayedTab} />
         {displayedTab === "junkyard" && <ScavengePanel />}
         {displayedTab === "garage"   && <GaragePanel />}
@@ -222,7 +222,7 @@ export default function Home() {
         {SHOW_DEV_TAB && displayedTab === "dev" && (
           <AdminPanel onFullSaveReset={() => setActiveTab("junkyard")} />
         )}
-      </ThemeShell>
+      </GameShell>
     </>
   );
 }
