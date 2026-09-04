@@ -5,7 +5,7 @@
     "description": "Generated fresh gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -58,6 +58,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -181,7 +183,7 @@
     "description": "Generated first build ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 25,
         "repPoints": 8,
@@ -256,6 +258,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -394,7 +398,7 @@
     "description": "Generated first race ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100,
         "repPoints": 25,
@@ -499,6 +503,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -624,7 +630,7 @@
     "description": "Generated workshop ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000000,
         "repPoints": 250000,
@@ -1883,6 +1889,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -2085,7 +2093,7 @@
     "description": "Generated auto scavenge boundary gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000,
         "repPoints": 0,
@@ -2175,6 +2183,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -2326,7 +2336,7 @@
     "description": "Generated first scrap reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000,
         "repPoints": 500,
@@ -2691,6 +2701,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -2894,7 +2906,7 @@
     "description": "Generated post scrap reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -2951,6 +2963,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -3081,7 +3095,7 @@
     "description": "Generated team reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -4006,6 +4020,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -4193,7 +4209,7 @@
     "description": "Generated post team reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -4246,6 +4262,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -4376,7 +4394,7 @@
     "description": "Generated owner reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -5301,6 +5319,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -5465,7 +5485,7 @@
     "description": "Generated post owner reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -5518,6 +5538,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -5648,7 +5670,7 @@
     "description": "Generated track reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 100000,
         "repPoints": 10000,
@@ -6573,6 +6595,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",
@@ -6737,7 +6761,7 @@
     "description": "Generated post track reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 0,
         "repPoints": 0,
@@ -6790,6 +6814,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside"
@@ -6920,7 +6946,7 @@
     "description": "Generated maxed gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 5,
+      "version": 6,
       "state": {
         "scrapBucks": 1000000000,
         "repPoints": 1000000000,
@@ -10305,6 +10331,8 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceMaxFatigue": 70,
+        "projects": [],
         "raceTickProgress": 0,
         "unlockedLocationIds": [
           "curbside",

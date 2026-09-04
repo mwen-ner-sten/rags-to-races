@@ -49,7 +49,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
   { step: "Enter Race", description: "Hit Enter Race to compete. The first race uses the same displayed odds and simulation as every later race." },
   { step: "Race result", description: "Every result earns Rep. Wins and stronger finishes earn Scrap Bucks; a low finish can pay no prize money." },
   { step: "Repair", description: "Racing wears out your vehicle. Repair it in the Garage to keep condition up; the first guided repair is free." },
-  { step: "Upgrade your run", description: "Open Workshop > Facilities and buy a run upgrade such as Keen Eye or Budget Repairs." },
+  { step: "Upgrade your run", description: "Open Workshop > Facilities and buy a run upgrade such as Keen Eye or Budget Repairs. Purchases are projects: they pay now and finish on a timer (5 minutes for a free line, longer for Rep-priced ones) that keeps running while you are away." },
   { step: "Explore the Workshop", description: "Review Inventory, Fabrication, Add-ons, Dealer, Stations, Philosophy, Skills, and Facilities." },
   { step: "Build an early runway", description: "Reach $500 lifetime Scrap Bucks and 100 lifetime Rep by racing, scavenging, and selling spare parts. Spend Rep as you go to open new locations and circuits — spending never lowers lifetime Rep." },
   { step: "Expand the garage", description: `Keep ${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} built vehicles in your Garage at the same time.` },
@@ -64,7 +64,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, facilities, and station equipment." },
   { term: "Rep", meaning: "Reputation from races. Spend it to open locations, circuits, vehicle blueprints, and Rep-gated workshop lines. The balance decays slowly (half-life three days) toward your legacy floor; lifetime Rep never falls and gates the Dealer, momentum, and the Scrap Reset." },
   { term: "Junk Filter", meaning: "Rusted finds are sold automatically from the first tick. The Prestige 2 milestone lets your Sell Below Quality setting decide what counts as junk." },
-  { term: "Fatigue", meaning: "Follows a diminishing race-count curve (0–99). Costs -0.5% performance, +0.8% wear, and +1% repair cost per point. Resets on Scrap Reset." },
+  { term: "Fatigue", meaning: "A daily rhythm (0–99): every race adds 4 + circuit tier, and rest removes 12 per hour of real time whether the tab is open or not. Costs -0.5% performance, +0.8% wear, and +1% repair cost per point. Auto-race rests above your fatigue ceiling. Resets on Scrap Reset." },
   { term: "Condition", meaning: `Part quality from ${CONDITIONS[0]} (worst) to ${CONDITIONS[CONDITIONS.length - 1]} (best). Higher = more power and sale value.` },
   { term: "Prestige (Scrap Reset)", meaning: "Voluntary reset that wipes run currency, parts, and vehicles but awards Legacy Points. Station equipment, discoveries, and legacy upgrades persist." },
   { term: "Legacy Points (LP)", meaning: "Earned on Scrap Reset based on run stats. Spent on permanent upgrades and Garage Philosophy nodes." },
@@ -115,7 +115,7 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "How does fatigue work?",
-    answer: "Fatigue follows floor(25 × log2(1 + effective races / 100)), capped at 99; it does not rise by one every race. Each point: -0.5% race performance, +0.8% vehicle wear, +1% repair cost. It resets to 0 on Scrap Reset, and Iron Will subtracts races before the curve is evaluated. Momentum bonuses reward pushing through fatigue — Deep Run (+50% LP at 60 fatigue) and Legendary Run (+100% LP at 80).",
+    answer: "Every race adds 4 fatigue plus the circuit tier (tier 0 adds 4, tier 6 adds 10), capped at 99. Rest removes 12 per hour of real time — online or offline — so a fully tired driver is fresh in about eight hours. Each point: -0.5% race performance, +0.8% vehicle wear, +1% repair cost. Auto-race pauses above the fatigue ceiling you set on the Race tab (default 70) and resumes once you have rested below it. Fatigue Drinks take 10 off at once; Iron Will and the Endurance skill speed up recovery; station gear, momentum, and philosophy reduce the gain per race. It resets to 0 on Scrap Reset. Momentum bonuses reward pushing through fatigue — Deep Run (+50% LP at 60 fatigue) and Legendary Run (+100% LP at 80).",
   },
   {
     question: "Should I sell or decompose parts?",
@@ -185,7 +185,7 @@ export const HELP_STRATEGY: StrategyCard[] = [
     title: "Legacy upgrade priority",
     advice: [
       "Tier 1: Scrap Magnate (+20% race prize Scrap/level) and Street Cred (+15% race Rep/level) — best early ROI.",
-      "Tier 2: Iron Will (delays fatigue curve by 5 races/level) — lets you push deeper runs.",
+      "Tier 2: Iron Will (fatigue recovers 10% faster per level) — lets you race more per session.",
       "Tier 3: Seed Money (start with extra scrap) and Born Lucky (+2% luck/level).",
       "Late: Blueprint Memory keeps workshop upgrades, while Old Haunts skips early locations and circuits.",
     ],

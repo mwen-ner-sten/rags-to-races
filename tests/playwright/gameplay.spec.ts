@@ -1200,6 +1200,66 @@ test("mobile Workshop dropdown follows a persisted non-default theme", async ({ 
   await expect(page.getByTestId("mobile-sub-nav-menu")).toHaveCSS("background-color", "rgb(14, 10, 6)");
 });
 
+test("@smoke starting a workshop project persists its timer across a reload", async ({ page }) => {
+  await loadFixture(page, "workshop_ready", { workshopLevels: {}, projects: [] });
+  await openTab(page, "gear");
+  await workshopTab(page, "Facilities");
+
+  const queue = page.getByTestId("project-queue");
+  await expect(queue).toBeVisible();
+  await expect(page.getByTestId("project-queue-slots")).toHaveText(/0 \/ 1 slots/);
+
+  const before = await persistedState(page);
+  await page.getByTestId("workshop-line-keen_eye").getByRole("button").click();
+  await expect(page.getByTestId("workshop-line-progress-keen_eye")).toContainText("In progress");
+  await expect(page.getByTestId("project-item")).toHaveCount(1);
+  const started = await persistedState(page);
+  const projects = started.projects as { upgradeId: string; durationMs: number; elapsedMs: number }[];
+  expect(projects).toHaveLength(1);
+  expect(projects[0].upgradeId).toBe("keen_eye");
+  expect(projects[0].durationMs).toBe(300_000);
+  expect(started.scrapBucks).toBeLessThan(before.scrapBucks as number);
+  expect((started.workshopLevels as Record<string, number>).keen_eye ?? 0).toBe(0);
+
+  await page.reload();
+  await expect(page).toHaveTitle("Rags to Races");
+  await openTab(page, "gear");
+  await workshopTab(page, "Facilities");
+  await expect(page.getByTestId("project-item")).toHaveCount(1);
+  await expect(page.getByTestId("project-remaining")).toContainText(/left|next tick/);
+  await expect(page.getByTestId("workshop-line-progress-keen_eye")).toContainText("In progress");
+  const reloaded = await persistedState(page);
+  const persisted = reloaded.projects as { upgradeId: string; durationMs: number; elapsedMs: number }[];
+  expect(persisted).toHaveLength(1);
+  expect(persisted[0].durationMs).toBe(300_000);
+  expect(persisted[0].elapsedMs).toBeGreaterThanOrEqual(projects[0].elapsedMs);
+  expect(persisted[0].elapsedMs).toBeLessThan(300_000);
+});
+
+test("@smoke system reveal card fits a 390px viewport", async ({ page }) => {
+  // This test measures the guide card itself, so the auto-acknowledge handler must stay out of the way.
+  await page.removeLocatorHandler(page.getByRole("button", { name: "Okay, got it" }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  // Every first-time system guide (Workshop reveals, challenges, station drops)
+  // renders through the same card; the first decompose is the cheapest trigger.
+  await loadFixture(page, "workshop_ready", { tutorialStep: -1, tutorialDismissed: true, completedChallenges: [] });
+  await openTab(page, "gear");
+  await page.getByRole("button", { name: "Decompose", exact: true }).first().click();
+  const dialog = page.getByRole("dialog", { name: /Challenges explained/ });
+  await expect(dialog).toBeVisible();
+  const card = dialog.locator("section");
+  const box = await card.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  const okButton = dialog.getByRole("button", { name: "Okay, got it" });
+  const okBox = await okButton.boundingBox();
+  expect(okBox!.x + okBox!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await okButton.click();
+  await expect(dialog).toBeHidden();
+});
+
 test("@smoke default semantic text palette preserves readable contrast", async ({ page }) => {
   await loadFixture(page, "workshop_ready");
   const ratios = await page.evaluate(() => {

@@ -138,6 +138,8 @@ export default function Home() {
               newAchievementIds: r.newAchievementIds,
               stationEquipmentAutoSalvaged: r.stationEquipmentAutoSalvaged,
               reforgeShardsFound: r.reforgeShardsFound,
+              finalProjects: r.finalProjects,
+              completedProjects: r.completedProjects,
             },
         );
         if (hasOfflineProgress) {
@@ -190,6 +192,9 @@ export default function Home() {
               challengeMaterials: {},
               ticksProcessed: 1,
               repDecayed: result.repDecayed,
+              finalFatigue: result.fatigueAfterTick,
+              finalProjects: result.projects,
+              completedProjects: result.completedProjects,
             },
         );
       }

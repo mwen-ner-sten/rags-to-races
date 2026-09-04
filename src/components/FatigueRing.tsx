@@ -15,7 +15,8 @@ function fatigueColor(fatigue: number): string {
 }
 
 export default function FatigueRing() {
-  const fatigue = useGameStore((s) => s.fatigue);
+  // Fatigue recovers in fractions per tick; the ring shows whole points.
+  const fatigue = useGameStore((s) => Math.round(s.fatigue));
   const progress = Math.min(1, fatigue / 99);
   const color = fatigueColor(fatigue);
   // Single-expression label: avoids hydration mismatch in SVG <title>, where

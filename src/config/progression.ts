@@ -157,3 +157,47 @@ export function canScrapReset(progress: ScrapResetProgress): boolean {
 export function scrapResetRequirementText(): string {
   return `${SCRAP_RESET_REQUIREMENTS.vehiclesBuilt} vehicles built, ${SCRAP_RESET_REQUIREMENTS.reputation.toLocaleString()} Rep, $${SCRAP_RESET_REQUIREMENTS.lifetimeScrapBucks.toLocaleString()} lifetime Scrap Bucks`;
 }
+
+/**
+ * Fatigue is a daily rhythm (Phase 2, lever 1): every race adds a fixed
+ * amount, and wall-clock time takes it away again at a steady rate whether
+ * the tab is open or not. A maxed driver is fresh again in ~8 hours.
+ */
+export const FATIGUE = {
+  /** Ceiling of the fatigue resource. */
+  MAX: 99,
+  /** Fatigue added per race at circuit tier 0; each tier adds one more. */
+  PER_RACE_BASE: 4,
+  /** Base recovery, applied per tick from the tick's wall-clock length. */
+  RECOVERY_PER_HOUR: 12,
+  /**
+   * Auto-race skips entries while fatigue is above this so idle play races
+   * until tired, then rests. Player-adjustable.
+   */
+  AUTO_RACE_MAX_DEFAULT: 70,
+  AUTO_RACE_MAX_OPTIONS: [40, 55, 70, 85, 99],
+} as const;
+
+/** Fatigue one race at `circuitTier` adds before any rate modifier. */
+export function fatiguePerRace(circuitTier: number): number {
+  return FATIGUE.PER_RACE_BASE + Math.max(0, Math.floor(circuitTier));
+}
+
+/**
+ * Workshop projects (Phase 2, lever 3): buying a line starts a timer instead
+ * of completing instantly. Duration is BASE_SECONDS x TIER_GROWTH^tier, so a
+ * tier-6 line takes ~8 hours; projects continue offline at the same rate.
+ */
+export const PROJECTS = {
+  BASE_SECONDS: 300,
+  TIER_GROWTH: 1.9,
+  /** Slots every garage starts with. */
+  BASE_SLOTS: 1,
+  /** Share of the paid cost returned when a project is cancelled. */
+  CANCEL_REFUND_SHARE: 0.5,
+} as const;
+
+/** Seconds a project at `tier` takes before mechanic-skill reduction. */
+export function projectDurationSeconds(tier: number): number {
+  return PROJECTS.BASE_SECONDS * Math.pow(PROJECTS.TIER_GROWTH, Math.max(0, Math.floor(tier)));
+}

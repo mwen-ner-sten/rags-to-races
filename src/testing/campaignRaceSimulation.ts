@@ -2,7 +2,7 @@ import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, DEFAULT_RACE_PLAN, type RacePlan } from "@/data/raceStrategy";
 import type { BuiltVehicle } from "@/engine/build";
 import { calculateOdds, calculateWear, getCircuitPerformance, simulateRace } from "@/engine/race";
-import { calculateFatigue } from "@/state/store";
+import { FATIGUE, fatiguePerRace } from "@/config/progression";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
 
 export type CampaignRaceBuild = "underdog" | "favored" | "dominant";
@@ -48,6 +48,11 @@ function simulationVehicle(build: CampaignRaceBuild): BuiltVehicle {
   };
 }
 
+/** Mixed-play session shape from the Phase 2 charter: ~15 min check-ins, four a day. */
+const SESSION_RACES = 15;
+const MINUTES_BETWEEN_RACES = 1;
+const SESSION_REST_HOURS = 6;
+
 export function runCampaignRaceSimulation(build: CampaignRaceBuild, seed: string, races = 100): CampaignRaceSimulationResult {
   const circuit = CIRCUIT_DEFINITIONS.find((candidate) => candidate.id === "regional_circuit")!;
   const config = BUILD_CONFIG[build];
@@ -91,7 +96,13 @@ export function runCampaignRaceSimulation(build: CampaignRaceBuild, seed: string
         condition = 100;
         repairs += 1;
       }
-      fatigue = calculateFatigue(index + 1);
+      // Fatigue rhythm (engine/fatigue): each race adds its tier's amount;
+      // the campaign is played as check-in sessions of SESSION_RACES races a
+      // minute apart, with SESSION_REST_HOURS of real time between sessions.
+      fatigue = Math.min(FATIGUE.MAX, fatigue + fatiguePerRace(circuit.tier));
+      const sessionOver = (index + 1) % SESSION_RACES === 0;
+      const restHours = sessionOver ? SESSION_REST_HOURS : MINUTES_BETWEEN_RACES / 60;
+      fatigue = Math.max(0, fatigue - FATIGUE.RECOVERY_PER_HOUR * restHours);
     }
   });
 

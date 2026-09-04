@@ -1,5 +1,7 @@
 import type { GameState } from "@/state/store";
-import { _getUpgradeEffectValue, _grantXp, addRewardMaterials, calculateChallengeRewardBundle, calculateFatigue, checkChallenges, getCrewXpMultiplier, getSellValueBonus, grantTraderSaleXp } from "@/state/store";
+import { _getUpgradeEffectValue, _grantXp, addRewardMaterials, calculateChallengeRewardBundle, checkChallenges, getCrewXpMultiplier, getSellValueBonus, grantTraderSaleXp } from "@/state/store";
+import { fatigueAfterTick, isTooTiredToAutoRace } from "./fatigue";
+import { advanceProjects, applyCompletedProjects, type Project } from "./projects";
 import { scavenge } from "./scavenge";
 import type { ScavengedPart } from "./scavenge";
 import { getGearBonuses } from "./gear";
@@ -67,6 +69,12 @@ export interface TickResult {
   modDrops: InstalledMod[];
   /** Updated race tick progress (0 = just fired, or incremented counter). */
   newRaceTickProgress: number;
+  /** Fatigue after this tick's rest and any race that fired (engine/fatigue). */
+  fatigueAfterTick: number;
+  /** Projects still running after this tick's wall-clock length was credited. */
+  projects: Project[];
+  /** Projects that finished on this tick; the store applies their effects. */
+  completedProjects: Project[];
 }
 
 const MS_PER_SECOND = 1_000;
@@ -120,13 +128,14 @@ function autoRepairAmount(state: GameState, vehicleCondition: number): number {
 
 /**
  * Whether an auto-race would fire for the active vehicle right now: the
- * shared eligibility gate plus the condition floor after any auto-repair.
+ * shared eligibility gate, the condition floor after any auto-repair, and
+ * the fatigue ceiling (auto-race rests while the driver is above it).
  * computeTick and the HUD idle rates share this so they never disagree.
  */
 export function autoRaceWouldFire(state: GameState): boolean {
   if (!state.autoRaceUnlocked || !state.activeVehicleId || !state.selectedCircuitId) return false;
   const vehicle = state.garage.find((candidate) => candidate.id === state.activeVehicleId);
-  if (!vehicle || !canEnterSelectedRace(state)) return false;
+  if (!vehicle || !canEnterSelectedRace(state) || isTooTiredToAutoRace(state)) return false;
   const condition = vehicle.condition ?? 100;
   return condition + autoRepairAmount(state, condition) >= (state.autoRaceMinCondition ?? 0);
 }
@@ -192,7 +201,11 @@ export function computeTick(state: GameState): TickResult {
     lootGearDrops: [],
     modDrops: [],
     newRaceTickProgress: state.raceTickProgress,
+    fatigueAfterTick: state.fatigue ?? 0,
+    projects: state.projects ?? [],
+    completedProjects: [],
   };
+  const tickMs = computeTickSpeedMs(state);
 
   const gearBonuses = getGearBonuses(
     state.equippedLootGear,
@@ -280,9 +293,11 @@ export function computeTick(state: GameState): TickResult {
         // Unattended racing pauses on a damaged car rather than grinding it to nothing.
         const conditionAfterRepair = vehicleCondition + result.vehicleRepairAmount;
         const conditionFloorMet = conditionAfterRepair >= (state.autoRaceMinCondition ?? 0);
+        // ...and rests while the driver is above the fatigue ceiling.
+        const restedEnough = !isTooTiredToAutoRace(state);
 
         // Manual and automated races share the same authoritative gate.
-        if (conditionFloorMet && canEnterSelectedRace(state)) {
+        if (conditionFloorMet && restedEnough && canEnterSelectedRace(state)) {
           result.newRaceTickProgress = 0;
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
@@ -352,6 +367,15 @@ export function computeTick(state: GameState): TickResult {
     }
   }
 
+  // Fatigue rests for the tick's wall-clock length, then takes the race that fired.
+  const racedTier = result.raceOutcome ? (getCircuitById(result.raceOutcome.circuitId)?.tier ?? 1) : (getCircuitById(state.selectedCircuitId)?.tier ?? 1);
+  result.fatigueAfterTick = fatigueAfterTick(state, state.fatigue ?? 0, tickMs, result.raceOutcome ? 1 : 0, racedTier);
+
+  // Projects are credited the same wall-clock length; the ones that pass their end complete now.
+  const advanced = advanceProjects(state.projects ?? [], tickMs);
+  result.projects = advanced.running;
+  result.completedProjects = advanced.completed;
+
   return result;
 }
 
@@ -409,6 +433,10 @@ export interface OfflineResult {
   finalActiveMomentumTiers: string[];
   newAchievementIds: string[];
   ticksProcessed: number;
+  /** Projects still running after the replay. */
+  finalProjects: Project[];
+  /** Projects that finished during the replay, in completion order. */
+  completedProjects: Project[];
 }
 
 /**
@@ -463,6 +491,8 @@ export function simulateOfflineTicks(
     finalActiveMomentumTiers: initialState.activeMomentumTiers,
     newAchievementIds: [],
     ticksProcessed: 0,
+    finalProjects: initialState.projects ?? [],
+    completedProjects: [],
   };
 
   if (maxTicks <= 0) return result;
@@ -477,6 +507,7 @@ export function simulateOfflineTicks(
     challengeProgress: initialState.challengeProgress ?? {},
     materials: initialState.materials ?? ({} as GameState["materials"]),
     defeatedRivalIds: initialState.defeatedRivalIds ?? [],
+    projects: initialState.projects ?? [],
   };
   const offlinePartCapacity = Math.max(0, OFFLINE_LOOSE_INVENTORY_LIMIT - initialState.inventory.length);
   const stationEquipmentCapacity = Math.max(
@@ -615,18 +646,24 @@ export function simulateOfflineTicks(
       snap.lifetimeWinsAllTime = (snap.lifetimeWinsAllTime ?? 0) + (r.raceOutcome!.result === "win" ? 1 : 0);
       snap.bestWinStreakAllTime = Math.max(snap.bestWinStreakAllTime ?? 0, snap.bestWinStreak);
       snap.lifetimeTotalRaceSalvage = (snap.lifetimeTotalRaceSalvage ?? 0) + r.raceSalvageFound;
-      const circuitTier = getCircuitById(r.raceOutcome!.circuitId)?.tier ?? 1;
-      const enduranceFatigueOffset = getSkillBonuses(tickState.racerSkills, circuitTier).enduranceFatigueOffset;
-      const fatigueOffset = getLegacyEffectValue(snap.legacyUpgradeLevels, "leg_fatigue_offset") + enduranceFatigueOffset;
-      const gearBonuses = getGearBonuses(snap.equippedLootGear, snap.lootGearInventory, snap.equippedStationEquipment, snap.stationEquipmentInventory);
-      const rawFatigue = calculateFatigue(snap.lifetimeRaces, fatigueOffset);
-      const ownerReduction = getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, snap.ownerUpgradeLevels, "fatigue_rate_reduction");
-      const momentumReduction = getMomentumEffectValue(snap.activeMomentumTiers, "fatigue_reduction");
-      const permanentFatigueReduction = getPermanentRuntimeBonuses(snap).fatigueReduction;
-      const fatigueCap = Math.max(0, 99 - getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, snap.teamUpgradeLevels, "fatigue_cap_reduction"));
-      snap.fatigue = Math.min(fatigueCap, Math.floor(rawFatigue * Math.max(0, 1 - gearBonuses.fatigue_rate_reduction - ownerReduction - momentumReduction - permanentFatigueReduction)));
+    }
+    // Fatigue rests every tick and rises with the race that fired (engine/fatigue).
+    snap.fatigue = r.fatigueAfterTick;
+    if (raced) {
       if (snap.fatigue >= 60) snap.racerSkills = _grantXp(snap.racerSkills, "endurance", 10);
       else if (snap.fatigue >= 40) snap.racerSkills = _grantXp(snap.racerSkills, "endurance", 5);
+    }
+
+    // Projects: completed lines raise workshop levels for the rest of the
+    // replay; the store applies every completion (levels, parts, counters)
+    // once from result.completedProjects.
+    snap.projects = r.projects;
+    if (r.completedProjects.length > 0) {
+      result.completedProjects.push(...r.completedProjects);
+      snap.workshopLevels = applyCompletedProjects(
+        { workshopLevels: snap.workshopLevels, inventory: [], lifetimeTotalEnhanced: 0, highestConditionReached: 0 },
+        r.completedProjects,
+      ).workshopLevels;
     }
 
     const wonCircuitIds = [...new Set(snap.raceHistory.filter((outcome) => outcome.result === "win").map((outcome) => outcome.circuitId))];
@@ -719,6 +756,7 @@ export function simulateOfflineTicks(
   }
 
   result.finalFatigue = snap.fatigue;
+  result.finalProjects = snap.projects;
   result.finalRepPoints = snap.repPoints;
   result.finalVehicleCondition = snap.garage.find((vehicle) => vehicle.id === snap.activeVehicleId)?.condition ?? null;
   result.finalRacerSkills = snap.racerSkills;
