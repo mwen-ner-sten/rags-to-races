@@ -58,6 +58,26 @@ async function persistedState(page: Page) {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key)!).state as Record<string, unknown>, fixtures.fresh.storageKey);
 }
 
+type PersistedLogEntry = { id: number; category: string; message: string; scrapDelta?: number };
+
+/** Activity-log entries appended after the `before` snapshot was taken. */
+function logEntriesSince(after: Record<string, unknown>, before: Record<string, unknown>): PersistedLogEntry[] {
+  const firstNewId = before._logIdCounter as number;
+  return (after.activityLog as PersistedLogEntry[]).filter((entry) => entry.id >= firstNewId);
+}
+
+/**
+ * Scrap Bucks earned by tick-one auto-sell since `before`. Every save sells
+ * rusted finds the instant they are scavenged (manual clicks included), and
+ * each sale is logged with its `scrapDelta`, so tests that click Scavenge!
+ * must read the found part from the log rather than from inventory length.
+ */
+function autoSoldScrapSince(after: Record<string, unknown>, before: Record<string, unknown>): number {
+  return logEntriesSince(after, before)
+    .filter((entry) => entry.category === "sell" && entry.message.startsWith("Auto-sold "))
+    .reduce((sum, entry) => sum + (entry.scrapDelta ?? 0), 0);
+}
+
 async function persistedNumber(page: Page, field: string) {
   return (await persistedState(page))[field] as number;
 }
@@ -262,7 +282,17 @@ test("@smoke Auto-Scavenge is on from the start and manual scavenging adds on to
   await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe(100);
   const after = await persistedState(page);
   expect(after.autoScavengeUnlocked).toBe(true);
-  expect((after.inventory as unknown[]).length).toBeGreaterThanOrEqual((before.inventory as unknown[]).length + 1);
+  // Curbside rolls rusted most of the time, and tick-one auto-sell turns a rusted
+  // find into Scrap Bucks before it ever reaches inventory. The manual click still
+  // adds on top: it is counted in lifetime parts and appears in the activity log,
+  // either as a kept part (inventory grows) or as an auto-sold part (log + money).
+  expect(after.lifetimePartsScavengedAllTime as number).toBeGreaterThanOrEqual((before.lifetimePartsScavengedAllTime as number) + 1);
+  const newEntries = logEntriesSince(after, before);
+  expect(newEntries.some((entry) => /^Scavenged \d+ parts? at Curbside Trash/.test(entry.message))).toBe(true);
+  const keptParts = (after.inventory as unknown[]).length - (before.inventory as unknown[]).length;
+  const autoSoldScrap = autoSoldScrapSince(after, before);
+  expect(keptParts >= 1 || autoSoldScrap >= 1).toBe(true);
+  expect(after.scrapBucks as number).toBeGreaterThanOrEqual((before.scrapBucks as number) + autoSoldScrap);
   await expect(page.getByText(/for Auto$/)).toHaveCount(0);
 });
 
@@ -531,8 +561,11 @@ test("@smoke reloading a paid race refunds its escrow exactly once without inven
   // Hydration reconciles the interrupted escrow in memory. A normal action
   // persists that reconciled snapshot so the exact refund can be inspected.
   await page.getByRole("button", { name: "Scavenge!" }).click();
+  await expect.poll(async () => (await persistedState(page)).manualScavengeClicks).toBe((before.manualScavengeClicks as number) + 1);
   const recovered = await persistedState(page);
-  expect(recovered.scrapBucks).toBe(before.scrapBucks);
+  // The click may also auto-sell a rusted find on the spot; back that logged
+  // income out so only the escrow refund is inspected.
+  expect((recovered.scrapBucks as number) - autoSoldScrapSince(recovered, before)).toBe(before.scrapBucks);
   expect((recovered.raceHistory as unknown[]).length).toBe((before.raceHistory as unknown[]).length);
   await openTab(page, "race");
   await expect(page.getByRole("button", { name: "Enter Race" })).toBeEnabled();
