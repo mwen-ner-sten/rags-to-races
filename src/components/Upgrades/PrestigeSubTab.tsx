@@ -14,6 +14,7 @@ type ResponsibilityResetLayer = "team" | "owner" | "track";
 export default function PrestigeSubTab() {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
+  const lifetimeRep = useGameStore((s) => s.lifetimeRep);
   const lifetimeScrapBucks = useGameStore((s) => s.lifetimeScrapBucks);
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const prestigeBonus = useGameStore((s) => s.prestigeBonus);
@@ -43,7 +44,8 @@ export default function PrestigeSubTab() {
   const [showPrestigeConfirm, setShowPrestigeConfirm] = useState(false);
   const [confirmingResponsibilityReset, setConfirmingResponsibilityReset] = useState<ResponsibilityResetLayer | null>(null);
 
-  const canPrestige = canScrapReset({ vehiclesBuilt: garage.length, reputation: repPoints, lifetimeScrapBucks });
+  // The Scrap Reset gate reads lifetime Rep: spending Rep never sets it back.
+  const canPrestige = canScrapReset({ vehiclesBuilt: garage.length, reputation: lifetimeRep, lifetimeScrapBucks });
   const canTeam = canTeamReset({ lifetimeLegacyPoints: lifetimeLPAllTime, lifetimeLPThisTeamEra, unspentLegacyPoints: legacyPoints });
   const canOwner = canOwnerReset({ lifetimeTeamPoints, teamEras: teamEraCount, lifetimeTPThisOwnerEra, unspentTeamPoints: teamPoints });
   const canTrack = canTrackReset({ lifetimeOwnerPoints, ownerEras: ownerEraCount, lifetimeOPThisTrackEra, unspentOwnerPoints: ownerPoints });
@@ -59,7 +61,8 @@ export default function PrestigeSubTab() {
       <div style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }} className="rounded-lg border p-4">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <StatRow label="Scrap Bucks" value={`$${formatNumber(scrapBucks)}`} />
-          <StatRow label="Rep Points" value={formatNumber(repPoints)} />
+          <StatRow label="Spendable Rep" value={formatNumber(repPoints)} />
+          <StatRow label="Lifetime Rep" value={formatNumber(lifetimeRep)} />
           <StatRow label="Lifetime Scrap" value={`$${formatNumber(lifetimeScrapBucks)}`} />
           <StatRow label="Vehicles Built" value={String(garage.length)} />
           <StatRow label="Parts in Inventory" value={String(inventory.length)} />

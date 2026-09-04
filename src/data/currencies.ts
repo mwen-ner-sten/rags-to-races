@@ -12,6 +12,8 @@
 import type { GameState } from "@/state/store";
 import type { TabId } from "@/components/navigation/tabs";
 import { getResourceRate, type ResourceRate } from "@/engine/rates";
+import { getRepFloor } from "@/engine/repFloor";
+import { describeRepDecay } from "@/engine/repPurchase";
 
 export type { TabId };
 
@@ -85,6 +87,19 @@ function withCommas(n: number): string {
   return Math.floor(n).toLocaleString();
 }
 
+/** "Decays toward N" plus the half-life in plain words; the floor comes from engine/repFloor. */
+function repDecaySection(s: GameState): CurrencyTooltipSection {
+  const floor = getRepFloor(s);
+  const decay = describeRepDecay(floor);
+  return {
+    label: "Decay",
+    rows: [
+      { label: decay.toward, value: s.repPoints > floor ? `${rep(s.repPoints - floor)} above` : "at floor", dim: true },
+      { label: decay.halfLife, value: "", dim: true },
+    ],
+  };
+}
+
 // ── Definitions ──────────────────────────────────────────────────────────────
 
 const SCRAP_BUCKS: CurrencyDefinition = {
@@ -137,6 +152,7 @@ const REP: CurrencyDefinition = {
         { label: "Legacy floor", value: rep(s.legacyRepFloor ?? 0), dim: true },
       ],
     },
+    repDecaySection(s),
     ...(s.prestigeBonus && s.prestigeCount > 0
       ? [{
           label: "Multipliers",

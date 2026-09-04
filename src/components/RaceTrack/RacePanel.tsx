@@ -18,6 +18,8 @@ import RaceTrackSVG from "@/components/RaceTrack/RaceTrackSVG";
 import type { RaceEvent } from "@/engine/raceEvents";
 import { isFeatureAvailable, type FeatureId } from "@/config/features";
 import { getMomentumEffectValue } from "@/data/momentumBonuses";
+import { formatSpendableRep } from "@/engine/repPurchase";
+import RepUnlockControl from "@/components/ui/RepUnlockControl";
 import GameAssetImage from "@/components/GameAssetImage";
 import { formatRivalWinStatus, getRivalById } from "@/data/rivals";
 import { getPermanentRuntimeBonuses } from "@/engine/permanentBonuses";
@@ -341,6 +343,8 @@ function StreakDisplay({ streak, best }: { streak: number; best: number }) {
 export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId) => void }) {
   const scrapBucks = useGameStore((s) => s.scrapBucks);
   const repPoints = useGameStore((s) => s.repPoints);
+  const lifetimeRep = useGameStore((s) => s.lifetimeRep);
+  const unlockCircuit = useGameStore((s) => s.unlockCircuit);
   const garage = useGameStore((s) => s.garage);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const selectedCircuitId = useGameStore((s) => s.selectedCircuitId);
@@ -511,27 +515,43 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
         </div>
         {lockedCircuits[0] && (
           <div
-            className="rounded-lg p-2.5 opacity-70 lg:hidden"
+            className="rounded-lg p-2.5 lg:hidden"
             style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
           >
             <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>🔒 Next: {lockedCircuits[0].name}</div>
-            <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-              Need {lockedCircuits[0].unlockRepCost} Rep (you have {Math.floor(repPoints)})
-            </div>
+            <RepUnlockControl
+              cost={lockedCircuits[0].unlockRepCost}
+              repPoints={repPoints}
+              onUnlock={() => unlockCircuit(lockedCircuits[0].id)}
+              testId={`unlock-circuit-${lockedCircuits[0].id}`}
+            />
           </div>
         )}
         {lockedCircuits.map((circuit) => (
           <div
             key={circuit.id}
-            className="hidden lg:block rounded-lg p-3 opacity-50"
+            className="hidden lg:block rounded-lg p-3"
             style={{ borderWidth: 1, borderStyle: "solid", borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}
           >
             <div className="font-semibold" style={{ color: "var(--text-muted)" }}>🔒 {circuit.name}</div>
-            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              Need {circuit.unlockRepCost} Rep to unlock
+            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              <span>${formatNumber(circuit.entryFee)}</span>
+              <span>Prize: ${formatNumber(circuit.rewardBase)}</span>
+              <span>+{circuit.repReward} Rep</span>
             </div>
+            <RepUnlockControl
+              cost={circuit.unlockRepCost}
+              repPoints={repPoints}
+              onUnlock={() => unlockCircuit(circuit.id)}
+              testId={`unlock-circuit-${circuit.id}`}
+            />
           </div>
         ))}
+        {lockedCircuits.length > 0 && (
+          <div className="text-xs" style={{ color: "var(--text-muted)" }} data-testid="race-spendable-rep">
+            {formatSpendableRep(repPoints)}
+          </div>
+        )}
       </div>
 
       {/* Race action */}
@@ -860,7 +880,8 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
 
         {/* Rep display */}
         <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-          Rep Points: <span className="font-semibold" style={{ color: "var(--info)" }}>{formatRep(repPoints)}</span>
+          Spendable Rep: <span className="font-semibold" style={{ color: "var(--info)" }}>{formatRep(repPoints)}</span>
+          <span className="ml-2 text-xs">· Lifetime {formatRep(lifetimeRep)}</span>
         </div>
       </div>
     </div>

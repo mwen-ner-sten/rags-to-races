@@ -4,7 +4,7 @@ import {
   MAX_OFFLINE_DURATION_MS,
   STATION_EQUIPMENT_INVENTORY_LIMIT,
 } from "../../src/config/gameplayLimits";
-import { SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
+import { REP_UNLOCK_COSTS, SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
 import { THEMES } from "../../src/data/themes";
 import { FATIGUE_DRINK_COST, FATIGUE_DRINK_RECOVERY } from "../../src/data/workshopActions";
 import { formatNumber } from "../../src/utils/format";
@@ -264,6 +264,37 @@ test("@smoke Auto-Scavenge is on from the start and manual scavenging adds on to
   expect(after.autoScavengeUnlocked).toBe(true);
   expect((after.inventory as unknown[]).length).toBeGreaterThanOrEqual((before.inventory as unknown[]).length + 1);
   await expect(page.getByText(/for Auto$/)).toHaveCount(0);
+});
+
+test("@smoke locked circuits and locations are bought with spendable Rep", async ({ page }) => {
+  await loadFixture(page, "first_race_ready");
+  const before = await persistedState(page);
+  expect(before.repPoints).toBe(25);
+  expect(before.unlockedCircuitIds).toEqual(["backyard_derby"]);
+
+  await openTab(page, "race");
+  // The desktop card list and the mobile "Next:" card both render the control; only one is visible.
+  const dirtTrack = page.getByTestId("unlock-circuit-dirt_track").locator("visible=true");
+  await expect(dirtTrack).toHaveText(`Unlock · ${REP_UNLOCK_COSTS.circuits.dirt_track} Rep`);
+  await expect(dirtTrack).toBeEnabled();
+  const regional = page.getByTestId("unlock-circuit-regional_circuit").locator("visible=true");
+  await expect(regional).toBeDisabled();
+  await expect(regional).toHaveAttribute("title", `Need ${REP_UNLOCK_COSTS.circuits.regional_circuit - 25} more Rep`);
+
+  await dirtTrack.click();
+  await expect(page.getByTestId("unlock-circuit-dirt_track")).toHaveCount(0);
+  await expect.poll(async () => (await persistedState(page)).repPoints).toBe(25 - REP_UNLOCK_COSTS.circuits.dirt_track);
+  const afterCircuit = await persistedState(page);
+  expect(afterCircuit.unlockedCircuitIds).toContain("dirt_track");
+  expect(afterCircuit.lifetimeRep).toBe(25);
+
+  await openTab(page, "junkyard");
+  const yards = page.getByTestId("unlock-location-neighborhood_yards").locator("visible=true");
+  await expect(yards).toBeEnabled();
+  await yards.click();
+  await expect.poll(async () => (await persistedState(page)).repPoints)
+    .toBe(25 - REP_UNLOCK_COSTS.circuits.dirt_track - REP_UNLOCK_COSTS.locations.neighborhood_yards);
+  expect((await persistedState(page)).unlockedLocationIds).toContain("neighborhood_yards");
 });
 
 test("@smoke first Scrap Reset uses the shared exact gate and awards the previewed LP with both automations", async ({ page }) => {
