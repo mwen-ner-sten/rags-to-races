@@ -147,7 +147,7 @@ export default function MobileNav({ activeTab, setActiveTab, themeVars }: Props)
               padding: "4px 0 2px",
             }}
           >
-            <span style={{ fontSize: "1.15rem", lineHeight: 1 }}>{"\u2022\u2022\u2022"}</span>
+            <Icon id="more" size={22} />
             <span
               style={{
                 fontSize: ".58rem",
