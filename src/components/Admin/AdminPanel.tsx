@@ -11,7 +11,6 @@ import VehicleSprite, {
 } from "@/components/RaceTrack/VehicleSprite";
 import { formatNumber } from "@/utils/format";
 import type { PartCondition } from "@/data/parts";
-import Image from "next/image";
 import { createGameplayFixture, GAMEPLAY_FIXTURE_NAMES, type GameplayFixtureName } from "@/testing/gameplayFixtures";
 import { applyDevSimulation, runSeededOffline, runSeededTicks, type DevSimulationSummary } from "@/testing/devAcceleration";
 
@@ -26,7 +25,6 @@ const QUICK_SCRAP = [100, 1_000, 10_000, 100_000];
 const QUICK_REP = [5, 10, 50, 100];
 
 const PART_CATEGORIES = ["engine", "wheel", "frame", "fuel"] as const;
-const ASSET_REVIEW_SHEETS = ["parts", "addons", "stations", "rivals", "crew-roles", "crew-specializations", "equipment-rarity", "equipment-sets", "equipment-affixes", "locations", "circuits"];
 
 interface AdminPanelProps {
   onFullSaveReset?: () => void;
@@ -570,24 +568,6 @@ export default function AdminPanel({ onFullSaveReset }: AdminPanelProps) {
                   <VehicleSprite vehicleId={v.id} size={24} color="var(--text-muted)" />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{ background: "var(--panel-bg)", borderColor: "var(--panel-border)" }}
-          className={SECTION + " lg:col-span-3"}
-        >
-          <p style={{ color: "var(--text-heading)" }} className={LABEL}>Asset Contact Sheets</p>
-          <p style={{ color: "var(--text-muted)" }} className="text-xs">
-            Multi-scale inventory, tooltip, garage, race, location, and circuit review output.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {ASSET_REVIEW_SHEETS.map((name) => (
-              <a key={name} href={`/sprites/review/${name}-contact-sheet.png`} target="_blank" rel="noreferrer" className="rounded border p-2" style={{ borderColor: "var(--panel-border)" }}>
-                <Image src={`/sprites/review/${name}-contact-sheet.png`} alt={`${name} asset contact sheet`} width={320} height={200} unoptimized className="h-40 w-full object-contain" />
-                <span className="mt-1 block text-xs capitalize" style={{ color: "var(--text-secondary)" }}>{name.replaceAll("-", " ")}</span>
-              </a>
             ))}
           </div>
         </div>
