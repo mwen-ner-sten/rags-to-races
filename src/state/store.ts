@@ -23,10 +23,10 @@ import { getAddonById } from "@/data/addons";
 import type { InstalledPart } from "@/engine/build";
 import { getGearBonuses } from "@/engine/gear";
 import { random } from "@/utils/random";
-import type { GearSlot, LootGearItem, InstalledMod } from "@/data/lootGear";
+import { RARITY_LABELS, type GearSlot, type LootGearItem, type InstalledMod } from "@/data/lootGear";
 import { getModTemplateById } from "@/data/gearMods";
 import { getEnhancementCost, getMaxEnhancementLevel, getModSlots, getSalvageValue } from "@/engine/gearEnhance";
-import { rollGearDrops } from "@/engine/gearDrop";
+import { rollGearDrops, rollStationDrops } from "@/engine/gearDrop";
 import { calculatePrestigeBonus, calculateScrapResetAward, doPrestige, deriveHighestCircuitTier, getLegacyEffectValue } from "@/engine/prestige";
 import { generateRaceEvents } from "@/engine/raceEvents";
 import { scavenge, makePartId } from "@/engine/scavenge";
@@ -67,7 +67,7 @@ import { checkAchievements } from "@/engine/achievements";
 import { ACHIEVEMENTS_BY_ID, type AchievementStats } from "@/data/achievements";
 import { PLAYSTYLE_NODES_BY_ID, canUnlockPlaystyleNode, getPlaystylePathRespecCost, type PlaystylePath } from "@/data/playstyleUpgrades";
 import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStations";
-import { convertLegacyLootDrop, type StationEquipment, type StationEquipmentRarity } from "@/data/stationEquipment";
+import type { StationEquipment, StationEquipmentRarity } from "@/data/stationEquipment";
 import { forgeStationEquipment, STATION_FORGE_COST } from "@/engine/stationForge";
 import { getMaxStationEnhancementLevel, getStationEnhancementCost } from "@/engine/stationEquipment";
 import { canReforgeStationEquipment, getStationSalvageYield, reforgeStationEquipment, REFORGE_COST_SHARDS } from "@/engine/stationReforge";
@@ -80,7 +80,7 @@ import { calculateHostedEventTerms, DEFAULT_TRACK_CONFIG, normalizeHostedEventCo
 import { getPartSaleValue } from "@/engine/sale";
 import { autoSellJunkParts, getAutoSellThreshold } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
-import { AUTO_RACE_MIN_CONDITION_DEFAULT, LOOSE_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTO_RACE_MIN_CONDITION_DEFAULT, LOOSE_INVENTORY_LIMIT, LOOT_GEAR_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, FATIGUE, getScrapResetProgress, REP_DECAY } from "@/config/progression";
 import { fatigueAfterRace, fatigueAfterTick, roundFatigue } from "@/engine/fatigue";
 import {
@@ -159,10 +159,18 @@ export interface AutomationSettlementMeta {
   finalCrewRoster?: CrewMember[];
   finalActiveMomentumTiers?: string[];
   newAchievementIds?: string[];
+  /** Station equipment scavenged over the settled ticks (already bounded by a batched/offline simulation). */
+  stationEquipmentDrops?: StationEquipment[];
   /** Automated station drops converted to shards after the inventory ceiling. */
   stationEquipmentAutoSalvaged?: number;
+  /** Loose Reforge Shards found while scavenging in a live single-tick settlement. */
+  reforgeShardDrops?: number;
   /** Shards already aggregated by a batched/offline simulation. */
   reforgeShardsFound?: number;
+  /** Loot gear a batched/offline simulation already auto-salvaged past the Locker ceiling... */
+  lootGearAutoSalvaged?: number;
+  /** ...and the Scrap Bucks that paid (already inside scrapsEarned). */
+  lootGearSalvageScrap?: number;
   /** Projects still running after the settled ticks (engine/projects). */
   finalProjects?: Project[];
   /** Projects that finished during the settled ticks; applied here exactly once. */
@@ -1093,6 +1101,64 @@ function _selectBestBuildParts(vehicleId: string, inventory: ScavengedPart[]): R
   return selected;
 }
 
+/**
+ * What auto-salvaging a loot gear piece pays: the Locker's own Salvage price
+ * (engine/gearEnhance) under the recycler line and permanent income bonuses.
+ */
+export function getLootGearSalvageScrap(state: GameState, item: LootGearItem): number {
+  return multiplyReward(
+    getSalvageValue(item, _getUpgradeEffectValue(state, "gear_recycler")),
+    getPermanentRuntimeBonuses(state).allScrapIncomeMult,
+  );
+}
+
+/**
+ * The Locker keeps what fits under LOOT_GEAR_INVENTORY_LIMIT; every drop past
+ * it is salvaged for Scrap Bucks on the spot (config/gameplayLimits).
+ */
+function settleLootGearDrops(
+  state: GameState,
+  ownedCount: number,
+  drops: LootGearItem[],
+): { kept: LootGearItem[]; salvaged: LootGearItem[]; scrap: number } {
+  const room = Math.max(0, LOOT_GEAR_INVENTORY_LIMIT - ownedCount);
+  const kept = drops.slice(0, room);
+  const salvaged = drops.slice(room);
+  const scrap = salvaged.reduce((total, item) => total + getLootGearSalvageScrap(state, item), 0);
+  return { kept, salvaged, scrap };
+}
+
+/** Stations keep what fits under STATION_EQUIPMENT_INVENTORY_LIMIT; the rest becomes Reforge Shards. */
+function settleStationDrops(
+  state: GameState,
+  ownedCount: number,
+  drops: StationEquipment[],
+): { kept: StationEquipment[]; salvaged: StationEquipment[]; shards: number } {
+  const room = Math.max(0, STATION_EQUIPMENT_INVENTORY_LIMIT - ownedCount);
+  const kept = drops.slice(0, room);
+  const salvaged = drops.slice(room);
+  const shards = salvaged.reduce(
+    (total, item) => total + getStationSalvageYield(item, state.workshopLevels.mod_hunter ?? 0, state.workshopLevels.gear_recycler ?? 0),
+    0,
+  );
+  return { kept, salvaged, shards };
+}
+
+/** Toast copy for a loot gear drop: "Found Rare Chrome Gloves". */
+export function lootGearDropAnnouncement(item: LootGearItem): string {
+  return `Found ${RARITY_LABELS[item.rarity]} ${item.name}`;
+}
+
+/** Toast copy for a gear mod drop. */
+export function gearModDropAnnouncement(mod: InstalledMod): string {
+  return `Gear Mod: ${mod.name}!`;
+}
+
+/** Toast copy for scavenged station equipment. */
+function stationDropAnnouncement(items: StationEquipment[]): string {
+  return `Station Equipment: ${items.map((item) => item.name).join(", ")}!`;
+}
+
 function _randomStartingWorkshopLevels(count: number): Record<string, number> {
   if (count <= 0) return {};
   const candidates = UPGRADE_DEFINITIONS
@@ -1170,18 +1236,17 @@ function createActions(set: SetState, get: GetState) {
       // instant it is found. The player still gets to see what they found via
       // the activity log below, which names each auto-sold part and its price.
       const autoSale = autoSellJunkParts(parts, getAutoSellThreshold(state), getSellValueBonus(state));
-      // Roll for gear/mod drops
-      const { gearDrops, modDrop } = rollGearDrops({
-        source: "scavenge",
+      // The junkyard is where shop equipment turns up: station gear and loose shards.
+      const { stationDrops, shardDrop } = rollStationDrops({
         sourceTier: location.tier,
         sourceId: location.id,
-        winStreak: state.winStreak,
+        lifetimeRep: state.lifetimeRep,
         gearDropRateScavengeBonus: _getUpgradeEffectValue(state, "gear_scavenger") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "gear_drop_rate"),
-        gearDropRateRaceBonus: _getUpgradeEffectValue(state, "trophy_hunter"),
         rarityBonus: Math.floor(_getUpgradeEffectValue(state, "rarity_sense")),
         doubleDropChance: _getUpgradeEffectValue(state, "double_drop"),
         modDropRateBonus: _getUpgradeEffectValue(state, "mod_hunter"),
       });
+      const stationFinds = settleStationDrops(state, state.stationEquipmentInventory.length, stationDrops);
       set((s: GameState) => {
         const newClicks = s.manualScavengeClicks + 1;
         let updatedCrew = grantCrewRoleXp(s.crewRoster, "scout", 5, getCrewXpMultiplier(s));
@@ -1190,8 +1255,9 @@ function createActions(set: SetState, get: GetState) {
           inventory: [...s.inventory, ...autoSale.keptParts],
           scrapBucks: s.scrapBucks + autoSale.scrapEarned,
           lifetimeScrapBucks: s.lifetimeScrapBucks + autoSale.scrapEarned,
-          stationEquipmentInventory: gearDrops.length > 0 ? [...s.stationEquipmentInventory, ...gearDrops.map(convertLegacyLootDrop)] : s.stationEquipmentInventory,
-          reforgeShards: s.reforgeShards + (modDrop ? 1 : 0),
+          stationEquipmentInventory: stationFinds.kept.length > 0 ? [...s.stationEquipmentInventory, ...stationFinds.kept] : s.stationEquipmentInventory,
+          reforgeShards: s.reforgeShards + (shardDrop ? 1 : 0) + stationFinds.shards,
+          unlockEvents: stationFinds.kept.length > 0 ? [...s.unlockEvents, stationDropAnnouncement(stationFinds.kept)] : s.unlockEvents,
           manualScavengeClicks: newClicks,
           scoutingOrder,
           racerSkills: _grantXp(s.racerSkills, "scavenging", 5),
@@ -1201,8 +1267,10 @@ function createActions(set: SetState, get: GetState) {
           lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + autoSale.scrapEarned,
         };
       });
-      const gearMsg = gearDrops.length > 0 ? ` + ${gearDrops.map((g) => g.name).join(", ")}` : "";
-      _appendLog(set, get, "scavenge", `Scavenged ${parts.length} part${parts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}`);
+      const gearMsg = stationFinds.kept.length > 0 ? ` + ${stationFinds.kept.map((item) => item.name).join(", ")}` : "";
+      const overflowMsg = stationFinds.salvaged.length > 0 ? ` (${stationFinds.salvaged.length} station item${stationFinds.salvaged.length === 1 ? "" : "s"} salvaged for ${stationFinds.shards} shards: shelf full)` : "";
+      const shardMsg = shardDrop ? " + 1 Reforge Shard" : "";
+      _appendLog(set, get, "scavenge", `Scavenged ${parts.length} part${parts.length !== 1 ? "s" : ""} at ${location.name}${gearMsg}${shardMsg}${overflowMsg}`);
       if (autoSale.soldParts.length > 0) {
         const soldNames = autoSale.soldParts
           .map((p) => `${(p.type === "addon" ? getAddonById(p.definitionId) : getPartById(p.definitionId))?.name ?? p.definitionId} (${p.condition})`)
@@ -1582,6 +1650,8 @@ function createActions(set: SetState, get: GetState) {
 
       setTimeout(() => {
         let settledCurrentSession = false;
+        // Overflow the Locker could not hold, for the log line below (set inside the settle closure).
+        const raceLootSalvage = { count: 0, scrap: 0 };
         set((s: GameState) => {
           if (s.activeRaceSessionId !== raceSessionId) return s;
           const sessionVehicleStillValid = s.isRacing
@@ -1668,27 +1738,33 @@ function createActions(set: SetState, get: GetState) {
           // Fatigue rhythm: one race adds its tier's amount; rest between ticks removes it.
           const newFatigue = fatigueAfterRace(s, s.fatigue, circuit.tier);
 
-          // Gear drop roll from manual race (circuit-fitted, derived performance vs. difficulty)
+          // Loot gear roll from manual race (circuit-fitted, derived performance vs. difficulty).
+          // You win the driver's kit at the track; it goes to the Locker.
           const vehiclePerf = vehiclePerformance(raceVehicle, circuit, handlingBonusPct) / (circuit.difficulty || 1);
           const { gearDrops: raceGearDrops, modDrop: raceModDrop } = rollGearDrops({
-            source: "race",
             sourceTier: circuit.tier,
             sourceId: circuit.id,
             raceResult: outcome.result,
             winStreak: newStreak,
             vehiclePerformance: vehiclePerf,
-            gearDropRateScavengeBonus: _getUpgradeEffectValue(s, "gear_scavenger") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "gear_drop_rate"),
+            lifetimeRep: s.lifetimeRep,
             gearDropRateRaceBonus: _getUpgradeEffectValue(s, "trophy_hunter") + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, s.teamUpgradeLevels, "gear_drop_rate"),
             rarityBonus: Math.floor(_getUpgradeEffectValue(s, "rarity_sense")),
             doubleDropChance: _getUpgradeEffectValue(s, "double_drop"),
             modDropRateBonus: _getUpgradeEffectValue(s, "mod_hunter"),
           });
-          let newStationEquipmentInventory = raceGearDrops.length > 0
-            ? [...s.stationEquipmentInventory, ...raceGearDrops.map(convertLegacyLootDrop)]
-            : s.stationEquipmentInventory;
-          const newReforgeShards = s.reforgeShards + (raceModDrop ? 1 : 0);
-          if (raceGearDrops.length > 0) newUnlockEvents.push(`Station Equipment: ${raceGearDrops.map((g) => g.name).join(", ")}!`);
-          if (raceModDrop) newUnlockEvents.push("Reforge Shard found!");
+          const lootFinds = settleLootGearDrops(s, s.lootGearInventory.length, raceGearDrops);
+          const newLootGearInventory = lootFinds.kept.length > 0
+            ? [...s.lootGearInventory, ...lootFinds.kept]
+            : s.lootGearInventory;
+          const newGearModInventory = raceModDrop ? [...s.gearModInventory, raceModDrop] : s.gearModInventory;
+          // Rival station-set rewards are the only station gear a race hands out.
+          let newStationEquipmentInventory = s.stationEquipmentInventory;
+          for (const item of lootFinds.kept) newUnlockEvents.push(lootGearDropAnnouncement(item));
+          if (raceModDrop) newUnlockEvents.push(gearModDropAnnouncement(raceModDrop));
+          const lootSalvageScrap = lootFinds.scrap;
+          raceLootSalvage.count = lootFinds.salvaged.length;
+          raceLootSalvage.scrap = lootSalvageScrap;
 
           // Salvage drop and forge token from race
           let newInventory = outcome.salvageDrop
@@ -1753,8 +1829,8 @@ function createActions(set: SetState, get: GetState) {
             activeRaceSessionId: null,
             lastRaceOutcome: settledOutcome,
             raceHistory: compactRaceHistory([settledOutcome, ...s.raceHistory], 20),
-            scrapBucks: s.scrapBucks + finalScraps + challengeBundle.scrap,
-            lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps + challengeBundle.scrap,
+            scrapBucks: s.scrapBucks + finalScraps + challengeBundle.scrap + lootSalvageScrap,
+            lifetimeScrapBucks: s.lifetimeScrapBucks + finalScraps + challengeBundle.scrap + lootSalvageScrap,
             repPoints: newRep,
             lifetimeRep: newLifetimeRep,
             lifetimeRepAllTime: s.lifetimeRepAllTime + effectiveRepEarned,
@@ -1774,8 +1850,9 @@ function createActions(set: SetState, get: GetState) {
             fatigue: newFatigue,
             racerSkills: updatedSkills,
             crewRoster: grantCrewRoleXp(s.crewRoster, "driver", 10, getCrewXpMultiplier(s)),
+            lootGearInventory: newLootGearInventory,
+            gearModInventory: newGearModInventory,
             stationEquipmentInventory: newStationEquipmentInventory,
-            reforgeShards: newReforgeShards,
             inventory: newInventory,
             defeatedRivalIds: newDefeatedRivalIds,
             eventWins: newEventWins,
@@ -1790,12 +1867,15 @@ function createActions(set: SetState, get: GetState) {
             // Lifetime stats for achievements (never reset)
             lifetimeRacesAllTime: s.lifetimeRacesAllTime + 1,
             lifetimeWinsAllTime: s.lifetimeWinsAllTime + (outcome.result === "win" ? 1 : 0),
-            lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + finalScraps + challengeBundle.scrap,
+            lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + finalScraps + challengeBundle.scrap + lootSalvageScrap,
             bestWinStreakAllTime: Math.max(s.bestWinStreakAllTime, newBestStreak),
             totalForgeTokensEarned: s.totalForgeTokensEarned + directForgeTokens + challengeBundle.forgeTokens,
           };
         });
         if (!settledCurrentSession) return;
+        if (raceLootSalvage.count > 0) {
+          _appendLog(set, get, "gear", `Locker full: auto-salvaged ${raceLootSalvage.count} loot gear drop${raceLootSalvage.count === 1 ? "" : "s"} for $${raceLootSalvage.scrap}`, { scrapDelta: raceLootSalvage.scrap });
+        }
         // Check achievements after race
         (get() as GameState).checkAchievements();
         // Check momentum tiers after race
@@ -2692,30 +2772,23 @@ function createActions(set: SetState, get: GetState) {
         (total, part) => total + (getPartSaleValue(part, overflowSellValueBonus) ?? 0),
         0,
       );
-      const convertedGearDrops = (lootGearDrops ?? []).map(convertLegacyLootDrop);
-      const availableStationSlots = Math.max(
-        0,
-        STATION_EQUIPMENT_INVENTORY_LIMIT - stateBeforeSettlement.stationEquipmentInventory.length,
-      );
-      const retainedStationDrops = convertedGearDrops.slice(0, availableStationSlots);
-      const overflowStationDrops = convertedGearDrops.slice(availableStationSlots);
-      const automatedGearSalvageShards = overflowStationDrops.reduce(
-        (total, item) => total + getStationSalvageYield(
-          item,
-          stateBeforeSettlement.workshopLevels.mod_hunter ?? 0,
-          stateBeforeSettlement.workshopLevels.gear_recycler ?? 0,
-        ),
-        0,
-      );
-      const totalScrapsEarned = scrapsEarned + overflowScrap;
-      const settlement = overflowParts.length > 0 || overflowStationDrops.length > 0
+      // Race loot heads for the Locker, scavenged station gear for Stations; each
+      // shelf keeps what fits and salvages the rest (config/gameplayLimits).
+      const lootFinds = settleLootGearDrops(stateBeforeSettlement, stateBeforeSettlement.lootGearInventory.length, lootGearDrops ?? []);
+      const stationFinds = settleStationDrops(stateBeforeSettlement, stateBeforeSettlement.stationEquipmentInventory.length, baseSettlement.stationEquipmentDrops ?? []);
+      const totalScrapsEarned = scrapsEarned + overflowScrap + lootFinds.scrap;
+      const settlement = overflowParts.length > 0 || stationFinds.salvaged.length > 0 || lootFinds.salvaged.length > 0
         ? {
             ...baseSettlement,
             partsAutoSold: baseSettlement.partsAutoSold + overflowParts.length,
             stationEquipmentAutoSalvaged:
-              (baseSettlement.stationEquipmentAutoSalvaged ?? 0) + overflowStationDrops.length,
+              (baseSettlement.stationEquipmentAutoSalvaged ?? 0) + stationFinds.salvaged.length,
             reforgeShardsFound:
-              (baseSettlement.reforgeShardsFound ?? 0) + automatedGearSalvageShards,
+              (baseSettlement.reforgeShardsFound ?? 0) + stationFinds.shards,
+            lootGearAutoSalvaged:
+              (baseSettlement.lootGearAutoSalvaged ?? 0) + lootFinds.salvaged.length,
+            lootGearSalvageScrap:
+              (baseSettlement.lootGearSalvageScrap ?? 0) + lootFinds.scrap,
           }
         : baseSettlement;
       const tickParts: string[] = [];
@@ -2724,9 +2797,14 @@ function createActions(set: SetState, get: GetState) {
       if (retainedParts.length > 0) tickParts.push(`${retainedParts.length} parts`);
       if (settlement.partsAutoSold > 0) tickParts.push(`${settlement.partsAutoSold} auto-sold`);
       if (settlement.racesCompleted > 0) tickParts.push(`${settlement.racesCompleted} race${settlement.racesCompleted === 1 ? "" : "s"}`);
-      if (retainedStationDrops.length > 0) tickParts.push(`${retainedStationDrops.length} gear`);
+      if (lootFinds.kept.length > 0) tickParts.push(`${lootFinds.kept.length} loot gear`);
+      if ((settlement.lootGearAutoSalvaged ?? 0) > 0) {
+        tickParts.push(`${settlement.lootGearAutoSalvaged} loot gear auto-salvaged`);
+      }
+      if ((modDrops?.length ?? 0) > 0) tickParts.push(`${modDrops?.length} gear mod${modDrops?.length === 1 ? "" : "s"}`);
+      if (stationFinds.kept.length > 0) tickParts.push(`${stationFinds.kept.length} station equipment`);
       if ((settlement.stationEquipmentAutoSalvaged ?? 0) > 0) {
-        tickParts.push(`${settlement.stationEquipmentAutoSalvaged} gear auto-salvaged`);
+        tickParts.push(`${settlement.stationEquipmentAutoSalvaged} station equipment auto-salvaged`);
       }
       const tickMessage = tickParts.length > 0 ? `Auto: ${tickParts.join(", ")}` : null;
 
@@ -2840,9 +2918,22 @@ function createActions(set: SetState, get: GetState) {
         let inventory = retainedParts.length > 0
           ? [...projectCompletion.inventory, ...retainedParts]
           : projectCompletion.inventory;
-        let stationEquipmentInventory = retainedStationDrops.length > 0
-          ? [...s.stationEquipmentInventory, ...retainedStationDrops]
+        let stationEquipmentInventory = stationFinds.kept.length > 0
+          ? [...s.stationEquipmentInventory, ...stationFinds.kept]
           : s.stationEquipmentInventory;
+        const lootGearInventory = lootFinds.kept.length > 0
+          ? [...s.lootGearInventory, ...lootFinds.kept]
+          : s.lootGearInventory;
+        const gearModInventory = (modDrops?.length ?? 0) > 0
+          ? [...s.gearModInventory, ...(modDrops ?? [])]
+          : s.gearModInventory;
+        // A live tick toasts each find like a manual race would; a batched
+        // catch-up reports them in the return summary instead of a toast storm.
+        if (settlement.ticksProcessed <= 1) {
+          for (const item of lootFinds.kept) unlockEvents.push(lootGearDropAnnouncement(item));
+          for (const mod of modDrops ?? []) unlockEvents.push(gearModDropAnnouncement(mod));
+          if (stationFinds.kept.length > 0) unlockEvents.push(stationDropAnnouncement(stationFinds.kept));
+        }
         const discoveredBlueprintIds = [...s.discoveredBlueprintIds];
         // Event ladder: batched settlements report exact per-event wins; live ticks carry them on the outcomes.
         const newEventWins = mergeEventWins(s.eventWins, settlement.eventWins ?? eventWinsFromOutcomes(settlement.recentRaceOutcomes));
@@ -2911,7 +3002,9 @@ function createActions(set: SetState, get: GetState) {
           racerSkills: settlement.finalRacerSkills ?? tickSkills,
           crewRoster: settlement.finalCrewRoster ?? updatedCrew,
           stationEquipmentInventory,
-          reforgeShards: s.reforgeShards + (modDrops?.length ?? 0) + (settlement.reforgeShardsFound ?? 0),
+          lootGearInventory,
+          gearModInventory,
+          reforgeShards: s.reforgeShards + (settlement.reforgeShardDrops ?? 0) + (settlement.reforgeShardsFound ?? 0),
           raceTickProgress: newRaceTickProgress ?? s.raceTickProgress,
           lastRaceOutcome: settlement.recentRaceOutcomes[0] ?? s.lastRaceOutcome,
           raceHistory: history,

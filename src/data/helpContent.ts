@@ -8,7 +8,7 @@ import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
 import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_INTERVAL, DEALER_BOARD_SIZE } from "@/data/dealer";
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
-import { OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { LOOT_GEAR_INVENTORY_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { resolveEventCircuit } from "@/engine/eventLadder";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
@@ -75,12 +75,12 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Events (Sprint / Heat / Feature)", meaning: "Every venue hosts three events. Sprint (×0.75 difficulty, ×0.5 prize) opens with the venue; a Sprint win here opens the Heat (the venue's base numbers); a Heat win opens the Feature (×1.4 difficulty, ×1.8 prize, ×1.6 Rep). Rivals only race in Features. Entry fees are 15% of the prize." },
   { term: "Light / Sturdy parts", meaning: "Every core part has two siblings. Light: −25% weight, −10% reliability. Sturdy: +20% reliability, +15% weight, −5% power. Same tier and sell value; the junkyard and the Dealer roll all three with equal weight." },
   { term: "DNF (Did Not Finish)", meaning: "Vehicle broke down mid-race. Baseline chance is 30% minus reliability/200, then equipment, crew, skills, philosophy, and the race plan modify it." },
-  { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks improve station-equipment drop rarity by +0.5% per win (cap +10%)." },
+  { term: "Win Streak", meaning: "Consecutive race wins. Longer streaks raise the chance a race drops loot gear by +0.5% per win (cap +10%)." },
   { term: "Vehicle Condition", meaning: `Starts at 100, degrades from racing. Below ${CONDITION_PENALTY_THRESHOLD}, stats drop linearly. Repair in the Garage.` },
   { term: "Materials", meaning: `${MATERIAL_DEFINITIONS.length} types gained by decomposing parts. Used for part enhancement and targeted fabrication.` },
-  { term: "Station Equipment", meaning: "Randomized equipment for six shared garage stations. It has rarity, attribute affixes, enhancement levels, and optional set membership." },
-  { term: "Locker", meaning: "Workshop section for loot gear: personal equipment for six slots (head, body, hands, feet, tool, accessory). Each piece has a rarity, rolled affixes, an enhancement level (+12% per level, sockets at Lv.3 and Lv.7), and mod sockets. It opens with your first loot gear drop." },
-  { term: "Reforge Shards", meaning: "Earned by salvaging unequipped station items. Spent to reroll secondary attributes while preserving the primary." },
+  { term: "Station Equipment", meaning: "Randomized shop gear for six shared garage stations, turned up while scavenging (the junkyard is where benches, lifts, and rigs are found). It has rarity, attribute affixes, enhancement levels, and optional set membership." },
+  { term: "Locker", meaning: "Workshop section for loot gear: the driver's kit for six slots (head, body, hands, feet, tool, accessory), won at the track by racing. Each piece has a rarity, rolled affixes, an enhancement level (+12% per level, sockets at Lv.3 and Lv.7), and mod sockets; gear mods also drop from race wins. It opens with your first loot gear drop." },
+  { term: "Reforge Shards", meaning: "Earned by salvaging unequipped station items, plus the odd loose find while scavenging. Spent to reroll secondary attributes while preserving the primary." },
   { term: "Auto-Scavenge", meaning: "Runs from the first tick of every run. Manual scavenging adds on top, paced by the hold-to-scavenge upgrades." },
   { term: "Auto-Race", meaning: "Runs as soon as a vehicle is active. Fires every 3 ticks (Pit Crew and Pit Rhythm shorten it) and pauses below the condition floor set on the Race tab." },
   { term: "Challenges", meaning: `${CHALLENGE_DEFINITIONS.length} one-time gameplay goals rewarding Scrap Bucks, materials, and Forge Tokens.` },
@@ -90,7 +90,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 currency earned from Track Reset. Spent on venue, event, and endgame fleet perks." },
   { term: "Crew", meaning: "NPC helpers unlocked after the first Team Reset. Four roles (Mechanic, Scout, Driver, Trader) have distinct specializations. Crew persist through Scrap Resets and reset on Team Reset." },
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
-  { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 8 hours). Catch-up runs at your live tick speed, up to ${OFFLINE_TICK_CAP.toLocaleString()} ticks per return. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts and ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
+  { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 8 hours). Catch-up runs at your live tick speed, up to ${OFFLINE_TICK_CAP.toLocaleString()} ticks per return. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts, ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items, and ${LOOT_GEAR_INVENTORY_LIMIT} loot gear pieces are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
   { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
   { term: "Prestige Milestone", meaning: "Free reward earned at prestige count thresholds. Some shape your run strategy. View in Upgrades > Prestige." },
   { term: "Garage Philosophy", meaning: "LP-funded specialization in Scrapper, Racer, and Engineer paths. Persists through Scrap Reset and resets at the Team layer." },

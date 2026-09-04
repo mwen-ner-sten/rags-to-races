@@ -69,7 +69,7 @@ export default function LockerPanel() {
         <div className="mb-3"><LockerFilters filter={filter} onChange={setFilter} /></div>
         {inventory.length === 0 ? (
           <p className="py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-            Nothing in the locker yet. Loot gear drops from scavenging and racing.
+            Nothing in the locker yet. Loot gear is won at the track: race, and the kit follows.
           </p>
         ) : visible.length === 0 ? (
           <p className="py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>

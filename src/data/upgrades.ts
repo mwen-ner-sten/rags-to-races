@@ -172,7 +172,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "gear_scavenger",
     name: "Equipment Salvager",
-    description: "Increases station-equipment drop chance while scavenging (+2% per level).",
+    description: "Increases station-equipment drop chance while scavenging (+2% per level). Shop gear turns up in the junkyard.",
     category: "gear_lab",
     maxLevel: 5,
     baseCost: 300,
@@ -183,7 +183,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "trophy_hunter",
     name: "Trophy Hunter",
-    description: "Increases station-equipment drop chance from race wins (+3% per level).",
+    description: "Increases loot gear drop chance from races (+3% per level, any result). The driver's kit is won at the track.",
     category: "gear_lab",
     maxLevel: 5,
     baseCost: 450,
@@ -194,7 +194,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "rarity_sense",
     name: "Rarity Sense",
-    description: "Improves the rarity of dropped station equipment.",
+    description: "Improves the rarity of dropped station equipment and loot gear.",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 900,
@@ -216,7 +216,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "mod_hunter",
     name: "Shard Sifter",
-    description: "+0.5% mod drop chance and +1 Reforge Shard from station salvage per level.",
+    description: "+0.5% gear mod chance on race wins, +0.5% loose Reforge Shard chance while scavenging, and +1 Reforge Shard from station salvage per level.",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 750,
@@ -249,7 +249,7 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
     id: "double_drop",
     name: "Double Drop",
-    description: "Small chance to find two station-equipment items at once (+5% per level).",
+    description: "Small chance for a drop to come as a pair, station equipment or loot gear (+5% per level).",
     category: "gear_lab",
     maxLevel: 3,
     baseCost: 1200,

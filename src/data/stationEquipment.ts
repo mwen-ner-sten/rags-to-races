@@ -1,5 +1,4 @@
 import type { GarageStationSlot } from "./garageStations";
-import type { GearSlot, LootGearItem } from "./lootGear";
 
 export type StationEquipmentRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 export type StationAttribute = "reflexes" | "endurance" | "instinct" | "engineering" | "charisma" | "fortune" | "power" | "grip" | "aero" | "weight_reduction";
@@ -42,15 +41,3 @@ export const STATION_SETS: { id: StationSetId; name: string; slots: GarageStatio
   { id: "scrapper", name: "Scrapper", slots: ["workbench", "logistics", "fabrication", "pit_equipment"], tiers: [{ piecesRequired: 2, description: "+5 Fortune", effects: [{ type: "attribute", attribute: "fortune", value: 5 }] }, { piecesRequired: 4, description: "+15% scavenge yield and +8 Fortune total", effects: [{ type: "attribute", attribute: "fortune", value: 3 }, { type: "bonus", bonus: "scavenge_yield_pct", value: 0.15 }] }] },
   { id: "slipstream", name: "Slipstream", slots: ["diagnostics", "lift", "logistics", "pit_equipment"], tiers: [{ piecesRequired: 2, description: "+8 Aero", effects: [{ type: "attribute", attribute: "aero", value: 8 }] }, { piecesRequired: 4, description: "-5% DNF risk and +12 Aero total", effects: [{ type: "attribute", attribute: "aero", value: 4 }, { type: "bonus", bonus: "race_dnf_reduction", value: 0.05 }] }] },
 ];
-
-const LEGACY_SLOT_TO_STATION: Record<GearSlot, GarageStationSlot> = { head: "diagnostics", body: "lift", hands: "workbench", feet: "logistics", tool: "fabrication", accessory: "pit_equipment" };
-const STATION_BONUS_IDS = new Set(["scavenge_luck_bonus", "scavenge_yield_pct", "sell_value_bonus_pct", "race_performance_pct", "race_dnf_reduction", "race_handling_pct", "race_wear_reduction_pct", "race_scrap_bonus_pct", "build_cost_reduction_pct", "repair_cost_reduction_pct", "refurb_cost_reduction_pct", "tick_speed_reduction_ms", "fatigue_rate_reduction", "material_bonus_pct", "forge_token_chance_bonus"]);
-
-/** Compatibility bridge for old drop tables while all acquisition paths move to station-native definitions. */
-export function convertLegacyLootDrop(item: LootGearItem): StationEquipment {
-  const effects: StationEquipmentEffect[] = item.effects.flatMap((effect) => STATION_BONUS_IDS.has(effect.type)
-    ? [{ type: "bonus" as const, bonus: effect.type as Extract<StationEquipmentEffect, { type: "bonus" }>["bonus"], value: effect.value }]
-    : []);
-  const legacySet = (item as LootGearItem & { setId?: string }).setId;
-  return { id: item.id, slot: LEGACY_SLOT_TO_STATION[item.slot], rarity: item.rarity, name: item.name, effects, enhancementLevel: item.enhancementLevel, source: item.source, setId: STATION_SETS.some((set) => set.id === legacySet) ? legacySet as StationSetId : undefined };
-}

@@ -53,6 +53,7 @@ export function runSeededTicks(state: GameState, ticks: number, seed: string | n
     })),
     lootGearDrops: rawResult.lootGearDrops.map((drop, index) => ({ ...drop, id: `${idPrefix}_gear_${index}` })),
     modDrops: rawResult.modDrops.map((drop, index) => ({ ...drop, id: `${idPrefix}_mod_${index}` })),
+    stationEquipmentDrops: rawResult.stationEquipmentDrops.map((drop, index) => ({ ...drop, id: `${idPrefix}_station_${index}` })),
   };
   return {
     ...result,
@@ -125,8 +126,11 @@ export function applyDevSimulation(state: GameState, result: DevSimulationSummar
       finalCrewRoster: result.finalCrewRoster,
       finalActiveMomentumTiers: result.finalActiveMomentumTiers,
       newAchievementIds: result.newAchievementIds,
+      stationEquipmentDrops: result.stationEquipmentDrops,
       stationEquipmentAutoSalvaged: result.stationEquipmentAutoSalvaged,
       reforgeShardsFound: result.reforgeShardsFound,
+      lootGearAutoSalvaged: result.lootGearAutoSalvaged,
+      lootGearSalvageScrap: result.lootGearSalvageScrap,
       finalProjects: result.finalProjects,
       completedProjects: result.completedProjects,
     },

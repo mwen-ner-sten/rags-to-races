@@ -1,5 +1,5 @@
 import type { GameState } from "@/state/store";
-import { _getUpgradeEffectValue, _grantXp, addRewardMaterials, calculateChallengeRewardBundle, checkChallenges, getCrewXpMultiplier, getSellValueBonus, grantTraderSaleXp } from "@/state/store";
+import { _getUpgradeEffectValue, _grantXp, addRewardMaterials, calculateChallengeRewardBundle, checkChallenges, getCrewXpMultiplier, getLootGearSalvageScrap, getSellValueBonus, grantTraderSaleXp } from "@/state/store";
 import { fatigueAfterTick, isTooTiredToAutoRace } from "./fatigue";
 import { advanceProjects, applyCompletedProjects, type Project } from "./projects";
 import { scavenge } from "./scavenge";
@@ -12,8 +12,9 @@ import { addEventWin, type EventWins } from "./eventLadder";
 import { simulateRace, calculateWear, compactRaceHistory, type RaceOutcome } from "./race";
 import { applyRacePayout, collectBonuses, racePerformanceMultiplier } from "./bonuses";
 import { deriveVehicleStats, vehiclePerformance, withDerivedStats } from "./performance";
-import { rollGearDrops } from "./gearDrop";
+import { rollGearDrops, rollStationDrops } from "./gearDrop";
 import type { LootGearItem, InstalledMod } from "@/data/lootGear";
+import type { StationEquipment } from "@/data/stationEquipment";
 import { getActiveMomentumTiers, getMomentumEffectValue } from "@/data/momentumBonuses";
 import { deriveHighestCircuitTier, getLegacyEffectValue } from "./prestige";
 import { getSkillBonuses } from "./skills";
@@ -21,7 +22,7 @@ import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
-import { AUTOMATION_DROP_DETAIL_LIMIT, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT, MANUAL_SCAVENGE_COOLDOWN_MS_MIN, MAX_OFFLINE_DURATION_MS, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTOMATION_DROP_DETAIL_LIMIT, LOOT_GEAR_INVENTORY_LIMIT, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT, MANUAL_SCAVENGE_COOLDOWN_MS_MIN, MAX_OFFLINE_DURATION_MS, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { normalizeScoutingOrder } from "@/data/locations";
 import { makePartId } from "./scavenge";
 import { random } from "@/utils/random";
@@ -39,7 +40,6 @@ import type { RacerSkills } from "@/data/racerSkills";
 import type { CrewMember } from "@/data/crew";
 import { getVehicleIdsUnlockedByProgress } from "@/data/vehicles";
 import { canEnterSelectedRace, canScavengeSelectedLocation } from "./eligibility";
-import { convertLegacyLootDrop } from "@/data/stationEquipment";
 import { getStationSalvageYield } from "./stationReforge";
 
 /** Base tick duration — 30 seconds. */
@@ -67,8 +67,14 @@ export interface TickResult {
   raceOutcome: ReturnType<typeof simulateRace> | null;
   vehicleWearAmount: number;
   vehicleRepairAmount: number;
+  /** Loot gear (the driver's kit) won at the track this tick; bound for the Locker. */
   lootGearDrops: LootGearItem[];
+  /** Gear mods won on a race win this tick; bound for the Locker. */
   modDrops: InstalledMod[];
+  /** Station equipment turned up by auto-scavenge this tick; bound for Stations. */
+  stationDrops: StationEquipment[];
+  /** Loose Reforge Shards found while scavenging this tick. */
+  reforgeShardDrops: number;
   /** Updated race tick progress (0 = just fired, or incremented counter). */
   newRaceTickProgress: number;
   /** Fatigue after this tick's rest and any race that fired (engine/fatigue). */
@@ -202,6 +208,8 @@ export function computeTick(state: GameState): TickResult {
     vehicleRepairAmount: 0,
     lootGearDrops: [],
     modDrops: [],
+    stationDrops: [],
+    reforgeShardDrops: 0,
     newRaceTickProgress: state.raceTickProgress,
     fatigueAfterTick: state.fatigue ?? 0,
     projects: state.projects ?? [],
@@ -224,6 +232,7 @@ export function computeTick(state: GameState): TickResult {
   const rarityBonus               = Math.floor(_getUpgradeEffectValue(state, "rarity_sense"));
   const doubleDropChance          = _getUpgradeEffectValue(state, "double_drop");
   const modDropRateBonus          = _getUpgradeEffectValue(state, "mod_hunter");
+  const lifetimeRep               = state.lifetimeRep ?? 0;
 
   // Auto-scavenge (with workshop upgrade bonuses + gear bonuses + skill bonuses) — fires every tick
   if (state.autoScavengeUnlocked && canScavengeSelectedLocation(state)) {
@@ -257,20 +266,18 @@ export function computeTick(state: GameState): TickResult {
       result.scrapsFromAutoSoldParts = autoSale.scrapEarned;
       result.scrapsEarned += autoSale.scrapEarned;
 
-      // Gear drop roll from auto-scavenge
-      const { gearDrops, modDrop } = rollGearDrops({
-        source: "scavenge",
+      // Station equipment roll from auto-scavenge (the junkyard is where shop gear turns up).
+      const { stationDrops, shardDrop } = rollStationDrops({
         sourceTier: location.tier,
         sourceId: location.id,
-        winStreak: state.winStreak,
+        lifetimeRep,
         gearDropRateScavengeBonus,
-        gearDropRateRaceBonus,
         rarityBonus,
         doubleDropChance,
         modDropRateBonus,
       });
-      result.lootGearDrops.push(...gearDrops);
-      if (modDrop) result.modDrops.push(modDrop);
+      result.stationDrops.push(...stationDrops);
+      if (shardDrop) result.reforgeShardDrops += 1;
     }
   }
 
@@ -345,16 +352,15 @@ export function computeTick(state: GameState): TickResult {
           const legacyWearReduction = getLegacyEffectValue(state.legacyUpgradeLevels, "leg_wear_reduction");
           result.vehicleWearAmount = calculateWear(raceVehicle, result.raceOutcome.result, wearReduction + legacyWearReduction, fatigue, gearBonuses.race_wear_reduction_pct, skillBonuses.enduranceWearReduction, result.raceOutcome.planEvaluation?.wearMultiplier ?? 1);
 
-          // Gear drop roll from auto-race (circuit-fitted, derived performance vs. difficulty)
+          // Loot gear roll from auto-race (circuit-fitted, derived performance vs. difficulty)
           const vehiclePerf = vehiclePerformance(raceVehicle, circuit, handlingBonusPct) / (circuit.difficulty || 1);
           const { gearDrops, modDrop } = rollGearDrops({
-            source: "race",
             sourceTier: circuit.tier,
             sourceId: circuit.id,
             raceResult: result.raceOutcome.result,
             winStreak: projectedStreak,
             vehiclePerformance: vehiclePerf,
-            gearDropRateScavengeBonus,
+            lifetimeRep,
             gearDropRateRaceBonus,
             rarityBonus,
             doubleDropChance,
@@ -406,13 +412,21 @@ export interface OfflineResult {
   vehicleWearTotal: number;
   vehicleRepairTotal: number;
   raceTickProgress: number;
+  /** Loot gear retained for the Locker after the inventory ceiling. */
   lootGearDrops: LootGearItem[];
+  /** Loot gear auto-salvaged for Scrap Bucks after reaching the Locker ceiling. */
+  lootGearAutoSalvaged: number;
+  /** Scrap Bucks paid for that auto-salvaged loot gear (already inside scrapsEarned). */
+  lootGearSalvageScrap: number;
+  /** Gear mods retained for the Locker (detail records, see AUTOMATION_DROP_DETAIL_LIMIT). */
   modDrops: InstalledMod[];
   /** Total mod drops, including detail records collapsed into shard currency. */
   modDropsFound: number;
+  /** Station equipment retained for Stations after the inventory ceiling. */
+  stationEquipmentDrops: StationEquipment[];
   /** Station equipment automatically salvaged after reaching the ceiling. */
   stationEquipmentAutoSalvaged: number;
-  /** Shards produced by collapsed mod records and station overflow. */
+  /** Shards from loose scavenge finds, collapsed mod records, and station overflow. */
   reforgeShardsFound: number;
   /** Actual number of races that fired during offline simulation. */
   racesCompleted: number;
@@ -472,8 +486,11 @@ export function simulateOfflineTicks(
     vehicleRepairTotal: 0,
     raceTickProgress: initialState.raceTickProgress,
     lootGearDrops: [],
+    lootGearAutoSalvaged: 0,
+    lootGearSalvageScrap: 0,
     modDrops: [],
     modDropsFound: 0,
+    stationEquipmentDrops: [],
     stationEquipmentAutoSalvaged: 0,
     reforgeShardsFound: 0,
     racesCompleted: 0,
@@ -520,6 +537,10 @@ export function simulateOfflineTicks(
   const stationEquipmentCapacity = Math.max(
     0,
     STATION_EQUIPMENT_INVENTORY_LIMIT - (initialState.stationEquipmentInventory?.length ?? 0),
+  );
+  const lootGearCapacity = Math.max(
+    0,
+    LOOT_GEAR_INVENTORY_LIMIT - (initialState.lootGearInventory?.length ?? 0),
   );
   let currentCircuitStreakId: string | null = null;
   let currentCircuitStreak = 0;
@@ -568,14 +589,27 @@ export function simulateOfflineTicks(
     result.vehicleWearTotal += r.vehicleWearAmount;
     result.vehicleRepairTotal += r.vehicleRepairAmount;
     result.raceTickProgress = r.newRaceTickProgress;
+    // Race loot: the Locker keeps what fits; the rest is salvaged for Scrap Bucks.
     for (const drop of r.lootGearDrops) {
-      if (result.lootGearDrops.length < stationEquipmentCapacity) {
+      if (result.lootGearDrops.length < lootGearCapacity) {
         result.lootGearDrops.push(drop);
         continue;
       }
-      const stationItem = convertLegacyLootDrop(drop);
+      const scrap = getLootGearSalvageScrap(snap, drop);
+      result.lootGearAutoSalvaged++;
+      result.lootGearSalvageScrap += scrap;
+      result.scrapsEarned += scrap;
+      overflowScrapThisTick += scrap;
+      snap.scrapBucks += scrap;
+    }
+    // Scavenge finds: Stations keep what fits; the rest is salvaged for shards.
+    for (const drop of r.stationDrops) {
+      if (result.stationEquipmentDrops.length < stationEquipmentCapacity) {
+        result.stationEquipmentDrops.push(drop);
+        continue;
+      }
       const shards = getStationSalvageYield(
-        stationItem,
+        drop,
         snap.workshopLevels?.mod_hunter ?? 0,
         snap.workshopLevels?.gear_recycler ?? 0,
       );
@@ -583,6 +617,8 @@ export function simulateOfflineTicks(
       result.reforgeShardsFound += shards;
       snap.reforgeShards = (snap.reforgeShards ?? 0) + shards;
     }
+    result.reforgeShardsFound += r.reforgeShardDrops;
+    snap.reforgeShards = (snap.reforgeShards ?? 0) + r.reforgeShardDrops;
     result.modDropsFound += r.modDrops.length;
     const remainingModDetails = Math.max(0, AUTOMATION_DROP_DETAIL_LIMIT - result.modDrops.length);
     result.modDrops.push(...r.modDrops.slice(0, remainingModDetails));

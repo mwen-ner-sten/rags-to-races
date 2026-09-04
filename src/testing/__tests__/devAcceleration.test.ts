@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, type GameState } from "@/state/store";
 import { createGameplayFixture } from "../gameplayFixtures";
 import { MAX_OFFLINE_MS, offlineTicksForDuration, runSeededOffline, runSeededTicks } from "../devAcceleration";
-import { AUTOMATION_DROP_DETAIL_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTOMATION_DROP_DETAIL_LIMIT, LOOT_GEAR_INVENTORY_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 
 function stateFor(name: Parameters<typeof createGameplayFixture>[0]): GameState {
   return { ...createInitialState(), ...createGameplayFixture(name).payload.state } as GameState;
@@ -50,9 +50,10 @@ describe("deterministic DEV acceleration", () => {
     const result = runSeededTicks(state, 1_000, "maxed-stall");
 
     expect(state.inventory.length + result.partsFound.length).toBe(state.inventory.length);
-    expect(state.stationEquipmentInventory.length + result.lootGearDrops.length)
+    expect(state.stationEquipmentInventory.length + result.stationEquipmentDrops.length)
       .toBeLessThanOrEqual(Math.max(state.stationEquipmentInventory.length, STATION_EQUIPMENT_INVENTORY_LIMIT));
     expect(result.stationEquipmentAutoSalvaged).toBeGreaterThan(0);
+    expect(state.lootGearInventory.length + result.lootGearDrops.length).toBeLessThanOrEqual(LOOT_GEAR_INVENTORY_LIMIT);
     expect(result.reforgeShardsFound).toBeGreaterThan(0);
     expect(result.modDrops).toHaveLength(Math.min(result.modDropsFound, AUTOMATION_DROP_DETAIL_LIMIT));
   });

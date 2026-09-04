@@ -11,7 +11,24 @@ import {
   generateLootName,
 } from "@/data/lootGear";
 import { GEAR_MOD_TEMPLATES } from "@/data/gearMods";
+import { GARAGE_STATION_IDS } from "@/data/garageStations";
+import type { StationEquipment } from "@/data/stationEquipment";
+import { REP_PROGRESSION } from "@/config/progression";
+import { forgeStationEquipment } from "./stationForge";
 import { weightedPick, randInt, random } from "@/utils/random";
+
+/**
+ * Two drop tables, two homes.
+ *
+ * - Races pay out the driver's kit: loot gear (helmet, jacket, gloves, boots,
+ *   tool, accessory) and the gear mods that socket into it. Both land in the
+ *   Locker (`lootGearInventory` / `gearModInventory`).
+ * - Scavenging turns up shop equipment: station gear (benches, lifts, rigs)
+ *   for `stationEquipmentInventory`, plus the odd loose Reforge Shard.
+ *
+ * Both tables share the tier weights in `RARITY_WEIGHTS_BY_TIER`, the
+ * `rarity_sense` shift, and the Rep-gated rarity ladder below.
+ */
 
 let _instanceCounter = 0;
 function makeGearId(): string {
@@ -22,12 +39,24 @@ function makeModInstanceId(): string {
 }
 
 // ── Drop chance constants ───────────────────────────────────────────────────
-const BASE_SCAVENGE_RATE = 0.03;     // 3% per manual/auto scavenge
-const BASE_RACE_WIN_RATE  = 0.08;    // 8% on win
-const BASE_RACE_LOSS_RATE = 0.03;    // 3% on loss
-const BASE_RACE_DNF_RATE  = 0.01;    // 1% on DNF
-const BASE_MOD_SCAVENGE   = 0.005;   // 0.5% mod drop from scavenge
-const BASE_MOD_WIN        = 0.01;    // 1% mod drop from win
+/** Loot gear chance per race, by result, before workshop and streak bonuses. */
+export const RACE_LOOT_DROP_RATE: Record<"win" | "loss" | "dnf", number> = {
+  win: 0.08,
+  loss: 0.03,
+  dnf: 0.01,
+};
+/** Gear mod chance on a race win, before `mod_hunter`. Losses and DNFs never drop mods. */
+export const RACE_MOD_DROP_RATE = 0.01;
+/** Station equipment chance per scavenge (manual or automated), before `gear_scavenger`. */
+export const SCAVENGE_STATION_DROP_RATE = 0.03;
+/** Loose Reforge Shard chance per scavenge, before `mod_hunter`. */
+export const SCAVENGE_SHARD_DROP_RATE = 0.005;
+/** Win streak adds this much loot chance per consecutive win. */
+export const WIN_STREAK_DROP_BONUS_PER_WIN = 0.005;
+/** ...up to this much. */
+export const WIN_STREAK_DROP_BONUS_CAP = 0.10;
+
+const RARITY_ORDER: GearRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -37,8 +66,26 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * clamp(t, 0, 1);
 }
 
-/** Roll a random rarity given tier + optional bonus shifts */
-function rollRarity(sourceTier: number, rarityBonus: number): GearRarity {
+/**
+ * Rep-gated rarity ladder. Lifetime Rep opens each rung of
+ * `REP_PROGRESSION.gear`; legendary opens with epic. Anything rolled above
+ * the open rung is handed out at that rung instead, so a tier-5 drop for a
+ * new driver is still a drop — just a common one.
+ */
+export function maxRarityForLifetimeRep(lifetimeRep: number): GearRarity {
+  const ladder = REP_PROGRESSION.gear;
+  if (lifetimeRep >= ladder.epic) return "legendary";
+  if (lifetimeRep >= ladder.rare) return "rare";
+  if (lifetimeRep >= ladder.uncommon) return "uncommon";
+  return "common";
+}
+
+function capRarity(rarity: GearRarity, cap: GearRarity): GearRarity {
+  return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(cap) ? cap : rarity;
+}
+
+/** Roll a random rarity given tier + optional bonus shifts, then apply the Rep ladder. */
+export function rollRarity(sourceTier: number, rarityBonus: number, lifetimeRep: number): GearRarity {
   const tier = clamp(sourceTier, 0, 5);
   const baseWeights = { ...RARITY_WEIGHTS_BY_TIER[tier] };
 
@@ -52,7 +99,7 @@ function rollRarity(sourceTier: number, rarityBonus: number): GearRarity {
     baseWeights.legendary += shift * 0.3;
   }
 
-  return weightedPick(baseWeights);
+  return capRarity(weightedPick(baseWeights), maxRarityForLifetimeRep(lifetimeRep));
 }
 
 /** Roll a set of effects for the given slot + rarity */
@@ -95,39 +142,47 @@ function buildLootGear(
   };
 }
 
+function buildMod(): InstalledMod {
+  const template = GEAR_MOD_TEMPLATES[randInt(0, GEAR_MOD_TEMPLATES.length - 1)];
+  const value = parseFloat(
+    lerp(template.minValue, template.maxValue, random()).toFixed(4)
+  );
+  return {
+    id: makeModInstanceId(),
+    templateId: template.id,
+    name: template.name,
+    effectType: template.effectType,
+    value,
+  };
+}
+
+// ── Race loot ───────────────────────────────────────────────────────────────
+
 export interface GearDropParams {
-  source: "scavenge" | "race";
-  sourceTier: number;          // location.tier or circuit.tier
+  sourceTier: number;          // circuit.tier
   sourceId: string;            // for flavor
-  raceResult?: "win" | "loss" | "dnf";
+  raceResult: "win" | "loss" | "dnf";
   winStreak: number;
   vehiclePerformance?: number; // vehicle vs circuit difficulty ratio
-  gearDropRateScavengeBonus: number;  // from gear_scavenger upgrade
-  gearDropRateRaceBonus: number;      // from trophy_hunter upgrade
+  lifetimeRep: number;         // Rep-gated rarity ladder
+  gearDropRateRaceBonus: number;      // from trophy_hunter upgrade (+ team gear_drop_rate)
   rarityBonus: number;                // from rarity_sense upgrade (0–3)
   doubleDropChance: number;           // from double_drop upgrade (0–0.15)
   modDropRateBonus: number;           // from mod_hunter upgrade
 }
 
-/** Main entry: returns 0–2 gear items and 0–1 mod */
+/** Chance of at least one loot gear piece for a race, before the roll. */
+export function raceLootDropChance(params: Pick<GearDropParams, "raceResult" | "winStreak" | "gearDropRateRaceBonus">): number {
+  const base = RACE_LOOT_DROP_RATE[params.raceResult] + params.gearDropRateRaceBonus;
+  return base + clamp(params.winStreak * WIN_STREAK_DROP_BONUS_PER_WIN, 0, WIN_STREAK_DROP_BONUS_CAP);
+}
+
+/** Race payout: 0–2 loot gear pieces and 0–1 gear mod, all for the Locker. */
 export function rollGearDrops(params: GearDropParams): {
   gearDrops: LootGearItem[];
   modDrop: InstalledMod | null;
 } {
-  // ── Determine base drop chance ──────────────────────────────────────────
-  let gearDropChance: number;
-  if (params.source === "scavenge") {
-    gearDropChance = BASE_SCAVENGE_RATE + params.gearDropRateScavengeBonus;
-  } else {
-    const result = params.raceResult ?? "loss";
-    const base = result === "win" ? BASE_RACE_WIN_RATE
-               : result === "loss" ? BASE_RACE_LOSS_RATE
-               : BASE_RACE_DNF_RATE;
-    gearDropChance = base + params.gearDropRateRaceBonus;
-  }
-
-  // Win streak bonus (+0.5% per streak, cap +10%)
-  gearDropChance += clamp(params.winStreak * 0.005, 0, 0.10);
+  const gearDropChance = raceLootDropChance(params);
 
   // Vehicle performance boost to tier (if performance >> difficulty, shift tier up by 1)
   let effectiveTier = clamp(params.sourceTier, 0, 5);
@@ -139,36 +194,56 @@ export function rollGearDrops(params: GearDropParams): {
 
   if (random() < gearDropChance) {
     const slot = GEAR_SLOTS[randInt(0, GEAR_SLOTS.length - 1)];
-    const rarity = rollRarity(effectiveTier, params.rarityBonus);
+    const rarity = rollRarity(effectiveTier, params.rarityBonus, params.lifetimeRep);
     gearDrops.push(buildLootGear(slot, rarity, params.sourceId));
 
     // Double drop chance
     if (params.doubleDropChance > 0 && random() < params.doubleDropChance) {
       const slot2 = GEAR_SLOTS[randInt(0, GEAR_SLOTS.length - 1)];
-      const rarity2 = rollRarity(effectiveTier, params.rarityBonus);
+      const rarity2 = rollRarity(effectiveTier, params.rarityBonus, params.lifetimeRep);
       gearDrops.push(buildLootGear(slot2, rarity2, params.sourceId));
     }
   }
 
-  // ── Mod drop ──────────────────────────────────────────────────────────
-  const modDropChance = params.source === "scavenge"
-    ? BASE_MOD_SCAVENGE + params.modDropRateBonus
-    : (params.raceResult === "win" ? BASE_MOD_WIN + params.modDropRateBonus : 0);
-
-  let modDrop: InstalledMod | null = null;
-  if (modDropChance > 0 && random() < modDropChance) {
-    const template = GEAR_MOD_TEMPLATES[randInt(0, GEAR_MOD_TEMPLATES.length - 1)];
-    const value = parseFloat(
-      lerp(template.minValue, template.maxValue, random()).toFixed(4)
-    );
-    modDrop = {
-      id: makeModInstanceId(),
-      templateId: template.id,
-      name: template.name,
-      effectType: template.effectType,
-      value,
-    };
-  }
+  // Gear mods only come off a win.
+  const modDropChance = params.raceResult === "win" ? RACE_MOD_DROP_RATE + params.modDropRateBonus : 0;
+  const modDrop = modDropChance > 0 && random() < modDropChance ? buildMod() : null;
 
   return { gearDrops, modDrop };
+}
+
+// ── Scavenge station equipment ──────────────────────────────────────────────
+
+export interface StationDropParams {
+  sourceTier: number;          // location.tier
+  sourceId: string;            // for flavor
+  lifetimeRep: number;         // Rep-gated rarity ladder
+  gearDropRateScavengeBonus: number;  // from gear_scavenger upgrade (+ team gear_drop_rate)
+  rarityBonus: number;                // from rarity_sense upgrade (0–3)
+  doubleDropChance: number;           // from double_drop upgrade (0–0.15)
+  modDropRateBonus: number;           // from mod_hunter upgrade (loose shard finds)
+}
+
+/** Scavenge payout: 0–2 station equipment pieces and 0–1 loose Reforge Shard. */
+export function rollStationDrops(params: StationDropParams): {
+  stationDrops: StationEquipment[];
+  shardDrop: boolean;
+} {
+  const dropChance = SCAVENGE_STATION_DROP_RATE + params.gearDropRateScavengeBonus;
+  const tier = clamp(params.sourceTier, 0, 5);
+  const stationDrops: StationEquipment[] = [];
+
+  const forge = (): StationEquipment => {
+    const slot = GARAGE_STATION_IDS[randInt(0, GARAGE_STATION_IDS.length - 1)];
+    const rarity = rollRarity(tier, params.rarityBonus, params.lifetimeRep);
+    return { ...forgeStationEquipment(slot, rarity), source: params.sourceId };
+  };
+
+  if (random() < dropChance) {
+    stationDrops.push(forge());
+    if (params.doubleDropChance > 0 && random() < params.doubleDropChance) stationDrops.push(forge());
+  }
+
+  const shardDrop = random() < SCAVENGE_SHARD_DROP_RATE + params.modDropRateBonus;
+  return { stationDrops, shardDrop };
 }

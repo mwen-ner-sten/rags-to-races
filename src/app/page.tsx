@@ -96,7 +96,9 @@ export default function Home() {
           r.completedChallengeIds.length > 0 ||
           r.newAchievementIds.length > 0 ||
           r.lootGearDrops.length > 0 ||
+          r.lootGearAutoSalvaged > 0 ||
           r.modDropsFound > 0 ||
+          r.stationEquipmentDrops.length > 0 ||
           r.stationEquipmentAutoSalvaged > 0 ||
           r.reforgeShardsFound > 0;
         applyTickResult(
@@ -137,8 +139,11 @@ export default function Home() {
               finalCrewRoster: r.finalCrewRoster,
               finalActiveMomentumTiers: r.finalActiveMomentumTiers,
               newAchievementIds: r.newAchievementIds,
+              stationEquipmentDrops: r.stationEquipmentDrops,
               stationEquipmentAutoSalvaged: r.stationEquipmentAutoSalvaged,
               reforgeShardsFound: r.reforgeShardsFound,
+              lootGearAutoSalvaged: r.lootGearAutoSalvaged,
+              lootGearSalvageScrap: r.lootGearSalvageScrap,
               finalProjects: r.finalProjects,
               completedProjects: r.completedProjects,
             },
@@ -194,6 +199,8 @@ export default function Home() {
               ticksProcessed: 1,
               repDecayed: result.repDecayed,
               finalFatigue: result.fatigueAfterTick,
+              stationEquipmentDrops: result.stationDrops,
+              reforgeShardDrops: result.reforgeShardDrops,
               finalProjects: result.projects,
               completedProjects: result.completedProjects,
             },
