@@ -1,71 +1,25 @@
 import type { Metadata } from "next";
-import {
-  Bebas_Neue,
-  Chakra_Petch,
-  Fira_Code,
-  IBM_Plex_Mono,
-  Lato,
-  Orbitron,
-  Playfair_Display,
-  Press_Start_2P,
-  Rajdhani,
-  Share_Tech_Mono,
-  Space_Mono,
-  VT323,
-} from "next/font/google";
+import { Barlow_Condensed, IBM_Plex_Mono, IBM_Plex_Sans, Kalam } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-// ── Theme font faces ─────────────────────────────────────────────────────────
-// Every theme's display/body pairing is loaded here once and exposed as a CSS
-// variable; src/data/themes.ts maps each theme onto the variables. Only the
-// reference identity (Midnight Circuit) is preloaded; the rest lazy-load when
-// their theme is selected.
-
-const orbitron = Orbitron({ variable: "--font-orbitron", subsets: ["latin"], display: "swap" });
-const rajdhani = Rajdhani({ variable: "--font-rajdhani", subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
-
-const bebasNeue = Bebas_Neue({ variable: "--font-bebas", subsets: ["latin"], weight: "400", display: "swap", preload: false });
-const shareTechMono = Share_Tech_Mono({ variable: "--font-share-tech", subsets: ["latin"], weight: "400", display: "swap", preload: false });
-const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], style: ["normal", "italic"], display: "swap", preload: false });
-const lato = Lato({ variable: "--font-lato", subsets: ["latin"], weight: ["300", "400", "700"], display: "swap", preload: false });
-const pressStart = Press_Start_2P({ variable: "--font-press-start", subsets: ["latin"], weight: "400", display: "swap", preload: false });
-const spaceMono = Space_Mono({ variable: "--font-space-mono", subsets: ["latin"], weight: ["400", "700"], display: "swap", preload: false });
-const vt323 = VT323({ variable: "--font-vt323", subsets: ["latin"], weight: "400", display: "swap", preload: false });
-const firaCode = Fira_Code({ variable: "--font-fira-code", subsets: ["latin"], display: "swap", preload: false });
-const chakraPetch = Chakra_Petch({ variable: "--font-chakra", subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", preload: false });
-const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500", "600"], display: "swap", preload: false });
-
-const FONT_CLASSES = [
-  orbitron,
-  rajdhani,
-  bebasNeue,
-  shareTechMono,
-  playfair,
-  lato,
-  pressStart,
-  spaceMono,
-  vt323,
-  firaCode,
-  chakraPetch,
-  plexMono,
-].map((font) => font.variable).join(" ");
+// Era 1 writes in pencil (Kalam); the Team era paints shop signs (Barlow Condensed).
+const kalam = Kalam({ variable: "--font-kalam", subsets: ["latin"], weight: ["400", "700"], display: "swap" });
+const barlow = Barlow_Condensed({ variable: "--font-barlow", subsets: ["latin"], weight: ["500", "600", "700"], display: "swap", preload: false });
+const plexSans = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "Rags to Races",
-  description: "An incremental game where you garbage-pick your way from a busted lawnmower to a racing empire.",
+  description: "A slow, hands-on incremental: scavenge junk, build questionable machines, race them, and grow a racing team.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${FONT_CLASSES} min-h-screen bg-zinc-950 text-zinc-100 antialiased`}>
+    <html lang="en" className={`${kalam.variable} ${barlow.variable} ${plexSans.variable} ${plexMono.variable}`}>
+      <body>
         {children}
-        {process.env.VERCEL === "1" && <Analytics />}
+        <Analytics />
       </body>
     </html>
   );

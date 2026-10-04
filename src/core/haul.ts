@@ -24,7 +24,14 @@ export function completeHaul(state: GameState, spec: HaulSpec, crewId?: string):
   const count = Math.max(1, Math.round(carry * fill));
   const quality = channel(state, "find_quality", { placeId: place.id });
   const finds: PartInstance[] = [];
-  for (let i = 0; i < count; i++) {
+  // The very first trips ever are scripted: a seized engine, then a wheel.
+  const lifetimeTrips = Object.values(state.meta.codex.places).reduce((a, b) => a + b, 0);
+  const scripted = lifetimeTrips === 0 ? "engine_small" : lifetimeTrips === 1 ? "wheel_busted" : null;
+  if (scripted) {
+    finds.push({ uid: nextUid(state, "p"), partId: scripted, condition: 1, origin: place.name });
+    state.meta.codex.parts[scripted] = (state.meta.codex.parts[scripted] ?? 0) + 1;
+  }
+  for (let i = finds.length; i < count; i++) {
     const partId = pickWeighted(
       state,
       place.finds.map((f) => ({ item: f.partId, weight: f.weight * (spec.focus && getPart(f.partId).category === spec.focus ? 3 : 1) })),

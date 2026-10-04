@@ -183,3 +183,12 @@ describe("resets", () => {
     expect(s.run.habitSlots).toHaveLength(0);
   });
 });
+
+describe("scripted opening", () => {
+  it("the first two trips ever find an engine and a wheel", () => {
+    const s = haul(createGame("o1"), "curb", 2);
+    const ids = s.run.inventory.map((p) => p.partId);
+    expect(ids).toContain("engine_small");
+    expect(ids).toContain("wheel_busted");
+  });
+});

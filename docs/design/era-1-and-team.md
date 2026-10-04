@@ -110,7 +110,7 @@ Era 1 never shows crew, disciplines, sponsors or any other later system.
 | Haul | Curb / Yards / Junkyard / Auction lot / Long haul (bulk junkyard) | 15 s / 2 min / 10 min / 1 h / **8 h** |
 | Bench | Clean / patch tyre / rebuild carb / strip mower / weld bracket / strip car / engine rebuild | 1 min / 5 min / 20 min / 30 min / 45 min / 4 h / **8 h** |
 | Study | Rebuilding / Welding / Tuning / Wiring / Bodywork | 10 min / 1 h / 2 h / 4 h / 6 h |
-| Race | Sprint / Heat / Feature | Prep plus a 10–20 s replay. Gated by entry fee and part wear, never by a cooldown. |
+| Race | Sprint / Heat / Feature | Prep plus a 10–20 s replay. Events run **on a schedule** (Backyard every 2/5/15 min up to State every 2/8/24 h), like Friday night at the Dirt Track. This caps prize income and gives each visit a "race night" to plan around. |
 
 No job exceeds 8 hours. When the queue empties, the game says so plainly. It
 never silently wastes the player's time.
@@ -156,7 +156,18 @@ This is how unlocks go from slow and manual to quick to automatic, without a
   Backyard Derby, Dirt Track, **County Fair** (new venue), Regional
   Invitational, State Invitational.
 
-### 3.7 Vehicles do more than race
+### 3.7 Economy notes (added during implementation, 2026-10-04)
+
+- **Dealer saturation.** Selling many of the same part lowers its price, and the dealer recovers by one step per hour. Without this, Habit trips printed money and Scrap Bucks stopped mattering.
+- **Parts Counter.** Buy any part you've seen at three times its value, in Good condition, up to one tier above what you drive. It's the main Scrap Bucks sink, and it trades money for time.
+- **Sedan shell.** Bought at the Salvage Auction (150 Scrap Bucks). It needs Clean, then Bodywork, before it fits the Beater.
+- **Clean** brings Scrap up to Rusted (double time), and Rusted up to Worn. Required parts can be pulled for repair, but the vehicle can't race until its slots are filled again.
+- **Perks are bought and equipped in the same reset screen**, using the Legacy Points that reset awards.
+- **Scripted opening.** The first two trips ever find a seized engine and a busted wheel.
+
+Measured with `npm run sim` (4×15 min visits a day): Season 1 takes about 6.5–7 days. Later Sprint Seasons take 3–5 days, with high variance from the greedy bot. A push player founds a team in about 34 days.
+
+### 3.8 Vehicles do more than race
 
 Each vehicle in Era 1 also changes the economy. This makes cars part of your
 identity, and they don't become disposable tiers.
