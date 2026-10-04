@@ -1,4 +1,9 @@
-"""Crop a transparent grid source sheet into normalized game assets."""
+"""Crop a transparent grid source sheet into normalized game assets.
+
+Writes the PNG authoring source into ``--out-dir`` (normally a folder under
+``docs/art/source``) and the shipped WebP into ``--webp-dir`` (defaults to
+the mirrored folder under ``public/sprites``).
+"""
 
 from __future__ import annotations
 
@@ -7,11 +12,14 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+from convert_sprites_to_webp import save_sprite, shipped_dir_for
+
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--out-dir", type=Path, required=True, help="PNG authoring folder, e.g. docs/art/source/parts")
+    parser.add_argument("--webp-dir", type=Path, help="Shipped WebP folder (default: mirror of --out-dir under public/sprites)")
     parser.add_argument("--ids", required=True, help="Comma-separated IDs in row-major order")
     parser.add_argument("--cols", type=int)
     parser.add_argument("--rows", type=int)
@@ -53,6 +61,7 @@ def main() -> None:
     sheet = Image.open(args.input).convert("RGBA")
     rows = len(row_counts) if row_counts else args.rows
     cell_height = sheet.height // rows
+    webp_dir = args.webp_dir or shipped_dir_for(args.out_dir)
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     for index, asset_id in enumerate(ids):
@@ -80,7 +89,7 @@ def main() -> None:
             if args.cover
             else normalize(cell, args.width, args.height, args.padding)
         )
-        output.save(args.out_dir / f"{asset_id}.png", optimize=True)
+        save_sprite(output, args.out_dir, webp_dir, asset_id)
 
 
 if __name__ == "__main__":

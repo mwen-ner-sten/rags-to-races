@@ -7,115 +7,47 @@ Run before committing:
 ```bash
 npm run typecheck   # TypeScript type checking
 npm run lint        # ESLint
-npm test            # Vitest unit tests
+npm test            # Vitest unit tests (src/core)
+npm run sim         # Pacing simulator: npm run sim -- mixed 30 sprint 3
+npm run test:e2e    # Playwright smoke tests
 ```
 
-# UI / UX design checklist
+# Architecture (the rebuild, 2026-10)
 
-**Read this before writing or modifying any UI code.** Every single one of these rules exists because we broke it and wasted dev time fixing the regression.
+The pre-rebuild game is archived at the git tag `archive/pre-rebuild`. Design source of truth: `docs/design/era-1-and-team.md`.
 
-## Breakpoints & responsive layout
+- `src/core/` is a headless engine with no React. The UI and the simulator change state only through `apply(state, action)` in `src/core/actions.ts`, which clones the state and returns a new one.
+  - **Scopes decide what a reset keeps** (`src/core/types.ts`): `meta` (forever), `scrap` (Scrap layer), `team`, `era` (current team), `run` (the Season) and `config` (choices made at reset). Never add a hand-written "keep list". Put the field in the right scope.
+  - **Resets are data.** `src/core/layers.ts` defines a `LayerDef` per layer and one `performReset()`. A new layer is a new entry.
+  - **One time path.** `advance()` in `src/core/jobs.ts` runs live ticks, offline catch-up and the simulator. Don't add a second settlement path.
+  - **Bonuses go through channels** (`src/core/channels.ts`). A test enforces at most 3 sources per channel and at most 2 channels per source. Car performance never takes a global percentage; it comes from the car itself.
+  - **Rule changes are flags** (`src/core/rules.ts`, `resolveFlags`). Hardships, perks and disciplines are content (`src/core/content/`), not `if` branches scattered through the engine.
+- `src/game/` is the UI: a Zustand store (`store.ts`: save/load, 500 ms tick, offline catch-up capped at 48 h, race replays) plus panels in `components/`.
+- `scripts/sim-core.ts` is the pacing bot (`src/core/sim/bot.ts`). Re-run it after changing any number in `src/core/content/`. Targets: Season 1 takes 7–10 days at 4×15 min visits a day, and a push player founds a team in about 3–5 weeks.
 
-- **Mobile breakpoint is `640px`** (`max-width: 640px`). Check every UI change at both ≤640px and ≥641px before reporting done.
-- The app uses **two different nav components**: `DesktopSidebar` (fixed left, 200px) and `MobileNav` (fixed bottom, 56px). When you change navigation, you must update BOTH.
-- Desktop reserves left space via `.shell-content { margin-left: 200px }`. Mobile reserves bottom space via `.shell-content { padding-bottom: 56px }`. If you change nav dimensions, update these too.
-- There is a 3rd nav pattern: `MobileSubNav` used inside panels for sub-tabs. Don't confuse it with `MobileNav`.
+# Game terminology: don't conflate these
 
-## Fixed-position elements (the #1 source of bugs)
+- **Scrap** means the physical parts you find (engine, wheel, etc.). Never use "scrap" to mean money. (The **Scrap** condition is the lowest part condition.)
+- **Scrap Bucks** is the currency. Always write the full phrase in player-facing copy.
+- **Rep** is local standing, earned from races and spent to open places and the Dirt Track.
+- **Season** is one run. **Scrap Reset** ends a Season (proper noun, both words capitalised). **LP / Legacy Points** are earned by it.
+- **Team Reset** / **Founding** is the second layer. **TP / Team Points** are earned by it.
+- **Know-how** tiers are Learning, Familiar and Second Nature. **Habits** are automation earned by repetition.
 
-When you add or move any `position: fixed` element, you must answer ALL of these:
+# UI rules
 
-1. **Does it cover other content?** If it's at `bottom: 0` or `top: 0`, add matching `padding-{top|bottom}` to `.shell-content` (or the outer scroll container). Do NOT add padding to `<main>` alone — footers and other siblings still overlap.
-2. **Does it conflict with existing fixed elements?** Check the z-index table below. The desktop sidebar, mobile bottom nav, tutorial overlay, and modals all have reserved ranges.
-3. **Does it work on mobile AND desktop?** Fixed bottom elements on desktop usually don't need to exist. Fixed top elements usually need `top` offsets on mobile if the header wraps.
-4. **Is the shape of the visual effect matching the shape of the element?** Halos/borders/shadows on circular elements need `rounded-full`, not `rounded`.
-
-### Z-index ranges (reserved)
-
-| Range | Use |
-|-------|-----|
-| 0–99 | Background decoration (scanlines, grids, ambient effects) |
-| 100–199 | DesktopSidebar (100), panel sticky headers |
-| 1000 | Mobile bottom nav |
-| 1001 | Mobile nav popovers |
-| 9996–9999 | Tutorial highlights and halos |
-| 10000 | Tutorial cards and goal badges |
-| 10001+ | Modals that must appear above tutorials |
-
-When in doubt, search for existing `zIndex` or `z-[...]` usage to find the right layer.
-
-## Tutorial system
-
-- **Tutorial steps are 0-indexed and sequential.** Changing step numbers requires updating:
-  - `STEPS` array in `TutorialOverlay.tsx`
-  - `isStepConditionMet()` switch cases
-  - `advanceTutorial` terminal step in `store.ts` (currently `>= 21`)
-  - `HUD.tsx` step-specific conditionals
-  - Any `tutorialStep === N` references (grep for them before editing)
-- Tutorial goals need:
-  - A condition in `isStepConditionMet()` for auto-advancement
-  - A goal badge renderer (search for `tutorialStep === N` inside `goalContent`)
-  - Matching HUD tracker for long grind steps
-- Tutorial halos target elements via `data-tutorial="name"`. If you rename an element or add a fallback, update BOTH the element and the tutorial's target lookup.
-
-## Game terminology — don't conflate these
-
-- **Scrap** = the physical parts/materials you scavenge in the Junkyard (engine, wheel, etc.). Never use "scrap" to mean money.
-- **Scrap Bucks** = the currency. Earned from racing (prize money) and from *selling* scavenged scrap/parts. Always write the full phrase in player-facing copy: "Scrap Bucks", not "scrap", not "bucks".
-- **Rep** = reputation points earned from races. Unlocks locations, circuits, vehicles.
-- **LP / Legacy Points** = prestige currency earned on Scrap Reset.
-- **Scrap Reset** = the prestige action (proper noun, capitalized both words).
-
-Player-facing examples:
-- ✅ "Earn more **Scrap Bucks** by racing or selling parts."
-- ❌ "Earn more scrap by racing." (ambiguous — sounds like parts)
-- ✅ "Collect an **engine** and a **wheel**" (scrap = parts)
-- ❌ "Lifetime scrap" when you mean "Lifetime Scrap Bucks"
-
-In bonus-description text inside `achievements.ts` / `upgrades.ts`, prefer the full "Scrap Bucks" to keep UI copy precise.
-
-## Theming
-
-- There are **16 theme shells** in `ThemeShell.tsx`, each with inline `<header>/<nav>/<main>/<footer>` styles. Global CSS rules for these elements need `!important` to override the inline styles.
-- Never hardcode colors. Use CSS variables: `var(--panel-bg)`, `var(--accent)`, `var(--text-primary)`, `var(--text-secondary)`, `var(--text-muted)`, `var(--text-white)`, `var(--text-heading)`, `var(--success)`, `var(--danger)`, `var(--panel-border)`, `var(--accent-bg)`, `var(--accent-border)`, `var(--btn-primary-bg)`, `var(--btn-primary-text)`.
-- Provide fallback colors for CSS vars on inline styles: `"var(--accent, #c83e0c)"`.
-
-## Before marking any UI task complete
-
-You MUST verify ALL of these:
-
-1. **Mobile test**: Resize to ≤640px. Scroll to the bottom of every modified panel. Are ANY cards, buttons, footers, or content elements hidden behind the bottom nav? (The page must scroll enough that the last element sits above the 56px nav.)
-2. **Desktop test**: Resize to ≥641px. Does the 200px sidebar still clear all content?
-3. **Tutorial walkthrough**: If tutorial-adjacent, run through the entire tutorial step sequence from 0. No broken halos, no dead ends, no missing targets.
-4. **Z-index sanity**: Open the feature while a tutorial is active AND while a modal is open. Does anything layer incorrectly?
-5. **Shape matching**: Every `tutorial-pulse`, `box-shadow`, halo, or border matches its target's actual shape (rounded, circular, square).
-6. **Existing content**: Grep for any `tutorialStep === N`, step number, or element ID you changed. Update every caller.
+- Mobile breakpoint is `640px`, and the two-column layout collapses at `960px`. Check both sides of each.
+- One look per era via `data-era` on `.game`: `curb` (backyard notebook) and `shop` (race shop in the team's colours, `--team-a`/`--team-b`). All colours are tokens in `src/app/globals.css`, with dark mode under `prefers-color-scheme`. Never hardcode a colour in a component.
+- Fonts load once in `src/app/layout.tsx` (`--font-kalam`, `--font-barlow`, `--font-plex-sans`, `--font-plex-mono`).
+- Era 1 reveals one system at a time (`src/core/reveal.ts`). Never show crew, disciplines, hardships or other Team-era systems before the player founds a team.
+- Z-index: sticky header 100, tabs 99, toast 10001. Dialogs use native `<dialog>.showModal()`.
+- Every disabled action shows why (`jobBlocker`, `canOpenPlace`, `counterBlocker` return the reason text).
+- Never put a paywall, ad or premium hook in the game. It's free and open source.
 
 ## Common mistakes to NOT repeat
 
-These are real mistakes we've made. Don't make them again.
-
-- ❌ Adding fixed bottom/top UI without reserving space in `.shell-content`.
-- ❌ Adding `padding-bottom` to `<main>` only — siblings (footer) still overlap.
-- ❌ Hardcoding step numbers in multiple files without a central constant.
-- ❌ Using `rounded` on halos for circular buttons (should be `rounded-full`).
-- ❌ Adding navigation on one of mobile/desktop only.
-- ❌ Using `position: fixed` without checking z-index against tutorials and modals.
-- ❌ Forgetting to update `partialize` in the Zustand store when adding new state fields.
-- ❌ Adding `any` types to silence TypeScript strict warnings.
-- ❌ Inventing new CSS color values instead of using theme variables.
-- ❌ Assuming `npm test` = 70 tests (we've added tests; check actual count).
-- ❌ Positioning an element "above" another by setting `top = anchorRect.top - offset`. That puts the TOP of the element at that position, extending DOWN and overlapping the anchor. Correct: `top = anchorRect.top - elementHeight - offset`.
-- ❌ Tutorial card positioning needs to account for fixed bottom nav. If the anchor is IN the nav, the card's top is `anchorRect.top - cardH - 16`, not `anchorRect.top - 16`.
-
-## When adding a new fixed-position element — template
-
-```
-1. Grep for other `position: fixed` elements in the relevant range.
-2. Pick an explicit z-index using the table above.
-3. If it occupies screen edge space, reserve it in `.shell-content` or the
-   outermost scroll container — NEVER on a child like `<main>`.
-4. Add a media query if it should only exist on mobile or desktop.
-5. Test mobile. Test desktop. Test tutorial overlay.
-6. Run typecheck + lint + tests.
-```
+- ❌ Mutating `state` outside `apply()`: the store would miss the change.
+- ❌ Adding a bonus that bypasses `channels.ts`, or a source that feeds many channels.
+- ❌ Shortening Era 1 for convenience: the owner wants it slow and hands-on. Make waiting meaningful instead.
+- ❌ Adding `any` types to silence TypeScript.
+- ❌ Changing content numbers without re-running `npm run sim`.

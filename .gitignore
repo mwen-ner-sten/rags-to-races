@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
 
 # next.js
 /.next/
@@ -44,3 +46,9 @@ next-env.d.ts
 /.claude/worktrees/
 /.superpowers/
 
+
+# local tool scratch
+/.codex-remote-attachments/
+/.playwright-cli/
+/.tmp/
+/output/
