@@ -14,7 +14,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm audit --omit=dev
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
@@ -36,3 +35,15 @@ jobs:
             playwright-report
           if-no-files-found: ignore
           retention-days: 7
+
+  # Advisory only: not a required check, so a newly published advisory doesn't
+  # block unrelated PRs. Dependabot security updates open the fixing PRs.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm audit --omit=dev
