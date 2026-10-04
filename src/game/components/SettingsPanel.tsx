@@ -70,6 +70,9 @@ export function SettingsPanel() {
         </button>
       )}
       <p className="muted small">Rags to Races is free and open source. No ads, no purchases.</p>
+      <p className="muted small num" data-testid="build-version">
+        Build {process.env.NEXT_PUBLIC_BUILD_VERSION ?? "dev"} · {process.env.NEXT_PUBLIC_RELEASE_CHANNEL ?? "dev"}
+      </p>
     </section>
   );
 }

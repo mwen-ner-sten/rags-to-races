@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "sim": "tsx scripts/sim-core.ts",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test --grep @smoke",
     "test:e2e:full": "cross-env PLAYWRIGHT_FULL_MATRIX=1 playwright test"
   },
   "dependencies": {
