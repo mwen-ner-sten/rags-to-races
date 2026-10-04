@@ -35,6 +35,9 @@ function releaseChannel(): "experimental" | "dev" | "uat" | "released" {
 }
 
 const nextConfig: NextConfig = {
+  // The dev-tools badge sits on top of the mobile "More" nav button at
+  // phone widths and swallows taps; the game has its own Dev tab.
+  devIndicators: false,
   env: {
     NEXT_PUBLIC_BUILD_VERSION: generateVersion(),
     NEXT_PUBLIC_RELEASE_CHANNEL: releaseChannel(),

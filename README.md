@@ -12,11 +12,12 @@ Rags to Races is a browser-based idle/incremental game built with Next.js. Start
 
 - **Progressive scavenging** — Unlock 6 locations from curbside trash to military scrapyards as your reputation grows
 - **Vehicle building** — Assemble parts into vehicles ranging from push mowers to full racing machines
-- **Racing simulation** — Compete on 7 circuits spanning T0–T6 with dynamic race events, DNF risks, and win streaks
-- **Workshop upgrades** — 20+ upgrades across scavenging, building, racing, and maintenance categories
-- **Vehicle wear & repair** — Parts degrade over races; manage condition or risk breakdowns
-- **Prestige system** — Reset with permanent bonuses that scale with each prestige cycle
-- **Auto-play mechanics** — Unlock auto-scavenge and auto-race as you progress
+- **Racing simulation** — Compete on 7 circuits spanning T0–T6. Each circuit weights pace, grip, and reliability differently, every race is a contest (never a lock), and the post-race debrief tells you which part to fix
+- **Real build tradeoffs** — Parts carry power, grip, reliability, and weight; a heavy engine buys pace at the cost of cornering
+- **Workshop upgrades** — 30 upgrades across scavenging, building, racing, and maintenance, with Workshop sections revealed as the campaign reaches them
+- **Vehicle wear & repair** — A damaged car drives slower *and* breaks down more; repair or risk it
+- **Prestige system** — Scrap Reset for Legacy Points and permanent upgrades; the first reset is earned over an engaged 1–2 hours
+- **Idle from the first tick** — The garage scavenges and races on its own; manual play is the accelerator, and auto-race pauses below a condition floor you set
 - **15+ themes** — Swap between visual skins like grease, neon, prestige, and more
 - **Mobile-responsive** — Full bottom-nav mobile layout
 - **Persistent saves** — Game state auto-saves to localStorage

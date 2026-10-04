@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from convert_sprites_to_webp import AUTHORING_ROOT, REVIEW_ROOT, save_sprite, shipped_dir_for
+
 
 VEHICLES = [
     ("push_mower", "T0 Push Mower"),
@@ -186,9 +188,12 @@ def build_contact_sheet(sprites: list[tuple[str, str, Image.Image]], out_path: P
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, type=Path)
-    parser.add_argument("--out-dir", required=True, type=Path)
+    parser.add_argument("--out-dir", type=Path, default=AUTHORING_ROOT / "vehicles", help="PNG authoring folder")
+    parser.add_argument("--webp-dir", type=Path, help="Shipped WebP folder (default: mirror of --out-dir under public/sprites)")
+    parser.add_argument("--review-dir", type=Path, default=REVIEW_ROOT, help="Where the contact sheet is written")
     parser.add_argument("--canvas-size", type=int, default=64)
     args = parser.parse_args()
+    webp_dir = args.webp_dir or shipped_dir_for(args.out_dir)
 
     image = Image.open(args.input).convert("RGB")
     mask = non_key_mask(image)
@@ -207,10 +212,10 @@ def main() -> None:
     for vehicle, component in zip(VEHICLES, components):
         vehicle_id, label = vehicle
         sprite = crop_to_sprite(keyed, component, args.canvas_size)
-        sprite.save(args.out_dir / f"{vehicle_id}.png")
+        save_sprite(sprite, args.out_dir, webp_dir, vehicle_id)
         sprites.append((vehicle_id, label, sprite))
 
-    build_contact_sheet(sprites, args.out_dir / "contact-sheet.png")
+    build_contact_sheet(sprites, args.review_dir / "vehicles-contact-sheet.png")
 
 
 if __name__ == "__main__":

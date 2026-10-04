@@ -1,0 +1,822 @@
+{
+  "date": "2026-09-04",
+  "method": "Real-store fixed-seed policy driver; simulated elapsed hours; no developer grants",
+  "firstThreeRuns": [
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-0",
+      "hours": 360,
+      "lp": 770,
+      "lpPerHour": 2.138888888888889,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-1",
+      "hours": 336.1,
+      "lp": 658,
+      "lpPerHour": 1.9577506694436178,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-2",
+      "hours": 360,
+      "lp": 668,
+      "lpPerHour": 1.8555555555555556,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-3",
+      "hours": 360,
+      "lp": 705,
+      "lpPerHour": 1.9583333333333333,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-4",
+      "hours": 360,
+      "lp": 679,
+      "lpPerHour": 1.886111111111111,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-5",
+      "hours": 360,
+      "lp": 717,
+      "lpPerHour": 1.9916666666666667,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-6",
+      "hours": 312,
+      "lp": 704,
+      "lpPerHour": 2.2564102564102564,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-7",
+      "hours": 336,
+      "lp": 718,
+      "lpPerHour": 2.136904761904762,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-8",
+      "hours": 384,
+      "lp": 697,
+      "lpPerHour": 1.8151041666666667,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-9",
+      "hours": 360.1,
+      "lp": 692,
+      "lpPerHour": 1.9216884198833657,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-0",
+      "hours": 360,
+      "lp": 949,
+      "lpPerHour": 2.636111111111111,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-1",
+      "hours": 408,
+      "lp": 955,
+      "lpPerHour": 2.340686274509804,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-2",
+      "hours": 408,
+      "lp": 958,
+      "lpPerHour": 2.3480392156862746,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-3",
+      "hours": 384,
+      "lp": 940,
+      "lpPerHour": 2.4479166666666665,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-4",
+      "hours": 432,
+      "lp": 993,
+      "lpPerHour": 2.298611111111111,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-5",
+      "hours": 384,
+      "lp": 937,
+      "lpPerHour": 2.4401041666666665,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-6",
+      "hours": 384,
+      "lp": 942,
+      "lpPerHour": 2.453125,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-7",
+      "hours": 360,
+      "lp": 954,
+      "lpPerHour": 2.65,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-8",
+      "hours": 408,
+      "lp": 973,
+      "lpPerHour": 2.3848039215686274,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-9",
+      "hours": 384,
+      "lp": 949,
+      "lpPerHour": 2.4713541666666665,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-0",
+      "hours": 110,
+      "lp": 624,
+      "lpPerHour": 5.672727272727273,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-1",
+      "hours": 95.2,
+      "lp": 589,
+      "lpPerHour": 6.186974789915967,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-2",
+      "hours": 90.5,
+      "lp": 624,
+      "lpPerHour": 6.895027624309392,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-3",
+      "hours": 96.1,
+      "lp": 587,
+      "lpPerHour": 6.108220603537982,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-4",
+      "hours": 139,
+      "lp": 630,
+      "lpPerHour": 4.532374100719425,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-5",
+      "hours": 105,
+      "lp": 632,
+      "lpPerHour": 6.019047619047619,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-6",
+      "hours": 106,
+      "lp": 640,
+      "lpPerHour": 6.037735849056604,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-7",
+      "hours": 148.5,
+      "lp": 601,
+      "lpPerHour": 4.047138047138047,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-8",
+      "hours": 144.5,
+      "lp": 653,
+      "lpPerHour": 4.5190311418685125,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-9",
+      "hours": 138.7,
+      "lp": 619,
+      "lpPerHour": 4.462869502523432,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-0",
+      "hours": 110,
+      "lp": 919,
+      "lpPerHour": 8.354545454545455,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-1",
+      "hours": 110,
+      "lp": 882,
+      "lpPerHour": 8.018181818181818,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-2",
+      "hours": 104.5,
+      "lp": 839,
+      "lpPerHour": 8.028708133971293,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-3",
+      "hours": 100,
+      "lp": 891,
+      "lpPerHour": 8.91,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-4",
+      "hours": 106,
+      "lp": 887,
+      "lpPerHour": 8.367924528301886,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-5",
+      "hours": 114.5,
+      "lp": 872,
+      "lpPerHour": 7.615720524017467,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-6",
+      "hours": 133.5,
+      "lp": 905,
+      "lpPerHour": 6.7790262172284645,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-7",
+      "hours": 114.5,
+      "lp": 880,
+      "lpPerHour": 7.685589519650655,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-8",
+      "hours": 129,
+      "lp": 912,
+      "lpPerHour": 7.069767441860465,
+      "runs": 3,
+      "trackEra": 0
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-9",
+      "hours": 104.5,
+      "lp": 863,
+      "lpPerHour": 8.258373205741627,
+      "runs": 3,
+      "trackEra": 0
+    }
+  ],
+  "completeCampaigns": [
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-0",
+      "hours": 3096.1,
+      "lp": 19446,
+      "lpPerHour": 6.280804883563192,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-1",
+      "hours": 3072.4999999999995,
+      "lp": 19164,
+      "lpPerHour": 6.237266069975591,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-2",
+      "hours": 2904.4999999999995,
+      "lp": 20231,
+      "lpPerHour": 6.965398519538648,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-3",
+      "hours": 3240,
+      "lp": 21157,
+      "lpPerHour": 6.529938271604938,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-4",
+      "hours": 3048.1,
+      "lp": 20549,
+      "lpPerHour": 6.741576719923887,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-5",
+      "hours": 2737.3999999999996,
+      "lp": 19249,
+      "lpPerHour": 7.031855044933149,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-6",
+      "hours": 3216.2,
+      "lp": 20775,
+      "lpPerHour": 6.459486350351347,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-7",
+      "hours": 2832.2999999999997,
+      "lp": 18567,
+      "lpPerHour": 6.55544963457261,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-8",
+      "hours": 3048.2,
+      "lp": 19892,
+      "lpPerHour": 6.525818515845417,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "farm",
+      "seed": "progression-9",
+      "hours": 3048.3,
+      "lp": 19207,
+      "lpPerHour": 6.300889020109569,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-0",
+      "hours": 3360.7999999999997,
+      "lp": 32225,
+      "lpPerHour": 9.588490835515355,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-1",
+      "hours": 3408.5,
+      "lp": 30491,
+      "lpPerHour": 8.945577233387121,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-2",
+      "hours": 3648,
+      "lp": 29120,
+      "lpPerHour": 7.982456140350878,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-3",
+      "hours": 3456.1,
+      "lp": 31837,
+      "lpPerHour": 9.211828361447875,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-4",
+      "hours": 3600,
+      "lp": 31731,
+      "lpPerHour": 8.814166666666667,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-5",
+      "hours": 3049.0999999999995,
+      "lp": 28977,
+      "lpPerHour": 9.503460037388084,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-6",
+      "hours": 3600.1,
+      "lp": 28325,
+      "lpPerHour": 7.867837004527652,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-7",
+      "hours": 3360.1,
+      "lp": 29311,
+      "lpPerHour": 8.72325228415821,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-8",
+      "hours": 3672,
+      "lp": 31858,
+      "lpPerHour": 8.675925925925926,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "idle",
+      "policy": "push",
+      "seed": "progression-9",
+      "hours": 3456.1,
+      "lp": 27078,
+      "lpPerHour": 7.834842741818814,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-0",
+      "hours": 277.90000000000003,
+      "lp": 11118,
+      "lpPerHour": 40.0071968333933,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-1",
+      "hours": 370.9000000000001,
+      "lp": 12278,
+      "lpPerHour": 33.10326233486114,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-2",
+      "hours": 258.6999999999997,
+      "lp": 10812,
+      "lpPerHour": 41.79358330112104,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-3",
+      "hours": 450.99999999999994,
+      "lp": 12331,
+      "lpPerHour": 27.34146341463415,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-4",
+      "hours": 390.7999999999997,
+      "lp": 11482,
+      "lpPerHour": 29.380757420675558,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-5",
+      "hours": 349.3,
+      "lp": 13353,
+      "lpPerHour": 38.22788434010879,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-6",
+      "hours": 609.0000000000006,
+      "lp": 14407,
+      "lpPerHour": 23.656814449917878,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-7",
+      "hours": 380.6000000000001,
+      "lp": 11674,
+      "lpPerHour": 30.67262217551234,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-8",
+      "hours": 588.5,
+      "lp": 14367,
+      "lpPerHour": 24.412914188615122,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "farm",
+      "seed": "progression-9",
+      "hours": 682.6000000000005,
+      "lp": 14075,
+      "lpPerHour": 20.61968942279518,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-0",
+      "hours": 271.69999999999976,
+      "lp": 23460,
+      "lpPerHour": 86.34523371365484,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-1",
+      "hours": 367.40000000000003,
+      "lp": 21505,
+      "lpPerHour": 58.532934131736525,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-2",
+      "hours": 308.39999999999986,
+      "lp": 21468,
+      "lpPerHour": 69.61089494163427,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-3",
+      "hours": 253.5999999999997,
+      "lp": 21472,
+      "lpPerHour": 84.66876971608842,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-4",
+      "hours": 270.9999999999997,
+      "lp": 21096,
+      "lpPerHour": 77.84501845018458,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-5",
+      "hours": 316.29999999999984,
+      "lp": 21363,
+      "lpPerHour": 67.5403098324376,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-6",
+      "hours": 357.9999999999998,
+      "lp": 21940,
+      "lpPerHour": 61.284916201117355,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-7",
+      "hours": 320.89999999999986,
+      "lp": 22822,
+      "lpPerHour": 71.11872857588037,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-8",
+      "hours": 343.2999999999998,
+      "lp": 20683,
+      "lpPerHour": 60.24759685406354,
+      "runs": 65,
+      "trackEra": 1
+    },
+    {
+      "profile": "mixed",
+      "policy": "push",
+      "seed": "progression-9",
+      "hours": 281.3999999999997,
+      "lp": 21837,
+      "lpPerHour": 77.60127931769732,
+      "runs": 65,
+      "trackEra": 1
+    }
+  ],
+  "offlineStress": {
+    "elapsedHours": 48,
+    "tickMs": 100,
+    "ticks": 1728000,
+    "seconds": 600.9242825,
+    "races": 680,
+    "parts": 39079683,
+    "initialParts": 350,
+    "retainedParts": 350,
+    "retainedGear": 250,
+    "firstSettlement": true,
+    "duplicateSettlement": false,
+    "longerAbsenceCapped": true
+  }
+}
