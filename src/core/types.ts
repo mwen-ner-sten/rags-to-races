@@ -87,6 +87,8 @@ export interface ActiveJob {
   looping: boolean;
   /** For habit lanes: the template being repeated. */
   template?: JobTemplate;
+  /** What starting the job cost, refunded if it's cancelled. */
+  paid?: { cash: number; materials: Partial<Record<MaterialId, number>>; lastEntered?: { key: string; prev: number | undefined } };
 }
 
 export interface RaceResult {

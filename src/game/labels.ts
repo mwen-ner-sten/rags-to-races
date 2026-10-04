@@ -44,6 +44,23 @@ export function laneLabel(lane: string): string {
   return lane;
 }
 
+/** Habit choices for a slot or a crew member; Race Day repeats a recent race setup. */
+export function habitOptions(state: GameState): string[] {
+  const seen = new Set<string>();
+  const races: string[] = [];
+  if (state.run.habitsKnown.includes("race")) {
+    for (const race of [...state.run.races].reverse()) {
+      if (!state.run.vehicles.some((v) => v.uid === race.vehicleUid)) continue;
+      const key = `race:${race.vehicleUid}:${race.venueId}:${race.event}:${race.call}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      races.push(key);
+      if (races.length >= 5) break;
+    }
+  }
+  return [...state.run.habitsKnown.filter((t) => t !== "race"), ...races];
+}
+
 export function habitLabel(state: GameState, template: string): string {
   const base = templateBase(template);
   if (base.startsWith("haul:")) return `Trips to ${PLACE_BY_ID[base.slice(5)]?.name ?? base.slice(5)}`;

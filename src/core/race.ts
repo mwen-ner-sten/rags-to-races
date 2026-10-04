@@ -153,8 +153,9 @@ export function resolveRace(state: GameState, spec: RaceSpec): RaceResult | null
   const opps = opponentScores(state, spec.venueId, spec.event).map((o) => o * (1 + NOISE * randNormal(state)));
   const fieldSize = opps.length + 1;
   const position = dnf ? fieldSize : 1 + opps.filter((o) => o > me).length;
-  const closest = opps.reduce((best, o) => (Math.abs(o - me) < Math.abs(best - me) ? o : best), opps[0]);
-  const margin = (me - closest) / Math.max(1, event.field);
+  const ahead = opps.filter((o) => o > me);
+  const reference = ahead.length > 0 ? Math.min(...ahead) : Math.max(...opps);
+  const margin = (me - reference) / Math.max(1, event.field);
 
   // Wear.
   const weak = weakestSlot(vehicle);

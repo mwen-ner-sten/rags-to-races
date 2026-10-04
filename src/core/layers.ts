@@ -124,7 +124,11 @@ function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: nu
     if (!PERK_BY_ID[id]) return `Unknown perk ${id}`;
     if ((plan.ranks[id] ?? 0) < 1) return `You don't own ${PERK_BY_ID[id].name}`;
   }
-  const spent = SKILLS.reduce((sum, k) => sum + Math.max(0, choices.tuneUp[k] ?? 0), 0);
+  for (const k of SKILLS) {
+    const v = choices.tuneUp[k] ?? 0;
+    if (!Number.isInteger(v) || v < 0) return "Tune-up points are whole numbers";
+  }
+  const spent = SKILLS.reduce((sum, k) => sum + (choices.tuneUp[k] ?? 0), 0);
   if (spent > tuneUpPoints) return `Only ${tuneUpPoints} tune-up points`;
   if (choices.dare) {
     if (!DARE_BY_ID[choices.dare]) return "Unknown dare";
@@ -271,6 +275,14 @@ export function startSeason(state: GameState): void {
       frame: { uid: nextUid(state, "p"), partId: "frame_mower", condition: 1, origin: "The barn" },
     };
     run.vehicles.push({ uid: nextUid(state, "v"), vehicleId: def.id, name: "Barn Find", parts, tune: "balanced", history: { races: 0, wins: 0, dnfs: 0, bestFinish: null }, builtAtSeasonMs: 0 });
+  }
+  if (state.era) {
+    for (const member of state.era.crew) {
+      member.windowStartMs = 0;
+      member.workedInWindowMs = 0;
+      member.morale = 100;
+      if (member.assignment.type === "habit" && !run.habitsKnown.includes(templateBase(member.assignment.template))) member.assignment = { type: "queue" };
+    }
   }
   if (state.era && !config.hardships.includes("solo")) {
     const hired = new Set(state.era.crew.map((c) => c.id));

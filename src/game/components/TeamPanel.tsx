@@ -6,7 +6,7 @@ import { CREW_BY_ID, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
 import type { CrewMember, GameState } from "@/core/types";
 import { num } from "../format";
-import { habitLabel } from "../labels";
+import { habitLabel, habitOptions } from "../labels";
 import { useGame } from "../store";
 import { ResetPlanner } from "./ResetPlanner";
 
@@ -42,7 +42,7 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
           <span>Doing</span>
           <select value={assignmentValue(member.assignment)} onChange={(e) => onChange(e.target.value)}>
             <option value="queue">Jobs from the queue</option>
-            {game.run.habitsKnown.map((t) => (
+            {habitOptions(game).map((t) => (
               <option key={t} value={`habit:${t}`}>
                 Habit: {habitLabel(game, t)}
               </option>

@@ -11,7 +11,7 @@ import { TOOL_BY_ID } from "./content/tools";
 import { SHELL_PRICE, getVehicle } from "./content/vehicles";
 import { counterPrice, reservedPartUids, sellParts, vehicleBusy } from "./garage";
 import { templateBase } from "./habits";
-import { advance, afterChange, cancelJob, dispatch, enqueue } from "./jobs";
+import { advance, afterChange, cancelJob, dispatch, dropJob, enqueue } from "./jobs";
 import { canOpenPlace, isLearned, learn, placeRepCost } from "./knowhowEngine";
 import { crewCap, performReset, type LayerId, type ScrapChoices, type TeamChoices } from "./layers";
 import { nextUid } from "./rng";
@@ -167,7 +167,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (action.slot < 0 || action.slot >= s.run.habitSlots.length) return "No such slot";
       if (action.template && !s.run.habitsKnown.includes(templateBase(action.template))) return "You haven't made that a Habit yet";
       s.run.habitSlots[action.slot] = action.template;
-      s.run.jobs = s.run.jobs.filter((j) => j.lane !== `habit:${action.slot}`);
+      for (const job of s.run.jobs.filter((j) => j.lane === `habit:${action.slot}`)) dropJob(s, job.id);
       dispatch(s);
       return null;
     }
@@ -211,8 +211,8 @@ function applyMut(s: GameState, action: Action): string | null {
     }
     case "dismiss": {
       if (!s.era) return "No team";
+      for (const job of s.run.jobs.filter((j) => j.lane === `crew:${action.crewId}`)) dropJob(s, job.id);
       s.era.crew = s.era.crew.filter((c) => c.id !== action.crewId);
-      s.run.jobs = s.run.jobs.filter((j) => j.lane !== `crew:${action.crewId}`);
       return null;
     }
     case "assignCrew": {
@@ -221,10 +221,11 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!member) return "Not on your crew";
       const a = action.assignment;
       if (a.type === "habit" && !s.run.habitsKnown.includes(templateBase(a.template))) return "That isn't a Habit yet";
+      if (a.type === "habit" && a.template === "race") return "Pick a race setup for Race Day";
       if (a.type === "driver" && !CREW_BY_ID[member.id]?.driverPerf) return `${CREW_BY_ID[member.id]?.name} isn't a driver`;
       if (a.type === "spotter" && !CREW_BY_ID[member.id]?.dnfMult) return `${CREW_BY_ID[member.id]?.name} isn't a spotter`;
       member.assignment = a;
-      s.run.jobs = s.run.jobs.filter((j) => j.lane !== `crew:${member.id}`);
+      for (const job of s.run.jobs.filter((j) => j.lane === `crew:${member.id}`)) dropJob(s, job.id);
       dispatch(s);
       return null;
     }

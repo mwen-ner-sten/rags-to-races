@@ -42,7 +42,9 @@ function EventRow({ game, vehicle, venueId, event, call, call2 }: { game: GameSt
       <td className="num">{num(def.prize)}</td>
       <td>{unlocked ? oddsLabel(p, dyno) : "Podium the last event"}</td>
       <td className="num">{dyno && unlocked ? pct(dnf) : ""}</td>
-      <td>{wait > 0 ? <span className="muted">in {duration(wait)}</span> : <span className="muted">every {duration(def.everyMs)}</span>}</td>
+      <td>
+        {wait > 0 ? <span className="muted">in {duration(wait)}</span> : blocker && unlocked ? <span className="why">{blocker}</span> : <span className="muted">every {duration(def.everyMs)}</span>}
+      </td>
       <td>
         <button className="btn small primary" disabled={!!blocker} title={blocker ?? undefined} onClick={() => dispatch({ type: "enqueue", spec })}>
           Enter
@@ -89,7 +91,8 @@ export function RacePanel() {
   const vehicles = game.run.vehicles;
   const vehicle = vehicles.find((v) => v.uid === vehicleUid) ?? vehicles[vehicles.length - 1];
   const discipline = DISCIPLINES[game.era?.discipline ?? "dirt"];
-  const driver = game.era?.crew.some((c) => c.assignment.type === "driver");
+  const driver = game.era?.crew.some((c) => c.assignment.type === "driver") ?? false;
+  const activeCall2 = driver ? call2 : undefined;
   if (!vehicle) return <p className="empty">Build something that runs first.</p>;
   const tier = getVehicle(vehicle.vehicleId).tier;
   return (
@@ -165,7 +168,7 @@ export function RacePanel() {
                         </thead>
                         <tbody>
                           {EVENT_KINDS.map((e) => (
-                            <EventRow key={e} game={game} vehicle={vehicle} venueId={venue.id} event={e} call={call} call2={call2} />
+                            <EventRow key={e} game={game} vehicle={vehicle} venueId={venue.id} event={e} call={call} call2={activeCall2} />
                           ))}
                         </tbody>
                       </table>

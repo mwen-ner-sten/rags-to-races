@@ -5,9 +5,10 @@ import { apply, createGame, type Action } from "@/core";
 import type { GameState, RaceResult } from "@/core/types";
 
 const SAVE_KEY = "rags-to-races:v2";
+const BACKUP_KEY = "rags-to-races:v2:backup";
 const OFFLINE_CAP_MS = 48 * 3_600_000;
-/** Gaps longer than this between ticks count as being away. */
-const AWAY_THRESHOLD_MS = 60_000;
+/** Gaps longer than this count as being away (above the ~60 s timer throttling of hidden tabs). */
+const AWAY_THRESHOLD_MS = 5 * 60_000;
 
 export interface AwaySummary {
   ms: number;
@@ -45,10 +46,29 @@ interface SaveFile {
   game: GameState;
 }
 
-function isGameState(value: unknown): value is GameState {
-  if (!value || typeof value !== "object") return false;
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
+/** Structural check of a loaded save: enough to render without crashing. */
+export function isGameState(value: unknown): value is GameState {
+  if (!isObject(value)) return false;
   const g = value as Partial<GameState>;
-  return g.version === 1 && typeof g.seed === "string" && !!g.meta && !!g.run && !!g.scrap && !!g.team && !!g.config;
+  if (g.version !== 1 || typeof g.seed !== "string" || typeof g.rng !== "number" || typeof g.uid !== "number") return false;
+  const { meta, run, scrap, team, config } = g;
+  if (!isObject(meta) || !isObject(run) || !isObject(scrap) || !isObject(team) || !isObject(config)) return false;
+  if (!isObject(meta.codex) || !Array.isArray(meta.journal) || !Array.isArray(meta.hallOfFame) || !isObject(meta.perks)) return false;
+  if (!Array.isArray(run.inventory) || !Array.isArray(run.vehicles) || !Array.isArray(run.jobs) || !Array.isArray(run.queue) || !Array.isArray(run.races)) return false;
+  if (typeof run.cash !== "number" || typeof run.seasonMs !== "number" || !isObject(run.materials) || !Array.isArray(run.revealed)) return false;
+  if (!Array.isArray(config.perks) || !isObject(config.tuneUp) || !Array.isArray(config.hardships)) return false;
+  return typeof scrap.lp === "number" && typeof team.tp === "number";
+}
+
+function backupRaw(raw: string | null): void {
+  if (!raw) return;
+  try {
+    window.localStorage.setItem(BACKUP_KEY, raw);
+  } catch {
+    // Storage full or blocked: nothing more we can do here.
+  }
 }
 
 function summarize(before: GameState, after: GameState, ms: number, capped: boolean): AwaySummary {
@@ -94,20 +114,23 @@ export const useGame = create<Store>((set, get) => ({
   load: () => {
     let game: GameState | null = null;
     let savedAt = Date.now();
+    let raw: string | null = null;
     try {
-      const raw = window.localStorage.getItem(SAVE_KEY);
+      raw = window.localStorage.getItem(SAVE_KEY);
       if (raw) {
         const file = JSON.parse(raw) as SaveFile;
         if (isGameState(file.game)) {
           game = file.game;
-          savedAt = file.savedAt;
+          savedAt = typeof file.savedAt === "number" ? file.savedAt : Date.now();
         }
       }
     } catch {
       game = null;
     }
     if (!game) {
-      set({ game: createGame(), lastTick: Date.now() });
+      // Never overwrite an unreadable save without keeping a copy.
+      if (raw) backupRaw(raw);
+      set({ game: createGame(), lastTick: Date.now(), error: raw ? "Your save couldn't be read, so a new game started. The old save is kept as a backup in this browser." : null });
       get().save();
       return;
     }
@@ -149,6 +172,7 @@ export const useGame = create<Store>((set, get) => ({
   },
 
   reset: () => {
+    backupRaw(window.localStorage.getItem(SAVE_KEY));
     set({ game: createGame(), replay: null, away: null, lastTick: Date.now() });
     get().save();
   },
@@ -162,6 +186,7 @@ export const useGame = create<Store>((set, get) => ({
     try {
       const file = JSON.parse(fromBase64(text.trim())) as SaveFile;
       if (!isGameState(file.game)) return "That doesn't look like a Rags to Races save.";
+      backupRaw(window.localStorage.getItem(SAVE_KEY));
       set({ game: file.game, lastTick: Date.now(), replay: null, away: null });
       get().save();
       return null;

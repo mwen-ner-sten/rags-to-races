@@ -49,6 +49,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const plan = useMemo(() => planPurchases(game, buy, lpAvailable), [game, buy, lpAvailable]);
   const ranks = typeof plan === "string" ? game.meta.perks : plan.ranks;
   const lpLeft = typeof plan === "string" ? 0 : plan.lpLeft;
+  const equipped = equip.filter((id) => (ranks[id] ?? 0) > 0);
   const spent = SKILLS.reduce((sum, s) => sum + tune[s.id], 0);
 
   const shelf = PERKS.filter((p) => p.unlock.type === "lp" || game.meta.perksUnlocked.includes(p.id));
@@ -56,7 +57,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const gate = LAYERS[layer].gate(game);
 
   const confirm = () => {
-    const base = { buy, perks: equip, tuneUp: tune, dare, hardships };
+    const base = { buy, perks: equipped, tuneUp: tune, dare, hardships };
     const choices = isTeam ? ({ ...base, discipline, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices) : base;
     if (dispatch({ type: "reset", layer, choices })) onDone();
   };
@@ -95,7 +96,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
             const rank = ranks[p.id] ?? 0;
             const cost = p.cost[rank];
             const canBuy = rank < p.maxRank && cost !== undefined && lpLeft >= cost;
-            const isEquipped = equip.includes(p.id);
+            const isEquipped = equipped.includes(p.id);
             return (
               <li key={p.id} className={isEquipped ? "equipped" : ""}>
                 <div>
@@ -119,8 +120,8 @@ export function ResetPlanner({ layer, onDone }: Props) {
                       <input
                         type="checkbox"
                         checked={isEquipped}
-                        disabled={!isEquipped && equip.length >= slots}
-                        onChange={(e) => setEquip(e.target.checked ? [...equip, p.id] : equip.filter((id) => id !== p.id))}
+                        disabled={!isEquipped && equipped.length >= slots}
+                        onChange={(e) => setEquip(e.target.checked ? [...equipped, p.id] : equipped.filter((id) => id !== p.id))}
                       />
                       Equip
                     </label>
@@ -131,7 +132,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
           })}
         </ul>
         <p className="hint">
-          {equip.length}/{slots} slots used.{" "}
+          {equipped.length}/{slots} slots used.{" "}
           {buy.length > 0 && (
             <button className="link-btn" onClick={() => setBuy([])}>
               Undo purchases

@@ -5,7 +5,7 @@ import { habitThreshold, templateBase } from "@/core/habits";
 import { jobRate } from "@/core/jobs";
 import type { ActiveJob, GameState } from "@/core/types";
 import { duration } from "../format";
-import { habitLabel, jobLabel, laneLabel } from "../labels";
+import { habitLabel, habitOptions, jobLabel, laneLabel } from "../labels";
 import { useGame } from "../store";
 
 function JobRow({ game, job }: { game: GameState; job: ActiveJob }) {
@@ -34,8 +34,7 @@ function JobRow({ game, job }: { game: GameState; job: ActiveJob }) {
 function HabitSlots({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   if (game.run.habitSlots.length === 0 || !game.run.revealed.includes("habits")) return null;
-  const raceTemplates = raceHabitOptions(game);
-  const options = [...game.run.habitsKnown.filter((t) => t !== "race"), ...(game.run.habitsKnown.includes("race") ? raceTemplates : [])];
+  const options = habitOptions(game);
   return (
     <div className="habit-slots">
       <h3 className="label">Habit slots</h3>
@@ -55,21 +54,6 @@ function HabitSlots({ game }: { game: GameState }) {
       {game.run.habitsKnown.length === 0 && <p className="hint">Repeat a job enough times and it becomes a Habit you can drop in a slot.</p>}
     </div>
   );
-}
-
-/** Race Day habits repeat a recent race setup. */
-function raceHabitOptions(game: GameState): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const race of [...game.run.races].reverse()) {
-    if (!game.run.vehicles.some((v) => v.uid === race.vehicleUid)) continue;
-    const key = `race:${race.vehicleUid}:${race.venueId}:${race.event}:${race.call}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(key);
-    if (out.length >= 5) break;
-  }
-  return out;
 }
 
 export function JobsBoard() {

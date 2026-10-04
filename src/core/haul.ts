@@ -42,7 +42,7 @@ export function completeHaul(state: GameState, spec: HaulSpec, crewId?: string):
     condition += whole;
     if (rand(state) < Math.abs(shift - whole)) condition += Math.sign(shift);
     if (quality >= 0.5 && condition < 1) condition = 1; // Junkyard Eyes floor
-    condition = Math.max(0, Math.min(3, condition));
+    condition = Math.max(0, Math.min(4, condition));
     const part: PartInstance = { uid: nextUid(state, "p"), partId, condition: condition as Condition, origin: place.name };
     finds.push(part);
     state.meta.codex.parts[partId] = (state.meta.codex.parts[partId] ?? 0) + 1;

@@ -149,11 +149,12 @@ export function NotebookPanel() {
       <h2 id="notebook-h">Notebook</h2>
       <div className="subtabs" role="tablist">
         {SECTIONS.map((s) => (
-          <button key={s} role="tab" aria-selected={tab === s} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>
+          <button key={s} role="tab" id={`nb-tab-${s}`} aria-controls="nb-panel" aria-selected={tab === s} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>
             {s}
           </button>
         ))}
       </div>
+      <div role="tabpanel" id="nb-panel" aria-labelledby={`nb-tab-${tab}`}>
       {tab === "Journal" && (
         <ol className="journal">
           {[...game.meta.journal].reverse().map((j) => (
@@ -171,6 +172,7 @@ export function NotebookPanel() {
       {tab === "Codex" && <Codex game={game} />}
       {tab === "Rivals" && <Rivals game={game} />}
       {tab === "Hall of Fame" && <HallOfFame game={game} />}
+      </div>
     </section>
   );
 }

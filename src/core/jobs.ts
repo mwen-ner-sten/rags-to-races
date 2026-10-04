@@ -1,5 +1,5 @@
 import { channel } from "./channels";
-import { getVenue } from "./content/events";
+import { DISCIPLINES, getVenue } from "./content/events";
 import { REPAIR_COST, REPAIR_MINUTES, REPAIR_TECHNIQUE, STRIP_YIELD, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
 import { CREW_BY_ID, crewLevel } from "./content/team";
@@ -87,6 +87,7 @@ export function jobBlocker(state: GameState, spec: JobSpec): string | null {
       const def = getKnowhow(spec.knowhowId);
       if (def.kind === "place") return "Places are opened with Rep";
       if (isLearned(state, spec.knowhowId)) return "Already learned";
+      if (state.run.jobs.some((j) => j.spec.kind === "study" && j.spec.knowhowId === spec.knowhowId)) return "You're already studying that";
       if (!state.run.available.includes(spec.knowhowId)) return def.hint;
       return null;
     }
@@ -120,6 +121,12 @@ export function jobBlocker(state: GameState, spec: JobSpec): string | null {
       const missing = getVehicle(vehicle.vehicleId).slots.find((sl) => sl.required && !vehicle.parts[sl.slot]);
       if (missing) return `The ${missing.slot} is out on the bench`;
       if (Object.values(vehicle.parts).some((p) => p && p.condition === 0)) return "A part is scrap. Fix it before racing";
+      if (spec.call2) {
+        const driver = state.era?.crew.some((c) => c.assignment.type === "driver");
+        const calls = DISCIPLINES[resolveFlags(state).discipline].secondCall;
+        if (!driver) return "Only a driver can make that call";
+        if (spec.call2 !== calls.a.id && spec.call2 !== calls.b.id) return "That call isn't part of this discipline";
+      }
       const wait = nextEventInMs(state, spec.venueId, spec.event);
       if (wait > 0) return `Next ${spec.event} in ${formatWait(wait)}`;
       if (state.run.cash < venue.events[spec.event].entry) return `Entry is ${venue.events[spec.event].entry} Scrap Bucks`;
@@ -188,41 +195,69 @@ export function baseDuration(state: GameState, spec: JobSpec): number {
   return Math.min(MAX_JOB_MS, Math.max(1000, ms));
 }
 
-/** Pays costs and reserves resources as a job starts. */
-function payForStart(state: GameState, spec: JobSpec): void {
+type Paid = NonNullable<ActiveJob["paid"]>;
+
+function scaled(cost: Partial<Record<MaterialId, number>>, mult: number): Partial<Record<MaterialId, number>> {
+  return Object.fromEntries(Object.entries(cost).map(([m, n]) => [m, (n ?? 0) * mult]));
+}
+
+/** Pays costs and reserves resources as a job starts; returns what was paid. */
+function payForStart(state: GameState, spec: JobSpec): Paid {
+  const paid: Paid = { cash: 0, materials: {} };
   switch (spec.kind) {
     case "haul":
-      state.run.cash -= getPlace(spec.placeId).fee;
+      paid.cash = getPlace(spec.placeId).fee;
       break;
     case "repair": {
       const part = findPart(state, spec.partUid);
-      if (part) payMaterials(state, REPAIR_COST[getPart(part.partId).category]);
+      if (part) paid.materials = scaled(REPAIR_COST[getPart(part.partId).category], 1);
       break;
     }
     case "restore": {
       const part = findPart(state, spec.partUid);
-      if (part) payMaterials(state, REPAIR_COST[getPart(part.partId).category], 2);
+      if (part) paid.materials = scaled(REPAIR_COST[getPart(part.partId).category], 2);
       break;
     }
     case "assemble": {
       const def = getVehicle(spec.vehicleId);
-      state.run.cash -= def.cash;
-      payMaterials(state, def.materials);
+      paid.cash = def.cash;
+      paid.materials = scaled(def.materials, 1);
       break;
     }
-    case "race":
-      state.run.cash -= getVenue(spec.venueId).events[spec.event].entry;
-      state.run.lastEntered[`${spec.venueId}:${spec.event}`] = state.run.seasonMs;
+    case "race": {
+      paid.cash = getVenue(spec.venueId).events[spec.event].entry;
+      const key = `${spec.venueId}:${spec.event}`;
+      paid.lastEntered = { key, prev: state.run.lastEntered[key] };
+      state.run.lastEntered[key] = state.run.seasonMs;
       break;
+    }
     default:
       break;
+  }
+  state.run.cash -= paid.cash;
+  payMaterials(state, paid.materials);
+  return paid;
+}
+
+/** Removes a running job and refunds what starting it cost. */
+export function dropJob(state: GameState, jobId: string): void {
+  const job = state.run.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+  state.run.jobs = state.run.jobs.filter((j) => j.id !== jobId);
+  const paid = job.paid;
+  if (!paid) return;
+  state.run.cash += paid.cash;
+  for (const [m, n] of Object.entries(paid.materials)) state.run.materials[m as MaterialId] += n ?? 0;
+  if (paid.lastEntered) {
+    if (paid.lastEntered.prev === undefined) delete state.run.lastEntered[paid.lastEntered.key];
+    else state.run.lastEntered[paid.lastEntered.key] = paid.lastEntered.prev;
   }
 }
 
 function startJob(state: GameState, lane: LaneId, spec: JobSpec, looping: boolean, template?: string): ActiveJob {
-  payForStart(state, spec);
   const duration = baseDuration(state, spec);
-  const job: ActiveJob = { id: nextUid(state, "j"), lane, spec, duration, remaining: duration, looping, template };
+  const paid = payForStart(state, spec);
+  const job: ActiveJob = { id: nextUid(state, "j"), lane, spec, duration, remaining: duration, looping, template, paid };
   state.run.jobs.push(job);
   return job;
 }
@@ -283,6 +318,7 @@ export function dispatch(state: GameState): void {
   let progressed = true;
   while (progressed) {
     progressed = false;
+    state.run.queue = state.run.queue.filter((q) => !(q.kind === "study" && isLearned(state, q.knowhowId)));
     // Queue → hands and benches.
     for (let i = 0; i < state.run.queue.length; i++) {
       const spec = state.run.queue[i];
@@ -290,7 +326,9 @@ export function dispatch(state: GameState): void {
       if (blocker) continue;
       if (isBenchKind(spec)) {
         if (benchesInUse(state) >= benchCapacity(state)) continue;
-        const lane = firstFreeBenchLane(state);
+        // A crew member who is better at this than an unattended bench takes it.
+        const specialist = activeCrew(state).find((c) => c.assignment.type === "queue" && !laneBusy(state, `crew:${c.id}`) && crewAccepts(state, c, spec) && (CREW_BY_ID[c.id]?.speed[spec.kind] ?? 1) > 1);
+        const lane = specialist ? `crew:${specialist.id}` : firstFreeBenchLane(state);
         state.run.queue.splice(i, 1);
         startJob(state, lane, spec, false);
         progressed = true;
@@ -466,17 +504,45 @@ export function enqueue(state: GameState, spec: JobSpec): string | null {
     const reserved = reservedPartUids(state);
     if (Object.values(spec.partUids).some((uid) => reserved.has(uid))) return "A part is already being worked on";
   }
-  if (state.run.queue.length >= QUEUE_LIMIT) return `The queue holds ${QUEUE_LIMIT} jobs`;
+  if (spec.kind === "study" && state.run.queue.some((q) => q.kind === "study" && q.knowhowId === spec.knowhowId)) return "That study is already queued";
   state.run.queue.push(spec);
   dispatch(state);
+  // A full queue only matters if the job couldn't start straight away.
+  if (state.run.queue.length > QUEUE_LIMIT) {
+    state.run.queue.pop();
+    return `The queue holds ${QUEUE_LIMIT} jobs`;
+  }
   afterChange(state);
   return null;
 }
 
-/** Cancels a running job (no refunds; parts stay where they are). */
+/** Cancels a running job and refunds its start cost; parts stay where they are. */
 export function cancelJob(state: GameState, jobId: string): void {
-  state.run.jobs = state.run.jobs.filter((j) => j.id !== jobId);
+  dropJob(state, jobId);
   dispatch(state);
+}
+
+/** Ms until a scheduled race that's waiting (queued or a Race Day Habit) can start; Infinity if none. */
+function nextGateMs(state: GameState): number {
+  let gate = Infinity;
+  const consider = (template: string | null | undefined, lane: string) => {
+    if (!template || !template.startsWith("race:") || laneBusy(state, lane)) return;
+    const [, , venueId, event] = template.split(":");
+    if (venueId && event) {
+      const wait = nextEventInMs(state, venueId, event as EventKind);
+      if (wait > 0) gate = Math.min(gate, wait);
+    }
+  };
+  if (!resolveFlags(state).habitsDisabled) {
+    state.run.habitSlots.forEach((t, i) => consider(t, `habit:${i}`));
+    for (const c of activeCrew(state)) if (c.assignment.type === "habit") consider(c.assignment.template, `crew:${c.id}`);
+  }
+  for (const q of state.run.queue) {
+    if (q.kind !== "race") continue;
+    const wait = nextEventInMs(state, q.venueId, q.event);
+    if (wait > 0) gate = Math.min(gate, wait);
+  }
+  return gate;
 }
 
 const MORALE_WINDOW = 24 * HOUR;
@@ -512,12 +578,17 @@ export function advance(state: GameState, ms: number, away = false): void {
   const hasCrew = (state.era?.crew.length ?? 0) > 0;
   let guard = 0;
   while (left > 0 && guard++ < 500_000) {
+    const gate = nextGateMs(state);
     if (state.run.jobs.length === 0) {
-      updateCrew(state, left);
-      state.run.seasonMs += left;
-      break;
+      const dt = Math.min(left, gate);
+      updateCrew(state, dt);
+      state.run.seasonMs += dt;
+      left -= dt;
+      if (gate <= dt) dispatch(state);
+      if (!Number.isFinite(gate)) break;
+      continue;
     }
-    let dt = left;
+    let dt = Math.min(left, gate);
     for (const job of state.run.jobs) {
       const rate = jobRate(state, job, away);
       if (rate > 0) dt = Math.min(dt, job.remaining / rate);
@@ -533,6 +604,8 @@ export function advance(state: GameState, ms: number, away = false): void {
       state.run.jobs = state.run.jobs.filter((j) => j.remaining > 1e-6);
       for (const job of done) completeJob(state, job);
       afterChange(state);
+      dispatch(state);
+    } else if (gate <= dt) {
       dispatch(state);
     }
   }

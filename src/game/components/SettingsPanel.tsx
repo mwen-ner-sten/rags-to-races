@@ -34,7 +34,7 @@ export function SettingsPanel() {
           className="btn"
           onClick={() => {
             const error = importSave(text);
-            setMessage(error ?? "Save loaded.");
+            setMessage(error ?? "Save loaded. Your previous game is kept as a backup in this browser.");
           }}
           disabled={!text.trim()}
         >
