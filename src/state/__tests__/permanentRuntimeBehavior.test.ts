@@ -1,3 +1,4 @@
+import { readyCampaign } from "@/testing/campaignReady";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ACHIEVEMENTS_BY_ID } from "@/data/achievements";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
@@ -57,7 +58,7 @@ afterEach(() => {
 describe("Achievement runtime rewards", () => {
   it("applies all-source and sale bonuses to the charged sale outcome and canonical totals", () => {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       inventory: [part("sale", "engine_v4", "pristine")],
       earnedAchievements: ["ach_scrap_1m", "ach_scrap_10m"],
     });
@@ -72,7 +73,7 @@ describe("Achievement runtime rewards", () => {
 
   it("applies the all-source Scrap bonus to gear salvage and canonical totals", () => {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       earnedAchievements: ["ach_scrap_1m"],
       lootGearInventory: [{
         id: "salvage",
@@ -98,7 +99,7 @@ describe("Achievement runtime rewards", () => {
 
   it("awards the Legendary challenge Scrap/Forge reward through every canonical counter", () => {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       workshopLevels: { tuning_bench: 1 },
       inventory: [part("legendary", "engine_v4", "polished")],
       materials: Object.fromEntries(Object.keys(createInitialState().materials).map((key) => [key, 1_000])) as ReturnType<typeof createInitialState>["materials"],
@@ -159,7 +160,7 @@ describe("Garage Philosophy and Crew behavior", () => {
     const damaged = vehicle("damaged", 50);
     const mechanic = { id: "m", name: "Mara", role: "mechanic" as const, level: 5, xp: 0, specialization: "tuner" as const };
     const baseline = {
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       garage: [damaged],
       scrapBucks: 1_000,
     };
@@ -182,7 +183,7 @@ describe("Garage Philosophy and Crew behavior", () => {
   it("reduces actual craft costs and increases actual decomposition yield", () => {
     const recipe = CRAFT_RECIPES.find((candidate) => candidate.category === "engine" && candidate.resultCondition === "decent")!;
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       workshopLevels: { parts_bin: 1 },
       unlockedPlaystyleNodes: ["ps_eng_t3b"],
       materials: { ...createInitialState().materials, heatCore: 10, metalScrap: 5, greaseSludge: 5 },
@@ -193,7 +194,7 @@ describe("Garage Philosophy and Crew behavior", () => {
     const decomposeInput = part("decompose", "engine_v4", "pristine");
     const run = (nodes: string[]) => {
       useGameStore.setState({
-        ...createInitialState(),
+        ...createInitialState(), campaign: readyCampaign(),
         inventory: [decomposeInput],
         unlockedPlaystyleNodes: nodes,
         completedChallenges: ["first_decompose"],
@@ -219,7 +220,7 @@ describe("Garage Philosophy and Crew behavior", () => {
     const trader = { id: "t", name: "Ledger", role: "trader" as const, level: 10, xp: 0, specialization: "negotiator" as const };
     const listing = { id: "listing", definitionId: "engine_small", condition: "decent" as const, price: 100, expiresAt: 100 };
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       repPoints: 8_000,
       lifetimeRep: 8_000,
       scrapBucks: 100,
@@ -237,7 +238,7 @@ describe("Garage Philosophy and Crew behavior", () => {
     const trader = { id: "t", name: "Ledger", role: "trader" as const, level: 1, xp: 0, specialization: null };
     const listing = { id: "listing", definitionId: "engine_small", condition: "decent" as const, price: 1, expiresAt: 100 };
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       repPoints: 8_000,
       lifetimeRep: 8_000,
       scrapBucks: 10,
@@ -253,7 +254,7 @@ describe("Garage Philosophy and Crew behavior", () => {
   });
 
   it("updates Crew Quarters immediately and validates specialization roles", () => {
-    useGameStore.setState({ ...createInitialState(), teamPoints: 100, teamEraCount: 1, crewSlots: 1 });
+    useGameStore.setState({ ...createInitialState(), campaign: readyCampaign(), teamPoints: 100, teamEraCount: 1, crewSlots: 1 });
     useGameStore.getState().purchaseTeamUpgrade("team_crew_slots");
     expect(useGameStore.getState().crewSlots).toBe(2);
 
@@ -268,7 +269,7 @@ describe("Garage Philosophy and Crew behavior", () => {
   it("Talent Academy preserves recruits and fills missing roles at Crew Legends level", () => {
     const existing = { id: "existing", name: "Mara", role: "mechanic" as const, level: 5, xp: 1_000, specialization: "tuner" as const };
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       trackPrestigeTokens: 100,
       trackEraCount: 1,
       crewRoster: [existing],
@@ -288,7 +289,7 @@ describe("released Team, Owner, and Track effects", () => {
   it("enforces circuit tier and condition eligibility for Fleet Programs", () => {
     const fleetVehicle = vehicle("fleet");
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       teamEraCount: 1,
       garage: [fleetVehicle],
       raceHistory: [race("endurance_series", "win")],
@@ -299,7 +300,7 @@ describe("released Team, Owner, and Track effects", () => {
     useGameStore.setState({
       ...useGameStore.getState(),
       garage: [{ ...fleetVehicle, condition: 0 }],
-      raceHistory: [race("backyard_derby", "win")],
+      eventWins: { backyard_derby: { sprint: 1 } }, raceHistory: [race("backyard_derby", "win")],
     });
     useGameStore.getState().startFleetAssignment("fleet", "backyard_derby");
     expect(useGameStore.getState().fleetAssignments).toHaveLength(0);
@@ -307,11 +308,11 @@ describe("released Team, Owner, and Track effects", () => {
 
   it("locks running and completed Fleet vehicles until rewards are collected", () => {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       teamEraCount: 1,
       garage: [vehicle("focus"), vehicle("fleet")],
       activeVehicleId: "focus",
-      raceHistory: [race("backyard_derby", "win")],
+      eventWins: { backyard_derby: { sprint: 1 } }, raceHistory: [race("backyard_derby", "win")],
     });
     useGameStore.getState().startFleetAssignment("fleet", "backyard_derby");
     expect(useGameStore.getState().fleetAssignments).toHaveLength(1);
@@ -359,7 +360,7 @@ describe("released Team, Owner, and Track effects", () => {
   });
 
   it("Owner purchases unlock their concrete circuits and Material Synthesis action", () => {
-    useGameStore.setState({ ...createInitialState(), ownerPoints: 100, scrapBucks: 100, earnedAchievements: ["ach_decompose_500"] });
+    useGameStore.setState({ ...createInitialState(), campaign: readyCampaign(), ownerPoints: 100, scrapBucks: 100, earnedAchievements: ["ach_decompose_500"] });
     useGameStore.getState().purchaseOwnerUpgrade("owner_adv_circuits");
     expect(useGameStore.getState().unlockedCircuitIds).toEqual(expect.arrayContaining(["continental_grand_prix", "endurance_series"]));
     useGameStore.getState().purchaseOwnerUpgrade("owner_mat_synth");
@@ -370,7 +371,7 @@ describe("released Team, Owner, and Track effects", () => {
 
   it("preserves purchased Advanced Circuits through a Scrap Reset", () => {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       garage: [vehicle("one"), vehicle("two"), vehicle("three")],
       repPoints: 750,
       lifetimeRep: 750,
@@ -400,7 +401,7 @@ describe("released Team, Owner, and Track effects", () => {
     };
     const teamStats = { lifetimeLPThisTeamEra: 500, teamEraCount: 1, unspentLP: 10 };
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       ...retained,
       ...teamStats,
       legacyPoints: teamStats.unspentLP,
@@ -419,7 +420,7 @@ describe("released Team, Owner, and Track effects", () => {
     expect(Object.values(reset.materials).every((amount) => amount === 2)).toBe(true);
 
     const ownerStats = { lifetimeTPThisOwnerEra: 1_000, ownerEraCount: 1, unspentTP: 20 };
-    useGameStore.setState({ ...createInitialState(), ...retained, ...ownerStats, teamPoints: ownerStats.unspentTP, lifetimeTeamPoints: 500, teamEraCount: 3, unlockedFeatures: ["advanced_circuits"] });
+    useGameStore.setState({ ...createInitialState(), campaign: readyCampaign(), ...retained, ...ownerStats, teamPoints: ownerStats.unspentTP, lifetimeTeamPoints: 500, teamEraCount: 3, unlockedFeatures: ["advanced_circuits"] });
     useGameStore.getState().ownerReset();
     reset = useGameStore.getState();
     expect(reset.ownerPoints).toBe(calculateOwnerPoints(ownerStats) * 2);
@@ -429,7 +430,7 @@ describe("released Team, Owner, and Track effects", () => {
     expect(reset.unlockedCircuitIds).toEqual(expect.arrayContaining(["continental_grand_prix", "endurance_series"]));
 
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       ...retained,
       lifetimeOPThisTrackEra: 2_000,
       trackEraCount: 1,
@@ -447,7 +448,7 @@ describe("released Team, Owner, and Track effects", () => {
     // Reset that consumes the Owner layer.
     expect(reset.crewRoster.every((member) => member.level === 3)).toBe(true);
     expect(reset.unlockedFeatures).not.toEqual(expect.arrayContaining(["advanced_circuits", "vehicle_mastery"]));
-    expect(reset.unlockedCircuitIds).toEqual(["backyard_derby"]);
+    expect(reset.unlockedCircuitIds).toEqual(["backyard_derby", "dirt_track"]);
   });
 
   it("hosted-event configuration changes measured terms and Cascade does not mint flat event currencies", () => {
@@ -455,7 +456,7 @@ describe("released Team, Owner, and Track effects", () => {
     const maxConfig = { ...baselineConfig, surface: "asphalt" as const, length: "long" as const, cornerDensity: "high" as const, timeRule: "night" as const, vehicleClass: "prototype" as const, endurance: true, riskReward: 5 as const };
     expect(calculateHostedEventTerms(maxConfig, 1).reward).toBeGreaterThan(calculateHostedEventTerms(baselineConfig).reward);
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       trackEraCount: 1,
       trackPerkLevels: { track_custom_circuits: 1, track_night_racing: 1, track_endurance: 1, track_sponsors: 1, track_cascade: 1 },
       ownedTrackConfig: maxConfig,
@@ -463,8 +464,9 @@ describe("released Team, Owner, and Track effects", () => {
       teamPoints: 8,
       ownerPoints: 9,
     });
-    useGameStore.getState().hostTrackEvent();
-    useGameStore.getState().advanceFleetAssignments(10);
+    useGameStore.setState({ garage: [vehicle("series")], scrapBucks: 10000, ownedTrackConfig: baselineConfig });
+    useGameStore.getState().hostTrackEvent("series");
+    useGameStore.getState().advanceFleetAssignments(100);
     const event = useGameStore.getState().hostedEvents[0];
     useGameStore.getState().collectHostedEvent(event.id);
     expect(useGameStore.getState()).toMatchObject({ legacyPoints: 7, teamPoints: 8, ownerPoints: 9 });
@@ -483,7 +485,7 @@ describe("released Team, Owner, and Track effects", () => {
 describe("manual race session integrity", () => {
   function beginRace(): void {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       scrapBucks: 1_000,
       garage: [vehicle("racing")],
       activeVehicleId: "racing",

@@ -1,12 +1,16 @@
 "use client";
 
+import { canPromote, promotionRequirements } from "@/engine/campaign";
+import ResetRetentionPreview from "@/components/Shop/ResetRetentionPreview";
+import { getResourceRate } from "@/engine/rates";
+import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { useState } from "react";
 import { useGameStore } from "@/state/store";
 import { formatNumber } from "@/utils/format";
 import MomentumTracker from "@/components/Shop/MomentumTracker";
 import PrestigeMilestoneTrack from "./PrestigeMilestoneTrack";
 import PrestigeConfirm from "@/components/Shop/PrestigeConfirm";
-import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, getScrapResetProgress, RESPONSIBILITY_RESET_REQUIREMENTS, SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "@/config/progression";
+import { canScrapReset, getScrapResetProgress, SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "@/config/progression";
 import { calculateOwnerPoints, calculateTeamPoints, calculateTrackTokens } from "@/engine/prestige";
 
 type ResponsibilityResetLayer = "team" | "owner" | "track";
@@ -50,9 +54,13 @@ export default function PrestigeSubTab() {
   // run's National Feature wins and the rivals defeated in Features.
   const scrapResetProgress = getScrapResetProgress({ eventWins, defeatedRivalIds, lifetimeRep });
   const canPrestige = canScrapReset(scrapResetProgress);
-  const canTeam = canTeamReset({ lifetimeLegacyPoints: lifetimeLPAllTime, lifetimeLPThisTeamEra, unspentLegacyPoints: legacyPoints });
-  const canOwner = canOwnerReset({ lifetimeTeamPoints, teamEras: teamEraCount, lifetimeTPThisOwnerEra, unspentTeamPoints: teamPoints });
-  const canTrack = canTrackReset({ lifetimeOwnerPoints, ownerEras: ownerEraCount, lifetimeOPThisTrackEra, unspentOwnerPoints: ownerPoints });
+  const campaign = useGameStore((s) => s.campaign);
+  const lpRate = useGameStore((s) => getResourceRate(s, "legacy_projection"));
+  const highestFeatureTier = Math.max(-1, ...CIRCUIT_DEFINITIONS.filter((c) => (eventWins[c.id]?.feature ?? 0) > 0).map((c) => c.tier));
+  const nextFeature = CIRCUIT_DEFINITIONS.find((c) => c.tier > highestFeatureTier);
+  const canTeam = canPromote("team", campaign);
+  const canOwner = canPromote("owner", campaign);
+  const canTrack = canPromote("track", campaign);
   const teamPointAward = calculateTeamPoints({ lifetimeLPThisTeamEra, teamEraCount, unspentLP: legacyPoints });
   const ownerPointAward = calculateOwnerPoints({ lifetimeTPThisOwnerEra, ownerEraCount, unspentTP: teamPoints });
   const trackTokenAward = calculateTrackTokens({ lifetimeOPThisTrackEra, trackEraCount, unspentOP: ownerPoints });
@@ -96,6 +104,12 @@ export default function PrestigeSubTab() {
         </>
       )}
 
+      <section aria-label="Promotion goals" className="rounded-lg border p-4" style={{ borderColor: "var(--panel-border)" }}>
+        <h3>Next responsibilities</h3>
+        {(["team", "owner", "track"] as const).filter((layer) => layer === "team" || (layer === "owner" ? campaign.knowledge.team : campaign.knowledge.owner)).map((layer) => <div key={layer} className="mt-3"><strong className="capitalize">{layer}</strong>{promotionRequirements(layer, campaign).map((goal) => <p key={goal.label} style={{ color: goal.met ? "var(--success)" : "var(--text-secondary)" }}>{goal.met ? "Complete: " : "Next: "}{goal.label}</p>)}</div>)}
+        <p className="mt-3 text-sm">Collected gear, mods, discoveries and knowledge survive every reset. Running projects, fleet programs and hosted events end without rewards. Team retains half your Legacy levels; Owner retains half your Team levels; Track clears lower upgrades.</p>
+      </section>
+      <section className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)" }}><h3>Reinvest or push?</h3><p>Reset reward now: {lpRate?.amount ?? 0} LP · Earned pace: {((lpRate?.perSecond ?? 0) * 3600).toFixed(1)} LP per elapsed hour.</p><p>{nextFeature ? `Next depth reward: win the ${nextFeature.name} Feature. More unique rivals and earned Scrap Bucks also grow the reward, with diminishing returns for money.` : "All Feature depth rewards reached. Compare your current pace against rebuilding with Legacy upgrades."}</p></section>
       <PrestigeMilestoneTrack />
 
       <MomentumTracker />
@@ -186,7 +200,7 @@ export default function PrestigeSubTab() {
             the crew roster, and station equipment. Keeps Team Points, Team upgrades, blueprints, and achievements.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-            Requires {RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints} lifetime LP (you have {lifetimeLPAllTime})
+            {promotionRequirements("team", campaign).map((r) => r.label).join(" · ")}
           </p>
           <p style={{ color: "var(--accent)" }} className="mb-3 font-mono text-sm font-semibold">
             Award: +{teamPointAward} TP · Total after reset: {teamPoints + teamPointAward} TP
@@ -195,8 +209,8 @@ export default function PrestigeSubTab() {
             <ResponsibilityResetConfirm
               layerName="Team"
               award={`+${teamPointAward} TP`}
-              resetText="Scrap and Legacy progress, vehicles, fleet assignments, crew, and station equipment"
-              keepText="Team Points and upgrades, discovered blueprints, achievements, and lifetime history"
+              resetText="Run currency and garage, half of Legacy levels, fleet assignments, crew, station equipment, unfinished projects and hosted events"
+              keepText="Team and higher currencies and upgrades, half of each Legacy upgrade level (rounded down), loot gear and mods, knowledge, discoveries, achievements, and lifetime history"
               onConfirm={() => {
                 setConfirmingResponsibilityReset(null);
                 teamReset();
@@ -230,7 +244,7 @@ export default function PrestigeSubTab() {
             Keeps Owner Points, Owner facilities, permanent discoveries, achievements, and lifetime history.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-            Requires {RESPONSIBILITY_RESET_REQUIREMENTS.owner.lifetimeTeamPoints} lifetime TP + {RESPONSIBILITY_RESET_REQUIREMENTS.owner.teamEras} team eras (you have {lifetimeTeamPoints} TP, {teamEraCount} eras)
+            {promotionRequirements("owner", campaign).map((r) => r.label).join(" · ")}
           </p>
           <p style={{ color: "var(--accent)" }} className="mb-3 font-mono text-sm font-semibold">
             Award: +{ownerPointAward} OP · Total after reset: {ownerPoints + ownerPointAward} OP
@@ -240,7 +254,7 @@ export default function PrestigeSubTab() {
               layerName="Owner"
               award={`+${ownerPointAward} OP`}
               resetText="Team, Legacy, and Scrap progress, vehicles, crew, fleet assignments, and station equipment"
-              keepText="Owner Points and facilities, discoveries, achievements, and lifetime history"
+              keepText="Owner and higher currencies and upgrades, half of each Team upgrade level (rounded down), loot gear and mods, knowledge, discoveries, achievements, and lifetime history"
               onConfirm={() => {
                 setConfirmingResponsibilityReset(null);
                 ownerReset();
@@ -274,7 +288,7 @@ export default function PrestigeSubTab() {
             Keeps Prestige Tokens, Track perks, owned venue configuration, discoveries, achievements, and lifetime history.
           </p>
           <p style={{ color: "var(--text-muted)" }} className="mb-3 text-xs">
-            Requires {RESPONSIBILITY_RESET_REQUIREMENTS.track.lifetimeOwnerPoints} lifetime OP + {RESPONSIBILITY_RESET_REQUIREMENTS.track.ownerEras} owner eras (you have {lifetimeOwnerPoints} OP, {ownerEraCount} eras)
+            {promotionRequirements("track", campaign).map((r) => r.label).join(" · ")}
           </p>
           <p style={{ color: "var(--accent)" }} className="mb-3 font-mono text-sm font-semibold">
             Award: +{trackTokenAward} PT · Total after reset: {trackPrestigeTokens + trackTokenAward} PT
@@ -284,7 +298,7 @@ export default function PrestigeSubTab() {
               layerName="Track"
               award={`+${trackTokenAward} PT`}
               resetText="Owner, Team, Legacy, and Scrap progress, vehicles, crew, fleet assignments, and station equipment"
-              keepText="Prestige Tokens and Track perks, owned venue configuration, discoveries, achievements, and lifetime history"
+              keepText="Prestige Tokens and Track perks, owned venue configuration, loot gear and mods, knowledge, discoveries, achievements, and lifetime history"
               onConfirm={() => {
                 setConfirmingResponsibilityReset(null);
                 trackReset();
@@ -311,10 +325,10 @@ export default function PrestigeSubTab() {
           <div className="grid grid-cols-2 gap-2 text-sm">
             <StatRow label="Total Scrap Resets" value={String(lifetimeScrapResets)} />
             <StatRow label="Lifetime LP" value={String(lifetimeLPAllTime)} />
-            {teamEraCount > 0 && <StatRow label="Team Eras" value={String(teamEraCount)} />}
-            {teamEraCount > 0 && <StatRow label="Lifetime TP" value={String(lifetimeTeamPoints)} />}
-            {ownerEraCount > 0 && <StatRow label="Owner Eras" value={String(ownerEraCount)} />}
-            {ownerEraCount > 0 && <StatRow label="Lifetime OP" value={String(lifetimeOwnerPoints)} />}
+            {campaign.lifetimeTeamResets > 0 && <StatRow label="Recorded Team promotions" value={String(campaign.lifetimeTeamResets)} />}
+            {lifetimeTeamPoints > 0 && <StatRow label="Lifetime TP" value={String(lifetimeTeamPoints)} />}
+            {campaign.lifetimeOwnerResets > 0 && <StatRow label="Recorded Owner promotions" value={String(campaign.lifetimeOwnerResets)} />}
+            {lifetimeOwnerPoints > 0 && <StatRow label="Lifetime OP" value={String(lifetimeOwnerPoints)} />}
           </div>
         </div>
       )}
@@ -356,6 +370,7 @@ function ResponsibilityResetConfirm({
       <p style={{ color: "var(--text-secondary)" }} className="mt-1 text-xs">
         <strong>Will keep:</strong> {keepText}.
       </p>
+      <ResetRetentionPreview layer={layerName.toLowerCase() as ResponsibilityResetLayer} />
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           onClick={onConfirm}

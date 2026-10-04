@@ -79,6 +79,10 @@ export const MIXED_PLAY_PROJECT_PRIORITY = [
 ] as const;
 
 export interface MixedCampaignOptions {
+  continueSave?: boolean;
+  goalVenue?: string;
+  stopCondition?: (state: GameState) => boolean;
+  prepare?: (state: GameState) => void;
   seed: string;
   /** Session start times as hours of the day, ascending (e.g. [8, 12.5, 18, 22]). */
   sessionHours: readonly number[];
@@ -187,55 +191,9 @@ export function idleOffline(elapsedMs: number): number {
   const s = state();
   const { ticks } = computeOfflineTickBudget(s, elapsedMs);
   if (ticks <= 0) return 0;
-  const r = simulateOfflineTicks(s, ticks);
-  s.applyTickResult(
-    r.partsFound,
-    r.scrapsEarned,
-    r.repEarned,
-    r.vehicleWearTotal > 0 ? r.vehicleWearTotal : undefined,
-    r.vehicleRepairTotal > 0 ? r.vehicleRepairTotal : undefined,
-    r.raceTickProgress,
-    r.lootGearDrops.length > 0 ? r.lootGearDrops : undefined,
-    r.modDrops.length > 0 ? r.modDrops : undefined,
-    {
-      partsScavenged: r.partsScavenged,
-      partsAutoSold: r.partsAutoSold,
-      scavengesCompleted: r.scavengesCompleted,
-      racesCompleted: r.racesCompleted,
-      winsCompleted: r.winsCompleted,
-      finalWinStreak: r.finalWinStreak,
-      bestWinStreak: r.bestWinStreak,
-      recentRaceOutcomes: r.recentRaceOutcomes,
-      winningCircuitIds: r.winningCircuitIds,
-      defeatedRivalIds: r.defeatedRivalIds,
-      circuitWinStreaks: r.circuitWinStreaks,
-      eventWins: r.eventWins,
-      raceSalvageFound: r.raceSalvageFound,
-      forgeTokensFound: r.forgeTokensFound,
-      entryFeesPaid: r.entryFeesPaid,
-      challengesEvaluated: r.challengesEvaluated,
-      completedChallengeIds: r.completedChallengeIds,
-      challengeForgeTokens: r.challengeForgeTokens,
-      challengeMaterials: r.challengeMaterials,
-      ticksProcessed: r.ticksProcessed,
-      repDecayed: r.repDecayed,
-      finalFatigue: r.finalFatigue,
-      finalRepPoints: r.finalRepPoints,
-      finalVehicleCondition: r.finalVehicleCondition,
-      finalRacerSkills: r.finalRacerSkills,
-      finalCrewRoster: r.finalCrewRoster,
-      finalActiveMomentumTiers: r.finalActiveMomentumTiers,
-      newAchievementIds: r.newAchievementIds,
-      stationEquipmentDrops: r.stationEquipmentDrops,
-      stationEquipmentAutoSalvaged: r.stationEquipmentAutoSalvaged,
-      reforgeShardsFound: r.reforgeShardsFound,
-      lootGearAutoSalvaged: r.lootGearAutoSalvaged,
-      lootGearSalvageScrap: r.lootGearSalvageScrap,
-      finalProjects: r.finalProjects,
-      completedProjects: r.completedProjects,
-    },
-  );
-  return ticks;
+  const r = simulateOfflineTicks(s, ticks, elapsedMs);
+  s.settleOffline(r, s.lastActiveTimestamp, s.lastActiveTimestamp + elapsedMs);
+  return r.ticksProcessed;
 }
 
 // ── Greedy decisions ────────────────────────────────────────────────────────
@@ -410,6 +368,19 @@ function bestRace(s: GameState, circuits: readonly CircuitDefinition[] = CIRCUIT
 function spendRep(): boolean {
   const s = state();
   const current = bestRace(s);
+  const target = CIRCUIT_DEFINITIONS.find((c) => c.id === ((s.eventWins.national_circuit?.feature ?? 0) < 1 ? "national_circuit" : goalVenue));
+  // Owner shortcuts can provide a T9/T10 car before lower blueprints.
+  // Keep a legal class for the pending Feature instead of farming an
+  // unrelated richer venue forever with a car above its maximum tier.
+  if (target && s.garage.some((v) => (getVehicleById(v.definitionId)?.tier ?? 0) > target.maxVehicleTier)
+    && !s.garage.some((v) => { const d = getVehicleById(v.definitionId); return d && d.tier >= target.minVehicleTier && d.tier <= target.maxVehicleTier; })) {
+    const classBlueprint = VEHICLE_DEFINITIONS.find((v) => v.tier >= target.minVehicleTier && v.tier <= target.maxVehicleTier
+      && !s.unlockedVehicleIds.includes(v.id) && v.unlockRequirement.type === "reputation" && s.canAffordRep(v.unlockRequirement.amount));
+    if (classBlueprint) { s.unlockVehicle(classBlueprint.id); return true; }
+  }
+  if (target && !s.unlockedCircuitIds.includes(target.id) && (!target.requiredFeature || s.unlockedFeatures.includes(target.requiredFeature)) && s.canAffordRep(target.unlockRepCost) && s.garage.some((v) => { const d = getVehicleById(v.definitionId); return d && d.tier >= target.minVehicleTier && d.tier <= target.maxVehicleTier; })) {
+    s.unlockCircuit(target.id); return true;
+  }
   const lockedVenues = CIRCUIT_DEFINITIONS
     .filter((c) => !s.unlockedCircuitIds.includes(c.id) && (!c.requiredFeature || s.unlockedFeatures.includes(c.requiredFeature)))
     .filter((c) => s.canAffordRep(c.unlockRepCost));
@@ -490,16 +461,19 @@ function startProject(): boolean {
  * is open), and rivals (Features only). The player pins those over the
  * best-paying event, the way a player reading the reset card would.
  */
+let goalVenue = SCRAP_RESET_REQUIREMENTS.featureCircuitId as string;
 function goalRace(s: GameState): RaceChoice | null {
   const progress = getScrapResetProgress(s);
-  const needsFeature = progress.featureWins < 1;
+  const targetVenue = (s.eventWins.national_circuit?.feature ?? 0) < 1 ? "national_circuit" : goalVenue;
+  const sponsorTarget = s.campaign.knowledge.owner && s.campaign.ownerResetsThisTrackEra >= 4 && ["dirt_track", "endurance_series"].includes(targetVenue);
+  const needsFeature = (s.eventWins[targetVenue]?.feature ?? 0) < (sponsorTarget ? 3 : 1);
   const needsRivals = progress.rivalsDefeated < SCRAP_RESET_REQUIREMENTS.rivalsDefeated;
   if (!needsFeature && !needsRivals) return null;
   let best: { choice: RaceChoice; value: number } | null = null;
   for (const circuit of CIRCUIT_DEFINITIONS) {
     if (!s.unlockedCircuitIds.includes(circuit.id)) continue;
     const venueWins = s.eventWins?.[circuit.id];
-    const isGoalVenue = circuit.id === SCRAP_RESET_REQUIREMENTS.featureCircuitId;
+    const isGoalVenue = circuit.id === targetVenue;
     const chasingGoal = needsFeature && isGoalVenue;
     // The goal venue's ladder is climbed rung by rung; a rival hunt needs the Feature open.
     const eventId: EventId | null = chasingGoal ? (nextEventToOpen(venueWins) ?? "feature") : (isEventOpen("feature", venueWins) ? "feature" : null);
@@ -654,9 +628,10 @@ function runSession(options: MixedCampaignOptions, stats: SessionStats): number 
   let sinceReplan = Number.POSITIVE_INFINITY;
   let decisions = 0;
   while (elapsed < budgetMs) {
-    if (canScrapReset(getScrapResetProgress(state()))) break;
+    if ((options.stopCondition ?? ((s) => canScrapReset(getScrapResetProgress(s))))(state())) break;
     let step: number;
     if (sinceReplan >= REPLAN_EVERY_MS && decisions < maxDecisions) {
+      options.prepare?.(state());
       step = plan();
       decisions++;
       sinceReplan = 0;
@@ -697,6 +672,9 @@ export function projectLp(s: GameState): number {
     currentPrestigeCount: s.prestigeCount,
     runStats: {
       lifetimeScrapBucks: s.lifetimeScrapBucks,
+        earnedScrap: s.campaign?.runEarnedScrap ?? 0,
+        featureWins: s.eventWins,
+        rivalCount: s.campaign?.runRivalIds.length ?? 0,
       lifetimeRaces: s.lifetimeRaces,
       fatigue: s.fatigue,
       highestCircuitTier: deriveHighestCircuitTier(s.unlockedCircuitIds),
@@ -751,7 +729,8 @@ function withSynchronousTimers<T>(callback: () => T): T {
 export function runMixedCampaign(options: MixedCampaignOptions): MixedCampaignResult {
   const hours = [...options.sessionHours].sort((a, b) => a - b);
   if (hours.length === 0) throw new Error("runMixedCampaign needs at least one session per day");
-  useGameStore.setState({ ...createInitialState(), tutorialStep: -1, tutorialDismissed: true });
+  goalVenue = options.goalVenue ?? SCRAP_RESET_REQUIREMENTS.featureCircuitId;
+  if (!options.continueSave) useGameStore.setState({ ...createInitialState(), tutorialStep: -1, tutorialDismissed: true });
 
   const days: DayReport[] = [];
   const stats: SessionStats = { races: 0, scavenges: 0 };
@@ -773,12 +752,13 @@ export function runMixedCampaign(options: MixedCampaignOptions): MixedCampaignRe
         handsOnMs += sessionMs;
         sessions++;
         clock = sessionStart + sessionMs;
-        if (canScrapReset(getScrapResetProgress(state()))) {
+        if ((options.stopCondition ?? ((s) => canScrapReset(getScrapResetProgress(s))))(state())) {
           wallMs = clock - start;
           break;
         }
       }
       days.push(dayReport(day));
+      if (process.env.PROGRESSION_TRACE) console.log("DAY " + JSON.stringify(days[days.length - 1]));
     }
   }));
 

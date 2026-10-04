@@ -1,5 +1,6 @@
 "use client";
 
+import { GEAR_SETS, equippedSetCounts, gearSalvageMaterials, type GearSetId } from "@/data/gearSets";
 import { useMemo, useState } from "react";
 import { _getUpgradeEffectValue, _getUpgradeLevel, useGameStore } from "@/state/store";
 import {
@@ -64,6 +65,9 @@ export default function LockerPanel() {
   return (
     <div className="flex flex-col gap-3" data-testid="locker-panel">
       <GearTotals totals={totals} equippedCount={equippedCount} owned={inventory.length} spareMods={modBag.length} />
+      <Panel kicker="Gear sets" title="Build a matching kit">
+        {(Object.keys(GEAR_SETS) as GearSetId[]).map((id) => <p key={id} className="text-sm">{GEAR_SETS[id].name}: {equippedSetCounts(equipped, inventory)[id]}/6 — {GEAR_SETS[id].bonuses.map((b) => `${b.pieces} pieces: ${formatEffect(b.type, b.value)}`).join(" · ")}</p>)}
+      </Panel>
       <SlotGrid inventory={inventory} equipped={equipped} />
       <Panel kicker="Inventory" title={`${visible.length} of ${inventory.length} pieces`}>
         <div className="mb-3"><LockerFilters filter={filter} onChange={setFilter} /></div>
@@ -237,7 +241,7 @@ function GearCard({ item, inventory, equipped, modBag }: GearCardProps) {
         <LootGearArt slot={item.slot} rarity={item.rarity} affixes={lootGearAffixArt(item)} size={56} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-            <strong className="text-sm" style={{ color: "var(--text-white)" }}>{item.name}</strong>
+            <strong className="text-sm" style={{ color: "var(--text-white)" }}>{item.name}</strong>{item.setId && <span className="text-xs">{GEAR_SETS[item.setId]?.name}</span>}
             <span className="font-mono text-[11px]" style={{ color: "var(--text-muted)" }}>Power {gearPower(item)}</span>
           </div>
           <div className="text-[11px] uppercase tracking-wider" style={{ color: RARITY_TOKEN[item.rarity] }}>
@@ -293,6 +297,7 @@ function DeltaList({ delta, replaces }: { delta: EquipDelta[]; replaces: LootGea
 }
 
 function ModSection({ item, modBag }: { item: LootGearItem; modBag: InstalledMod[] }) {
+  const reserved = useGameStore((s) => s.projects.some((p) => p.gearId === item.id));
   const installMod = useGameStore((s) => s.installMod);
   const removeMod = useGameStore((s) => s.removeMod);
   const carefulModding = useGameStore((s) => _getUpgradeLevel(s, "careful_modding") >= 1);
@@ -333,7 +338,7 @@ function ModSection({ item, modBag }: { item: LootGearItem; modBag: InstalledMod
                 <option key={mod.id} value={mod.id}>{mod.name} ({formatEffect(mod.effectType, mod.value)})</option>
               ))}
             </select>
-            <Button size="sm" onClick={() => installMod(item.id, selected)} disabled={!selected}>Install</Button>
+            <Button size="sm" onClick={() => installMod(item.id, selected)} disabled={!selected || reserved}>Install</Button>
           </div>
         )
       )}
@@ -359,7 +364,8 @@ function GearActions({ item, isEquipped }: { item: LootGearItem; isEquipped: boo
 
   const cost = getEnhancementCost(item);
   const atCap = item.enhancementLevel >= maxLevel;
-  const enhanceReason = atCap ? `At cap Lv.${maxLevel}` : scrapBucks < cost ? `Need $${formatNumber(cost - scrapBucks)} more` : undefined;
+  const reserved = useGameStore((s) => s.projects.some((p) => p.gearId === item.id));
+  const enhanceReason = reserved ? "Enhancement queued; item reserved" : atCap ? `At cap Lv.${maxLevel}` : scrapBucks < cost ? `Need $${formatNumber(cost - scrapBucks)} more` : undefined;
 
   const onSalvage = () => {
     if (needsSalvageConfirm(item) && !confirming) { setConfirming(true); return; }
@@ -388,13 +394,14 @@ function GearActions({ item, isEquipped }: { item: LootGearItem; isEquipped: boo
           </Button>
         </span>
       ) : (
-        <Button variant="ghost" size="sm" onClick={onSalvage} title={needsSalvageConfirm(item) ? "Asks to confirm: this piece is Rare or better" : undefined}>
+        <Button variant="ghost" size="sm" disabled={reserved} onClick={onSalvage} title={needsSalvageConfirm(item) ? "Asks to confirm: this piece is Rare or better" : undefined}>
           Salvage · +${formatNumber(salvageValue)}
         </Button>
       )}
+      {Object.entries(gearSalvageMaterials(item)).map(([material, count]) => <p key={material} className="col-span-2 text-xs sm:col-span-3">Salvage also returns {count} {material.replace(/([A-Z])/g, " $1").toLowerCase()}.</p>)}
       {!atCap && (
         <p className="col-span-2 text-[11px] sm:col-span-3" style={{ color: "var(--text-muted)" }}>
-          Enhancing always succeeds and adds +12% to every affix; sockets open at Lv.3 and Lv.7.
+          Enhancing always succeeds and adds +12% to every affix. Level 3 onward queues a project and reserves the piece. Sockets open at Lv.3 and Lv.7.
         </p>
       )}
     </div>
@@ -413,6 +420,7 @@ function ModBag({ mods }: { mods: InstalledMod[] }) {
             <li key={mod.id} className="rounded border px-2 py-1.5 text-xs" style={{ borderColor: "var(--panel-border)" }}>
               <div style={{ color: "var(--text-white)" }}>{mod.name}</div>
               <div style={{ color: "var(--text-secondary)" }}>{formatEffect(mod.effectType, mod.value)}</div>
+              {mod.drawback && <div style={{ color: "var(--warning)" }}>Tradeoff: {formatEffect(mod.drawback.type, -Math.abs(mod.value) * mod.drawback.ratio)}</div>}
               <div style={{ color: "var(--text-muted)" }}>Fits: {fits}</div>
             </li>
           );

@@ -1,5 +1,7 @@
 "use client";
 
+import { vehiclePerformance } from "@/engine/performance";
+import { getCircuitById } from "@/data/circuits";
 import { useEffect, useMemo, useState } from "react";
 import { getVehicleBuildCost, getVehicleRepairCost, getVehicleSaleValue, resolveVehicleLoadout, useGameStore } from "@/state/store";
 import { formatVehicleUnlockRequirement, VEHICLE_DEFINITIONS } from "@/data/vehicles";
@@ -391,7 +393,7 @@ function VehicleCard({
   const saleValue = useGameStore((state) => getVehicleSaleValue(state, vehicle));
   const isRacing = useGameStore((state) => state.isRacing);
   const fleetAssignmentStatus = useGameStore((state) =>
-    state.fleetAssignments.find((assignment) => assignment.vehicleId === vehicle.id)?.status ?? null,
+    state.fleetAssignments.find((assignment) => assignment.vehicleId === vehicle.id)?.status ?? state.hostedEvents.find((event) => event.vehicleId === vehicle.id)?.status ?? null,
   );
 
   const def = VEHICLE_DEFINITIONS.find((v) => v.id === vehicle.definitionId);
@@ -727,6 +729,9 @@ function SwapPartPicker({
   swapPart: (vehicleId: string, slot: string, newPart: ScavengedPart) => void;
   onDone: () => void;
 }) {
+  const vehicle = useGameStore((s) => s.garage.find((v) => v.id === vehicleId));
+  const circuitId = useGameStore((s) => s.selectedCircuitId);
+  const circuit = getCircuitById(circuitId);
   const slotCfg = vehicleDef.slots.find((s) => s.slot === slot);
   if (!slotCfg) return null;
   const eligible = inventory.filter((p) =>
@@ -757,6 +762,8 @@ function SwapPartPicker({
         {groups.map((group) => {
           const partDef = getPartById(group.definitionId);
           if (!partDef) return null;
+          const candidate = vehicle ? { ...vehicle, parts: { ...vehicle.parts, [slot]: { ...vehicle.parts[slot], part: group.parts[0], addons: vehicle.parts[slot].addons.slice(0, CONDITION_ADDON_SLOTS[group.parts[0].condition] ?? 0) } } } : null;
+          const delta = candidate && vehicle && circuit ? vehiclePerformance(candidate, circuit) - vehiclePerformance(vehicle, circuit) : 0;
           return (
             <button
               key={group.key}
@@ -771,6 +778,7 @@ function SwapPartPicker({
               <span style={{ color: CONDITION_COLORS[group.condition] ?? undefined }}>
                 {partDef.name}
               </span>
+              <span style={{ color: delta >= 0 ? "var(--success)" : "var(--warning)" }}>{delta >= 0 ? "+" : ""}{delta.toFixed(1)} at {circuit?.name ?? "this venue"}</span>
               {group.parts.length > 1 && <span className="ml-0.5" style={{ color: "var(--text-muted)" }}>x{group.parts.length}</span>}
             </button>
           );

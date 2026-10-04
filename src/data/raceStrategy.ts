@@ -60,3 +60,13 @@ export function buildRaceForecast(winChance: number, dnfChance: number, wear: nu
   const wearUncertainty = Math.max(1, 5 - diagnosticsLevel * 0.5);
   return { winChance: range(winChance), dnfRisk: range(dnfChance), wear: { min: Math.max(1, wear * evaluation.wearMultiplier - wearUncertainty), max: wear * evaluation.wearMultiplier + wearUncertainty }, fuelRisk: range(evaluation.fuelRisk) };
 }
+
+/** A safe baseline; aggression remains a deliberate player decision. */
+export function recommendedRacePlan(profile: CircuitProfile): RacePlan {
+  const long = profile.length === "long" || profile.demands.fuel >= 7;
+  return { tire: profile.weather === "wet" ? "wet" : "medium", fuelLoad: long ? "heavy" : "balanced",
+    gearing: profile.cornerDensity === "high" ? "short" : long ? "long" : "balanced",
+    aero: profile.cornerDensity === "high" ? "high" : profile.cornerDensity === "low" ? "low" : "balanced",
+    suspension: profile.surface !== "asphalt" || profile.cornerDensity === "high" ? "soft" : "balanced",
+    aggression: "balanced", pitStrategy: !profile.pitAvailable ? "none" : long ? "scheduled" : "reactive" };
+}

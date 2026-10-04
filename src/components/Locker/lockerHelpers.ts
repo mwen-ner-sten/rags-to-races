@@ -26,6 +26,7 @@ export const GEAR_CHANNEL_LABELS: Record<GearChannel, string> = {
   refurb_cost_reduction_pct: "Refurbish cost",
   tick_speed_reduction_ms: "Tick interval",
   fatigue_rate_reduction: "Fatigue gain",
+  fatigue_recovery_pct: "Fatigue recovery",
   material_bonus_pct: "Material yield",
   forge_token_chance_bonus: "Forge Token chance",
 };
@@ -53,7 +54,7 @@ export const GEAR_CHANNEL_GROUPS: readonly GearChannelGroup[] = [
   {
     id: "racing",
     label: "Racing",
-    channels: ["race_performance_pct", "race_handling_pct", "race_dnf_reduction", "race_wear_reduction_pct", "race_scrap_bonus_pct"],
+    channels: ["race_performance_pct", "race_handling_pct", "race_dnf_reduction", "race_wear_reduction_pct", "race_scrap_bonus_pct", "fatigue_rate_reduction", "fatigue_recovery_pct"],
   },
   {
     id: "costs",

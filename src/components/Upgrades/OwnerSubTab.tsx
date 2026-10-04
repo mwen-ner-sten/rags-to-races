@@ -1,4 +1,5 @@
 "use client";
+import OrganizationPanel from "./OrganizationPanel";
 
 import { useGameStore } from "@/state/store";
 import {
@@ -16,6 +17,7 @@ export default function OwnerSubTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <OrganizationPanel layer="owner" />
       <div className="flex items-center justify-between">
         <h2
           style={{ color: "var(--text-heading)" }}

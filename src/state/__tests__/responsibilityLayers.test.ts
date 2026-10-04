@@ -1,3 +1,4 @@
+import { readyCampaign } from "@/testing/campaignReady";
 import { afterEach, describe, expect, it } from "vitest";
 import { createInitialState, useGameStore } from "../store";
 import { calculateStats, type BuiltVehicle } from "@/engine/build";
@@ -11,7 +12,7 @@ afterEach(() => useGameStore.setState(createInitialState()));
 
 describe("responsibility-layer programs", () => {
   it("runs a passive fleet program at 60% rewards without unlocking progression", () => {
-    useGameStore.setState({ ...createInitialState(), garage: [vehicle("focus"), { ...vehicle("fleet"), condition: 52 }], activeVehicleId: "focus", raceHistory: [completedRace] });
+    useGameStore.setState({ ...createInitialState(), campaign: readyCampaign(), garage: [vehicle("focus"), { ...vehicle("fleet"), condition: 52 }], activeVehicleId: "focus", eventWins: { backyard_derby: { sprint: 1 } }, raceHistory: [completedRace] });
     const beforeUnlocks = [...useGameStore.getState().unlockedCircuitIds];
     useGameStore.getState().startFleetAssignment("fleet", "backyard_derby");
     useGameStore.getState().advanceFleetAssignments(10);
@@ -33,10 +34,10 @@ describe("responsibility-layer programs", () => {
       { id: "crew-two", name: "Dave", role: "mechanic" as const, level: 1, xp: 0, specialization: null },
     ];
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       garage: [vehicle("focus"), vehicle("fleet-one"), vehicle("fleet-two")],
       activeVehicleId: "focus",
-      raceHistory: [completedRace],
+      eventWins: { backyard_derby: { sprint: 1 } }, raceHistory: [completedRace],
       crewRoster,
       teamUpgradeLevels: { team_fleet: 1 },
     });
@@ -56,20 +57,31 @@ describe("responsibility-layer programs", () => {
     expect(useGameStore.getState().activityLog.some((entry) => entry.message.includes("Rico +5 XP"))).toBe(true);
   });
 
-  it("hosts and collects a bounded owned-track event", () => {
-    useGameStore.setState({ ...createInitialState(), trackEraCount: 1, ownedTrackConfig: { surface: "asphalt", length: "long", cornerDensity: "high", timeRule: "night", vehicleClass: "prototype", endurance: true, riskReward: 5 } });
-    useGameStore.getState().hostTrackEvent();
-    expect(useGameStore.getState().hostedEvents[0]).toMatchObject({ status: "running", remainingTicks: 5 });
-    useGameStore.getState().advanceFleetAssignments(10);
+  it("requires a compatible committed vehicle, charges the fee, and settles three rounds once", () => {
+    useGameStore.setState({ ...createInitialState(), campaign: readyCampaign(), trackEraCount: 1, scrapBucks: 10000,
+      garage: [vehicle("series")], ownedTrackConfig: { ...createInitialState().ownedTrackConfig, vehicleClass: "prototype" } });
+    useGameStore.getState().hostTrackEvent("series");
+    expect(useGameStore.getState().hostedEvents).toEqual([]);
+    useGameStore.getState().updateOwnedTrackConfig({ ...createInitialState().ownedTrackConfig, vehicleClass: "scrap" });
+    useGameStore.getState().hostTrackEvent("series");
+    const running = useGameStore.getState().hostedEvents[0];
+    expect(running).toMatchObject({ status: "running", vehicleId: "series", remainingTicks: 15 });
+    expect(useGameStore.getState().scrapBucks).toBe(10000 - running.fee!);
+    useGameStore.getState().sellVehicle("series");
+    expect(useGameStore.getState().garage).toHaveLength(1);
+    useGameStore.getState().advanceFleetAssignments(100);
     const event = useGameStore.getState().hostedEvents[0];
-    expect(event.status).toBe("complete");
-    expect(event.reward).toBeGreaterThan(100000);
+    expect(event.rounds).toHaveLength(3);
+    expect(event.reward).toBeLessThanOrEqual(event.prize!);
     useGameStore.getState().collectHostedEvent(event.id);
-    expect(useGameStore.getState().scrapBucks).toBe(event.reward);
+    const balance = useGameStore.getState().scrapBucks;
+    expect(balance).toBe(10000 - running.fee! + event.reward);
+    useGameStore.getState().collectHostedEvent(event.id);
+    expect(useGameStore.getState().scrapBucks).toBe(balance);
   });
 
   it("unlocks only released Owner facilities through purchased functional upgrades", () => {
-    useGameStore.setState({ ...createInitialState(), ownerPoints: 1000 });
+    useGameStore.setState({ ...createInitialState(), campaign: readyCampaign(), ownerPoints: 1000 });
     useGameStore.getState().purchaseOwnerUpgrade("owner_adv_circuits");
     useGameStore.getState().purchaseOwnerUpgrade("owner_vehicle_mastery");
     useGameStore.getState().purchaseOwnerUpgrade("owner_rd_lab");

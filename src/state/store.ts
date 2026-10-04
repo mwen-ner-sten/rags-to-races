@@ -1,4 +1,8 @@
 "use client";
+import { advancePrograms, fleetStartReason } from "@/engine/programs";
+import { seriesEligible, seriesTerms, } from "@/engine/series";
+import { gearSalvageMaterials } from "@/data/gearSets";
+import { initialCampaign, advanceCampaign, resetCampaignFields, canPromote, type CampaignProgress, type OperatingPolicy, type RacingSpecialty } from "@/engine/campaign";
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -76,15 +80,17 @@ import { getRivalById } from "@/data/rivals";
 import type { FleetAssignment } from "@/data/fleet";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
-import { calculateHostedEventTerms, DEFAULT_TRACK_CONFIG, normalizeHostedEventConfig, type HostedEvent, type OwnedTrackConfig } from "@/data/trackVenue";
+import { DEFAULT_TRACK_CONFIG, normalizeHostedEventConfig, type HostedEvent, type OwnedTrackConfig } from "@/data/trackVenue";
 import { getPartSaleValue } from "@/engine/sale";
 import { autoSellJunkParts, getAutoSellThreshold } from "@/engine/autoSell";
 import { getPermanentRuntimeBonuses, multiplyReward, reduceMaterialCost } from "@/engine/permanentBonuses";
 import { AUTO_RACE_MIN_CONDITION_DEFAULT, LOOSE_INVENTORY_LIMIT, LOOT_GEAR_INVENTORY_LIMIT, PENDING_MANUAL_RACE_ENTRY_FEE_KEY, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
-import { canOwnerReset, canScrapReset, canTeamReset, canTrackReset, FATIGUE, getScrapResetProgress, REP_DECAY } from "@/config/progression";
+import { canScrapReset, FATIGUE, getScrapResetProgress, REP_DECAY } from "@/config/progression";
 import { fatigueAfterRace, fatigueAfterTick, roundFatigue } from "@/engine/fatigue";
 import {
   applyCompletedProjects,
+  makeProjectId,
+  getProjectDurationMs,
   createEnhanceProject,
   createUpgradeProject,
   ENHANCEMENT_PROJECT_MIN_INDEX,
@@ -181,6 +187,11 @@ const MAX_LOG_ENTRIES = 200;
 let raceSessionCounter = 0;
 
 export interface GameState {
+  campaign: CampaignProgress;
+  settleOffline: (result: import("@/engine/tick").OfflineResult, expectedTimestamp: number, settledAt: number) => boolean;
+  setOperatingPolicy: (policy: OperatingPolicy) => void;
+  chooseSpecialty: (specialty: RacingSpecialty) => void;
+  claimSponsor: (family: RacingSpecialty) => void;
   // Currency
   scrapBucks: number;
   /** Spendable Rep balance: pays for unlocks and decays toward the legacy floor. */
@@ -236,6 +247,7 @@ export interface GameState {
   autoRaceUnlocked: boolean;
   /** Auto-race waits while the active vehicle's condition is below this. */
   autoRaceMinCondition: number;
+  autoRaceReserveScrap: number;
   /** Auto-race rests while fatigue is above this (engine/fatigue). */
   autoRaceMaxFatigue: number;
   /** Tick counter toward next auto-race fire (0 to raceTicksNeeded-1) */
@@ -316,6 +328,7 @@ export interface GameState {
 
   /** Epoch ms of the last tick; used to compute offline catch-up time */
   lastActiveTimestamp: number;
+  lastOfflineSettlement: { from: number; to: number; creditedMs: number; ticks: number } | null;
 
   /** Completed challenge IDs */
   completedChallenges: string[];
@@ -411,6 +424,7 @@ export interface GameState {
   deleteVehicleLoadout: (loadoutId: string) => void;
   setSelectedLocation: (locationId: string) => void;
   setScoutingOrder: (order: PartCategory | null) => void;
+  setAutoRaceReserveScrap: (amount: number) => void;
   setAutoRaceMinCondition: (condition: number) => void;
   setAutoRaceMaxFatigue: (fatigue: number) => void;
   setSelectedCircuit: (circuitId: string) => void;
@@ -426,7 +440,7 @@ export interface GameState {
   collectFleetAssignment: (assignmentId: string) => void;
   advanceFleetAssignments: (ticks?: number) => void;
   updateOwnedTrackConfig: (config: OwnedTrackConfig) => void;
-  hostTrackEvent: () => void;
+  hostTrackEvent: (vehicleId?: string) => void;
   collectHostedEvent: (eventId: string) => void;
   clearUnlockEvents: () => void;
   /** Queue an unlock announcement once; duplicates already pending are ignored. */
@@ -520,6 +534,7 @@ export interface GameState {
 
 export function createInitialState(): Omit<GameState, keyof ReturnType<typeof createActions>> {
   return {
+    campaign: initialCampaign(),
     scrapBucks: 0,
     repPoints: 0,
     lifetimeRep: 0,
@@ -548,6 +563,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     activeRaceSessionId: null,
     autoRaceUnlocked: true,
     autoRaceMinCondition: AUTO_RACE_MIN_CONDITION_DEFAULT,
+    autoRaceReserveScrap: 0,
     autoRaceMaxFatigue: FATIGUE.AUTO_RACE_MAX_DEFAULT,
     raceTickProgress: 0,
     lastRaceOutcome: null,
@@ -593,6 +609,7 @@ export function createInitialState(): Omit<GameState, keyof ReturnType<typeof cr
     dealerBoard: [],
     gameTick: 0,
     lastActiveTimestamp: 0,
+    lastOfflineSettlement: null,
     completedChallenges: [],
     challengeProgress: {},
     lifetimeTotalDecomposed: 0,
@@ -1170,7 +1187,7 @@ function _randomStartingWorkshopLevels(count: number): Record<string, number> {
 }
 
 function hasFleetAssignment(state: GameState, vehicleId: string): boolean {
-  return state.fleetAssignments.some((assignment) => assignment.vehicleId === vehicleId);
+  return state.fleetAssignments.some((assignment) => assignment.vehicleId === vehicleId) || state.hostedEvents.some((event) => event.vehicleId === vehicleId);
 }
 
 function isVehicleMutationLocked(state: GameState, vehicleId: string): boolean {
@@ -1178,8 +1195,87 @@ function isVehicleMutationLocked(state: GameState, vehicleId: string): boolean {
     || (state.isRacing && state.activeVehicleId === vehicleId);
 }
 
-function createActions(set: SetState, get: GetState) {
+
+function createActions(rawSet: SetState, get: GetState) {
+  const set: SetState = (partial) => rawSet((before) => {
+    const change = typeof partial === "function" ? partial(before) : partial;
+    const after = { ...before, ...change };
+    return { ...change, campaign: change.campaign ?? advanceCampaign(before, after) };
+  });
   return {
+    settleOffline: (r: import("@/engine/tick").OfflineResult, expectedTimestamp: number, settledAt: number): boolean => {
+      if (get().lastActiveTimestamp !== expectedTimestamp) return false;
+      let snapshot = { ...get() };
+      const actions = createActions((partial) => { snapshot = { ...snapshot, ...(typeof partial === "function" ? partial(snapshot) : partial) }; }, () => snapshot);
+      snapshot = { ...snapshot, ...actions };
+      actions.applyTickResult(
+            r.partsFound,
+            r.scrapsEarned,
+            r.repEarned,
+            r.vehicleWearTotal > 0 ? r.vehicleWearTotal : undefined,
+            r.vehicleRepairTotal > 0 ? r.vehicleRepairTotal : undefined,
+            r.raceTickProgress,
+            r.lootGearDrops.length > 0 ? r.lootGearDrops : undefined,
+            r.modDrops.length > 0 ? r.modDrops : undefined,
+            {
+              partsScavenged: r.partsScavenged,
+              partsAutoSold: r.partsAutoSold,
+              scavengesCompleted: r.scavengesCompleted,
+              racesCompleted: r.racesCompleted,
+              winsCompleted: r.winsCompleted,
+              finalWinStreak: r.finalWinStreak,
+              bestWinStreak: r.bestWinStreak,
+              recentRaceOutcomes: r.recentRaceOutcomes,
+              winningCircuitIds: r.winningCircuitIds,
+              defeatedRivalIds: r.defeatedRivalIds,
+              circuitWinStreaks: r.circuitWinStreaks,
+              eventWins: r.eventWins,
+              raceSalvageFound: r.raceSalvageFound,
+              forgeTokensFound: r.forgeTokensFound,
+              entryFeesPaid: r.entryFeesPaid,
+              challengesEvaluated: r.challengesEvaluated,
+              completedChallengeIds: r.completedChallengeIds,
+              challengeForgeTokens: r.challengeForgeTokens,
+              challengeMaterials: r.challengeMaterials,
+              ticksProcessed: r.ticksProcessed,
+              repDecayed: r.repDecayed,
+              finalFatigue: r.finalFatigue,
+              finalRepPoints: r.finalRepPoints,
+              finalVehicleCondition: r.finalVehicleCondition,
+              finalRacerSkills: r.finalRacerSkills,
+              finalCrewRoster: r.finalCrewRoster,
+              finalActiveMomentumTiers: r.finalActiveMomentumTiers,
+              newAchievementIds: r.newAchievementIds,
+              stationEquipmentDrops: r.stationEquipmentDrops,
+              stationEquipmentAutoSalvaged: r.stationEquipmentAutoSalvaged,
+              reforgeShardsFound: r.reforgeShardsFound,
+              lootGearAutoSalvaged: r.lootGearAutoSalvaged,
+              lootGearSalvageScrap: r.lootGearSalvageScrap,
+              finalProjects: r.finalProjects,
+              completedProjects: r.completedProjects,
+            },
+        );
+      const data = getPersistedGameState(snapshot);
+      set({ ...data, campaign: { ...snapshot.campaign, runRivalIds: [...new Set([...snapshot.campaign.runRivalIds, ...(r.runRivalIds ?? r.defeatedRivalIds)])] }, lastActiveTimestamp: settledAt, lastOfflineSettlement: { from: expectedTimestamp, to: settledAt, creditedMs: r.creditedMs ?? Math.min(48 * 3600000, settledAt - expectedTimestamp), ticks: r.ticksProcessed }, fleetAssignments: r.finalFleetAssignments ?? snapshot.fleetAssignments,
+        hostedEvents: r.finalHostedEvents ?? snapshot.hostedEvents,
+        garage: snapshot.garage.map((v) => v.id === snapshot.activeVehicleId ? v : r.finalProgramVehicles?.find((p) => p.id === v.id) ?? v) });
+      return true;
+    },
+    setOperatingPolicy: (policy: OperatingPolicy) => {
+      if (!["balanced", "income", "development"].includes(policy) || !get().campaign.knowledge.team) return;
+      set({ campaign: { ...get().campaign, policy } });
+    },
+    chooseSpecialty: (specialty: RacingSpecialty) => {
+      const state = get();
+      if (!state.campaign.knowledge.owner || state.campaign.specialty || !["grassroots", "technical", "endurance"].includes(specialty)) return;
+      set({ campaign: { ...state.campaign, specialty } });
+    },
+    claimSponsor: (family: RacingSpecialty) => {
+      const state = get(); const c = state.campaign;
+      if (!c.knowledge.owner || !(c.sponsorWins[family] >= 3) || c.sponsorClaims.includes(family)) return;
+      set({ ownerPoints: state.ownerPoints + 5, lifetimeOwnerPoints: state.lifetimeOwnerPoints + 5, lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra + 5,
+        campaign: { ...c, sponsorClaims: [...c.sponsorClaims, family], trackSponsorFamilies: [...new Set([...c.trackSponsorFamilies, family])] } });
+    },
     manualScavenge: () => {
       const state = get() as GameState;
       if (!canScavengeSelectedLocation(state)) return;
@@ -1545,6 +1641,7 @@ function createActions(set: SetState, get: GetState) {
       });
     },
 
+    setAutoRaceReserveScrap: (amount: number) => { if (Number.isFinite(amount)) set({ autoRaceReserveScrap: Math.max(0, Math.floor(amount)) }); },
     setAutoRaceMinCondition: (condition: number) => {
       set({ autoRaceMinCondition: Math.max(0, Math.min(100, Math.floor(condition))) });
     },
@@ -1742,7 +1839,8 @@ function createActions(set: SetState, get: GetState) {
           // You win the driver's kit at the track; it goes to the Locker.
           const vehiclePerf = vehiclePerformance(raceVehicle, circuit, handlingBonusPct) / (circuit.difficulty || 1);
           const { gearDrops: raceGearDrops, modDrop: raceModDrop } = rollGearDrops({
-            sourceTier: circuit.tier,
+            eventId: circuit.eventId,
+          sourceTier: circuit.tier,
             sourceId: circuit.id,
             raceResult: outcome.result,
             winStreak: newStreak,
@@ -1894,17 +1992,18 @@ function createActions(set: SetState, get: GetState) {
 
     startFleetAssignment: (vehicleId: string, circuitId: string, crewId?: string) => {
       const state = get() as GameState;
+      if (fleetStartReason(state, vehicleId, circuitId, crewId)) return;
       const vehicle = state.garage.find((candidate) => candidate.id === vehicleId);
       const circuit = getCircuitById(circuitId);
       const crewMember = crewId ? state.crewRoster.find((candidate) => candidate.id === crewId) : null;
-      const completedCircuit = state.raceHistory.some((outcome) => outcome.circuitId === circuitId && outcome.result === "win");
+      const completedCircuit = Object.values(state.eventWins[circuitId] ?? {}).some((wins) => (wins ?? 0) > 0);
       const baseSlots = 1 + Math.floor(getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "active_vehicle_slot"));
       const physicalIneligibility = getVehicleCircuitIneligibilityReason(vehicle, circuit);
-      if (!vehicle || !circuit || physicalIneligibility || vehicleId === state.activeVehicleId || !completedCircuit || state.fleetAssignments.filter((assignment) => assignment.status === "running").length >= baseSlots) return;
+      if (!state.campaign.knowledge.team || !vehicle || vehicle.condition < Math.max(10, state.autoRaceMinCondition) || !circuit || state.scrapBucks < circuit.entryFee * 4 || physicalIneligibility || vehicleId === state.activeVehicleId || !completedCircuit || state.fleetAssignments.filter((assignment) => assignment.status === "running").length >= baseSlots) return;
       if (crewId && !crewMember) return;
-      if (state.fleetAssignments.some((assignment) => assignment.vehicleId === vehicleId)) return;
+      if (hasFleetAssignment(state, vehicleId)) return;
       if (crewMember && state.fleetAssignments.some((assignment) => assignment.crewId === crewMember.id)) return;
-      const assignment: FleetAssignment = { id: `fleet_${Date.now()}_${state.fleetAssignments.length}`, vehicleId, crewId: crewId ?? null, circuitId, plan: { ...state.currentRacePlan }, status: "running", remainingTicks: Math.max(3, circuit.tier + 3), accumulatedWear: 0, rewards: { scrap: 0, materials: 0 } };
+      const assignment: FleetAssignment = { id: `fleet_${Date.now()}_${state.fleetAssignments.length}`, vehicleId, crewId: crewId ?? null, circuitId, policy: state.campaign.policy, plan: { ...state.currentRacePlan }, status: "running", remainingTicks: Math.max(3, circuit.tier + 3), accumulatedWear: 0, rewards: { scrap: 0, materials: 0 } };
       set((current: GameState) => ({ fleetAssignments: [...current.fleetAssignments, assignment] }));
       const vehicleName = getVehicleById(vehicle.definitionId)?.name ?? vehicle.definitionId;
       _appendLog(set, get, "tick", `Fleet program started: ${vehicleName} at ${circuit.name}${crewMember ? ` with ${crewMember.name}` : " (uncrewed)"}`);
@@ -1913,32 +2012,7 @@ function createActions(set: SetState, get: GetState) {
     advanceFleetAssignments: (ticks = 1) => {
       const state = get() as GameState;
       if (!state.fleetAssignments.some((assignment) => assignment.status === "running") && !state.hostedEvents.some((event) => event.status === "running")) return;
-      set((current: GameState) => ({ fleetAssignments: current.fleetAssignments.map((assignment) => {
-        if (assignment.status !== "running") return assignment;
-        const remainingTicks = Math.max(0, assignment.remainingTicks - Math.max(1, ticks));
-        if (remainingTicks > 0) return { ...assignment, remainingTicks };
-        const circuit = getCircuitById(assignment.circuitId);
-        const permanent = getPermanentRuntimeBonuses(current);
-        return {
-          ...assignment,
-          remainingTicks: 0,
-          status: "complete",
-          accumulatedWear: assignment.accumulatedWear + 5,
-          rewards: {
-            scrap: multiplyReward(
-              Math.floor((circuit?.rewardBase ?? 0) * 0.6),
-              permanent.allScrapIncomeMult,
-            ),
-            materials: Math.max(
-              1,
-              multiplyReward(
-                Math.max(1, Math.floor((circuit?.tier ?? 0) * 0.6)),
-                permanent.materialYieldMult,
-              ),
-            ),
-          },
-        };
-      }), hostedEvents: current.hostedEvents.map((event) => event.status !== "running" ? event : event.remainingTicks > ticks ? { ...event, remainingTicks: event.remainingTicks - ticks } : { ...event, remainingTicks: 0, status: "complete" }) }));
+      set((current) => advancePrograms(current, ticks));
     },
 
     collectFleetAssignment: (assignmentId: string) => {
@@ -1956,11 +2030,13 @@ function createActions(set: SetState, get: GetState) {
       const materialKeys = Object.keys(state.materials) as MaterialType[];
       const material = materialKeys[(getCircuitById(assignment.circuitId)?.tier ?? 0) % materialKeys.length];
       const crewXpMultiplier = 1 + getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "crew_xp_multiplier");
-      const crewXpAward = Math.floor(5 * crewXpMultiplier);
+      const baseXp = assignment.policy === "development" ? 10 : assignment.policy === "income" ? 3 : 5;
+      const crewXpAward = Math.floor(baseXp * crewXpMultiplier);
       set((current: GameState) => {
         const gear = getGearBonuses(current.equippedLootGear, current.lootGearInventory, current.equippedStationEquipment, current.stationEquipmentInventory);
         const handlingBonus = _getUpgradeEffectValue(current, "tuned_suspension") + gear.race_handling_pct;
         return {
+          campaign: { ...current.campaign, fleetVenueIds: [...new Set([...current.campaign.fleetVenueIds, assignment.circuitId])] },
           scrapBucks: current.scrapBucks + assignment.rewards.scrap,
           lifetimeScrapBucks: current.lifetimeScrapBucks + assignment.rewards.scrap,
           lifetimeScrapBucksAllTime: current.lifetimeScrapBucksAllTime + assignment.rewards.scrap,
@@ -1976,7 +2052,7 @@ function createActions(set: SetState, get: GetState) {
               stats: definition ? calculateStats(definition, vehicle.parts, condition, handlingBonus) : vehicle.stats,
             };
           }),
-          crewRoster: current.crewRoster.map((crew) => crew.id === assignment.crewId ? grantCrewXp(crew, 5, crewXpMultiplier) : crew),
+          crewRoster: current.crewRoster.map((crew) => crew.id === assignment.crewId ? grantCrewXp(crew, baseXp, crewXpMultiplier) : crew),
           fleetAssignments: current.fleetAssignments.filter((candidate) => candidate.id !== assignmentId),
         };
       });
@@ -1996,7 +2072,7 @@ function createActions(set: SetState, get: GetState) {
       });
     },
 
-    hostTrackEvent: () => {
+    hostTrackEvent: (vehicleId?: string) => {
       const state = get() as GameState;
       const maxEvents = 1 + (state.trackPerkLevels.track_multi ?? 0);
       if (state.trackEraCount < 1 || state.hostedEvents.filter((event) => event.status === "running").length >= maxEvents) return;
@@ -2005,14 +2081,13 @@ function createActions(set: SetState, get: GetState) {
         nightRacing: Boolean(state.trackPerkLevels.track_night_racing),
         enduranceMode: Boolean(state.trackPerkLevels.track_endurance),
       });
-      const terms = calculateHostedEventTerms(
-        config,
-        state.trackPerkLevels.track_sponsors ?? 0,
-        getPermanentRuntimeBonuses(state).allScrapIncomeMult,
-      );
+      const vehicle = state.garage.find((v) => v.id === vehicleId);
+      if (!vehicle || !seriesEligible(state, vehicle, config)) return;
+      const terms = seriesTerms(config, vehicle, state);
+      if (state.scrapBucks < terms.fee) return;
       const sponsors = ["Rustbelt Tools", "Midnight Fuel", "Backlot Salvage", "Apex Fabrication"];
-      const event: HostedEvent = { id: `event_${Date.now()}_${state.hostedEvents.length}`, name: `${config.timeRule === "night" ? "Midnight " : ""}${config.endurance ? "Endurance " : ""}Invitational`, config: { ...config }, sponsor: sponsors[state.hostedEvents.length % sponsors.length], remainingTicks: terms.durationTicks, status: "running", reward: terms.reward };
-      set((current: GameState) => ({ hostedEvents: [...current.hostedEvents, event] }));
+      const event: HostedEvent = { id: `event_${Date.now()}_${state.hostedEvents.length}`, name: `${config.timeRule === "night" ? "Midnight " : ""}${config.endurance ? "Endurance " : ""}Invitational`, config: { ...config }, sponsor: sponsors[state.hostedEvents.length % sponsors.length], remainingTicks: terms.durationTicks, status: "running", reward: 0, vehicleId: vehicle.id, plan: { ...state.currentRacePlan }, prize: terms.prize, fee: terms.fee };
+      set((current: GameState) => ({ scrapBucks: current.scrapBucks - terms.fee, hostedEvents: [...current.hostedEvents, event] }));
     },
 
     collectHostedEvent: (eventId: string) => {
@@ -2296,6 +2371,7 @@ function createActions(set: SetState, get: GetState) {
 
     enhanceLootGear: (lootGearId: string) => {
       const state = get() as GameState;
+      if (state.projects.some((p) => p.gearId === lootGearId)) return;
       const item = state.lootGearInventory.find((g) => g.id === lootGearId);
       if (!item) return;
       const masteryLevel = Math.floor(_getUpgradeEffectValue(state, "enhancement_mastery"));
@@ -2305,6 +2381,15 @@ function createActions(set: SetState, get: GetState) {
       if (state.scrapBucks < cost) return;
       const newLevel = item.enhancementLevel + 1;
       const newModSlots = getModSlots(newLevel);
+      if (newLevel >= 3) {
+        if (!hasFreeProjectSlot(state)) return;
+        set({ scrapBucks: state.scrapBucks - cost, projects: [...state.projects, {
+          id: makeProjectId(), kind: "gear", label: `${item.name} Lv.${newLevel}`, gearId: item.id, targetLevel: newLevel,
+          startedAt: Date.now(), elapsedMs: 0, durationMs: getProjectDurationMs(state, newLevel - 2),
+          paid: { scrap: cost, rep: 0, materials: {} },
+        }] });
+        return;
+      }
       set((s: GameState) => ({
         scrapBucks: s.scrapBucks - cost,
         lootGearInventory: s.lootGearInventory.map((g) =>
@@ -2316,6 +2401,7 @@ function createActions(set: SetState, get: GetState) {
 
     salvageLootGear: (lootGearId: string) => {
       const state = get() as GameState;
+      if (state.projects.some((p) => p.gearId === lootGearId)) return;
       const item = state.lootGearInventory.find((g) => g.id === lootGearId);
       if (!item) return;
       const salvageBonus = _getUpgradeEffectValue(state, "gear_recycler");
@@ -2326,6 +2412,7 @@ function createActions(set: SetState, get: GetState) {
       // Return installed mods to inventory
       const returnedMods = item.mods;
       set((s: GameState) => ({
+        materials: addRewardMaterials(s.materials, gearSalvageMaterials(item)),
         scrapBucks: s.scrapBucks + value,
         lifetimeScrapBucks: s.lifetimeScrapBucks + value,
         lifetimeScrapBucksAllTime: s.lifetimeScrapBucksAllTime + value,
@@ -2344,7 +2431,7 @@ function createActions(set: SetState, get: GetState) {
       set((s: GameState) => {
         const item = s.lootGearInventory.find((g) => g.id === lootGearId);
         const mod = s.gearModInventory.find((m) => m.id === modInstanceId);
-        if (!item || !mod || item.mods.length >= item.modSlots) return s;
+        if (!item || !mod || item.mods.length >= item.modSlots || s.projects.some((p) => p.gearId === lootGearId)) return s;
         if (item.mods.some((installed) => installed.id === modInstanceId)) return s;
         const template = getModTemplateById(mod.templateId);
         if (!template || !template.slots.includes(item.slot)) return s;
@@ -2359,6 +2446,7 @@ function createActions(set: SetState, get: GetState) {
 
     removeMod: (lootGearId: string, modIndex: number) => {
       const state = get() as GameState;
+      if (state.projects.some((p) => p.gearId === lootGearId)) return;
       const item = state.lootGearInventory.find((g) => g.id === lootGearId);
       if (!item || modIndex < 0 || modIndex >= item.mods.length) return;
       const mod = item.mods[modIndex];
@@ -2523,6 +2611,9 @@ function createActions(set: SetState, get: GetState) {
       // Build run stats for LP calculation
       const runStats: RunStats = {
         lifetimeScrapBucks: state.lifetimeScrapBucks,
+        earnedScrap: state.campaign.runEarnedScrap,
+        featureWins: state.eventWins,
+        rivalCount: state.campaign.runRivalIds.length,
         lifetimeRaces: state.lifetimeRaces,
         fatigue: state.fatigue,
         highestCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds),
@@ -2579,7 +2670,8 @@ function createActions(set: SetState, get: GetState) {
         + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels, "starting_scrap")
         + permanentBonuses.startingScrap;
       const startingScrap = Math.floor(startingScrapBeforeMilestone * (1 + milestoneBonuses.startingScrapMult)) + challengeBundle.scrap;
-      set({
+      set((before) => {
+        const after = { ...before,
         ...createInitialState(),
         prestigeCount: newPrestigeCount,
         prestigeBonus: result.bonuses,
@@ -2689,6 +2781,9 @@ function createActions(set: SetState, get: GetState) {
         // Playstyle nodes persist through Scrap Reset
         unlockedPlaystyleNodes: state.unlockedPlaystyleNodes,
         vehicleLoadouts: [],
+        };
+        const retained = resetCampaignFields(before, after, "scrap");
+        return { ...after, ...retained, prestigeBonus: calculatePrestigeBonus(retained.legacyUpgradeLevels ?? after.legacyUpgradeLevels) };
       });
       _appendLog(set, get, "prestige", `Prestige #${newPrestigeCount}! Earned ${lpEarned} Legacy Points`, { lpDelta: lpEarned });
       // Check feature unlocks and achievements after prestige
@@ -2839,7 +2934,7 @@ function createActions(set: SetState, get: GetState) {
         const runningProjects = settlement.finalProjects ?? s.projects;
         const completedProjects = settlement.completedProjects ?? [];
         const projectCompletion = applyCompletedProjects(
-          { workshopLevels: s.workshopLevels, inventory: s.inventory, lifetimeTotalEnhanced: s.lifetimeTotalEnhanced, highestConditionReached: s.highestConditionReached },
+          { workshopLevels: s.workshopLevels, inventory: s.inventory, lootGearInventory: s.lootGearInventory, lifetimeTotalEnhanced: s.lifetimeTotalEnhanced, highestConditionReached: s.highestConditionReached },
           completedProjects,
         );
 
@@ -2922,8 +3017,8 @@ function createActions(set: SetState, get: GetState) {
           ? [...s.stationEquipmentInventory, ...stationFinds.kept]
           : s.stationEquipmentInventory;
         const lootGearInventory = lootFinds.kept.length > 0
-          ? [...s.lootGearInventory, ...lootFinds.kept]
-          : s.lootGearInventory;
+          ? [...(projectCompletion.lootGearInventory ?? s.lootGearInventory), ...lootFinds.kept]
+          : (projectCompletion.lootGearInventory ?? s.lootGearInventory);
         const gearModInventory = (modDrops?.length ?? 0) > 0
           ? [...s.gearModInventory, ...(modDrops ?? [])]
           : s.gearModInventory;
@@ -3581,11 +3676,7 @@ function createActions(set: SetState, get: GetState) {
 
     teamReset: () => {
       const state = get() as GameState;
-      if (!canTeamReset({
-        lifetimeLegacyPoints: state.lifetimeLPAllTime,
-        lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
-        unspentLegacyPoints: state.legacyPoints,
-      })) return;
+      if (!canPromote("team", state.campaign)) return;
       const stats = {
         lifetimeLPThisTeamEra: state.lifetimeLPThisTeamEra,
         teamEraCount: state.teamEraCount,
@@ -3631,7 +3722,8 @@ function createActions(set: SetState, get: GetState) {
         "starting_materials",
       );
 
-      set({
+      set((before) => {
+        const after = { ...before,
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
@@ -3708,6 +3800,9 @@ function createActions(set: SetState, get: GetState) {
         uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
         // Playstyle nodes RESET on Team Reset
         unlockedPlaystyleNodes: [],
+        };
+        const retained = resetCampaignFields(before, after, "team");
+        return { ...after, ...retained, prestigeBonus: calculatePrestigeBonus(retained.legacyUpgradeLevels ?? after.legacyUpgradeLevels) };
       });
       _appendLog(set, get, "prestige", `Team Reset! Earned ${tpEarned} Team Points`, {});
       (get() as GameState).checkFeatureUnlocks();
@@ -3734,12 +3829,7 @@ function createActions(set: SetState, get: GetState) {
 
     ownerReset: () => {
       const state = get() as GameState;
-      if (!canOwnerReset({
-        lifetimeTeamPoints: state.lifetimeTeamPoints,
-        teamEras: state.teamEraCount,
-        lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
-        unspentTeamPoints: state.teamPoints,
-      })) return;
+      if (!canPromote("owner", state.campaign)) return;
       const stats = {
         lifetimeTPThisOwnerEra: state.lifetimeTPThisOwnerEra,
         ownerEraCount: state.ownerEraCount,
@@ -3774,7 +3864,8 @@ function createActions(set: SetState, get: GetState) {
         ? ensureAcademyRoster([], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
         : [];
 
-      set({
+      set((before) => {
+        const after = { ...before,
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
@@ -3838,6 +3929,9 @@ function createActions(set: SetState, get: GetState) {
         uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
         // Playstyle nodes reset on Team Reset (already reset in parent layer)
         unlockedPlaystyleNodes: [],
+        };
+        const retained = resetCampaignFields(before, after, "owner");
+        return { ...after, ...retained, prestigeBonus: calculatePrestigeBonus(retained.legacyUpgradeLevels ?? after.legacyUpgradeLevels) };
       });
       _appendLog(set, get, "prestige", `Owner Reset! Earned ${opEarned} Owner Points`, {});
       (get() as GameState).checkFeatureUnlocks();
@@ -3885,12 +3979,7 @@ function createActions(set: SetState, get: GetState) {
 
     trackReset: () => {
       const state = get() as GameState;
-      if (!canTrackReset({
-        lifetimeOwnerPoints: state.lifetimeOwnerPoints,
-        ownerEras: state.ownerEraCount,
-        lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
-        unspentOwnerPoints: state.ownerPoints,
-      })) return;
+      if (!canPromote("track", state.campaign)) return;
       const stats = {
         lifetimeOPThisTrackEra: state.lifetimeOPThisTrackEra,
         trackEraCount: state.trackEraCount,
@@ -3922,7 +4011,8 @@ function createActions(set: SetState, get: GetState) {
         ? ensureAcademyRoster([], ownerCrewLevel > 0 ? ownerCrewLevel : 1)
         : [];
 
-      set({
+      set((before) => {
+        const after = { ...before,
         ...createInitialState(),
         scrapBucks: startingScrap,
         lifetimeScrapBucks: startingScrap,
@@ -3978,6 +4068,9 @@ function createActions(set: SetState, get: GetState) {
         uniqueVehicleTypesBuilt: state.uniqueVehicleTypesBuilt,
         // Playstyle nodes reset
         unlockedPlaystyleNodes: [],
+        };
+        const retained = resetCampaignFields(before, after, "track");
+        return { ...after, ...retained, prestigeBonus: calculatePrestigeBonus(retained.legacyUpgradeLevels ?? after.legacyUpgradeLevels) };
       });
       _appendLog(set, get, "prestige", `Track Reset! Earned ${ptEarned} Prestige Tokens`, {});
       (get() as GameState).checkFeatureUnlocks();
@@ -4033,6 +4126,7 @@ function createActions(set: SetState, get: GetState) {
 
     specializeCrewMember: (crewId: string, spec: string) => {
       const state = get() as GameState;
+      if (state.fleetAssignments.some((a) => a.crewId === crewId)) return;
       set({
         crewRoster: state.crewRoster.map((m) =>
           m.id === crewId &&

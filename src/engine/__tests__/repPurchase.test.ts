@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { describeRepDecay, describeRepPurchase, formatSpendableRep } from "@/engine/repPurchase";
-import { REP_DECAY } from "@/config/progression";
 
 describe("describeRepPurchase", () => {
   it("labels an affordable unlock and leaves no disabled reason", () => {
@@ -37,16 +36,8 @@ describe("formatSpendableRep", () => {
 });
 
 describe("describeRepDecay", () => {
-  it("uses the configured three-day half-life in plain words", () => {
-    const view = describeRepDecay(12);
-    expect(REP_DECAY.HALF_LIFE_MS).toBe(3 * 24 * 60 * 60 * 1_000);
-    expect(view.toward).toBe("Decays toward 12");
-    expect(view.halfLife).toBe("Cools by half every 3 days when above your floor");
-  });
-
-  it("falls back to hours for short half-lives and clamps the floor", () => {
-    expect(describeRepDecay(-1, 12 * 3_600_000).halfLife).toBe("Cools by half every 12 hours when above your floor");
-    expect(describeRepDecay(-1).toward).toBe("Decays toward 0");
-    expect(describeRepDecay(0, 24 * 3_600_000).halfLife).toBe("Cools by half every 1 day when above your floor");
+  it("explains the retained starting entitlement without suggesting decay", () => {
+    expect(describeRepDecay(250)).toEqual({ toward: "Starting Rep entitlement: 250", halfLife: "Earned Rep stays yours while you are away" });
+    expect(describeRepDecay(-1).toward).toBe("Starting Rep entitlement: 0");
   });
 });

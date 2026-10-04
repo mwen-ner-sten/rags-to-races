@@ -1,8 +1,9 @@
 "use client";
+import { specialtyPerformance } from "@/engine/campaign";
 
 import { _getUpgradeEffectValue, useGameStore } from "@/state/store";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
-import { buildRaceForecast, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
+import { buildRaceForecast, recommendedRacePlan, evaluateRacePlan, RACE_PLAN_PRESETS, type CircuitProfile, type RacePlan } from "@/data/raceStrategy";
 import { VEHICLE_DEFINITIONS } from "@/data/vehicles";
 import { calculateOdds } from "@/engine/race";
 import { composeBonus } from "@/engine/bonuses";
@@ -28,7 +29,7 @@ import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import type { TabId } from "@/components/navigation/tabs";
 import { getRaceIneligibilityReason } from "@/engine/eligibility";
-import { getActiveEventCircuit } from "@/engine/raceExpectation";
+import { getActiveEventCircuit, expectedRaceOn } from "@/engine/raceExpectation";
 import { getEventDefinition, getOpenEventIds } from "@/engine/eventLadder";
 import { EVENT_LADDER } from "@/data/circuits";
 import EventLadder from "./EventLadder";
@@ -304,9 +305,14 @@ const PLAN_OPTIONS: { key: keyof RacePlan; label: string; values: string[] }[] =
 
 function RacePreparation({ profile, plan, onChange, onPreset }: { profile: CircuitProfile; plan: RacePlan; onChange: (plan: RacePlan) => void; onPreset: (preset: keyof typeof RACE_PLAN_PRESETS) => void }) {
   const evaluation = useMemo(() => evaluateRacePlan(profile, plan), [profile, plan]);
+  const s = useGameStore.getState();
+  const circuit = getActiveEventCircuit(s);
+  const oddsFor = (preparation: RacePlan) => circuit ? expectedRaceOn({ ...s, currentRacePlan: preparation }, circuit) : null;
+  const current = oddsFor(plan); const suggested = oddsFor(recommendedRacePlan(profile));
   return <section className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }} aria-label="Race preparation">
-    <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm uppercase tracking-wider" style={{ color: "var(--text-white)" }}>Race Plan</strong><div className="flex flex-wrap gap-1">{Object.keys(RACE_PLAN_PRESETS).map((preset) => <button key={preset} onClick={() => onPreset(preset as keyof typeof RACE_PLAN_PRESETS)} className="rounded border px-2 py-1 text-xs capitalize" style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}>{preset}</button>)}</div></div>
-    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{PLAN_OPTIONS.map((option) => <label key={option.key} className="scroll-mb-20 text-xs" style={{ color: "var(--text-muted)" }}>{option.label}<select value={plan[option.key]} onChange={(event) => onChange({ ...plan, [option.key]: event.target.value })} className="mt-1 w-full scroll-mb-20 rounded border px-2 py-1.5 capitalize" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{option.values.map((value) => <option key={value}>{value}</option>)}</select></label>)}</div>
+    <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm uppercase tracking-wider" style={{ color: "var(--text-white)" }}>Race Plan</strong><button className="rounded border px-2 py-1 text-sm" onClick={() => onChange(recommendedRacePlan(profile))}>Use recommended preparation</button><div className="flex flex-wrap gap-1">{Object.keys(RACE_PLAN_PRESETS).map((preset) => <button key={preset} onClick={() => onPreset(preset as keyof typeof RACE_PLAN_PRESETS)} className="rounded border px-2 py-1 text-xs capitalize" style={{ borderColor: "var(--btn-border)", color: "var(--text-primary)" }}>{preset}</button>)}</div></div>
+    {current && suggested && <p className="mt-2 text-xs">Preparation comparison: {Math.round(current.winChance * 100)}% → {Math.round(suggested.winChance * 100)}% win chance; {Math.round(current.dnfChance * 100)}% → {Math.round(suggested.dnfChance * 100)}% DNF risk.</p>}
+    <details className="mt-2"><summary className="cursor-pointer text-sm">Detailed preparation</summary><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{PLAN_OPTIONS.map((option) => <label key={option.key} className="scroll-mb-20 text-xs" style={{ color: "var(--text-muted)" }}>{option.label}<select value={plan[option.key]} onChange={(event) => onChange({ ...plan, [option.key]: event.target.value })} className="mt-1 w-full scroll-mb-20 rounded border px-2 py-1.5 capitalize" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{option.values.map((value) => <option key={value}>{value}</option>)}</select></label>)}</div></details>
     <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">{evaluation.factors.map((item) => <div key={item.label} className="text-xs" style={{ color: item.impact === "positive" ? "var(--success)" : item.impact === "negative" ? "var(--warning)" : "var(--text-muted)" }}>{item.impact === "positive" ? "↑" : item.impact === "negative" ? "↓" : "→"} {item.label}: {item.detail}</div>)}</div>
   </section>;
 }
@@ -361,6 +367,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
   const autoRaceUnlocked = useGameStore((s) => s.autoRaceUnlocked);
   const autoRaceMinCondition = useGameStore((s) => s.autoRaceMinCondition);
   const setAutoRaceMinCondition = useGameStore((s) => s.setAutoRaceMinCondition);
+  const autoRaceReserveScrap = useGameStore((s) => s.autoRaceReserveScrap);
   const autoRaceMaxFatigue = useGameStore((s) => s.autoRaceMaxFatigue);
   const setAutoRaceMaxFatigue = useGameStore((s) => s.setAutoRaceMaxFatigue);
   const raceTickProgress = useGameStore((s) => s.raceTickProgress);
@@ -685,7 +692,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
             reliability={deriveVehicleStats(activeVehicle, handlingBonusPct).reliability}
             difficulty={activeEvent?.difficulty ?? selectedCircuit.difficulty}
             fatigue={fatigue}
-            performanceBonus={composeBonus({ equipment: gb.race_performance_pct, team: teamRacePerformance, permanent: permanentRaceBonuses.racePerformanceBonus }) - 1}
+            performanceBonus={composeBonus({ owner: specialtyPerformance(useGameStore.getState().campaign.specialty, selectedCircuit), equipment: gb.race_performance_pct, team: teamRacePerformance, permanent: permanentRaceBonuses.racePerformanceBonus }) - 1}
             gearDnfReduction={gb.race_dnf_reduction + permanentRaceBonuses.raceDnfFlatReduction}
             skillPerformanceMult={sb.drivingPerformanceMult}
             skillDnfReduction={sb.drivingDnfReduction}
@@ -745,6 +752,7 @@ export default function RacePanel({ setActiveTab }: { setActiveTab?: (tab: TabId
                   ))}
                 </select>
               </label>
+              <label className="text-xs">Keep cash reserve <input aria-label="Auto-race cash reserve" type="number" min="0" step="25" className="w-24 rounded border p-1" style={{ background: "var(--panel-bg)", color: "var(--text-primary)" }} value={autoRaceReserveScrap} onChange={(e) => useGameStore.getState().setAutoRaceReserveScrap(Number(e.target.value))} /></label>
               {raceTicksNeeded > 1 && (
                 <div className="flex items-center gap-1.5">
                   <div

@@ -8,7 +8,7 @@ import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
 import { CRAFT_RECIPES } from "@/data/craftRecipes";
 import { DEALER_UNLOCK_REP, DEALER_TIER2_REP, DEALER_TIER3_REP, DEALER_REFRESH_INTERVAL, DEALER_BOARD_SIZE } from "@/data/dealer";
 import { LEGACY_UPGRADE_DEFINITIONS, LEGACY_CATEGORY_LABELS, type LegacyUpgradeCategory } from "@/data/legacyUpgrades";
-import { LOOT_GEAR_INVENTORY_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { LOOT_GEAR_INVENTORY_LIMIT, OFFLINE_LOOSE_INVENTORY_LIMIT, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { SCRAP_RESET_REQUIREMENTS } from "@/config/progression";
 import { resolveEventCircuit } from "@/engine/eventLadder";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
@@ -63,7 +63,7 @@ export const HELP_TUTORIAL_WALKTHROUGH: { step: string; description: string }[] 
 
 export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Scrap Bucks", meaning: "Primary currency. Earned from races and selling parts. Spent on building, repairs, facilities, and station equipment." },
-  { term: "Rep", meaning: "Reputation from races. Spend it to open locations, circuits, vehicle blueprints, and Rep-gated workshop lines. The balance decays slowly (half-life three days) toward your legacy floor; lifetime Rep never falls and gates momentum and the Scrap Reset." },
+  { term: "Rep", meaning: "Reputation from races. Spend it to open locations, circuits, vehicle blueprints, and Rep-gated workshop lines. Rep never decays while you are away. Lifetime Rep tracks progress; your legacy entitlement seeds Rep after resets." },
   { term: "Junk Filter", meaning: "Rusted finds are sold automatically from the first tick. The Prestige 2 milestone lets your Sell Below Quality setting decide what counts as junk." },
   { term: "Fatigue", meaning: "A daily rhythm (0–99): every race adds 4 + circuit tier, and rest removes 12 per hour of real time whether the tab is open or not. Costs -0.5% performance, +0.8% wear, and +1% repair cost per point. Auto-race rests above your fatigue ceiling. Resets on Scrap Reset." },
   { term: "Condition", meaning: `Part quality from ${CONDITIONS[0]} (worst) to ${CONDITIONS[CONDITIONS.length - 1]} (best). Higher = more power and sale value.` },
@@ -90,7 +90,7 @@ export const HELP_GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Track Prestige Tokens (PT)", meaning: "Layer 4 currency earned from Track Reset. Spent on venue, event, and endgame fleet perks." },
   { term: "Crew", meaning: "NPC helpers unlocked after the first Team Reset. Four roles (Mechanic, Scout, Driver, Trader) have distinct specializations. Crew persist through Scrap Resets and reset on Team Reset." },
   { term: "Racer Skills", meaning: `${SKILL_DEFINITIONS.length} XP-based skills (${SKILL_DEFINITIONS.map(s => s.name).join(", ")}). Max level ${MAX_SKILL_LEVEL}. Rating converts to effectiveness with diminishing returns at higher tiers.` },
-  { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 8 hours). Catch-up runs at your live tick speed, up to ${OFFLINE_TICK_CAP.toLocaleString()} ticks per return. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts, ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items, and ${LOOT_GEAR_INVENTORY_LIMIT} loot gear pieces are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
+  { term: "Offline Progress", meaning: `The game continues scavenging and racing while closed (capped at 48 hours). Catch-up runs the same rules in background batches without shortening your credited time. Up to ${OFFLINE_LOOSE_INVENTORY_LIMIT} loose parts, ${STATION_EQUIPMENT_INVENTORY_LIMIT} station items, and ${LOOT_GEAR_INVENTORY_LIMIT} loot gear pieces are kept; overflow is converted at normal sale or salvage value and itemized in the return summary.` },
   { term: "Achievement", meaning: "Lifetime milestone that grants permanent bonuses. Tracked across all resets. View in Upgrades > Trophies." },
   { term: "Prestige Milestone", meaning: "Free reward earned at prestige count thresholds. Some shape your run strategy. View in Upgrades > Prestige." },
   { term: "Garage Philosophy", meaning: "LP-funded specialization in Scrapper, Racer, and Engineer paths. Persists through Scrap Reset and resets at the Team layer." },
@@ -119,7 +119,7 @@ export const HELP_FAQ: FAQItem[] = [
   },
   {
     question: "How does fatigue work?",
-    answer: "Every race adds 4 fatigue plus the circuit tier (tier 0 adds 4, tier 6 adds 10), capped at 99. Rest removes 12 per hour of real time — online or offline — so a fully tired driver is fresh in about eight hours. Each point: -0.5% race performance, +0.8% vehicle wear, +1% repair cost. Auto-race pauses above the fatigue ceiling you set on the Race tab (default 70) and resumes once you have rested below it. Fatigue Drinks take 10 off at once; Iron Will and the Endurance skill speed up recovery; station gear, momentum, and philosophy reduce the gain per race. It resets to 0 on Scrap Reset. Momentum bonuses reward pushing through fatigue — Deep Run (+50% LP at 60 fatigue) and Legendary Run (+100% LP at 80).",
+    answer: "Every race adds 4 fatigue plus the circuit tier (tier 0 adds 4, tier 6 adds 10), capped at 99. Rest removes 12 per hour of real time — online or offline — so a fully tired driver is fresh in about eight hours. Each point: -0.5% race performance, +0.8% vehicle wear, +1% repair cost. Auto-race pauses above the fatigue ceiling you set on the Race tab (default 70) and resumes once you have rested below it. Fatigue Drinks take 10 off at once; Iron Will and the Endurance skill speed up recovery; station gear, momentum, and philosophy reduce the gain per race. It resets to 0 on Scrap Reset. Momentum offers race and income benefits while pushing; fatigue itself never increases reset rewards.",
   },
   {
     question: "Should I sell or decompose parts?",
@@ -169,7 +169,7 @@ export const HELP_STRATEGY: StrategyCard[] = [
     title: "When should I prestige?",
     advice: [
       "Push to at least 60 fatigue to unlock Deep Run (+50% Legacy Points).",
-      "Pushing to 80 fatigue triggers Legendary Run (+100% LP) — worth it if you can still win races.",
+      "Push for a higher Feature win or new rivals to improve reset rewards; compare the reset preview with your earned LP per hour.",
       "Prestige when your win chance drops below ~30% on your target circuit.",
       "First few prestiges: prioritize Scrap Magnate and Street Cred for the fastest snowball.",
     ],

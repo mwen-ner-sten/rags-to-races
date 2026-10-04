@@ -20,6 +20,7 @@ const alwaysDrop: RandomSource = { next: () => 0.0001 };
 const neverDrop: RandomSource = { next: () => 0.9999 };
 
 const raceParams = {
+  eventId: "feature",
   sourceTier: 5,
   sourceId: "salt_flats",
   raceResult: "win" as const,

@@ -5,8 +5,35 @@
     "description": "Generated fresh gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721687,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 0,
         "repPoints": 0,
         "lifetimeRep": 0,
@@ -62,6 +89,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -115,6 +143,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -187,8 +216,35 @@
     "description": "Generated first build ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721689,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 25,
         "repPoints": 8,
         "lifetimeRep": 8,
@@ -266,6 +322,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -334,6 +391,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -406,8 +464,35 @@
     "description": "Generated first race ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721690,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 100,
         "repPoints": 25,
         "lifetimeRep": 25,
@@ -515,6 +600,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -568,6 +654,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -642,8 +729,51 @@
     "description": "Generated workshop ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1700000000000,
+          "runEarnedScrap": 8000,
+          "runRivalIds": [
+            "rival_greasy_pete",
+            "rival_scrap_queen"
+          ],
+          "scrapResetsThisTeamEra": 4,
+          "teamResetsThisOwnerEra": 3,
+          "ownerResetsThisTrackEra": 4,
+          "teamFeatureIds": [
+            "world_championship"
+          ],
+          "ownerFeatureIds": [
+            "world_championship"
+          ],
+          "trackFeatureIds": [
+            "endurance_series"
+          ],
+          "fleetVenueIds": [
+            "backyard_derby",
+            "dirt_track"
+          ],
+          "knowledge": {
+            "team": true,
+            "owner": true
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": [
+            "grassroots",
+            "technical",
+            "endurance"
+          ]
+        },
         "scrapBucks": 1000000,
         "repPoints": 250000,
         "lifetimeRep": 250000,
@@ -1886,7 +2016,9 @@
         "defeatedRivalIds": [],
         "eventWins": {},
         "pinnedEventIds": {},
-        "revealedSystems": [],
+        "revealedSystems": [
+          "dealer"
+        ],
         "rustedPileSinceTick": null,
         "discoveredBlueprintIds": [],
         "fleetAssignments": [],
@@ -1905,6 +2037,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -2030,6 +2163,7 @@
         ],
         "gameTick": 100,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -2109,8 +2243,35 @@
     "description": "Generated auto scavenge boundary gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721690,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 1000,
         "repPoints": 0,
         "lifetimeRep": 0,
@@ -2203,6 +2364,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -2277,6 +2439,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -2356,8 +2519,35 @@
     "description": "Generated first scrap reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721690,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 1000,
         "repPoints": 2500,
         "lifetimeRep": 2500,
@@ -2748,6 +2938,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -2875,6 +3066,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [
           "races_25",
           "streak_5"
@@ -2956,8 +3148,35 @@
     "description": "Generated post scrap reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721691,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 0,
         "repPoints": 0,
         "lifetimeRep": 0,
@@ -2970,8 +3189,8 @@
           "luckBonus": 0,
           "repMultiplier": 1
         },
-        "legacyPoints": 65,
-        "lifetimeLegacyPoints": 65,
+        "legacyPoints": 80,
+        "lifetimeLegacyPoints": 80,
         "legacyUpgradeLevels": {},
         "activeMomentumTiers": [],
         "currentEra": 1,
@@ -3017,6 +3236,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -3070,6 +3290,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [
           "races_25",
           "streak_5",
@@ -3110,7 +3331,7 @@
         "lifetimeTeamPoints": 0,
         "teamUpgradeLevels": {},
         "teamEraCount": 0,
-        "lifetimeLPThisTeamEra": 65,
+        "lifetimeLPThisTeamEra": 80,
         "ownerPoints": 0,
         "lifetimeOwnerPoints": 0,
         "ownerUpgradeLevels": {},
@@ -3122,7 +3343,7 @@
         "trackEraCount": 0,
         "lifetimeOPThisTrackEra": 0,
         "unlockedFeatures": [],
-        "lifetimeLPAllTime": 65,
+        "lifetimeLPAllTime": 80,
         "lifetimeScrapResets": 1,
         "crewRoster": [],
         "crewSlots": 0,
@@ -3149,8 +3370,51 @@
     "description": "Generated team reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1700000000000,
+          "runEarnedScrap": 8000,
+          "runRivalIds": [
+            "rival_greasy_pete",
+            "rival_scrap_queen"
+          ],
+          "scrapResetsThisTeamEra": 4,
+          "teamResetsThisOwnerEra": 3,
+          "ownerResetsThisTrackEra": 4,
+          "teamFeatureIds": [
+            "world_championship"
+          ],
+          "ownerFeatureIds": [
+            "world_championship"
+          ],
+          "trackFeatureIds": [
+            "endurance_series"
+          ],
+          "fleetVenueIds": [
+            "backyard_derby",
+            "dirt_track"
+          ],
+          "knowledge": {
+            "team": true,
+            "owner": true
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": [
+            "grassroots",
+            "technical",
+            "endurance"
+          ]
+        },
         "scrapBucks": 100000,
         "repPoints": 10000,
         "lifetimeRep": 10000,
@@ -4078,6 +4342,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -4168,6 +4433,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [
           "races_25",
           "streak_5"
@@ -4267,8 +4533,35 @@
     "description": "Generated post team reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721692,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 0,
         "repPoints": 0,
         "lifetimeRep": 0,
@@ -4324,6 +4617,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -4377,6 +4671,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -4456,8 +4751,51 @@
     "description": "Generated owner reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1700000000000,
+          "runEarnedScrap": 8000,
+          "runRivalIds": [
+            "rival_greasy_pete",
+            "rival_scrap_queen"
+          ],
+          "scrapResetsThisTeamEra": 4,
+          "teamResetsThisOwnerEra": 3,
+          "ownerResetsThisTrackEra": 4,
+          "teamFeatureIds": [
+            "world_championship"
+          ],
+          "ownerFeatureIds": [
+            "world_championship"
+          ],
+          "trackFeatureIds": [
+            "endurance_series"
+          ],
+          "fleetVenueIds": [
+            "backyard_derby",
+            "dirt_track"
+          ],
+          "knowledge": {
+            "team": true,
+            "owner": true
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": [
+            "grassroots",
+            "technical",
+            "endurance"
+          ]
+        },
         "scrapBucks": 100000,
         "repPoints": 10000,
         "lifetimeRep": 10000,
@@ -5385,6 +5723,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -5463,6 +5802,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [
           "races_25",
           "streak_5"
@@ -5551,8 +5891,35 @@
     "description": "Generated post owner reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721692,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 0,
         "repPoints": 0,
         "lifetimeRep": 0,
@@ -5608,6 +5975,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -5661,6 +6029,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -5740,8 +6109,51 @@
     "description": "Generated track reset ready gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1700000000000,
+          "runEarnedScrap": 8000,
+          "runRivalIds": [
+            "rival_greasy_pete",
+            "rival_scrap_queen"
+          ],
+          "scrapResetsThisTeamEra": 4,
+          "teamResetsThisOwnerEra": 3,
+          "ownerResetsThisTrackEra": 4,
+          "teamFeatureIds": [
+            "world_championship"
+          ],
+          "ownerFeatureIds": [
+            "world_championship"
+          ],
+          "trackFeatureIds": [
+            "endurance_series"
+          ],
+          "fleetVenueIds": [
+            "backyard_derby",
+            "dirt_track"
+          ],
+          "knowledge": {
+            "team": true,
+            "owner": true
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": [
+            "grassroots",
+            "technical",
+            "endurance"
+          ]
+        },
         "scrapBucks": 100000,
         "repPoints": 10000,
         "lifetimeRep": 10000,
@@ -6669,6 +7081,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -6747,6 +7160,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [
           "races_25",
           "streak_5"
@@ -6835,8 +7249,35 @@
     "description": "Generated post track reset gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1788557721693,
+          "runEarnedScrap": 0,
+          "runRivalIds": [],
+          "scrapResetsThisTeamEra": 0,
+          "teamResetsThisOwnerEra": 0,
+          "ownerResetsThisTrackEra": 0,
+          "teamFeatureIds": [],
+          "ownerFeatureIds": [],
+          "trackFeatureIds": [],
+          "fleetVenueIds": [],
+          "knowledge": {
+            "team": false,
+            "owner": false
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": []
+        },
         "scrapBucks": 0,
         "repPoints": 0,
         "lifetimeRep": 0,
@@ -6892,6 +7333,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -6945,6 +7387,7 @@
         "dealerBoard": [],
         "gameTick": 0,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [],
         "challengeProgress": {},
         "lifetimeTotalDecomposed": 0,
@@ -7024,8 +7467,51 @@
     "description": "Generated maxed gameplay scenario",
     "storageKey": "rags-to-races-save",
     "payload": {
-      "version": 6,
+      "version": 7,
       "state": {
+        "campaign": {
+          "lifetimeTeamResets": 0,
+          "lifetimeOwnerResets": 0,
+          "runStartedAt": 1700000000000,
+          "runEarnedScrap": 8000,
+          "runRivalIds": [
+            "rival_greasy_pete",
+            "rival_scrap_queen"
+          ],
+          "scrapResetsThisTeamEra": 4,
+          "teamResetsThisOwnerEra": 3,
+          "ownerResetsThisTrackEra": 4,
+          "teamFeatureIds": [
+            "world_championship"
+          ],
+          "ownerFeatureIds": [
+            "world_championship"
+          ],
+          "trackFeatureIds": [
+            "endurance_series"
+          ],
+          "fleetVenueIds": [
+            "backyard_derby",
+            "dirt_track"
+          ],
+          "knowledge": {
+            "team": true,
+            "owner": true
+          },
+          "policy": "balanced",
+          "specialty": null,
+          "sponsorWins": {
+            "grassroots": 0,
+            "technical": 0,
+            "endurance": 0
+          },
+          "sponsorClaims": [],
+          "trackSponsorFamilies": [
+            "grassroots",
+            "technical",
+            "endurance"
+          ]
+        },
         "scrapBucks": 1000000000,
         "repPoints": 1000000000,
         "lifetimeRep": 1000000000,
@@ -10413,6 +10899,7 @@
         "scoutingOrder": null,
         "autoRaceUnlocked": true,
         "autoRaceMinCondition": 25,
+        "autoRaceReserveScrap": 0,
         "autoRaceMaxFatigue": 70,
         "projects": [],
         "raceTickProgress": 0,
@@ -10700,6 +11187,7 @@
         ],
         "gameTick": 1000000,
         "lastActiveTimestamp": 1700000000000,
+        "lastOfflineSettlement": null,
         "completedChallenges": [
           "first_decompose",
           "decompose_50",

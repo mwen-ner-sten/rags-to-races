@@ -68,7 +68,7 @@ afterEach(() => {
 });
 
 describe("race drops feed the Locker", () => {
-  it("a won race on a fresh save yields loot gear, a gear mod, and a toast", () => {
+  it("a won Sprint yields loot gear and a toast but no Feature-only mod", () => {
     loadFreshRacerWithDnfGuard();
     raceOnce();
     const after = useGameStore.getState();
@@ -76,14 +76,14 @@ describe("race drops feed the Locker", () => {
     expect(after.lastRaceOutcome?.result).toBe("win");
     expect(after.lootGearInventory).toHaveLength(1);
     expect(after.lootGearInventory[0]).toMatchObject({ rarity: "common", source: "backyard_derby" });
-    expect(after.gearModInventory).toHaveLength(1);
+    expect(after.gearModInventory).toHaveLength(0);
     expect(after.stationEquipmentInventory).toEqual([DNF_GUARD]);
     expect(after.reforgeShards).toBe(0);
 
     const toast = after.unlockEvents.find((event) => event.startsWith("Found "));
     expect(toast).toBe(`Found Common ${after.lootGearInventory[0].name}`);
     expect(getUnlockGuide(toast!)?.where).toContain("Workshop > Locker");
-    expect(after.unlockEvents).toContain(`Gear Mod: ${after.gearModInventory[0].name}!`);
+    expect(after.unlockEvents.some((event) => event.startsWith("Gear Mod:"))).toBe(false);
   });
 
   it("reveals the Locker on the first race drop", () => {

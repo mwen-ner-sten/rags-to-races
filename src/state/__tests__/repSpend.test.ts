@@ -118,7 +118,7 @@ describe("spendable Rep", () => {
     expect(migrated.unlockedLocationIds).toEqual(expect.arrayContaining(["neighborhood_yards"]));
     // Rep-threshold blueprints already reachable at migration time are kept.
     expect(migrated.unlockedVehicleIds).toEqual(expect.arrayContaining(["go_kart", "beater_car"]));
-    expect(PERSISTENCE_VERSION).toBe(6);
+    expect(PERSISTENCE_VERSION).toBe(7);
   });
 
   it("does not hand out Rep-priced blueprints on a current-version rehydrate", () => {

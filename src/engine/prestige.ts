@@ -32,38 +32,26 @@ export function calculatePrestigeBonus(
 // ── Legacy Points (LP) calculation ──────────────────────────────────────────
 
 export interface RunStats {
+  earnedScrap?: number;
+  featureWins?: Record<string, Partial<Record<string, number>>>;
+  rivalCount?: number;
   lifetimeScrapBucks: number;
   lifetimeRaces: number;
-  /** Only feeds the Deep Run milestone bonus; the LP base never depends on it. */
+  /** Retained for older callers; waiting and fatigue never increase reset rewards. */
   fatigue: number;
   highestCircuitTier: number;
   workshopUpgradesBought: number;
 }
 
 export function calculateLegacyPoints(stats: RunStats): number {
-  // Scrap component: sqrt gives diminishing returns
-  const scrapComponent = Math.sqrt(stats.lifetimeScrapBucks / 100);
-
-  // Race depth component: log2 gives heavy diminishing returns
-  const raceComponent = Math.log2(1 + stats.lifetimeRaces / 10);
-
-  // Tier bonus: reaching higher circuits multiplies LP
-  const tierMultiplier = 1 + stats.highestCircuitTier * 0.5;
-
-  // Run depth: a reset after a handful of races pays half; ~50 races pays
-  // in full. Measured in races, not fatigue, so fatigue relief never costs LP.
-  const depthFactor = Math.min(1, 0.5 + stats.lifetimeRaces / 100);
-
-  // Workshop investment bonus
-  const workshopBonus = 1 + stats.workshopUpgradesBought * 0.05;
-
-  const raw =
-    (scrapComponent + raceComponent * 3) *
-    tierMultiplier *
-    depthFactor *
-    workshopBonus;
-
-  return Math.max(1, Math.floor(raw));
+  const earned = Math.max(0, stats.earnedScrap ?? stats.lifetimeScrapBucks);
+  const highest = CIRCUIT_DEFINITIONS.reduce((tier, circuit) =>
+    (stats.featureWins?.[circuit.id]?.feature ?? 0) > 0 ? Math.max(tier, circuit.tier) : tier, -1);
+  // One depth reward, never compounded milestones. Earnings grow logarithmically
+  // so farming money indefinitely cannot replace reaching a new Feature.
+  const depth = [10, 20, 35, 60, 110, 165, 240][highest] ?? 0;
+  const earnings = 8 * Math.log2(1 + earned / 1000);
+  return Math.max(1, Math.floor((20 + depth + earnings) * (1 + Math.min(10, stats.rivalCount ?? 0) * 0.1)));
 }
 
 /** Apply momentum LP multipliers to base LP */
@@ -94,14 +82,14 @@ export interface ScrapResetAward {
 /** Single source of truth shared by the reset confirmation and actual award. */
 export function calculateScrapResetAward(input: ScrapResetAwardInput): ScrapResetAward {
   const baseLp = calculateLegacyPoints(input.runStats);
-  const momentumAdjustedLp = applyMomentumLpBonus(baseLp, input.activeMomentumTierIds);
+  const momentumAdjustedLp = baseLp; // Fatigue and race-count momentum never increase a reset award.
   const milestones = getPrestigeMilestoneBonuses(input.currentPrestigeCount + 1);
   const permanent = getPermanentRuntimeBonuses(input);
   const additiveBonus =
     getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, input.teamUpgradeLevels, "lp_multiplier")
     + permanent.lpMultiplier
     + milestones.lpMultiplier
-    + (input.runStats.fatigue > 50 ? milestones.deepRunLpMult : 0);
+    + ((input.runStats.featureWins?.world_championship?.feature ?? 0) > 0 ? milestones.deepRunLpMult : 0);
   const beforeCascade = Math.floor(momentumAdjustedLp * (1 + additiveBonus));
   const trackCascadeBonus = getGameEffectValue(TRACK_PERK_DEFINITIONS, input.trackPerkLevels, "lower_currency_mult");
   return {

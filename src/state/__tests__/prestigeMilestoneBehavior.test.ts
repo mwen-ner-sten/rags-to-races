@@ -168,10 +168,10 @@ describe("prestige milestone runtime behavior", () => {
     expect(computeTickSpeedMs(pureState({ prestigeCount: 15 }))).toBe(26_000);
   });
 
-  it("Deep Run Master doubles LP only when reset fatigue exceeds 50", () => {
+  it("fatigue never changes the reset award", () => {
     const shallow = performReset(19, { fatigue: 50 }).legacyPoints;
     const deep = performReset(19, { fatigue: 51 }).legacyPoints;
-    expect(deep).toBe(shallow * 2);
+    expect(deep).toBe(shallow);
   });
 
   it("Fortune's Favorite measurably improves seeded scavenged conditions at Prestige 25", () => {

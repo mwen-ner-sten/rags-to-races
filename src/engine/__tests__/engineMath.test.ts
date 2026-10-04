@@ -3,7 +3,7 @@ import { createInitialState, type GameState } from "@/state/store";
 import { createGameplayFixture } from "@/testing/gameplayFixtures";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { getVehicleById } from "@/data/vehicles";
-import { MAX_OFFLINE_DURATION_MS, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN } from "@/config/gameplayLimits";
+import { MAX_OFFLINE_DURATION_MS, OFFLINE_TICK_MS_MIN } from "@/config/gameplayLimits";
 import {
   computeOfflineTickBudget,
   computeTick,
@@ -92,8 +92,8 @@ describe("computeOfflineTickBudget", () => {
 
   it("bounds the number of simulated ticks for long absences", () => {
     const budget = computeOfflineTickBudget(fastState, MAX_OFFLINE_DURATION_MS);
-    expect(budget.ticks).toBe(OFFLINE_TICK_CAP);
-    expect(computeOfflineTickBudget(fastState, MAX_OFFLINE_DURATION_MS * 3).ticks).toBe(OFFLINE_TICK_CAP);
+    expect(budget.ticks).toBe(Math.floor(MAX_OFFLINE_DURATION_MS / budget.tickMs));
+    expect(computeOfflineTickBudget(fastState, MAX_OFFLINE_DURATION_MS * 3).ticks).toBe(Math.floor(MAX_OFFLINE_DURATION_MS / budget.tickMs));
   });
 
   it("caps elapsed time at the offline duration limit and never returns negative ticks", () => {

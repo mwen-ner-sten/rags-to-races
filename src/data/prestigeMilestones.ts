@@ -152,7 +152,7 @@ const PM_SPEED_DEMON: PrestigeMilestoneDefinition = {
 const PM_DEEP_RUN: PrestigeMilestoneDefinition = {
   id: "pm_deep_run",
   name: "Deep Run Master",
-  description: "+100% LP when fatigue exceeds 50.",
+  description: "+100% LP after winning a World Feature in this run.",
   prestigeRequired: 20,
   reward: {
     type: "softwall",

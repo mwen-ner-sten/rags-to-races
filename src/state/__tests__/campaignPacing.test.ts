@@ -303,6 +303,7 @@ describe("seeded first-campaign pacing", () => {
       currentPrestigeCount: state.prestigeCount,
       runStats: {
         lifetimeScrapBucks: state.lifetimeScrapBucks,
+        earnedScrap: state.campaign.runEarnedScrap, featureWins: state.eventWins, rivalCount: state.campaign.runRivalIds.length,
         lifetimeRaces: state.lifetimeRaces,
         fatigue: state.fatigue,
         highestCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds),

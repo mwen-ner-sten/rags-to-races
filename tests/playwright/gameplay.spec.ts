@@ -7,7 +7,6 @@ import {
 import { REP_UNLOCK_COSTS, SCRAP_RESET_REQUIREMENTS, scrapResetRequirementText } from "../../src/config/progression";
 import { THEMES } from "../../src/data/themes";
 import { FATIGUE_DRINK_COST, FATIGUE_DRINK_RECOVERY } from "../../src/data/workshopActions";
-import { formatNumber } from "../../src/utils/format";
 import fixtures from "./fixtures/gameplay.generated.json";
 
 type FixtureName = keyof typeof fixtures;
@@ -43,7 +42,7 @@ async function replaceFixtureState(page: Page, name: FixtureName, statePatch: Re
 async function openTab(page: Page, name: string) {
   const tab = page.locator(`[data-tutorial-tab="${name}"]:visible`).first();
   if (await tab.count() === 0) {
-    await page.getByRole("button", { name: "More tabs" }).click();
+    await page.getByRole("button", { name: "Open navigation" }).click();
   }
   await page.locator(`[data-tutorial-tab="${name}"]:visible`).first().click();
   if (name === "gear") await expect(page.getByRole("heading", { name: "Salvage Workshop" })).toBeVisible();
@@ -186,10 +185,10 @@ test("@smoke fresh save exposes the first engineering loop", async ({ page }) =>
 });
 
 test("portaled tutorial follows a persisted non-default theme", async ({ page }) => {
-  await loadFixture(page, "fresh", {}, "outlaw");
+  await loadFixture(page, "fresh", {}, "grease");
   const tutorial = page.getByTestId("tutorial-intro-card");
-  await expect(tutorial).toHaveCSS("--accent", "#c88830");
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim())).toBe("#c88830");
+  await expect(tutorial).toHaveCSS("--accent", "#c83e0c");
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim())).toBe("#c83e0c");
 });
 
 test("@smoke full Dev save reset stays on the starting Salvage flow", async ({ page }) => {
@@ -230,7 +229,9 @@ test("current-version saves strip injected action names and keep Scavenge callab
   await page.getByRole("button", { name: "Scavenge!" }).click();
   const after = await persistedState(page);
   expect(after.manualScavengeClicks).toBe((before.manualScavengeClicks as number) + 1);
-  expect((after.inventory as unknown[]).length).toBe((before.inventory as unknown[]).length + 1);
+  // A single valid scavenge may include bonus finds; the click counter above
+  // verifies exactly one action independently of its random yield.
+  expect((after.inventory as unknown[]).length).toBeGreaterThan((before.inventory as unknown[]).length);
   expect(after.manualScavenge).toBeUndefined();
   expect(after.enterRace).toBeUndefined();
   expect(after.prestige).toBeUndefined();
@@ -307,7 +308,7 @@ test("@smoke locked circuits and locations are bought with spendable Rep", async
   const dirtTrack = page.getByTestId("unlock-circuit-dirt_track").locator("visible=true");
   await expect(dirtTrack).toHaveText(`Unlock · ${REP_UNLOCK_COSTS.circuits.dirt_track} Rep`);
   await expect(dirtTrack).toBeEnabled();
-  const regional = page.getByTestId("unlock-circuit-regional_circuit").locator("visible=true");
+  const regional = page.getByTestId("unlock-circuit-regional_circuit");
   await expect(regional).toBeDisabled();
   await expect(regional).toHaveAttribute("title", `Need ${REP_UNLOCK_COSTS.circuits.regional_circuit - 25} more Rep`);
 
@@ -361,7 +362,7 @@ test("@smoke first Scrap Reset uses the shared exact gate and awards the preview
   expect(after.garage).toEqual([]);
 });
 
-test("offline catch-up honors the eight-hour cap and settles every part exactly once", async ({ page }) => {
+test("offline catch-up honors the 48-hour cap and settles every part exactly once", async ({ page }) => {
   test.setTimeout(90_000);
   await installDeterministicMathRandom(page);
   const fixtureState = fixtures.auto_scavenge_boundary.payload.state;
@@ -375,7 +376,7 @@ test("offline catch-up honors the eight-hour cap and settles every part exactly 
   });
 
   await expect(page.getByRole("heading", { name: "Welcome Back!" })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText("You were away for 8h", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Credited: 48h/ )).toBeVisible();
   const scavenged = parseDisplayedInteger(await modalRowText(page, "Parts scavenged"));
   const kept = parseDisplayedInteger(await modalRowText(page, "Kept in inventory"));
   const junkFilteredText = await optionalModalRowText(page, "Junk Filter auto-sold");
@@ -438,7 +439,7 @@ test("@smoke tutorial first race uses the displayed simulation", async ({ page }
   expect(["win", "loss", "dnf"]).toContain(outcome?.result);
   expect(outcome?.repEarned).toBeGreaterThan(0);
   await expect(page.getByRole("heading", { name: "Engineering Debrief" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Inspect Build" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(Inspect Build|Open Garage)$/ })).toBeVisible();
   await expect(page.getByTestId("tutorial-card").getByText(/won|exploded|not first/i)).toBeVisible();
 });
 
@@ -496,14 +497,15 @@ test("tutorial tab halos stay fully inside the viewport", async ({ page }) => {
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileHalo = page.getByTestId("tutorial-tab-halo");
-  const mobileNav = page.getByTestId("mobile-nav");
   await expect(mobileHalo).toBeVisible();
-  expect(Number(await mobileHalo.evaluate((element) => getComputedStyle(element).zIndex)))
-    .toBeGreaterThan(Number(await mobileNav.evaluate((element) => getComputedStyle(element).zIndex)));
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  const drawer = page.getByRole("dialog", { name: "Game navigation" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Open navigation" })).toBeFocused();
 
-  await page.getByRole("button", { name: "More tabs" }).click();
-  expect(Number(await mobileNav.evaluate((element) => getComputedStyle(element).zIndex)))
-    .toBeGreaterThan(Number(await mobileHalo.evaluate((element) => getComputedStyle(element).zIndex)));
 });
 
 test("@smoke tutorial releases navigation after the first repair", async ({ page }) => {
@@ -908,6 +910,7 @@ test("Team crew lifecycle and Fleet program use selected crew and settle rewards
     specialization: null,
   };
   await loadFixture(page, "team_reset_ready", {
+    eventWins: { backyard_derby: { sprint: 1 } },
     crewRoster: [crew],
     crewSlots: 2,
     autoScavengeUnlocked: false,
@@ -949,7 +952,7 @@ test("Team crew lifecycle and Fleet program use selected crew and settle rewards
     (beforeCollect.crewRoster as Array<{ id: string; xp: number }>).find((member) => member.id === crew.id)!.xp,
   );
   const vehicleAfter = (afterCollect.garage as Array<{ id: string; condition: number; stats: unknown }>).find((vehicle) => vehicle.id === vehicleBefore.id)!;
-  expect(vehicleAfter.condition).toBe(vehicleBefore.condition - 5);
+  expect(vehicleAfter.condition).toBe(vehicleBefore.condition - 3);
   expect(vehicleAfter.stats).not.toEqual(vehicleBefore.stats);
   expect(afterCollect.fleetAssignments).toEqual([]);
 });
@@ -1007,30 +1010,30 @@ test("Track configuration, perks, hosting, acceleration, and collection use the 
   await page.getByLabel("Length").selectOption("long");
   await page.getByLabel("Corners").selectOption("high");
   await page.getByLabel("Conditions").selectOption("night");
-  await page.getByLabel("Vehicle class").selectOption("prototype");
+  await page.getByLabel("Vehicle class").selectOption("scrap");
   await page.getByLabel("Payout tier").selectOption("5");
-  await page.getByRole("checkbox", { name: /Endurance modifier/ }).check();
-  const forecast = await page.getByText(/^Forecast:/).innerText();
-  const durationMatch = forecast.match(/after ([\d,]+) ticks/);
-  expect(durationMatch).not.toBeNull();
-  const displayedDuration = Number(durationMatch![1].replaceAll(",", ""));
-
-  await page.getByRole("button", { name: "Host event" }).click();
-  const hosted = ((await persistedState(page)).hostedEvents as Array<{ reward: number; remainingTicks: number; config: Record<string, unknown> }>)[0];
-  expect(forecast).toContain(`$${formatNumber(hosted.reward)}`);
-  expect(hosted.remainingTicks).toBe(displayedDuration);
-  expect(hosted.config).toEqual(expect.objectContaining({ surface: "asphalt", length: "long", cornerDensity: "high", timeRule: "night", vehicleClass: "prototype", riskReward: 5, endurance: true }));
-
+  await page.getByRole("checkbox", { name: /Endurance series/ }).check();
+  const forecast = await page.getByText(/^Entry:/).innerText();
+  const beforeHost = await persistedNumber(page, "scrapBucks");
+  await page.getByRole("button", { name: "Start series" }).click();
+  const hosted = ((await persistedState(page)).hostedEvents as Array<{ reward: number; prize: number; fee: number; remainingTicks: number; config: Record<string, unknown> }>)[0];
+  expect(forecast).toContain(`Maximum prize: ${hosted.prize}`);
+  expect(await persistedNumber(page, "scrapBucks")).toBe(beforeHost - hosted.fee);
+  expect(hosted.remainingTicks).toBe(30);
+  expect(hosted.reward).toBe(0);
+  expect(hosted.config).toEqual(expect.objectContaining({ surface: "asphalt", length: "long", cornerDensity: "high", timeRule: "night", vehicleClass: "scrap", riskReward: 5, endurance: true }));
   await openTab(page, "dev");
   await page.getByRole("button", { name: "+100 ticks" }).click();
   await openTab(page, "upgrades");
   await page.getByRole("button", { name: "Track", exact: true }).click();
-  await expect(page.getByText(`$${formatNumber(hosted.reward)}`, { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Collect", exact: true })).toBeVisible();
+  const completed = ((await persistedState(page)).hostedEvents as Array<{reward: number; rounds: unknown[]}>)[0];
+  expect(completed.rounds).toHaveLength(3);
+  expect(completed.reward).toBeLessThanOrEqual(hosted.prize);
+  await expect(page.getByText(`${completed.reward} Scrap Bucks earned`, { exact: true })).toBeVisible();
   const beforeCollect = await persistedNumber(page, "scrapBucks");
   await page.getByRole("button", { name: "Collect", exact: true }).click();
   const afterCollect = await persistedState(page);
-  expect(afterCollect.scrapBucks).toBe(beforeCollect + hosted.reward);
+  expect(afterCollect.scrapBucks).toBe(beforeCollect + completed.reward);
   expect(afterCollect.hostedEvents).toEqual([]);
 });
 
@@ -1228,10 +1231,10 @@ test("@smoke mobile Workshop dropdown uses an opaque raised surface", async ({ p
 
 test("mobile Workshop dropdown follows a persisted non-default theme", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await loadFixture(page, "workshop_ready", {}, "outlaw");
+  await loadFixture(page, "workshop_ready", {}, "grease");
   await openTab(page, "gear");
   await page.locator(".mobile-sub-nav").getByRole("button").first().click();
-  await expect(page.getByTestId("mobile-sub-nav-menu")).toHaveCSS("background-color", "rgb(14, 10, 6)");
+  await expect(page.getByTestId("mobile-sub-nav-menu")).toHaveCSS("background-color", "rgb(26, 12, 4)");
 });
 
 test("@smoke starting a workshop project persists its timer across a reload", async ({ page }) => {
@@ -1358,4 +1361,31 @@ test("@smoke Locker equips loot gear and the loadout survives a reload", async (
   await expect(page.getByTestId("locker-item-fixture_loot_head")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+
+test("ready promotions take priority over fatigue in the next objective", async ({ page }) => {
+  await loadFixture(page, "track_reset_ready", { fatigue: 99, autoRaceMaxFatigue: 70 });
+  await expect(page.getByRole("heading", { name: "Your track promotion is ready", exact: true })).toBeVisible();
+});
+
+test("a higher-class car does not hide the National Feature rebuild objective", async ({ page }) => {
+  const vehicle = fixtures.maxed.payload.state.garage.find((v) => v.definitionId === "hypercar")!;
+  await loadFixture(page, "track_reset_ready", {
+    garage: [vehicle], activeVehicleId: vehicle.id, eventWins: {},
+    campaign: { ...fixtures.track_reset_ready.payload.state.campaign,
+      scrapResetsThisTeamEra: 0, teamResetsThisOwnerEra: 0, ownerResetsThisTrackEra: 0 },
+  });
+  await expect(page.getByRole("heading", { name: "Keep a car for the National Feature", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Go to garage", exact: true }).click();
+  await expect(page.getByText("Your Garage (1)")).toBeVisible();
+});
+
+test("opening guidance accepts variant parts and defers workshop announcements", async ({ page }) => {
+  const inventory = fixtures.first_build_ready.payload.state.inventory.map((p) => ({ ...p, definitionId: ["engine_small", "wheel_busted"].includes(p.definitionId) ? `${p.definitionId}_sturdy` : p.definitionId }));
+  await loadFixture(page, "first_build_ready", { inventory, tutorialStep: 2, tutorialDismissed: false, unlockEvents: ["Workshop section unlocked: Decompose"] });
+  await expect(page.getByRole("dialog", { name: "Decompose is ready" })).toHaveCount(0);
+  await expect.poll(async () => (await persistedState(page)).tutorialStep as number).toBeGreaterThanOrEqual(3);
+  await openTab(page, "garage");
+  await expect(page.getByRole("heading", { name: /Build a vehicle/i })).toBeVisible();
 });

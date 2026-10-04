@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { computeTick, simulateOfflineTicks, type TickResult } from "@/engine/tick";
+import { computeTick, computeTickSpeedMs, computeOfflineTickBudget, simulateOfflineTicks, type TickResult } from "@/engine/tick";
 import { createGameplayFixture } from "@/testing/gameplayFixtures";
 import { SeededRandomSource, withRandomSource } from "@/utils/random";
 import {
@@ -151,6 +151,34 @@ function paritySnapshot(state: GameState) {
 afterEach(() => useGameStore.setState(createInitialState()));
 
 describe("online and batched automation parity", () => {
+  it("matches elapsed time when a workshop speed project completes during the batch", () => {
+    const initial = { ...createInitialState(), ...createGameplayFixture("first_race_ready").payload.state,
+      autoScavengeUnlocked: true, autoRaceUnlocked: true, scrapBucks: 10000,
+      workshopLevels: {}, projects: [{ id: "speed", kind: "upgrade" as const, label: "Tick Accelerator",
+        upgradeId: "tick_accelerator", targetLevel: 1, startedAt: 0, durationMs: 30000, elapsedMs: 0,
+        paid: { scrap: 2500, rep: 0, materials: {} } }] };
+    const elapsed = 300000;
+    useGameStore.setState(initial);
+    const before = useGameStore.getState();
+    const budget = computeOfflineTickBudget(before, elapsed);
+    const result = withRandomSource(new SeededRandomSource("speed-project-parity"), () => simulateOfflineTicks(before, budget.ticks, elapsed));
+    before.settleOffline(result, before.lastActiveTimestamp, before.lastActiveTimestamp + elapsed);
+    const offline = paritySnapshot(useGameStore.getState());
+    expect(useGameStore.getState().workshopLevels.tick_accelerator).toBe(1);
+    useGameStore.setState(initial);
+    let credited = 0;
+    withRandomSource(new SeededRandomSource("speed-project-parity"), () => {
+      while (credited + computeTickSpeedMs(useGameStore.getState()) <= elapsed) {
+        const state = useGameStore.getState();
+        credited += computeTickSpeedMs(state);
+        settleOnlineTick(state, computeTick(state));
+      }
+    });
+    expect(result.creditedMs).toBe(credited);
+    expect(result.ticksProcessed).toBeGreaterThan(budget.ticks);
+    expect(paritySnapshot(useGameStore.getState())).toEqual(offline);
+  });
+
   it("settles the same seeded 100-tick campaign including mid-batch momentum, challenges, achievements, fatigue, and wear", () => {
     const fixture = createGameplayFixture("first_race_ready");
     const fixtureVehicle = fixture.payload.state.garage[0]!;

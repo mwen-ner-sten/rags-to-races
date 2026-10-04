@@ -1,5 +1,8 @@
 "use client";
 
+import { useGameStore } from "@/state/store";
+import { getActiveEventCircuit } from "@/engine/raceExpectation";
+import { getRaceIneligibilityReason } from "@/engine/eligibility";
 import type { OfflineResult } from "@/engine/tick";
 import { ACHIEVEMENTS_BY_ID } from "@/data/achievements";
 import { CHALLENGE_DEFINITIONS } from "@/data/challenges";
@@ -47,7 +50,16 @@ export default function OfflineProgressModal({
   result,
   onDismiss,
 }: OfflineProgressModalProps) {
+  const state = useGameStore();
+  const vehicle = state.garage.find((v) => v.id === state.activeVehicleId);
+  const circuit = getActiveEventCircuit(state);
+  const reason = getRaceIneligibilityReason(state, circuit);
+  const stopped = !state.autoRaceUnlocked ? "Auto-race is switched off." : !vehicle ? "Build and activate a vehicle to race." : reason ? `Auto-race paused: ${reason.replace(/_/g, " ")}.` : state.scrapBucks < (circuit?.entryFee ?? 0) + state.autoRaceReserveScrap ? "Auto-race paused to protect your cash reserve." : vehicle.condition < state.autoRaceMinCondition ? "Auto-race paused for vehicle repairs." : state.fatigue > state.autoRaceMaxFatigue ? "Auto-race is resting until fatigue falls." : "Auto-race is ready to continue.";
   const rows: StatRowProps[] = [];
+  for (const project of result.completedProjects ?? []) rows.push({ icon: "✓", label: `Completed ${project.label}`, value: "Ready" });
+  const fleetDone = result.finalFleetAssignments?.filter((a) => a.status === "complete").length ?? 0;
+  const seriesDone = result.finalHostedEvents?.filter((a) => a.status === "complete").length ?? 0;
+  if (fleetDone + seriesDone) rows.push({ icon: "✓", label: "Programs ready to collect", value: `${fleetDone + seriesDone}` });
 
   if (result.partsScavenged > 0) {
     rows.push({ icon: "\u{1F529}", label: "Parts scavenged", value: `${result.partsScavenged}` });
@@ -138,7 +150,7 @@ export default function OfflineProgressModal({
       onClick={onDismiss}
     >
       <div
-        className="animate-fade-up mx-4 w-full max-w-sm rounded-xl border border-amber-500/20 p-6"
+        className="animate-fade-up mx-4 max-h-[90dvh] overflow-y-auto w-full max-w-sm rounded-xl border border-amber-500/20 p-6"
         style={CARD_STYLE}
         onClick={(e) => e.stopPropagation()}
       >
@@ -146,9 +158,11 @@ export default function OfflineProgressModal({
           Welcome Back!
         </h2>
         <p className="mb-4 text-center text-sm text-zinc-400">
-          You were away for {formatTimeAway(timeAwayMinutes)}
+          Away: {formatTimeAway(timeAwayMinutes)}. Credited: {formatTimeAway(Math.min(timeAwayMinutes, 48 * 60))}.
+          {timeAwayMinutes > 48 * 60 && " Production is capped at 48 hours per absence."}
         </p>
 
+        <p className="mb-3 text-xs text-zinc-300">{stopped} {!state.autoScavengeUnlocked && "Auto-scavenge is switched off."}</p>
         {rows.length > 0 ? (
           <div className="mb-5 divide-y divide-zinc-700/50 rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-3 py-1">
             {rows.map((row) => (

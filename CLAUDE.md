@@ -17,8 +17,8 @@ npm test            # Vitest unit tests
 ## Breakpoints & responsive layout
 
 - **Mobile breakpoint is `640px`** (`max-width: 640px`). Check every UI change at both ≤640px and ≥641px before reporting done.
-- The app uses **two different nav components**: `shell/TabBar` (desktop, horizontal under the header) and `MobileNav` (fixed bottom, 56px). When you change navigation, you must update BOTH. The desktop left rail is `resources/ResourceRail` (fixed left, 240px) and is NOT navigation.
-- Desktop reserves left space via `.shell-content { margin-left: 240px }` (the resource rail). Mobile reserves bottom space via `.shell-content { padding-bottom: 56px }`. If you change rail/nav dimensions, update these too.
+- The app uses **one navigation component**, `shell/Sidebar`: a fixed, independently scrollable 240px desktop sidebar and a native modal hamburger drawer on mobile. `MobileResourceStrip` now serves both sizes.
+- Desktop reserves 240px on `.shell-content` for navigation. Mobile has no bottom navigation; the sticky header stays in normal flow. Preserve the safe-area bottom inset.
 - There is a 3rd nav pattern: `MobileSubNav` used inside panels for sub-tabs. Don't confuse it with `MobileNav`.
 
 ## Fixed-position elements (the #1 source of bugs)

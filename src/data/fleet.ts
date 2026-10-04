@@ -2,6 +2,7 @@ import type { RacePlan } from "./raceStrategy";
 
 export type FleetProgramStatus = "running" | "complete";
 export interface FleetAssignment {
+  policy?: import("@/engine/campaign").OperatingPolicy;
   id: string;
   vehicleId: string;
   crewId: string | null;

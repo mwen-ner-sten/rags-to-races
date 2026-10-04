@@ -1,3 +1,4 @@
+import { advancePrograms } from "./programs";
 import type { GameState } from "@/state/store";
 import { _getUpgradeEffectValue, _grantXp, addRewardMaterials, calculateChallengeRewardBundle, checkChallenges, getCrewXpMultiplier, getLootGearSalvageScrap, getSellValueBonus, grantTraderSaleXp } from "@/state/store";
 import { fatigueAfterTick, isTooTiredToAutoRace } from "./fatigue";
@@ -22,7 +23,7 @@ import { TRACK_PERK_DEFINITIONS } from "@/data/trackPerks";
 import { getGameEffectValue } from "@/data/gameEffects";
 import { TEAM_UPGRADE_DEFINITIONS } from "@/data/teamUpgrades";
 import { OWNER_UPGRADE_DEFINITIONS } from "@/data/ownerUpgrades";
-import { AUTOMATION_DROP_DETAIL_LIMIT, LOOT_GEAR_INVENTORY_LIMIT, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT, MANUAL_SCAVENGE_COOLDOWN_MS_MIN, MAX_OFFLINE_DURATION_MS, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_CAP, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
+import { AUTOMATION_DROP_DETAIL_LIMIT, LOOT_GEAR_INVENTORY_LIMIT, MANUAL_SCAVENGE_COOLDOWN_MS_DEFAULT, MANUAL_SCAVENGE_COOLDOWN_MS_MIN, MAX_OFFLINE_DURATION_MS, OFFLINE_LOOSE_INVENTORY_LIMIT, OFFLINE_TICK_MS_MIN, STATION_EQUIPMENT_INVENTORY_LIMIT } from "@/config/gameplayLimits";
 import { normalizeScoutingOrder } from "@/data/locations";
 import { makePartId } from "./scavenge";
 import { random } from "@/utils/random";
@@ -144,6 +145,7 @@ export function autoRaceWouldFire(state: GameState): boolean {
   if (!state.autoRaceUnlocked || !state.activeVehicleId || !state.selectedCircuitId) return false;
   const vehicle = state.garage.find((candidate) => candidate.id === state.activeVehicleId);
   if (!vehicle || !canEnterSelectedRace(state, getActiveEventCircuit(state)) || isTooTiredToAutoRace(state)) return false;
+  if (state.scrapBucks < (getActiveEventCircuit(state)?.entryFee ?? 0) + (state.autoRaceReserveScrap ?? 0)) return false;
   const condition = vehicle.condition ?? 100;
   return condition + autoRepairAmount(state, condition) >= (state.autoRaceMinCondition ?? 0);
 }
@@ -258,6 +260,11 @@ export function computeTick(state: GameState): TickResult {
         parts.push(...parts.map((p) => ({ ...p, id: makePartId() })));
       }
       // Junk is sold from the first tick; the Junk Filter milestone tunes the threshold.
+      // A fresh garage finds its essential starter parts even without manual clicks.
+      // Fixed milestones prevent repeated grants and remain identical offline.
+      if ((state.lifetimeVehiclesBuiltAllTime ?? 0) === 0 && (state.gameTick === 3 || state.gameTick === 7)) {
+        parts.push({ id: `starter_${state.gameTick}_${state.campaign?.runStartedAt ?? 0}`, definitionId: state.gameTick === 3 ? "engine_small" : "wheel_busted", condition: "decent", foundAt: location.id, type: "part" });
+      }
       const autoSale = autoSellJunkParts(parts, getAutoSellThreshold(state), getSellValueBonus(state));
       result.partsFound = autoSale.keptParts;
       result.partsScavenged = parts.length;
@@ -307,7 +314,7 @@ export function computeTick(state: GameState): TickResult {
         const restedEnough = !isTooTiredToAutoRace(state);
 
         // Manual and automated races share the same authoritative gate.
-        if (conditionFloorMet && restedEnough && canEnterSelectedRace(state, circuit)) {
+        if (conditionFloorMet && restedEnough && state.scrapBucks >= circuit.entryFee + (state.autoRaceReserveScrap ?? 0) && canEnterSelectedRace(state, circuit)) {
           result.newRaceTickProgress = 0;
           const fatigue = state.fatigue ?? 0;
           const momentumWinBonus = getMomentumEffectValue(state.activeMomentumTiers, "race_win_bonus");
@@ -355,7 +362,8 @@ export function computeTick(state: GameState): TickResult {
           // Loot gear roll from auto-race (circuit-fitted, derived performance vs. difficulty)
           const vehiclePerf = vehiclePerformance(raceVehicle, circuit, handlingBonusPct) / (circuit.difficulty || 1);
           const { gearDrops, modDrop } = rollGearDrops({
-            sourceTier: circuit.tier,
+            eventId: circuit.eventId,
+          sourceTier: circuit.tier,
             sourceId: circuit.id,
             raceResult: result.raceOutcome.result,
             winStreak: projectedStreak,
@@ -391,6 +399,10 @@ export function computeTick(state: GameState): TickResult {
 // ── Offline catch-up simulation ───────────────────────────────────────────
 
 export interface OfflineResult {
+  creditedMs?: number;
+  finalFleetAssignments?: GameState["fleetAssignments"];
+  finalHostedEvents?: GameState["hostedEvents"];
+  finalProgramVehicles?: GameState["garage"];
   /** Parts retained for the player's inventory after overflow processing. */
   partsFound: ScavengedPart[];
   /** Total parts produced before the offline inventory cap was applied. */
@@ -436,6 +448,7 @@ export interface OfflineResult {
   recentRaceOutcomes: RaceOutcome[];
   winningCircuitIds: string[];
   defeatedRivalIds: string[];
+  runRivalIds?: string[];
   circuitWinStreaks: Record<string, number>;
   /** Wins per venue event during the batch, so Heats and Features opened offline stay open. */
   eventWins: EventWins;
@@ -464,10 +477,18 @@ export interface OfflineResult {
  * fatigue, winStreak, and lifetimeRaces between ticks so that the simulation
  * matches what would have happened if the player were online.
  */
-export function simulateOfflineTicks(
+export function simulateOfflineTicks(initialState: GameState, maxTicks: number, elapsedMs?: number): OfflineResult {
+  const batches = offlineTickBatches(initialState, maxTicks, elapsedMs);
+  let step = batches.next();
+  while (!step.done) step = batches.next();
+  return step.value;
+}
+
+export function* offlineTickBatches(
   initialState: GameState,
   maxTicks: number,
-): OfflineResult {
+  elapsedMs?: number,
+): Generator<number, OfflineResult, void> {
   const result: OfflineResult = {
     partsFound: [],
     partsScavenged: 0,
@@ -499,7 +520,7 @@ export function simulateOfflineTicks(
     bestWinStreak: initialState.bestWinStreak,
     recentRaceOutcomes: [],
     winningCircuitIds: [],
-    defeatedRivalIds: [],
+    defeatedRivalIds: [], runRivalIds: [],
     circuitWinStreaks: {},
     eventWins: {},
     challengesEvaluated: true,
@@ -553,9 +574,14 @@ export function simulateOfflineTicks(
     }
   }
 
-  for (let i = 0; i < maxTicks; i++) {
+  let creditedMs = 0;
+  const duration = elapsedMs === undefined ? undefined : Math.min(MAX_OFFLINE_DURATION_MS, Math.max(0, elapsedMs));
+  for (let i = 0; duration === undefined ? i < maxTicks : creditedMs + computeTickSpeedMs(snap) <= duration; i++) {
+    creditedMs += computeTickSpeedMs(snap);
+    if (i > 0 && i % 500 === 0) yield i;
     const tickState: GameState = { ...snap, raceTickProgress: result.raceTickProgress };
     const r = computeTick(tickState);
+    if ((snap.fleetAssignments ?? []).some((a) => a.status === "running") || (snap.hostedEvents ?? []).some((e) => e.status === "running")) Object.assign(snap, advancePrograms(tickState, 1));
 
     // Accumulate totals
     result.partsScavenged += r.partsScavenged;
@@ -654,6 +680,7 @@ export function simulateOfflineTicks(
     if (raced) {
       if (r.raceOutcome!.result === "win" && r.raceOutcome!.rivalId) {
         const rivalId = r.raceOutcome!.rivalId;
+        if (!result.runRivalIds!.includes(rivalId)) result.runRivalIds!.push(rivalId);
         const rivalRewardClaimed = !snap.defeatedRivalIds.includes(rivalId);
         if (rivalRewardClaimed) {
           snap.defeatedRivalIds = [...snap.defeatedRivalIds, rivalId];
@@ -706,10 +733,9 @@ export function simulateOfflineTicks(
     snap.projects = r.projects;
     if (r.completedProjects.length > 0) {
       result.completedProjects.push(...r.completedProjects);
-      snap.workshopLevels = applyCompletedProjects(
-        { workshopLevels: snap.workshopLevels, inventory: [], lifetimeTotalEnhanced: 0, highestConditionReached: 0 },
-        r.completedProjects,
-      ).workshopLevels;
+      const completion = applyCompletedProjects(snap, r.completedProjects);
+      snap.workshopLevels = completion.workshopLevels;
+      snap.lootGearInventory = completion.lootGearInventory ?? snap.lootGearInventory;
     }
 
     const wonCircuitIds = [...new Set(snap.raceHistory.filter((outcome) => outcome.result === "win").map((outcome) => outcome.circuitId))];
@@ -801,10 +827,14 @@ export function simulateOfflineTicks(
     snap.gameTick = (snap.gameTick ?? 0) + 1;
   }
 
+  result.finalFleetAssignments = snap.fleetAssignments;
+  result.finalHostedEvents = snap.hostedEvents;
+  result.finalProgramVehicles = snap.garage.filter((v) => v.id !== snap.activeVehicleId);
   result.finalFatigue = snap.fatigue;
   result.finalProjects = snap.projects;
   result.finalRepPoints = snap.repPoints;
   result.finalVehicleCondition = snap.garage.find((vehicle) => vehicle.id === snap.activeVehicleId)?.condition ?? null;
+  result.creditedMs = creditedMs;
   result.finalRacerSkills = snap.racerSkills;
   result.finalCrewRoster = snap.crewRoster;
   result.finalActiveMomentumTiers = snap.activeMomentumTiers;
@@ -821,21 +851,20 @@ export function computeOfflineTickSpeedMs(state: GameState): number {
 export interface OfflineTickBudget {
   /** Per-tick interval used for the conversion (the live floor applies). */
   tickMs: number;
-  /** Ticks to replay: elapsed time at that interval, bounded by OFFLINE_TICK_CAP. */
+  /** Ticks to replay: elapsed time at that interval, processed completely in bounded worker batches. */
   ticks: number;
-  /** Elapsed time actually credited, after the 8 h offline limit. */
+  /** Elapsed time actually credited, after the 48 h offline limit. */
   cappedElapsedMs: number;
 }
 
 /**
- * Elapsed real time → bounded catch-up budget. Short absences replay at the
- * live tick speed; long absences at fast tick speeds stop at OFFLINE_TICK_CAP
- * ticks (see gameplayLimits for the tradeoff).
+ * Elapsed real time to a complete catch-up budget, capped at 48 hours.
+ * Worker batches bound work per task without discarding credited ticks.
  */
 export function computeOfflineTickBudget(state: GameState, elapsedMs: number): OfflineTickBudget {
   const safeElapsedMs = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
   const cappedElapsedMs = Math.min(safeElapsedMs, MAX_OFFLINE_DURATION_MS);
   const tickMs = computeOfflineTickSpeedMs(state);
-  const ticks = Math.min(OFFLINE_TICK_CAP, Math.floor(cappedElapsedMs / tickMs));
+  const ticks = Math.floor(cappedElapsedMs / tickMs);
   return { tickMs, ticks, cappedElapsedMs };
 }

@@ -46,20 +46,10 @@ export interface RepDecayView {
 
 /** Plain-words description of Rep decay for the currency tooltip. */
 export function describeRepDecay(repFloor: number, halfLifeMs: number = REP_DECAY.HALF_LIFE_MS): RepDecayView {
+  void halfLifeMs;
   const floor = Math.max(0, Number.isFinite(repFloor) ? repFloor : 0);
   return {
-    toward: `Decays toward ${formatRep(floor)}`,
-    halfLife: `Cools by half every ${formatDuration(halfLifeMs)} when above your floor`,
+    toward: `Starting Rep entitlement: ${formatRep(floor)}`,
+    halfLife: "Earned Rep stays yours while you are away",
   };
-}
-
-function formatDuration(ms: number): string {
-  const hours = ms / 3_600_000;
-  if (hours >= 24) {
-    const days = hours / 24;
-    const rounded = Number.isInteger(days) ? days : Number(days.toFixed(1));
-    return `${rounded} day${rounded === 1 ? "" : "s"}`;
-  }
-  const rounded = Number.isInteger(hours) ? hours : Number(hours.toFixed(1));
-  return `${rounded} hour${rounded === 1 ? "" : "s"}`;
 }

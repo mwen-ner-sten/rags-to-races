@@ -1,5 +1,6 @@
 "use client";
 
+import { isFeatureAvailable } from "@/config/features";
 import { useState } from "react";
 import { createInitialState, useGameStore } from "@/state/store";
 import { PART_DEFINITIONS, CONDITIONS } from "@/data/parts";
@@ -167,7 +168,7 @@ export default function AdminPanel({ onFullSaveReset }: AdminPanelProps) {
         </button>
       </div>
 
-      {process.env.NODE_ENV === "development" && (
+      {isFeatureAvailable("admin_tools") && (
         <div data-testid="dev-playtest-harness" style={{ background: "var(--panel-bg)", borderColor: "var(--accent-border)" }} className="rounded-lg border p-4 grid gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-2">
             <span style={{ color: "var(--text-heading)" }} className="text-xs font-semibold uppercase tracking-wider">Campaign Scenarios</span>

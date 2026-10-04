@@ -65,7 +65,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${FONT_CLASSES} min-h-screen bg-zinc-950 text-zinc-100 antialiased`}>
         {children}
-        <Analytics />
+        {process.env.VERCEL === "1" && <Analytics />}
       </body>
     </html>
   );

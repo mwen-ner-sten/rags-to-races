@@ -1,6 +1,7 @@
 import type { GearSlot } from "@/data/lootGear";
 
 export interface GearModTemplate {
+  drawback?: { type: string; ratio: number };
   id: string;
   name: string;
   description: string;
@@ -123,4 +124,9 @@ export const GEAR_MOD_TEMPLATES: GearModTemplate[] = [
 
 export function getModTemplateById(id: string): GearModTemplate | undefined {
   return GEAR_MOD_TEMPLATES.find((m) => m.id === id);
+}
+
+for (const template of GEAR_MOD_TEMPLATES) {
+  template.drawback = { type: template.effectType === "race_performance_pct" ? "race_wear_reduction_pct" : "race_performance_pct", ratio: 0.5 };
+  template.description += template.drawback.type === "race_performance_pct" ? " Tradeoff: performance falls by half the bonus percentage." : " Tradeoff: wear reduction falls by half the bonus percentage.";
 }

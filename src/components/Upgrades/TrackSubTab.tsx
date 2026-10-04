@@ -1,4 +1,8 @@
 "use client";
+import { useState } from "react";
+import { seriesEligible, seriesTerms, forecastSeries } from "@/engine/series";
+import { getVehicleById } from "@/data/vehicles";
+import Button from "@/components/ui/Button";
 
 import { useGameStore } from "@/state/store";
 import {
@@ -8,9 +12,7 @@ import {
   trackPerkCost,
   type TrackPerkCategory,
 } from "@/data/trackPerks";
-import { calculateHostedEventTerms, normalizeHostedEventConfig, type OwnedTrackConfig } from "@/data/trackVenue";
-import { getPermanentRuntimeBonuses } from "@/engine/permanentBonuses";
-import { formatNumber } from "@/utils/format";
+import { type OwnedTrackConfig } from "@/data/trackVenue";
 
 export default function TrackSubTab() {
   const trackPrestigeTokens = useGameStore((s) => s.trackPrestigeTokens);
@@ -56,23 +58,22 @@ const CONFIG_OPTIONS: { key: keyof OwnedTrackConfig; label: string; values: stri
 ];
 
 function VenueManager() {
-  const config = useGameStore((s) => s.ownedTrackConfig); const events = useGameStore((s) => s.hostedEvents);
-  const perks = useGameStore((s) => s.trackPerkLevels);
-  const allScrapIncomeMult = useGameStore((state) => getPermanentRuntimeBonuses(state).allScrapIncomeMult);
-  const update = useGameStore((s) => s.updateOwnedTrackConfig); const host = useGameStore((s) => s.hostTrackEvent); const collect = useGameStore((s) => s.collectHostedEvent);
-  const effectiveConfig = normalizeHostedEventConfig(config, {
-    customCircuits: Boolean(perks.track_custom_circuits),
-    nightRacing: Boolean(perks.track_night_racing),
-    enduranceMode: Boolean(perks.track_endurance),
-  });
-  const preview = calculateHostedEventTerms(effectiveConfig, perks.track_sponsors ?? 0, allScrapIncomeMult);
+  const state = useGameStore();
+  const [selected, setSelected] = useState("");
+  const config = state.ownedTrackConfig;
+  const eligible = state.garage.filter((v) => seriesEligible(state, v, config));
+  const vehicle = eligible.find((v) => v.id === selected) ?? eligible[0];
+  const terms = vehicle ? seriesTerms(config, vehicle, state) : null;
+  const forecast = vehicle ? forecastSeries(state, vehicle, config) : [];
   return <section className="rounded-lg border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--panel-bg)" }}>
-    <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-heading)" }}>Owned Venue</h3><p className="text-xs" style={{ color: "var(--text-muted)" }}>Configure hosted events. Surface, length, corners, vehicle class, conditions, endurance, payout tier, and Sponsor Network all affect the displayed payout.</p>
-    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{CONFIG_OPTIONS.map((option) => <label key={option.key} className="text-xs" style={{ color: "var(--text-muted)" }}>{option.label}<select value={String(effectiveConfig[option.key])} onChange={(event) => update({ ...effectiveConfig, [option.key]: option.key === "riskReward" ? Number(event.target.value) : event.target.value } as OwnedTrackConfig)} className="mt-1 w-full rounded border px-2 py-1.5 capitalize" style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-white)" }}>{option.values.map((value) => <option key={value} disabled={(option.key === "timeRule" && value === "night" && !perks.track_night_racing) || (option.key === "riskReward" && Number(value) > 3 && !perks.track_custom_circuits)}>{value}</option>)}</select></label>)}</div>
-    <label className="mt-3 flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={effectiveConfig.endurance} disabled={!perks.track_endurance} onChange={(event) => update({ ...effectiveConfig, endurance: event.target.checked })} /> Endurance modifier {!perks.track_endurance && "(perk required)"}</label>
-    <div className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>Forecast: ${formatNumber(preview.reward)} after {preview.durationTicks} ticks</div>
-    <button onClick={host} disabled={events.filter((event) => event.status === "running").length >= 1 + (perks.track_multi ?? 0)} className="mt-2 rounded border px-3 py-1.5 text-xs font-semibold disabled:opacity-40" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Host event</button>
-    <div className="mt-3 space-y-2">{events.map((event) => <div key={event.id} className="flex items-center gap-2 rounded border p-2 text-xs" style={{ borderColor: "var(--panel-border)" }}><strong className="mr-auto" style={{ color: "var(--text-white)" }}>{event.name} · {event.sponsor}</strong><span style={{ color: event.status === "complete" ? "var(--success)" : "var(--text-muted)" }}>{event.status === "complete" ? `$${formatNumber(event.reward)}` : `${event.remainingTicks} ticks`}</span>{event.status === "complete" && <button onClick={() => collect(event.id)} className="rounded border px-2 py-1" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>Collect</button>}</div>)}</div>
+    <h3>Build a three-round series</h3>
+    <p className="my-2 text-sm">Commit a spare vehicle and an entry budget. Round two tests cornering; round three tests endurance. Vehicle condition carries between rounds. Configure the series to suit your build.</p>
+    <div className="grid gap-2 sm:grid-cols-3">{CONFIG_OPTIONS.map(({key,label,values}) => <label key={key} className="text-sm">{label}<select className="block w-full rounded border p-2" style={{background:"var(--panel-bg)",color:"var(--text-primary)"}} value={String(config[key])} onChange={(e) => state.updateOwnedTrackConfig({...config,[key]:key === "riskReward" ? Number(e.target.value) : e.target.value})}>{values.map((v) => <option key={v} disabled={(key === "riskReward" && Number(v) > 3 && !state.trackPerkLevels.track_custom_circuits) || (key === "timeRule" && v === "night" && !state.trackPerkLevels.track_night_racing)}>{v}</option>)}</select></label>)}</div>
+    {(state.trackPerkLevels.track_endurance ?? 0) > 0 && <label className="my-2 block"><input type="checkbox" checked={config.endurance} onChange={(e) => state.updateOwnedTrackConfig({...config,endurance:e.target.checked})} /> Endurance series: double duration and prize, double wear</label>}
+    <label className="my-3 block">Series vehicle<select aria-label="Series vehicle" className="block w-full rounded border p-2" style={{background:"var(--panel-bg)",color:"var(--text-primary)"}} value={vehicle?.id ?? ""} onChange={(e) => setSelected(e.target.value)}>{!vehicle && <option value="">Build or repair a spare vehicle for this class</option>}{eligible.map((v) => <option key={v.id} value={v.id}>{getVehicleById(v.definitionId)?.name} · {v.condition}% condition</option>)}</select></label>
+    {terms && <p className="my-2 text-sm">Entry: {terms.fee} Scrap Bucks · Maximum prize: {terms.prize} · Round win forecasts: {forecast.map((p) => `${Math.round(p*100)}%`).join(" / ")}. Later-round wear can reduce these starting-condition forecasts.</p>}
+    <Button disabled={!vehicle || !terms || state.scrapBucks < terms.fee} onClick={() => state.hostTrackEvent(vehicle?.id)}>Start series</Button>
+    <div className="mt-3 space-y-2">{state.hostedEvents.map((event) => <div key={event.id} className="rounded border p-3" style={{borderColor:"var(--panel-border)"}}><strong>{event.name}</strong><p>{event.status === "complete" ? `${event.reward} Scrap Bucks earned` : `${event.remainingTicks} ticks remaining`}</p>{event.rounds && <p>{event.rounds.map((r,i) => `Round ${i+1}: ${r.result === "dnf" ? "DNF" : `P${r.position}`}`).join(" · ")}</p>}{event.status === "complete" && <Button onClick={() => state.collectHostedEvent(event.id)}>Collect</Button>}</div>)}</div>
   </section>;
 }
 

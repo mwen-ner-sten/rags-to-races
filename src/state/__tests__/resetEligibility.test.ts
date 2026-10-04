@@ -1,71 +1,26 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { RESPONSIBILITY_RESET_REQUIREMENTS } from "@/config/progression";
 import { createInitialState, useGameStore } from "../store";
-
+import { readyCampaign } from "@/testing/campaignReady";
+import { promotionRequirements } from "@/engine/campaign";
 afterEach(() => useGameStore.setState(createInitialState()));
-
-describe("responsibility reset action guards", () => {
-  it("blocks Team Reset below the boundary and permits it exactly at the boundary", () => {
-    const requirement = RESPONSIBILITY_RESET_REQUIREMENTS.team.lifetimeLegacyPoints;
-    useGameStore.setState({ ...createInitialState(), lifetimeLPAllTime: requirement - 1, lifetimeLPThisTeamEra: 100 });
-    useGameStore.getState().teamReset();
-    expect(useGameStore.getState().teamEraCount).toBe(0);
-
-    useGameStore.setState({ ...createInitialState(), lifetimeLPAllTime: requirement, lifetimeLPThisTeamEra: 100 });
-    useGameStore.getState().teamReset();
-    expect(useGameStore.getState().teamEraCount).toBe(1);
-
-    const afterFirstReset = useGameStore.getState();
-    useGameStore.getState().teamReset();
-    expect(useGameStore.getState().teamEraCount).toBe(1);
-    expect(useGameStore.getState().teamPoints).toBe(afterFirstReset.teamPoints);
-  });
-
-  it("blocks Owner Reset until both lifetime TP and Team-era boundaries are met", () => {
-    const requirement = RESPONSIBILITY_RESET_REQUIREMENTS.owner;
-    useGameStore.setState({ ...createInitialState(), lifetimeTeamPoints: requirement.lifetimeTeamPoints - 1, teamEraCount: requirement.teamEras, lifetimeTPThisOwnerEra: 100 });
-    useGameStore.getState().ownerReset();
-    expect(useGameStore.getState().ownerEraCount).toBe(0);
-
-    useGameStore.setState({ ...createInitialState(), lifetimeTeamPoints: requirement.lifetimeTeamPoints, teamEraCount: requirement.teamEras - 1, lifetimeTPThisOwnerEra: 100 });
-    useGameStore.getState().ownerReset();
-    expect(useGameStore.getState().ownerEraCount).toBe(0);
-
-    useGameStore.setState({ ...createInitialState(), lifetimeTeamPoints: requirement.lifetimeTeamPoints, teamEraCount: requirement.teamEras, lifetimeTPThisOwnerEra: 100 });
-    useGameStore.getState().ownerReset();
-    expect(useGameStore.getState().ownerEraCount).toBe(1);
-
-    const afterFirstReset = useGameStore.getState();
-    useGameStore.setState({
-      lifetimeTeamPoints: requirement.lifetimeTeamPoints,
-      teamEraCount: requirement.teamEras,
+describe("earned responsibility promotions", () => {
+  for (const layer of ["team", "owner", "track"] as const) {
+    it(`${layer} requires every objective, ignores spent currency, and cannot repeat`, () => {
+      const ready = readyCampaign();
+      const keys = layer === "team" ? ["scrapResetsThisTeamEra", "teamFeatureIds"] as const : layer === "owner" ? ["teamResetsThisOwnerEra", "ownerFeatureIds", "fleetVenueIds"] as const : ["ownerResetsThisTrackEra", "trackFeatureIds", "trackSponsorFamilies"] as const;
+      for (const key of keys) {
+        const blocked = { ...ready, [key]: typeof ready[key] === "number" ? (ready[key] as number) - 1 : [] };
+        useGameStore.setState({ ...createInitialState(), campaign: blocked });
+        useGameStore.getState()[`${layer}Reset`]();
+        expect(useGameStore.getState()[`${layer}EraCount`]).toBe(0);
+        expect(promotionRequirements(layer, blocked).some((r) => !r.met)).toBe(true);
+      }
+      useGameStore.setState({ ...createInitialState(), campaign: ready });
+      useGameStore.getState()[`${layer}Reset`]();
+      expect(useGameStore.getState()[`${layer}EraCount`]).toBe(1);
+      const saved = useGameStore.getState();
+      useGameStore.getState()[`${layer}Reset`]();
+      expect(useGameStore.getState()).toEqual(saved);
     });
-    useGameStore.getState().ownerReset();
-    expect(useGameStore.getState().ownerEraCount).toBe(1);
-    expect(useGameStore.getState().ownerPoints).toBe(afterFirstReset.ownerPoints);
-  });
-
-  it("blocks Track Reset until both lifetime OP and Owner-era boundaries are met", () => {
-    const requirement = RESPONSIBILITY_RESET_REQUIREMENTS.track;
-    useGameStore.setState({ ...createInitialState(), lifetimeOwnerPoints: requirement.lifetimeOwnerPoints - 1, ownerEraCount: requirement.ownerEras, lifetimeOPThisTrackEra: 100 });
-    useGameStore.getState().trackReset();
-    expect(useGameStore.getState().trackEraCount).toBe(0);
-
-    useGameStore.setState({ ...createInitialState(), lifetimeOwnerPoints: requirement.lifetimeOwnerPoints, ownerEraCount: requirement.ownerEras - 1, lifetimeOPThisTrackEra: 100 });
-    useGameStore.getState().trackReset();
-    expect(useGameStore.getState().trackEraCount).toBe(0);
-
-    useGameStore.setState({ ...createInitialState(), lifetimeOwnerPoints: requirement.lifetimeOwnerPoints, ownerEraCount: requirement.ownerEras, lifetimeOPThisTrackEra: 100 });
-    useGameStore.getState().trackReset();
-    expect(useGameStore.getState().trackEraCount).toBe(1);
-
-    const afterFirstReset = useGameStore.getState();
-    useGameStore.setState({
-      lifetimeOwnerPoints: requirement.lifetimeOwnerPoints,
-      ownerEraCount: requirement.ownerEras,
-    });
-    useGameStore.getState().trackReset();
-    expect(useGameStore.getState().trackEraCount).toBe(1);
-    expect(useGameStore.getState().trackPrestigeTokens).toBe(afterFirstReset.trackPrestigeTokens);
-  });
+  }
 });

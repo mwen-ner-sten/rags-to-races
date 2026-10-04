@@ -7,6 +7,10 @@ export type ResetDisposition = "reset" | "preserve" | "conditional";
  * A field that is merely re-seeded from a perk is not considered preserved.
  */
 const CROSS_LAYER_HISTORY = [
+  "lifetimeTeamPoints", "lifetimeOwnerPoints",
+  "lastOfflineSettlement",
+  "lootGearInventory", "equippedLootGear", "gearModInventory",
+  "legacyRepFloor", "revealedSystems",
   "tutorialStep",
   "tutorialDismissed",
   "tutorialMinimized",
@@ -83,7 +87,6 @@ export const RESET_PRESERVE_FIELDS: Record<ResetLayer, ReadonlySet<string>> = {
     "lifetimeLPThisTeamEra",
     "lifetimeTPThisOwnerEra",
     "lifetimeOPThisTrackEra",
-    "hostedEvents",
     "crewRoster",
     "crewSlots",
     "unlockedFeatures",
@@ -95,7 +98,6 @@ export const RESET_PRESERVE_FIELDS: Record<ResetLayer, ReadonlySet<string>> = {
     ...TEAM_LAYER,
     "lifetimeTPThisOwnerEra",
     "lifetimeOPThisTrackEra",
-    "hostedEvents",
     "unlockedFeatures",
   ]),
   owner: new Set([
@@ -103,7 +105,6 @@ export const RESET_PRESERVE_FIELDS: Record<ResetLayer, ReadonlySet<string>> = {
     ...TRACK_LAYER,
     ...OWNER_LAYER,
     "lifetimeOPThisTrackEra",
-    "hostedEvents",
     "unlockedFeatures",
   ]),
   track: new Set([
@@ -115,6 +116,7 @@ export const RESET_PRESERVE_FIELDS: Record<ResetLayer, ReadonlySet<string>> = {
 /** Fields with an explicit mixed or perk-dependent retention contract. */
 export const RESET_CONDITIONAL_FIELDS: Record<ResetLayer, ReadonlySet<string>> = {
   scrap: new Set([
+    "campaign",
     // Blueprint Memory and prestige milestones can seed a subset, but the
     // current run's Workshop map is not retained wholesale.
     "workshopLevels",
@@ -122,13 +124,16 @@ export const RESET_CONDITIONAL_FIELDS: Record<ResetLayer, ReadonlySet<string>> =
     "challengeProgress",
   ]),
   team: new Set([
+    "campaign", "legacyUpgradeLevels",
     // Eternal Workshop is required to retain this field.
     "workshopLevels",
   ]),
   owner: new Set([
+    "campaign", "teamUpgradeLevels",
     "workshopLevels",
   ]),
   track: new Set([
+    "campaign",
     "workshopLevels",
     // Track Reset removes Owner-derived feature flags while retaining other
     // released feature unlocks.

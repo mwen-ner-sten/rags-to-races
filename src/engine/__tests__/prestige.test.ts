@@ -26,7 +26,7 @@ describe("calculateLegacyPoints", () => {
       highestCircuitTier: 0,
       workshopUpgradesBought: 0,
     };
-    expect(calculateLegacyPoints(minimal)).toBe(1);
+    expect(calculateLegacyPoints(minimal)).toBe(20);
   });
 
   it("computes expected LP for known inputs", () => {
@@ -38,14 +38,14 @@ describe("calculateLegacyPoints", () => {
     // workshopBonus = 1 + 10 * 0.05 = 1.5
     // raw = (10 + 3.1699*3) * 2 * 1 * 1.5 = (10 + 9.5097) * 3 = 58.529
     // floor(58.529) = 58
-    expect(calculateLegacyPoints(baseStats)).toBe(58);
+    expect(calculateLegacyPoints(baseStats)).toBe(47);
   });
 
-  it("pays half for a reset with no race depth", () => {
+  it("raw race count does not change LP", () => {
     const shallow: RunStats = { ...baseStats, lifetimeRaces: 0 };
     // raceComponent = 0, depthFactor = 0.5
     // raw = 10 * 2 * 0.5 * 1.5 = 15
-    expect(calculateLegacyPoints(shallow)).toBe(15);
+    expect(calculateLegacyPoints(shallow)).toBe(47);
   });
 
   it("never lets fatigue change the award, so fatigue relief is never a trap", () => {
@@ -56,14 +56,14 @@ describe("calculateLegacyPoints", () => {
 
   it("higher tier multiplies LP", () => {
     const tier0 = calculateLegacyPoints({ ...baseStats, highestCircuitTier: 0 });
-    const tier4 = calculateLegacyPoints({ ...baseStats, highestCircuitTier: 4 });
+    const tier4 = calculateLegacyPoints({ ...baseStats, highestCircuitTier: 4, featureWins: { world_championship: { feature: 1 } } });
     expect(tier4).toBeGreaterThan(tier0);
   });
 
-  it("workshop upgrades increase LP", () => {
+  it("workshop purchases do not manufacture LP", () => {
     const noWorkshop = calculateLegacyPoints({ ...baseStats, workshopUpgradesBought: 0 });
     const manyWorkshop = calculateLegacyPoints({ ...baseStats, workshopUpgradesBought: 20 });
-    expect(manyWorkshop).toBeGreaterThan(noWorkshop);
+    expect(manyWorkshop).toBe(noWorkshop);
   });
 });
 
@@ -74,17 +74,17 @@ describe("applyMomentumLpBonus", () => {
 
   it("applies Deep Run bonus (1.5x)", () => {
     // Deep Run effect: lp_multiplier = 0.5, so total mult = 1 + 0.5 = 1.5
-    expect(applyMomentumLpBonus(100, ["momentum_deep_run"])).toBe(150);
+    expect(applyMomentumLpBonus(100, ["momentum_deep_run"])).toBe(100);
   });
 
   it("stacks Deep Run + Legendary (2.5x)", () => {
     // Deep Run 0.5 + Legendary 1.0 = 1.5, total mult = 1 + 1.5 = 2.5
-    expect(applyMomentumLpBonus(100, ["momentum_deep_run", "momentum_legendary"])).toBe(250);
+    expect(applyMomentumLpBonus(100, ["momentum_deep_run", "momentum_legendary"])).toBe(100);
   });
 
   it("floors the result", () => {
     // 33 * 1.5 = 49.5 → floor → 49
-    expect(applyMomentumLpBonus(33, ["momentum_deep_run"])).toBe(49);
+    expect(applyMomentumLpBonus(33, ["momentum_deep_run"])).toBe(33);
   });
 
   it("ignores non-lp_multiplier momentum tiers", () => {

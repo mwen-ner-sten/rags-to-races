@@ -12,6 +12,8 @@ interface Props {
   activeTab: TabId;
   setActiveTab: (t: TabId) => void;
   tagline: string;
+  menuOpen: boolean;
+  openMenu: () => void;
 }
 
 function GearIcon() {
@@ -33,7 +35,7 @@ function GearIcon() {
  * Compact top header shared by every theme: brand, prestige badge, active
  * vehicle + performance, fatigue/momentum, and the settings gear.
  */
-export default function ShellHeader({ activeTab, setActiveTab, tagline }: Props) {
+export default function ShellHeader({ activeTab, setActiveTab, tagline, menuOpen, openMenu }: Props) {
   const prestigeCount = useGameStore((s) => s.prestigeCount);
   const activeVehicleId = useGameStore((s) => s.activeVehicleId);
   const garage = useGameStore((s) => s.garage);
@@ -43,6 +45,7 @@ export default function ShellHeader({ activeTab, setActiveTab, tagline }: Props)
 
   return (
     <header className="shell-header">
+      <button className="shell-menu" data-tutorial="mobile-navigation" onClick={openMenu} aria-label="Open navigation" aria-expanded={menuOpen} aria-controls="game-navigation"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>
       <div className="shell-brand">
         <div className="shell-brand__name">Rags to Races</div>
         <div className="shell-brand__meta">

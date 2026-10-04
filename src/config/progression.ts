@@ -132,8 +132,7 @@ export const REP_UNLOCK_COSTS = {
 } as const;
 
 /**
- * Rep decays gently toward a floor that never falls below what resets have
- * earned. Each tick: repPoints -= (repPoints - floor) * (1 - 0.5^(dt / HALF_LIFE)).
+ * Legacy save compatibility. Rep never decays; the floor is a starting-Rep entitlement.
  */
 export const REP_DECAY = {
   /** Wall-clock half-life of the Rep above the floor. */
@@ -142,11 +141,10 @@ export const REP_DECAY = {
   LEGACY_FLOOR_SHARE: 0.1,
 } as const;
 
-/** Rep removed by decay over `dtMs`; zero at or below the floor. */
+/** Compatibility API: Rep never decays. */
 export function repDecayAmount(repPoints: number, repFloor: number, dtMs: number): number {
-  const excess = repPoints - repFloor;
-  if (!(excess > 0) || !(dtMs > 0)) return 0;
-  return excess * (1 - Math.pow(0.5, dtMs / REP_DECAY.HALF_LIFE_MS));
+  void repPoints; void repFloor; void dtMs;
+  return 0;
 }
 
 export interface ScrapResetProgress {

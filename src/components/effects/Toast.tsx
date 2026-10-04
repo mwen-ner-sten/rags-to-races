@@ -1,4 +1,5 @@
 "use client";
+import { STEPS } from "@/components/effects/TutorialOverlay";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/state/store";
@@ -134,6 +135,7 @@ function loadSeenGuides(): Set<string> {
 let nextId = 0;
 
 export default function ToastContainer() {
+  const tutorialActive = useGameStore((s) => !s.tutorialDismissed && s.tutorialStep >= 0 && s.tutorialStep < STEPS.length);
   const unlockEvents = useGameStore((s) => s.unlockEvents);
   const clearUnlockEvents = useGameStore((s) => s.clearUnlockEvents);
   const [queue, setQueue] = useState<ToastItem[]>([]);
@@ -176,7 +178,7 @@ export default function ToastContainer() {
     return () => window.clearTimeout(timer);
   }, [active, dismissActive]);
 
-  if (!active) return null;
+  if (!active || tutorialActive) return null;
   const presentation = getAnnouncementPresentation(active.message);
 
   if (active.guide) {

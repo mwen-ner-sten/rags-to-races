@@ -1,3 +1,4 @@
+import { getModSlots } from "./gearEnhance";
 /**
  * Timed workshop projects (Phase 2, lever 3).
  *
@@ -14,7 +15,7 @@ import { PROJECTS, projectDurationSeconds } from "@/config/progression";
 import { getUpgradeById, getWorkshopUpgradeProjectTier } from "@/data/upgrades";
 import { getSkillBonuses } from "./skills";
 
-export type ProjectKind = "upgrade" | "enhance";
+export type ProjectKind = "upgrade" | "enhance" | "gear";
 
 export interface Project {
   id: string;
@@ -26,6 +27,7 @@ export interface Project {
   targetLevel?: number;
   /** Loose part this project enhances (kind "enhance"). */
   partId?: string;
+  gearId?: string;
   targetCondition?: PartCondition;
   /** Wall-clock start, informational (ordering, tooltips). */
   startedAt: number;
@@ -39,7 +41,7 @@ export interface Project {
 /** Enhancements to this condition index or above run as projects. */
 export const ENHANCEMENT_PROJECT_MIN_INDEX = CONDITIONS.indexOf("polished");
 
-type SlotState = Pick<GameState, "workshopLevels" | "crewRoster">;
+type SlotState = Pick<GameState, "workshopLevels" | "crewRoster"> & Partial<Pick<GameState, "campaign">>;
 
 /**
  * One slot at start; the Pit Crew line adds one, and a mechanic on the crew
@@ -48,7 +50,7 @@ type SlotState = Pick<GameState, "workshopLevels" | "crewRoster">;
 export function getProjectSlots(state: SlotState): number {
   const pitCrew = (state.workshopLevels?.pit_crew ?? 0) >= 1 ? 1 : 0;
   const mechanic = (state.crewRoster ?? []).some((member) => member.role === "mechanic") ? 1 : 0;
-  return PROJECTS.BASE_SLOTS + pitCrew + mechanic;
+  return PROJECTS.BASE_SLOTS + pitCrew + mechanic + (state.campaign?.knowledge.owner ? 1 : 0);
 }
 
 export function getRunningProjects(state: Pick<GameState, "projects">): Project[] {
@@ -107,6 +109,7 @@ export function advanceProjects(projects: readonly Project[], dtMs: number): Pro
 }
 
 export interface ProjectCompletionState {
+  lootGearInventory?: GameState["lootGearInventory"];
   workshopLevels: Record<string, number>;
   inventory: GameState["inventory"];
   lifetimeTotalEnhanced: number;
@@ -119,11 +122,15 @@ export interface ProjectCompletionState {
  * simply not enhanced.
  */
 export function applyCompletedProjects<T extends ProjectCompletionState>(state: T, completed: readonly Project[]): ProjectCompletionState {
+  let lootGearInventory = state.lootGearInventory;
   let workshopLevels = state.workshopLevels;
   let inventory = state.inventory;
   let lifetimeTotalEnhanced = state.lifetimeTotalEnhanced;
   let highestConditionReached = state.highestConditionReached;
   for (const project of completed) {
+    if (project.kind === "gear" && project.gearId && project.targetLevel !== undefined) {
+      lootGearInventory = lootGearInventory?.map((item) => item.id === project.gearId ? { ...item, enhancementLevel: Math.max(item.enhancementLevel, project.targetLevel!), modSlots: getModSlots(Math.max(item.enhancementLevel, project.targetLevel!)) } : item);
+    }
     if (project.kind === "upgrade" && project.upgradeId) {
       const definition = getUpgradeById(project.upgradeId);
       const target = Math.min(definition?.maxLevel ?? Infinity, project.targetLevel ?? (workshopLevels[project.upgradeId] ?? 0) + 1);
@@ -139,7 +146,7 @@ export function applyCompletedProjects<T extends ProjectCompletionState>(state: 
       highestConditionReached = Math.max(highestConditionReached, targetIndex);
     }
   }
-  return { workshopLevels, inventory, lifetimeTotalEnhanced, highestConditionReached };
+  return { workshopLevels, inventory, lifetimeTotalEnhanced, highestConditionReached, ...(lootGearInventory ? { lootGearInventory } : {}) };
 }
 
 /** Refund for cancelling a project: a fixed share of what was paid. */

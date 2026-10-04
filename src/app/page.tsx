@@ -1,6 +1,8 @@
 "use client";
+import { calculateOfflineInWorker } from "@/engine/offlineClient";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import NextObjective from "@/components/NextObjective";
 import GameShell from "@/components/shell/GameShell";
 import ScavengePanel from "@/components/Junkyard/ScavengePanel";
 import GaragePanel from "@/components/Garage/GaragePanel";
@@ -16,10 +18,9 @@ import TutorialOverlay, { getAdaptiveAllowedTabs } from "@/components/effects/Tu
 import OfflineProgressModal from "@/components/effects/OfflineProgressModal";
 import WorkshopRevealWatcher from "@/components/effects/WorkshopRevealWatcher";
 import { useGameStore, type GameState } from "@/state/store";
-import { computeOfflineTickBudget, computeTick, computeTickSpeedMs, simulateOfflineTicks } from "@/engine/tick";
+import { computeOfflineTickBudget, computeTick, computeTickSpeedMs } from "@/engine/tick";
 import type { OfflineResult } from "@/engine/tick";
 import type { RaceOutcome } from "@/engine/race";
-import { MAX_OFFLINE_DURATION_MS } from "@/config/gameplayLimits";
 import { isFeatureAvailable } from "@/config/features";
 import type { TabId } from "@/components/navigation/tabs";
 
@@ -70,18 +71,23 @@ export default function Home() {
   const displayedTab: TabId = tutorialStep === 0 ? "junkyard" : activeTab;
 
   const lastTickTimeRef = useRef<number>(0);
+  const catchingUp = useRef(true);
+  const [offlineStatus, setOfflineStatus] = useState<string | null>("Opening your garage…");
 
-  // Offline catch-up: runs once on mount after the store has hydrated
+  // Offline catch-up: the save remains untouched until the worker finishes.
   useEffect(() => {
+    let cancelled = false;
+    const resume = async () => {
     const state = useGameStore.getState();
     if (state.lastActiveTimestamp > 0) {
-      const elapsed = Date.now() - state.lastActiveTimestamp;
+      const resumedAt = Date.now();
+      const elapsed = resumedAt - state.lastActiveTimestamp;
       // Elapsed time → bounded tick budget (live tick floor, capped iteration count).
       const { ticks: offlineTicks } = computeOfflineTickBudget(state, elapsed);
 
       if (offlineTicks > 0) {
-        advanceFleetAssignments(offlineTicks);
-        const r = simulateOfflineTicks(state, offlineTicks);
+        const r = await calculateOfflineInWorker(state, offlineTicks, elapsed, (processed) => { if (!cancelled) setOfflineStatus(`Restoring your progress… ${processed.toLocaleString()} ticks completed`); });
+        if (cancelled || useGameStore.getState().lastActiveTimestamp !== state.lastActiveTimestamp) return;
 
         const hasOfflineProgress =
           r.scavengesCompleted > 0 ||
@@ -100,66 +106,26 @@ export default function Home() {
           r.modDropsFound > 0 ||
           r.stationEquipmentDrops.length > 0 ||
           r.stationEquipmentAutoSalvaged > 0 ||
-          r.reforgeShardsFound > 0;
-        applyTickResult(
-            r.partsFound,
-            r.scrapsEarned,
-            r.repEarned,
-            r.vehicleWearTotal > 0 ? r.vehicleWearTotal : undefined,
-            r.vehicleRepairTotal > 0 ? r.vehicleRepairTotal : undefined,
-            r.raceTickProgress,
-            r.lootGearDrops.length > 0 ? r.lootGearDrops : undefined,
-            r.modDrops.length > 0 ? r.modDrops : undefined,
-            {
-              partsScavenged: r.partsScavenged,
-              partsAutoSold: r.partsAutoSold,
-              scavengesCompleted: r.scavengesCompleted,
-              racesCompleted: r.racesCompleted,
-              winsCompleted: r.winsCompleted,
-              finalWinStreak: r.finalWinStreak,
-              bestWinStreak: r.bestWinStreak,
-              recentRaceOutcomes: r.recentRaceOutcomes,
-              winningCircuitIds: r.winningCircuitIds,
-              defeatedRivalIds: r.defeatedRivalIds,
-              circuitWinStreaks: r.circuitWinStreaks,
-              eventWins: r.eventWins,
-              raceSalvageFound: r.raceSalvageFound,
-              forgeTokensFound: r.forgeTokensFound,
-              entryFeesPaid: r.entryFeesPaid,
-              challengesEvaluated: r.challengesEvaluated,
-              completedChallengeIds: r.completedChallengeIds,
-              challengeForgeTokens: r.challengeForgeTokens,
-              challengeMaterials: r.challengeMaterials,
-              ticksProcessed: r.ticksProcessed,
-              repDecayed: r.repDecayed,
-              finalFatigue: r.finalFatigue,
-              finalRepPoints: r.finalRepPoints,
-              finalVehicleCondition: r.finalVehicleCondition,
-              finalRacerSkills: r.finalRacerSkills,
-              finalCrewRoster: r.finalCrewRoster,
-              finalActiveMomentumTiers: r.finalActiveMomentumTiers,
-              newAchievementIds: r.newAchievementIds,
-              stationEquipmentDrops: r.stationEquipmentDrops,
-              stationEquipmentAutoSalvaged: r.stationEquipmentAutoSalvaged,
-              reforgeShardsFound: r.reforgeShardsFound,
-              lootGearAutoSalvaged: r.lootGearAutoSalvaged,
-              lootGearSalvageScrap: r.lootGearSalvageScrap,
-              finalProjects: r.finalProjects,
-              completedProjects: r.completedProjects,
-            },
-        );
+          r.reforgeShardsFound > 0 || r.completedProjects.length > 0 || elapsed >= 60000;
+        state.settleOffline(r, state.lastActiveTimestamp, resumedAt);
         if (hasOfflineProgress) {
-          const timeAway = Math.round(Math.min(elapsed, MAX_OFFLINE_DURATION_MS) / 60_000);
+          const timeAway = Math.round(elapsed / 60_000);
           queueMicrotask(() => setOfflineResult({ result: r, timeAway }));
         }
       }
     }
     lastTickTimeRef.current = Date.now();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    catchingUp.current = false;
+    setOfflineStatus(null);
+    };
+    void resume().catch(() => { if (!cancelled) setOfflineStatus("Your save is safe. Reload to retry offline progress."); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Main game loop: 100ms poll, fires actual tick when elapsed >= tick interval
   useEffect(() => {
     const interval = setInterval(() => {
+      if (catchingUp.current) return;
       const state = storeRef.current;
       const tickMs = computeTickSpeedMs(state);
       const elapsed = Date.now() - lastTickTimeRef.current;
@@ -213,6 +179,7 @@ export default function Home() {
 
   return (
     <>
+      {offlineStatus && <div role="status" className="fixed inset-0 z-[10010] flex items-center justify-center p-6" style={{ background: "var(--panel-bg)", color: "var(--text-primary)" }}>{offlineStatus}</div>}
       <ToastContainer />
       <WorkshopRevealWatcher />
       {offlineResult && (
@@ -224,6 +191,7 @@ export default function Home() {
       )}
       <GameShell activeTab={displayedTab} setActiveTab={guardedSetActiveTab}>
         <TutorialOverlay activeTab={displayedTab} />
+        <NextObjective navigate={guardedSetActiveTab} />
         {displayedTab === "junkyard" && <ScavengePanel />}
         {displayedTab === "garage"   && <GaragePanel />}
         {displayedTab === "race"     && <RacePanel setActiveTab={guardedSetActiveTab} />}

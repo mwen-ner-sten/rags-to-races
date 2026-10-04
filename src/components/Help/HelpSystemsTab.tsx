@@ -108,7 +108,7 @@ export default function HelpSystemsTab() {
                 <li><strong>Repair costs:</strong> +1% per point</li>
               </ul>
               <p className="mt-2">Fatigue resets to 0 on Scrap Reset. The Iron Will legacy upgrade subtracts races before the curve is evaluated, while Endurance-focused station equipment reduces wear pressure.</p>
-              <p>Momentum bonuses <em>reward</em> pushing through fatigue — Deep Run (+50% LP at 60) and Legendary Run (+100% LP at 80).</p>
+              <p>Momentum improves racing and income during a run. Fatigue never increases the reset reward; rest when your driver needs it.</p>
             </div>
           </SystemSection>
 
@@ -125,8 +125,8 @@ export default function HelpSystemsTab() {
               </div>
               <div>
                 <p className="mb-1 font-semibold" style={{ color: "var(--text-white)" }}>LP Formula</p>
-                <Formula label="Base LP" formula="floor((√(lifetime scrap / 100) + 3 × log₂(1 + races / 10)) × (1 + 0.5 × highest circuit tier) × clamp(fatigue / 30, 0.3, 1) × (1 + 0.05 × workshop levels))" />
-                <p>The award is at least 1 LP. Momentum and permanent LP bonuses are then applied to this base. Around 30 fatigue reaches the full base fatigue factor; higher circuits and more workshop levels also increase it.</p>
+                <Formula label="Base LP" formula="floor((20 + highest Feature reward + 8 × log₂(1 + earned scrap / 1000)) × (1 + 0.1 × unique rivals))" />
+                <p>Only the highest Feature tier counts, and rival credit is capped at ten unique rivals per run. Starting grants, waiting, fatigue and raw race count do not earn LP. Permanent upgrades and milestones apply after this base.</p>
               </div>
               <div>
                 <p className="mb-2 font-semibold" style={{ color: "var(--text-white)" }}>Legacy Upgrades ({LEGACY_UPGRADE_DEFINITIONS.length})</p>

@@ -72,6 +72,8 @@ export function getTotalEffects(item: LootGearItem): LootGearEffect[] {
   }
   for (const mod of item.mods) {
     byType.set(mod.effectType, (byType.get(mod.effectType) ?? 0) + mod.value);
+    const drawback = mod.drawback;
+    if (drawback) byType.set(drawback.type, (byType.get(drawback.type) ?? 0) - mod.value * drawback.ratio);
   }
 
   return Array.from(byType.entries()).map(([type, value]) => ({

@@ -62,7 +62,7 @@ export function getFatigueGainMultiplier(state: GameState): number {
     + getGameEffectValue(OWNER_UPGRADE_DEFINITIONS, state.ownerUpgradeLevels ?? {}, "fatigue_rate_reduction")
     + getMomentumEffectValue(state.activeMomentumTiers ?? [], "fatigue_reduction")
     + getPermanentRuntimeBonuses(state).fatigueReduction;
-  return Math.max(0, 1 - reduction);
+  return Math.max(0.2, 1 - reduction);
 }
 
 /** Fatigue one race at `circuitTier` adds after every rate modifier. */
@@ -74,7 +74,8 @@ export function getFatigueGainPerRace(state: GameState, circuitTier: number): nu
 export function getFatigueRecoveryPerHour(state: GameState, circuitTier: number = 1): number {
   const endurance = getSkillBonuses(state.racerSkills, circuitTier).enduranceFatigueOffset;
   const ironWill = getLegacyEffectValue(state.legacyUpgradeLevels ?? {}, "leg_fatigue_offset");
-  const bonus = endurance * ENDURANCE_RECOVERY_PER_POINT + ironWill * IRON_WILL_RECOVERY_PER_VALUE;
+  const gear = getGearBonuses(state.equippedLootGear, state.lootGearInventory);
+  const bonus = endurance * ENDURANCE_RECOVERY_PER_POINT + ironWill * IRON_WILL_RECOVERY_PER_VALUE + gear.fatigue_recovery_pct;
   return FATIGUE.RECOVERY_PER_HOUR * (1 + bonus);
 }
 

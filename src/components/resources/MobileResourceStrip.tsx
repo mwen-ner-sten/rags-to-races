@@ -13,9 +13,9 @@ interface Props {
 }
 
 /**
- * Mobile-only strip under the header. Collapsed: the three resources most
+ * Shared resource strip under the header. Collapsed: the three resources most
  * relevant to the active tab. Expanded: every visible resource as a full
- * rail row. Hidden on desktop by `.resource-strip` in globals.css.
+ * resource row. Used on desktop and mobile.
  */
 export default function MobileResourceStrip({ activeTab }: Props) {
   const [open, setOpen] = useState(false);

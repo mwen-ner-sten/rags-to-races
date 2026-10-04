@@ -61,17 +61,17 @@ export const MOMENTUM_TIERS: MomentumTier[] = [
   {
     id: "momentum_deep_run",
     name: "Deep Run",
-    description: "+50% Legacy Points at next prestige",
+    description: "+5% race win chance",
     condition: { type: "fatigue_gte", value: 60 },
-    effect: { type: "lp_multiplier", value: 0.5 },
+    effect: { type: "race_win_bonus", value: 0.05 },
     unlockText: "The deeper you go, the more you'll carry back.",
   },
   {
     id: "momentum_legendary",
     name: "Legendary Run",
-    description: "+100% Legacy Points at next Scrap Reset",
+    description: "+25% Scrap Bucks from all sources",
     condition: { type: "fatigue_gte", value: 80 },
-    effect: { type: "lp_multiplier", value: 1.0 },
+    effect: { type: "scrap_multiplier", value: 0.25 },
     unlockText: "This run will be remembered. The legacy compounds.",
   },
 ];

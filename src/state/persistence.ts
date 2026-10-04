@@ -1,3 +1,4 @@
+import { initialCampaign } from "@/engine/campaign";
 import { z } from "zod";
 import type { GameState } from "./store";
 import { GARAGE_STATION_IDS, type GarageStationSlot } from "@/data/garageStations";
@@ -23,7 +24,7 @@ import type { WorkshopSystem } from "@/data/featureUnlocks";
  * The same version also adds the event ladder (`eventWins`, `pinnedEventIds`)
  * and reveal-on-relevance (`revealedSystems`, `rustedPileSinceTick`).
  */
-export const PERSISTENCE_VERSION = 6;
+export const PERSISTENCE_VERSION = 7;
 export const PERSISTENCE_STORAGE_KEY = "rags-to-races-save";
 export const RECOVERY_BACKUP_KEY = "rags-to-races-recovery-backup";
 
@@ -162,9 +163,11 @@ const installedModSchema = z.object({
   templateId: nonEmptyString,
   name: nonEmptyString,
   effectType: nonEmptyString,
+  drawback: z.object({ type: nonEmptyString, ratio: finiteNonNegative.max(1) }).optional(),
   value: z.number().finite(),
 }).passthrough();
 const lootGearSchema = z.object({
+  setId: z.enum(["junkyard_dog", "track_rat", "iron_lungs"]).optional(),
   id: nonEmptyString,
   slot: gearSlotSchema,
   rarity: equipmentRaritySchema,
@@ -208,6 +211,9 @@ const ownedTrackConfigSchema = z.object({
   riskReward: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
 }).passthrough();
 const hostedEventSchema = z.object({
+  vehicleId: nonEmptyString.optional(),
+  prize: finiteNonNegative.optional(), fee: finiteNonNegative.optional(),
+  rounds: z.array(z.object({ result: z.enum(["win", "loss", "dnf"]), position: finiteNonNegative })).max(3).optional(),
   id: nonEmptyString,
   name: nonEmptyString,
   config: ownedTrackConfigSchema,
@@ -239,12 +245,13 @@ const nonNegativeNumberMap = z.record(z.string(), finiteNonNegative);
 
 const projectSchema = z.object({
   id: nonEmptyString,
-  kind: z.enum(["upgrade", "enhance"]),
+  kind: z.enum(["upgrade", "enhance", "gear"]),
   label: z.string(),
   upgradeId: z.string().optional(),
   targetLevel: finiteNonNegative.optional(),
   partId: z.string().optional(),
   targetCondition: partConditionSchema.optional(),
+  gearId: nonEmptyString.optional(),
   startedAt: finiteNonNegative,
   durationMs: finiteNonNegative,
   elapsedMs: finiteNonNegative,
@@ -272,6 +279,16 @@ const currentStateSafetySchema = z.object({
   lifetimeRepAllTime: finiteNonNegative.optional(),
   legacyRepFloor: finiteNonNegative.optional(),
   lifetimeScrapBucks: finiteNonNegative.optional(),
+  campaign: z.object({
+    lifetimeTeamResets: finiteNonNegative.default(0), lifetimeOwnerResets: finiteNonNegative.default(0),
+    runStartedAt: finiteNonNegative, runEarnedScrap: finiteNonNegative, runRivalIds: z.array(nonEmptyString),
+    scrapResetsThisTeamEra: finiteNonNegative, teamResetsThisOwnerEra: finiteNonNegative, ownerResetsThisTrackEra: finiteNonNegative,
+    teamFeatureIds: z.array(nonEmptyString), ownerFeatureIds: z.array(nonEmptyString), trackFeatureIds: z.array(nonEmptyString), fleetVenueIds: z.array(nonEmptyString),
+    knowledge: z.object({ team: z.boolean(), owner: z.boolean() }), policy: z.enum(["balanced", "income", "development"]),
+    specialty: z.enum(["grassroots", "technical", "endurance"]).nullable(),
+    sponsorWins: z.object({ grassroots: finiteNonNegative, technical: finiteNonNegative, endurance: finiteNonNegative }),
+    sponsorClaims: z.array(z.enum(["grassroots", "technical", "endurance"])), trackSponsorFamilies: z.array(z.enum(["grassroots", "technical", "endurance"])),
+  }).optional(),
   prestigeCount: finiteNonNegative.optional(),
   legacyPoints: finiteNonNegative.optional(),
   lifetimeLegacyPoints: finiteNonNegative.optional(),
@@ -287,6 +304,7 @@ const currentStateSafetySchema = z.object({
   reforgeShards: finiteNonNegative.optional(),
   forgeTokens: finiteNonNegative.optional(),
   gameTick: finiteNonNegative.optional(),
+  lastOfflineSettlement: z.object({ from: finiteNonNegative, to: finiteNonNegative, creditedMs: finiteNonNegative.max(48 * 3600000), ticks: finiteNonNegative }).nullable().optional(),
   lastActiveTimestamp: finiteNonNegative.optional(),
   teamPoints: finiteNonNegative.optional(),
   lifetimeTeamPoints: finiteNonNegative.optional(),
@@ -319,6 +337,7 @@ const currentStateSafetySchema = z.object({
   autoScavengeUnlocked: z.boolean().optional(),
   autoRaceUnlocked: z.boolean().optional(),
   autoRaceMinCondition: finiteNonNegative.optional(),
+  autoRaceReserveScrap: finiteNonNegative.optional(),
   autoRaceMaxFatigue: finiteNonNegative.optional(),
   projects: z.array(projectSchema).optional(),
   activeVehicleId: z.string().nullable().optional(),
@@ -415,6 +434,7 @@ export interface RecoveryBackup {
 
 export function getPersistedGameState(state: GameState) {
   return {
+    campaign: state.campaign,
     scrapBucks: state.scrapBucks,
     repPoints: state.repPoints,
     lifetimeRep: state.lifetimeRep,
@@ -450,6 +470,7 @@ export function getPersistedGameState(state: GameState) {
     scoutingOrder: state.scoutingOrder,
     autoRaceUnlocked: state.autoRaceUnlocked,
     autoRaceMinCondition: state.autoRaceMinCondition,
+    autoRaceReserveScrap: state.autoRaceReserveScrap,
     autoRaceMaxFatigue: state.autoRaceMaxFatigue,
     projects: state.projects,
     raceTickProgress: state.raceTickProgress,
@@ -476,6 +497,7 @@ export function getPersistedGameState(state: GameState) {
     dealerBoard: state.dealerBoard,
     gameTick: state.gameTick,
     lastActiveTimestamp: state.lastActiveTimestamp,
+    lastOfflineSettlement: state.lastOfflineSettlement,
     completedChallenges: state.completedChallenges,
     challengeProgress: state.challengeProgress,
     lifetimeTotalDecomposed: state.lifetimeTotalDecomposed,
@@ -595,6 +617,18 @@ export function migratePersistedState(
       revealedSystems: [...revealed],
       rustedPileSinceTick: state.rustedPileSinceTick ?? null,
     };
+  }
+
+  if (version < 7 || !state.campaign) {
+    // Existing promotions remain earned; do not fabricate wins or grant rewards.
+    state = { ...state, campaign: { ...initialCampaign(),
+      lifetimeTeamResets: state.teamEraCount ?? 0, lifetimeOwnerResets: state.ownerEraCount ?? 0,
+      scrapResetsThisTeamEra: state.prestigeCount ?? 0,
+      teamResetsThisOwnerEra: state.teamEraCount ?? 0,
+      ownerResetsThisTrackEra: state.ownerEraCount ?? 0,
+      knowledge: { team: (state.teamEraCount ?? 0) > 0 || (state.ownerEraCount ?? 0) > 0 || (state.trackEraCount ?? 0) > 0,
+        owner: (state.ownerEraCount ?? 0) > 0 || (state.trackEraCount ?? 0) > 0 },
+    } };
   }
 
   if (version < 3) {
@@ -768,6 +802,7 @@ export function migratePersistedState(
       getLocationById(state.selectedLocationId ?? "curbside"),
     ),
     autoRaceUnlocked: state.autoRaceUnlocked ?? true,
+    autoRaceReserveScrap: state.autoRaceReserveScrap ?? 0,
     autoRaceMinCondition: state.autoRaceMinCondition ?? AUTO_RACE_MIN_CONDITION_DEFAULT,
     autoRaceMaxFatigue: Math.min(FATIGUE.MAX, state.autoRaceMaxFatigue ?? FATIGUE.AUTO_RACE_MAX_DEFAULT),
     projects: state.projects ?? [],

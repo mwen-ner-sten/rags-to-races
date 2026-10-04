@@ -1,3 +1,4 @@
+import { readyCampaign } from "./campaignReady";
 import { ADDON_DEFINITIONS } from "@/data/addons";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
 import { FEATURE_AVAILABILITY } from "@/config/features";
@@ -273,6 +274,7 @@ function firstScrapResetAward(state: Partial<PersistedGameState>): number {
   return calculateScrapResetAward({
     currentPrestigeCount: state.prestigeCount ?? 0,
     runStats: {
+      earnedScrap: state.campaign?.runEarnedScrap ?? 0, featureWins: state.eventWins, rivalCount: state.campaign?.runRivalIds.length ?? 0,
       lifetimeScrapBucks: state.lifetimeScrapBucks ?? 0,
       lifetimeRaces: state.lifetimeRaces ?? 0,
       fatigue: state.fatigue ?? 0,
@@ -596,6 +598,8 @@ function milestonePatch(name: GameplayFixtureName): Partial<PersistedGameState> 
 
 export function createGameplayFixture(name: GameplayFixtureName): GameplayFixture {
   const state = { ...basePersistedState(), ...milestonePatch(name) };
+  if (name === "workshop_ready") state.revealedSystems = [...new Set([...state.revealedSystems, "dealer" as const])];
+  if (["team_reset_ready", "owner_reset_ready", "track_reset_ready", "workshop_ready", "maxed"].includes(name)) state.campaign = readyCampaign();
   return {
     fixtureVersion: GAMEPLAY_FIXTURE_VERSION,
     name,

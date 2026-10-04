@@ -107,7 +107,7 @@ function rollEffects(
   slot: GearSlot,
   rarity: GearRarity,
 ): LootGearItem["effects"] {
-  const pool = LOOT_EFFECT_POOLS[slot];
+  const pool: [string, number, number][] = [...LOOT_EFFECT_POOLS[slot], ["fatigue_rate_reduction", 0.02, 0.08], ["fatigue_recovery_pct", 0.05, 0.20]];
   const [minCount, maxCount] = RARITY_EFFECT_COUNT[rarity];
   const count = randInt(minCount, Math.min(maxCount, pool.length));
   const [multMin, multMax] = RARITY_VALUE_MULTS[rarity];
@@ -135,6 +135,7 @@ function buildLootGear(
     rarity,
     name: generateLootName(slot, rarity),
     effects: rollEffects(slot, rarity),
+    setId: weightedPick({ junkyard_dog: 3, track_rat: 3, iron_lungs: source.includes("endurance") ? 6 : 2 }),
     enhancementLevel: 0,
     modSlots: 0,
     mods: [],
@@ -150,6 +151,7 @@ function buildMod(): InstalledMod {
   return {
     id: makeModInstanceId(),
     templateId: template.id,
+    drawback: template.drawback,
     name: template.name,
     effectType: template.effectType,
     value,
@@ -159,6 +161,7 @@ function buildMod(): InstalledMod {
 // ── Race loot ───────────────────────────────────────────────────────────────
 
 export interface GearDropParams {
+  eventId?: string;
   sourceTier: number;          // circuit.tier
   sourceId: string;            // for flavor
   raceResult: "win" | "loss" | "dnf";
@@ -206,7 +209,7 @@ export function rollGearDrops(params: GearDropParams): {
   }
 
   // Gear mods only come off a win.
-  const modDropChance = params.raceResult === "win" ? RACE_MOD_DROP_RATE + params.modDropRateBonus : 0;
+  const modDropChance = params.raceResult === "win" && params.eventId === "feature" ? RACE_MOD_DROP_RATE + params.modDropRateBonus : 0;
   const modDrop = modDropChance > 0 && random() < modDropChance ? buildMod() : null;
 
   return { gearDrops, modDrop };

@@ -4,7 +4,7 @@ import { getVehicleById } from "@/data/vehicles";
 import { getPartById, type PartCondition } from "@/data/parts";
 import { isVariantPartId } from "@/data/partVariants";
 import { CIRCUIT_DEFINITIONS } from "@/data/circuits";
-import { getCircuitPerformance, winChanceFromRatio } from "../race";
+import { calculateOdds, getCircuitPerformance, winChanceFromRatio } from "../race";
 import { buildEngineeringReport, diagnoseFocus } from "../engineeringDiagnostics";
 import type { RaceOutcome } from "../race";
 
@@ -24,6 +24,31 @@ const streetRacer = {
 };
 
 describe("vehicle stat model", () => {
+  it.each([
+    { winner: "light", vehicle: "go_kart", circuit: "dirt_track", event: "sprint", selection: 1, quality: "rusted", condition: 60 },
+    { winner: "sturdy", vehicle: "go_kart", circuit: "dirt_track", event: "sprint", selection: 0, quality: "pristine", condition: 30 },
+    { winner: "balanced", vehicle: "push_mower", circuit: "backyard_derby", event: "feature", selection: 1, quality: "pristine", condition: 100 },
+  ] as const)("$winner builds have a winning use case on $circuit", (scenario) => {
+    const definition = getVehicleById(scenario.vehicle)!;
+    const circuit = CIRCUIT_DEFINITIONS.find(c => c.id === scenario.circuit)!;
+    const event = circuit.events.find(e => e.id === scenario.event)!;
+    const outcomes = ["light", "balanced", "sturdy"].map(kind => {
+      const parts = Object.fromEntries(definition.slots.map(slot => {
+        const bases = slot.acceptableParts.filter(id => !isVariantPartId(id));
+        const base = bases[scenario.selection % bases.length];
+        // A balanced build mixes a light powertrain/frame with sturdy supporting parts.
+        const variant = kind === "balanced" ? (["engine", "drivetrain", "frame"].includes(slot.slot) ? "light" : "sturdy") : kind;
+        const id = getPartById(`${base}_${variant}`) ? `${base}_${variant}` : base;
+        return installed(slot.slot, id, scenario.quality);
+      }));
+      const stats = calculateStats(definition, parts, scenario.condition);
+      const odds = calculateOdds(getCircuitPerformance(stats, circuit), stats.reliability, circuit.difficulty * event.difficultyMult, 0, 0.3);
+      return { kind, win: (1 - odds.dnfChance) * odds.winChance };
+    }).sort((a, b) => b.win - a.win);
+    expect(outcomes[0].kind, JSON.stringify(outcomes)).toBe(scenario.winner);
+    expect(outcomes[0].win - outcomes[1].win).toBeGreaterThan(0.01);
+  });
+
   it("gives every part a handling contribution so grip is an independent axis", () => {
     expect(getPartById("wheel_racing")!.baseHandling).toBeGreaterThan(getPartById("wheel_busted")!.baseHandling);
     expect(getPartById("susp_active")!.baseHandling).toBeGreaterThan(0);

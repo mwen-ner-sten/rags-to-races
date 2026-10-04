@@ -1,3 +1,4 @@
+import { readyCampaign } from "@/testing/campaignReady";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RaceOutcome } from "@/engine/race";
 import { withRandomSource } from "@/utils/random";
@@ -34,7 +35,7 @@ function wonBackyardRace(): RaceOutcome {
 function finishBackyardRace(startingRep: number, raceHistory: RaceOutcome[] = []) {
   vi.useFakeTimers();
   useGameStore.setState({
-    ...createInitialState(),
+    ...createInitialState(), campaign: readyCampaign(),
     scrapBucks: 1_000,
     repPoints: startingRep,
     garage: [testVehicle],
@@ -76,7 +77,7 @@ describe("vehicle blueprint state transitions", () => {
 
   it("unlocks both Vehicle Mastery blueprints when the Owner upgrade is purchased", () => {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       ownerPoints: 20,
       ownerUpgradeLevels: {},
       unlockedVehicleIds: ["push_mower"],
@@ -92,7 +93,7 @@ describe("vehicle blueprint state transitions", () => {
   it("preserves Vehicle Mastery blueprints through lower-layer resets", () => {
     for (const action of ["prestige", "teamReset", "ownerReset"] as const) {
       useGameStore.setState({
-        ...createInitialState(),
+        ...createInitialState(), campaign: readyCampaign(),
         ownerUpgradeLevels: { owner_vehicle_mastery: 1 },
         unlockedVehicleIds: ["push_mower", "hypercar", "prototype_x"],
       });
@@ -107,7 +108,7 @@ describe("vehicle blueprint state transitions", () => {
 
   it("clears Vehicle Mastery at the Track Reset that clears Owner upgrades", () => {
     useGameStore.setState({
-      ...createInitialState(),
+      ...createInitialState(), campaign: readyCampaign(),
       ownerUpgradeLevels: { owner_vehicle_mastery: 1, owner_adv_circuits: 1 },
       unlockedVehicleIds: ["push_mower", "hypercar", "prototype_x"],
       unlockedCircuitIds: ["backyard_derby", "continental_grand_prix", "endurance_series"],
@@ -121,7 +122,7 @@ describe("vehicle blueprint state transitions", () => {
 
     expect(useGameStore.getState().ownerUpgradeLevels).toEqual({});
     expect(useGameStore.getState().unlockedVehicleIds).toEqual(["push_mower"]);
-    expect(useGameStore.getState().unlockedCircuitIds).toEqual(["backyard_derby"]);
+    expect(useGameStore.getState().unlockedCircuitIds).toEqual(["backyard_derby", "dirt_track"]);
     expect(useGameStore.getState().unlockedFeatures).toContain("crew_system");
     expect(useGameStore.getState().unlockedFeatures).not.toEqual(
       expect.arrayContaining(["vehicle_mastery", "advanced_circuits"]),

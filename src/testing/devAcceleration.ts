@@ -28,12 +28,12 @@ export function offlineTicksForDuration(
   };
 }
 
-export function runSeededTicks(state: GameState, ticks: number, seed: string | number): DevSimulationSummary {
+export function runSeededTicks(state: GameState, ticks: number, seed: string | number, elapsedMs?: number): DevSimulationSummary {
   const safeTicks = Number.isFinite(ticks) ? Math.max(0, Math.floor(ticks)) : 0;
   const normalizedSeed = String(seed);
   const rawResult = withRandomSource(
     new SeededRandomSource(normalizedSeed),
-    () => simulateOfflineTicks(state, safeTicks),
+    () => simulateOfflineTicks(state, safeTicks, elapsedMs),
   );
   const idPrefix = `dev_${hashForId(normalizedSeed)}_${state.gameTick}_${safeTicks}`;
   const normalizedPartIds = new Map<string, string>();
@@ -79,7 +79,7 @@ export function runSeededOffline(
 ): DevSimulationSummary {
   const duration = offlineTicksForDuration(state, requestedDurationMs);
   return {
-    ...runSeededTicks(state, duration.ticks, seed),
+    ...runSeededTicks(state, duration.ticks, seed, duration.cappedDurationMs),
     requestedDurationMs: duration.requestedDurationMs,
     cappedDurationMs: duration.cappedDurationMs,
     tickSpeedMs: duration.tickSpeedMs,
@@ -87,52 +87,5 @@ export function runSeededOffline(
 }
 
 export function applyDevSimulation(state: GameState, result: DevSimulationSummary): void {
-  state.advanceFleetAssignments(result.ticksProcessed);
-  state.applyTickResult(
-    result.partsFound,
-    result.scrapsEarned,
-    result.repEarned,
-    result.vehicleWearTotal,
-    result.vehicleRepairTotal,
-    result.raceTickProgress,
-    result.lootGearDrops,
-    result.modDrops,
-    {
-      partsScavenged: result.partsScavenged,
-      partsAutoSold: result.partsAutoSold,
-      scavengesCompleted: result.scavengesCompleted,
-      racesCompleted: result.racesCompleted,
-      winsCompleted: result.winsCompleted,
-      finalWinStreak: result.finalWinStreak,
-      bestWinStreak: result.bestWinStreak,
-      recentRaceOutcomes: result.recentRaceOutcomes,
-      winningCircuitIds: result.winningCircuitIds,
-      defeatedRivalIds: result.defeatedRivalIds,
-      circuitWinStreaks: result.circuitWinStreaks,
-      eventWins: result.eventWins,
-      raceSalvageFound: result.raceSalvageFound,
-      forgeTokensFound: result.forgeTokensFound,
-      entryFeesPaid: result.entryFeesPaid,
-      challengesEvaluated: result.challengesEvaluated,
-      completedChallengeIds: result.completedChallengeIds,
-      challengeForgeTokens: result.challengeForgeTokens,
-      challengeMaterials: result.challengeMaterials,
-      ticksProcessed: result.ticksProcessed,
-      repDecayed: result.repDecayed,
-      finalFatigue: result.finalFatigue,
-      finalRepPoints: result.finalRepPoints,
-      finalVehicleCondition: result.finalVehicleCondition,
-      finalRacerSkills: result.finalRacerSkills,
-      finalCrewRoster: result.finalCrewRoster,
-      finalActiveMomentumTiers: result.finalActiveMomentumTiers,
-      newAchievementIds: result.newAchievementIds,
-      stationEquipmentDrops: result.stationEquipmentDrops,
-      stationEquipmentAutoSalvaged: result.stationEquipmentAutoSalvaged,
-      reforgeShardsFound: result.reforgeShardsFound,
-      lootGearAutoSalvaged: result.lootGearAutoSalvaged,
-      lootGearSalvageScrap: result.lootGearSalvageScrap,
-      finalProjects: result.finalProjects,
-      completedProjects: result.completedProjects,
-    },
-  );
+  state.settleOffline(result, state.lastActiveTimestamp, Date.now());
 }

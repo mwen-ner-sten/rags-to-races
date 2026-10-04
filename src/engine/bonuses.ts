@@ -1,3 +1,5 @@
+import { specialtyPerformance } from "./campaign";
+import { CIRCUIT_DEFINITIONS, type CircuitDefinition } from "@/data/circuits";
 /**
  * ONE bonus algebra.
  *
@@ -91,7 +93,7 @@ export function composeBonus(...stacks: BonusStack[]): number {
 }
 
 /** Collect every multiplier source in the current state into named channels. */
-export function collectBonuses(state: GameState, circuitTier: number = 0): Bonuses {
+export function collectBonuses(state: GameState, circuitTier: number = 0, raceCircuit?: CircuitDefinition): Bonuses {
   const gear = getGearBonuses(
     state.equippedLootGear,
     state.lootGearInventory,
@@ -129,6 +131,8 @@ export function collectBonuses(state: GameState, circuitTier: number = 0): Bonus
   sellValue = addToClass(sellValue, "permanent", permanent.sellValueMult + permanent.allScrapIncomeMult);
 
   let racePerformance: BonusStack = {};
+  const circuit = raceCircuit ?? CIRCUIT_DEFINITIONS.find((c) => c.tier === circuitTier);
+  if (circuit) racePerformance = addToClass(racePerformance, "owner", specialtyPerformance(state.campaign?.specialty, circuit));
   racePerformance = addToClass(racePerformance, "equipment", gear.race_performance_pct);
   racePerformance = addToClass(racePerformance, "team", getGameEffectValue(TEAM_UPGRADE_DEFINITIONS, state.teamUpgradeLevels, "base_race_performance"));
   racePerformance = addToClass(racePerformance, "permanent", permanent.racePerformanceBonus);

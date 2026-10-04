@@ -7,7 +7,7 @@ export interface OwnedTrackConfig {
   endurance: boolean;
   riskReward: 1 | 2 | 3 | 4 | 5;
 }
-export interface HostedEvent { id: string; name: string; config: OwnedTrackConfig; sponsor: string; remainingTicks: number; status: "running" | "complete"; reward: number; }
+export interface HostedEvent { vehicleId?: string; plan?: import("./raceStrategy").RacePlan; prize?: number; fee?: number; rounds?: { result: "win" | "loss" | "dnf"; position: number }[]; id: string; name: string; config: OwnedTrackConfig; sponsor: string; remainingTicks: number; status: "running" | "complete"; reward: number; }
 export const DEFAULT_TRACK_CONFIG: OwnedTrackConfig = { surface: "gravel", length: "medium", cornerDensity: "medium", timeRule: "day", vehicleClass: "open", endurance: false, riskReward: 1 };
 
 export function normalizeHostedEventConfig(

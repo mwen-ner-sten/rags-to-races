@@ -58,6 +58,7 @@ export interface LootGearEffect {
 }
 
 export interface InstalledMod {
+  drawback?: { type: string; ratio: number };
   id: string;          // unique instance id
   templateId: string;
   name: string;
@@ -66,6 +67,7 @@ export interface InstalledMod {
 }
 
 export interface LootGearItem {
+  setId?: import("./gearSets").GearSetId;
   id: string;
   slot: GearSlot;
   rarity: GearRarity;

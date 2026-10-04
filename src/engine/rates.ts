@@ -12,8 +12,7 @@
 import type { GameState } from "@/state/store";
 import { CURRENCY_DEFINITIONS } from "@/data/currencies";
 import { LOOSE_INVENTORY_LIMIT } from "@/config/gameplayLimits";
-import { FATIGUE } from "@/config/progression";
-import { computeTickRepDecay, computeTickSpeedMs, getRaceTicksNeeded, autoRaceWouldFire } from "./tick";
+import { computeTickSpeedMs, getRaceTicksNeeded, autoRaceWouldFire } from "./tick";
 import { canScavengeSelectedLocation } from "./eligibility";
 import { expectedScavenge } from "./scavengeExpectation";
 import { expectedRace, type RaceExpectation } from "./raceExpectation";
@@ -62,7 +61,6 @@ export interface ResourceRate {
 const MS_PER_HOUR = 3_600_000;
 
 /** Horizon for the Legacy projection secant: one hour of expected ticks. */
-const LEGACY_PROJECTION_HORIZON_S = 3_600;
 
 interface Cadence {
   tickSeconds: number;
@@ -160,10 +158,12 @@ function projectsRate(state: GameState): ResourceRate {
   };
 }
 
-function legacyAward(state: GameState, runStats: { lifetimeScrapBucks: number; lifetimeRaces: number; fatigue: number }): number {
+function legacyAward(state: GameState, runStats: Omit<import("./prestige").RunStats, "highestCircuitTier" | "workshopUpgradesBought">): number {
   return calculateScrapResetAward({
     currentPrestigeCount: state.prestigeCount,
     runStats: {
+      earnedScrap: state.campaign?.runEarnedScrap ?? 0,
+      featureWins: state.eventWins, rivalCount: state.campaign?.runRivalIds.length ?? 0,
       ...runStats,
       highestCircuitTier: deriveHighestCircuitTier(state.unlockedCircuitIds),
       workshopUpgradesBought: Object.values(state.workshopLevels ?? {}).reduce((sum, level) => sum + level, 0),
@@ -182,7 +182,7 @@ function computeRates(state: GameState): ResourceRate[] {
   const scavenge = flow.scavengesPerSecond > 0 ? expectedScavenge(state) : null;
   const race: RaceExpectation | null = flow.racesPerSecond > 0 ? expectedRace(state) : null;
   const fleet = fleetFlows(state);
-  const repDecayPerSecond = computeTickRepDecay(state) / flow.tickSeconds;
+
 
   const scrapBucks = withSources(base(state, "scrap_bucks", state.scrapBucks, "Scrap Bucks", "var(--accent, #c83e0c)"), [
     { label: "Auto-sold junk", perSecond: (scavenge?.autoSellScrapPerScavenge ?? 0) * flow.scavengesPerSecond },
@@ -193,7 +193,7 @@ function computeRates(state: GameState): ResourceRate[] {
 
   const rep = withSources(base(state, "rep", state.repPoints, "Rep Points", "var(--accent-secondary, #ff0090)"), [
     { label: "Race Rep", perSecond: (race?.repPerRace ?? 0) * flow.racesPerSecond },
-    { label: "Decay toward legacy floor", perSecond: -repDecayPerSecond },
+
   ]);
 
   const parts = withSources({
@@ -227,31 +227,27 @@ function computeRates(state: GameState): ResourceRate[] {
     { label: "Auto-race wear", perSecond: fatigueFlow.gainPerSecond },
     { label: "Rest (recovery)", perSecond: -fatigueFlow.recoveryPerSecond },
   ]);
-  const fatigueDeltaPerSecond = fatigueFlow.gainPerSecond - fatigueFlow.recoveryPerSecond;
 
   const projects = projectsRate(state);
 
   const lpNow = legacyAward(state, {
     lifetimeScrapBucks: state.lifetimeScrapBucks,
+        earnedScrap: state.campaign?.runEarnedScrap ?? 0,
+        featureWins: state.eventWins,
+        rivalCount: state.campaign?.runRivalIds.length ?? 0,
     lifetimeRaces: state.lifetimeRaces,
     fatigue: state.fatigue ?? 0,
   });
-  const grossScrapPerSecond = (scavenge?.autoSellScrapPerScavenge ?? 0) * flow.scavengesPerSecond
-    + (race?.scrapPerRace ?? 0) * flow.racesPerSecond + fleet.scrapPerSecond;
-  const lpLater = legacyAward(state, {
-    lifetimeScrapBucks: state.lifetimeScrapBucks + grossScrapPerSecond * LEGACY_PROJECTION_HORIZON_S,
-    lifetimeRaces: state.lifetimeRaces + flow.racesPerSecond * LEGACY_PROJECTION_HORIZON_S,
-    fatigue: Math.min(FATIGUE.MAX, Math.max(0, (state.fatigue ?? 0) + fatigueDeltaPerSecond * LEGACY_PROJECTION_HORIZON_S)),
-  });
+  const elapsedSeconds = Math.max(1, (state.lastActiveTimestamp - state.campaign.runStartedAt) / 1000);
   const legacyProjection = withSources({
     id: "legacy_projection",
-    label: "Legacy Points (projected)",
+    label: "Legacy Points (reset now)",
     amount: lpNow,
     perSecond: 0,
     visible: state.garage.length > 0,
     color: "#a78bfa",
   }, [
-    { label: "Scrap Reset award growth", perSecond: (lpLater - lpNow) / LEGACY_PROJECTION_HORIZON_S },
+    { label: "Earned LP per elapsed hour", perSecond: lpNow / elapsedSeconds },
   ]);
 
   const materials = (Object.entries(fleet.materials) as [MaterialType, number][]).map(([material, perSecond]) =>

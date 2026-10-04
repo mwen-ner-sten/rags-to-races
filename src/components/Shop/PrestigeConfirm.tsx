@@ -3,6 +3,7 @@
 import { useGameStore } from "@/state/store";
 import { calculateScrapResetAward, deriveHighestCircuitTier, type RunStats } from "@/engine/prestige";
 import { formatNumber } from "@/utils/format";
+import ResetRetentionPreview from "./ResetRetentionPreview";
 import { MOMENTUM_TIERS } from "@/data/momentumBonuses";
 
 export default function PrestigeConfirm({
@@ -26,7 +27,10 @@ export default function PrestigeConfirm({
   const unlockedPlaystyleNodes = useGameStore((s) => s.unlockedPlaystyleNodes);
   const crewRoster = useGameStore((s) => s.crewRoster);
 
+  const campaign = useGameStore((s) => s.campaign);
+  const featureWins = useGameStore((s) => s.eventWins);
   const runStats: RunStats = {
+    earnedScrap: campaign.runEarnedScrap, featureWins, rivalCount: campaign.runRivalIds.length,
     lifetimeScrapBucks,
     lifetimeRaces,
     fatigue,
@@ -105,6 +109,7 @@ export default function PrestigeConfirm({
         </div>
       )}
 
+      <ResetRetentionPreview layer="scrap" />
       {/* What resets */}
       <div className="mb-3">
         <div style={{ color: "var(--text-muted)" }} className="text-xs font-semibold mb-1">

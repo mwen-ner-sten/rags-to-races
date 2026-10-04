@@ -24,7 +24,7 @@ export default function CurrencyBar({ activeTab, rates, limit = 3, size = "md" }
   const shown = selectRelevantRates(rates, activeTab, limit);
 
   return (
-    <div className="currency-bar" data-testid="currency-bar">
+    <div className="currency-bar" data-testid="currency-bar" tabIndex={0} role="region" aria-label="Resources">
       {shown.map((rate) => (
         <Stat
           key={rate.id}

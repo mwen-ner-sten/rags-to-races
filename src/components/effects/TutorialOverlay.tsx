@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useGameStore } from "@/state/store";
 import { isFeatureAvailable } from "@/config/features";
+import { getVehicleById } from "@/data/vehicles";
 import { getPartById, CONDITION_MULTIPLIERS } from "@/data/parts";
 import { formatNumber } from "@/utils/format";
 import type { TabId } from "@/components/navigation/tabs";
@@ -33,8 +34,8 @@ interface TutorialStepDef {
 
 const SHOW_DEV = isFeatureAvailable("admin_tools");
 
-const PUSH_MOWER_ENGINES = new Set(["engine_small", "engine_lawn"]);
-const PUSH_MOWER_WHEELS = new Set(["wheel_busted", "wheel_basic"]);
+const PUSH_MOWER_ENGINES = new Set(getVehicleById("push_mower")!.slots.find((s) => s.slot === "engine")!.acceptableParts);
+const PUSH_MOWER_WHEELS = new Set(getVehicleById("push_mower")!.slots.find((s) => s.slot === "wheel")!.acceptableParts);
 
 export const STEPS: TutorialStepDef[] = [
   /* 0  */ { icon: "\u{1F3CE}\uFE0F", tip: "", allowedTabs: null },
@@ -443,7 +444,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     // Collect tab buttons from ALL navs (sidebar nav + content nav + mobile nav)
     const tabLabels: TabId[] = ["junkyard", "garage", "race", "gear", "upgrades", "settings", "dev"];
     const allNavs = document.querySelectorAll("nav");
-    const allSidebarBtns = document.querySelectorAll(".tab-bar button");
+    const allSidebarBtns = document.querySelectorAll(".sidebar-links button");
     const navButtons: HTMLButtonElement[] = [];
     allNavs.forEach((nav) => {
       navButtons.push(...(Array.from(nav.querySelectorAll("button")) as HTMLButtonElement[]));
@@ -483,8 +484,8 @@ export default function TutorialOverlay({ activeTab }: Props) {
       if (rects.length > 0) {
         setHighlightRect(rects);
       } else {
-        // Last resort: the mobile "More" overflow button
-        const moreBtn = document.querySelector('[data-tutorial="mobile-more"]');
+        // Last resort: the mobile hamburger button
+        const moreBtn = document.querySelector('[data-tutorial="mobile-navigation"]');
         const hr = moreBtn ? moreBtn.getBoundingClientRect() : null;
         setHighlightRect(hr && hr.width > 0 && hr.height > 0 ? [hr] : null);
       }
@@ -697,7 +698,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
     const viewW = typeof window !== "undefined" ? window.innerWidth : 800;
     const viewH = typeof window !== "undefined" ? window.innerHeight : 600;
     const cardW = Math.min(340, viewW - 32);
-    const safeBottom = viewW < 640 ? 72 : 16;
+    const safeBottom = 16;
     // Mobile cards can grow substantially when the step dots and actions wrap.
     // Reserve their real worst-case height so an anchored card never places its
     // primary action below the viewport.
@@ -713,7 +714,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       top = Math.max(16, anchorRect.top + anchorRect.height / 2 - cardH / 2);
       arrowClass = "";
     } else {
-      const roomBelow = viewH - anchorRect.bottom - 16;
+      const roomBelow = viewH - safeBottom - anchorRect.bottom - 16;
       const above = roomBelow < cardH && anchorRect.top > cardH + 16;
       left = Math.max(16, Math.min(anchorRect.left + anchorRect.width / 2 - cardW / 2, viewW - cardW - 16));
       // When above: card's bottom sits 16px above anchor's top
@@ -722,7 +723,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       arrowClass = above ? "tutorial-arrow-down" : "tutorial-arrow-up";
     }
     // Targets can sit below the current scrollport. Clamp the complete card
-    // into the usable viewport and leave room for the fixed mobile nav so the
+    // into the usable viewport so the
     // primary tutorial action can never be covered or become unclickable.
     top = Math.max(16, Math.min(top, viewH - safeBottom - cardH));
     arrowLeftPx = inSidebar ? 0 : Math.max(20, Math.min(anchorRect.left + anchorRect.width / 2 - left, cardW - 20));
@@ -982,7 +983,7 @@ export default function TutorialOverlay({ activeTab }: Props) {
       {/* Keep the mobile goal tracker compact and above the bottom navigation;
           placing a multi-line tracker at the top hides the page header. */}
       {showGoal && goalContent && (
-        <div className="fixed right-3 bottom-[72px] left-3 z-[10000] sm:top-2 sm:right-auto sm:bottom-auto sm:left-[calc(50%+100px)] sm:-translate-x-1/2">
+        <div className="fixed right-3 bottom-4 left-3 z-[10000] sm:top-2 sm:right-auto sm:bottom-auto sm:left-[calc(50%+100px)] sm:-translate-x-1/2">
           <div
             className="animate-fade-up flex flex-wrap items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-medium sm:flex-nowrap sm:justify-start sm:py-1.5"
             style={{
@@ -1006,14 +1007,14 @@ export default function TutorialOverlay({ activeTab }: Props) {
       )}
 
       {/* Minimized chip — click to restore the tutorial card/badge */}
-      {/* Mobile: sit 16px above the 56px bottom nav (bottom-[72px]).        */}
+      {/* Mobile: sit 16px above the 56px bottom nav (bottom-4).        */}
       {/* Desktop: sit 88px above viewport bottom to clear the ~60px footer. */}
       {showMinimizedChip && (
         <button
           onClick={toggleTutorialMinimized}
           aria-label="Restore tutorial"
           title="Restore tutorial"
-          className="animate-fade-up fixed right-4 bottom-[72px] sm:bottom-[88px] z-[10000] flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-lg"
+          className="animate-fade-up fixed right-4 bottom-4 sm:bottom-[88px] z-[10000] flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-lg"
           style={{
             borderColor: "var(--accent-border, rgba(200,62,12,.4))",
             background: "var(--panel-bg, #181008)",
