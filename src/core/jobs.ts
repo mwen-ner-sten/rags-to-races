@@ -390,6 +390,17 @@ function activeCrew(state: GameState): CrewMember[] {
   return state.era.crew;
 }
 
+/** Part ids that would fill an empty required slot on a vehicle the player owns. */
+function partIdsForEmptyRequiredSlots(state: GameState): Set<string> {
+  const ids = new Set<string>();
+  for (const vehicle of state.run.vehicles) {
+    for (const slot of getVehicle(vehicle.vehicleId).slots) {
+      if (slot.required && !vehicle.parts[slot.slot]) slot.accepts.forEach((id) => ids.add(id));
+    }
+  }
+  return ids;
+}
+
 /** Picks a concrete target for a habit/crew bench job, or null when there's nothing to do. */
 export function resolveTemplate(state: GameState, template: string): JobSpec | null {
   const reserved = reservedPartUids(state);
@@ -414,7 +425,9 @@ export function resolveTemplate(state: GameState, template: string): JobSpec | n
     return null;
   }
   if (base === "strip") {
-    const junk = free.find((p) => getPart(p.partId).category === "junk") ?? free.find((p) => p.condition === 0);
+    // Junk first, then Scrap parts, but never one an owned vehicle needs to run.
+    const needed = partIdsForEmptyRequiredSlots(state);
+    const junk = free.find((p) => getPart(p.partId).category === "junk") ?? free.find((p) => p.condition === 0 && !needed.has(p.partId));
     return junk ? { kind: "strip", partUid: junk.uid } : null;
   }
   if (base === "race") {
