@@ -11,12 +11,15 @@ test("@smoke the opening: one button, then the garage", async ({ page }) => {
   // Era 1 opens with one place and nothing else.
   await expect(page.getByRole("button", { name: "Garage" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Team" })).toHaveCount(0);
+  // A new player gets the first-Season guide.
+  await expect(page.getByRole("heading", { name: "Take your first trip" })).toBeVisible();
 
   await page.getByRole("button", { name: "Go", exact: true }).click();
   // A curb trip takes 15 seconds; the scripted first find is a seized engine.
   await expect(page.getByRole("button", { name: "Garage" })).toBeVisible({ timeout: 25_000 });
   await page.getByRole("button", { name: "Garage" }).click();
-  await expect(page.getByText("Small Engine")).toBeVisible();
+  await expect(page.getByText("Small Engine", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Clean up that engine" })).toBeVisible();
   await expect(page.getByText("Rusted", { exact: true }).first()).toBeVisible();
 });
 

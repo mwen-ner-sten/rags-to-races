@@ -13,6 +13,7 @@ import type { GameState } from "@/core/types";
 import { conditionName, duration, num, seasonClock } from "../format";
 import { habitLabel } from "../labels";
 import { useGame } from "../store";
+import { Tips } from "./Tips";
 
 const TIER_TEXT = { learning: "Learning", familiar: "Familiar", second_nature: "Second Nature" } as const;
 
@@ -147,6 +148,7 @@ export function NotebookPanel() {
   return (
     <section className="section" aria-labelledby="notebook-h">
       <h2 id="notebook-h">Notebook</h2>
+      <Tips ids={["codex", "knowhow"]} />
       <div className="subtabs" role="tablist">
         {SECTIONS.map((s) => (
           <button key={s} role="tab" id={`nb-tab-${s}`} aria-controls="nb-panel" aria-selected={tab === s} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>

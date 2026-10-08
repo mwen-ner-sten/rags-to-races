@@ -9,6 +9,7 @@ import { num } from "../format";
 import { habitLabel, habitOptions } from "../labels";
 import { useGame } from "../store";
 import { ResetPlanner } from "./ResetPlanner";
+import { Tips } from "./Tips";
 
 function assignmentValue(a: CrewMember["assignment"]): string {
   return a.type === "habit" ? `habit:${a.template}` : a.type;
@@ -118,6 +119,7 @@ export function TeamPanel() {
         </dl>
       </section>
       <section className="section" aria-labelledby="crew-h">
+        <Tips ids={["crew"]} />
         <h2 id="crew-h">
           Crew <span className="muted num">{era.crew.length}/{cap}</span>
         </h2>

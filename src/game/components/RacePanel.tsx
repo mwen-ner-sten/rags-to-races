@@ -3,54 +3,71 @@
 import Image from "next/image";
 import { useState } from "react";
 import { DISCIPLINES, EVENT_KINDS, RIVAL_BY_ID, VENUES, getVenue, venueName } from "@/core/content/events";
+import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
 import { vehicleBusy } from "@/core/garage";
-import { jobBlocker, nextEventInMs } from "@/core/jobs";
-import { dnfChance, practiceBonus, winChance } from "@/core/race";
-import type { EventKind, GameState, JobSpec, RaceCall, Vehicle } from "@/core/types";
-import { capitalize, duration, num, ordinal, pct } from "../format";
+import { canOpenPlace, placeRepCost } from "@/core/knowhowEngine";
+import { practiceBonus, weakestSlot } from "@/core/race";
+import type { GameState, JobSpec, RaceCall, Vehicle } from "@/core/types";
+import { capitalize, conditionName, num, ordinal, pct } from "../format";
 import { venueSprite } from "../sprites";
 import { useGame } from "../store";
+import { EventCard } from "./race/EventCard";
+import { OnTrack } from "./race/OnTrack";
+import { Tips } from "./Tips";
 
 type Call2 = Extract<JobSpec, { kind: "race" }>["call2"];
 
-/** Without a Dyno you get a read, not a number. */
-function oddsLabel(p: number, dyno: boolean): string {
-  if (dyno) return pct(p);
-  if (p >= 0.7) return "Favourite";
-  if (p >= 0.45) return "Good shot";
-  if (p >= 0.25) return "Even-ish";
-  if (p >= 0.1) return "Long shot";
-  return "No chance";
+/** The Dirt Track opens with Rep rather than a Feature win, so it gets a sign-up card once it's within reach. */
+function DirtSignup({ game }: { game: GameState }) {
+  const dispatch = useGame((s) => s.dispatch);
+  if (game.run.venuesOpen.includes("dirt") || game.run.featureWins.backyard === undefined) return null;
+  const venue = getVenue("dirt");
+  const blocker = canOpenPlace(game, "place:dirt");
+  return (
+    <article className="card venue locked">
+      <Image src={venueSprite(venue.id)} alt="" width={120} height={64} />
+      <div className="card-body">
+        <h3>{venue.name}</h3>
+        <p className="blurb">
+          {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}.
+        </p>
+        <div className="actions">
+          <button className="btn" disabled={!!blocker} title={blocker ?? undefined} onClick={() => dispatch({ type: "openPlace", knowhowId: "place:dirt" })}>
+            Sign up · {placeRepCost(game, "place:dirt")} Rep
+          </button>
+          {blocker && <span className="why">{blocker}</span>}
+        </div>
+      </div>
+    </article>
+  );
 }
 
-function EventRow({ game, vehicle, venueId, event, call, call2 }: { game: GameState; vehicle: Vehicle; venueId: string; event: EventKind; call: RaceCall; call2: Call2 }) {
-  const dispatch = useGame((s) => s.dispatch);
-  const venue = getVenue(venueId);
-  const def = venue.events[event];
-  const unlocked = (game.run.ladder[venueId] ?? []).includes(event);
-  const spec = { kind: "race" as const, vehicleUid: vehicle.uid, venueId, event, call, call2 };
-  const blocker = jobBlocker(game, spec);
-  const wait = nextEventInMs(game, venueId, event);
-  const dyno = (game.team.upgrades.dyno ?? 0) > 0;
-  const p = winChance(game, vehicle, venueId, event, call, call2);
-  const dnf = dnfChance(game, vehicle, venueId, event, call, call2);
+/** The part most likely to wear or fail, called out before you race. */
+function WeakPart({ vehicle }: { vehicle: Vehicle }) {
+  const slot = weakestSlot(vehicle);
+  const part = slot ? vehicle.parts[slot] : undefined;
+  if (!slot || !part || part.condition >= 3) return null;
   return (
-    <tr className={unlocked ? "" : "locked"}>
-      <th scope="row">{capitalize(event)}</th>
-      <td className="num">{def.entry}</td>
-      <td className="num">{num(def.prize)}</td>
-      <td>{unlocked ? oddsLabel(p, dyno) : "Podium the last event"}</td>
-      <td className="num">{dyno && unlocked ? pct(dnf) : ""}</td>
-      <td>
-        {wait > 0 ? <span className="muted">in {duration(wait)}</span> : blocker && unlocked ? <span className="why">{blocker}</span> : <span className="muted">every {duration(def.everyMs)}</span>}
-      </td>
-      <td>
-        <button className="btn small primary" disabled={!!blocker} title={blocker ?? undefined} onClick={() => dispatch({ type: "enqueue", spec })}>
-          Enter
-        </button>
-      </td>
-    </tr>
+    <p className="why">
+      Watch the {slot}: a {conditionName(part.condition)} {getPart(part.partId).name} wears first and can end a race early. Clean or repair it in the Garage.
+    </p>
+  );
+}
+
+/** Sprint → Heat → Feature, showing how far up this venue's ladder you are. */
+function Ladder({ game, venueId }: { game: GameState; venueId: string }) {
+  const open = game.run.ladder[venueId] ?? [];
+  const won = game.run.featureWins[venueId] !== undefined;
+  return (
+    <ol className="ladder-steps" aria-label="Event ladder">
+      {EVENT_KINDS.map((e) => (
+        <li key={e} className={open.includes(e) ? (e === "feature" && won ? "won" : "open") : "locked"}>
+          {capitalize(e)}
+          {e === "feature" && won && " (won)"}
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -67,10 +84,10 @@ function Results({ game }: { game: GameState }) {
           <li key={r.id} className={r.position === 1 && !r.dnf ? "win" : r.dnf ? "dnf" : ""}>
             <span className="pos num">{r.dnf ? "DNF" : ordinal(r.position)}</span>
             <span>
-              {venueName(r.venueId, discipline)} {r.event}
+              {venueName(r.venueId, discipline)} {capitalize(r.event)}
             </span>
             <span className="num muted">
-              +{num(r.prize)} SB · +{r.rep} Rep
+              +{num(r.prize)} Scrap Bucks · +{r.rep} Rep
             </span>
             <button className="link-btn" onClick={() => showReplay(r)}>
               Watch
@@ -97,10 +114,12 @@ export function RacePanel() {
   const tier = getVehicle(vehicle.vehicleId).tier;
   return (
     <div className="panel">
+      <OnTrack game={game} />
       <section className="section" aria-labelledby="race-h">
         <h2 id="race-h">Race</h2>
+        <Tips ids={["race"]} />
         <p className="sub">
-          {game.era ? `${discipline.name}. ` : ""}Events run on a schedule. A podium opens the next event at that venue, and a Feature win opens new venues.
+          {game.era ? `${discipline.name}. ` : ""}Each event runs every few minutes. Sign up any time: if it isn’t running yet, you’ll start as soon as it is.
         </p>
         <div className="toolbar">
           <label>
@@ -134,7 +153,8 @@ export function RacePanel() {
             </fieldset>
           )}
         </div>
-        <p className="hint">Push is faster but wears parts and risks a DNF. Nurse it is safer and slower.</p>
+        <p className="hint">Push is faster but wears parts and risks a DNF. Nurse it is safer and slower. The odds below change with your call.</p>
+        <WeakPart vehicle={vehicle} />
         <div className="venues">
           {VENUES.filter((v) => game.run.venuesOpen.includes(v.id)).map((venue) => {
             const allowed = tier >= venue.tiers[0] && tier <= venue.tiers[1];
@@ -150,28 +170,12 @@ export function RacePanel() {
                   <p className="blurb">
                     {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}. Feature rival: {rival?.name}. Practice +{pct(practiceBonus(game, venue.id))}.
                   </p>
+                  <Ladder game={game} venueId={venue.id} />
                   {allowed ? (
-                    <div className="table-wrap">
-                      <table className="events">
-                        <thead>
-                          <tr>
-                            <th scope="col">Event</th>
-                            <th scope="col">Entry</th>
-                            <th scope="col">Prize</th>
-                            <th scope="col">Odds</th>
-                            <th scope="col">DNF</th>
-                            <th scope="col">Next</th>
-                            <th scope="col">
-                              <span className="sr-only">Enter</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {EVENT_KINDS.map((e) => (
-                            <EventRow key={e} game={game} vehicle={vehicle} venueId={venue.id} event={e} call={call} call2={activeCall2} />
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="event-grid">
+                      {EVENT_KINDS.map((e) => (
+                        <EventCard key={e} game={game} vehicle={vehicle} strip={discipline.id === "drag"} spec={{ kind: "race", vehicleUid: vehicle.uid, venueId: venue.id, event: e, call, call2: activeCall2 }} />
+                      ))}
                     </div>
                   ) : (
                     <p className="why">The {vehicle.name} can’t enter here (tier {tier}).</p>
@@ -180,6 +184,7 @@ export function RacePanel() {
               </article>
             );
           })}
+          <DirtSignup game={game} />
         </div>
       </section>
       <Results game={game} />

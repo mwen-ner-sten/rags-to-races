@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { apply, createGame, type Action } from "@/core";
+import { upgradeSave } from "@/core/state";
 import type { GameState, RaceResult } from "@/core/types";
 
 const SAVE_KEY = "rags-to-races:v2";
@@ -20,12 +21,16 @@ export interface AwaySummary {
   cash: number;
   rep: number;
   learned: string[];
+  /** Parts waiting on the driveway when you got back. */
+  driveway: number;
 }
 
 interface Store {
   game: GameState | null;
   error: string | null;
   replay: RaceResult | null;
+  /** A race you entered by hand that just finished; announced off the Race tab, cleared once seen. */
+  finished: RaceResult | null;
   away: AwaySummary | null;
   lastTick: number;
   dispatch: (action: Action) => boolean;
@@ -37,6 +42,7 @@ interface Store {
   exportSave: () => string;
   clearError: () => void;
   closeReplay: () => void;
+  clearFinished: () => void;
   showReplay: (race: RaceResult) => void;
   closeAway: () => void;
 }
@@ -85,6 +91,7 @@ function summarize(before: GameState, after: GameState, ms: number, capped: bool
     cash: after.run.cash - before.run.cash,
     rep: after.run.rep - before.run.rep,
     learned: after.run.learned.filter((id) => !before.run.learned.includes(id)),
+    driveway: after.run.driveway.length,
   };
 }
 
@@ -92,6 +99,7 @@ export const useGame = create<Store>((set, get) => ({
   game: null,
   error: null,
   replay: null,
+  finished: null,
   away: null,
   lastTick: 0,
 
@@ -106,8 +114,8 @@ export const useGame = create<Store>((set, get) => ({
     }
     set({ game: result.state, error: null });
     const latest = result.state.run.races[result.state.run.races.length - 1];
-    // A race you entered by hand gets the replay; Habit races just land in the results list.
-    if (latest && latest.id !== before && action.type === "advance" && !action.away && !isHabitRace(game, latest)) set({ replay: latest });
+    // A race you entered by hand is announced; Habit races just land in the results list.
+    if (latest && latest.id !== before && action.type === "advance" && !action.away && !isHabitRace(game, latest)) set({ finished: latest });
     return true;
   },
 
@@ -120,7 +128,7 @@ export const useGame = create<Store>((set, get) => ({
       if (raw) {
         const file = JSON.parse(raw) as SaveFile;
         if (isGameState(file.game)) {
-          game = file.game;
+          game = upgradeSave(file.game);
           savedAt = typeof file.savedAt === "number" ? file.savedAt : Date.now();
         }
       }
@@ -173,7 +181,7 @@ export const useGame = create<Store>((set, get) => ({
 
   reset: () => {
     backupRaw(window.localStorage.getItem(SAVE_KEY));
-    set({ game: createGame(), replay: null, away: null, lastTick: Date.now() });
+    set({ game: createGame(), replay: null, finished: null, away: null, lastTick: Date.now() });
     get().save();
   },
 
@@ -187,7 +195,7 @@ export const useGame = create<Store>((set, get) => ({
       const file = JSON.parse(fromBase64(text.trim())) as SaveFile;
       if (!isGameState(file.game)) return "That doesn't look like a Rags to Races save.";
       backupRaw(window.localStorage.getItem(SAVE_KEY));
-      set({ game: file.game, lastTick: Date.now(), replay: null, away: null });
+      set({ game: file.game, lastTick: Date.now(), replay: null, finished: null, away: null });
       get().save();
       return null;
     } catch {
@@ -197,6 +205,7 @@ export const useGame = create<Store>((set, get) => ({
 
   clearError: () => set({ error: null }),
   closeReplay: () => set({ replay: null }),
+  clearFinished: () => set({ finished: null }),
   showReplay: (race) => set({ replay: race }),
   closeAway: () => set({ away: null }),
 }));

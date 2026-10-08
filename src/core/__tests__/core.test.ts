@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CHANNELS, SOURCES, channel } from "../channels";
 import { createGame, must } from "../index";
+import { benchCost, conditionAfter, saleQuote, stripYield } from "../garage";
+import { jobBlocker } from "../jobs";
 import { knowhowTier } from "../knowhowEngine";
 import type { GameState, PartInstance } from "../types";
 
@@ -190,5 +192,51 @@ describe("scripted opening", () => {
     const ids = s.run.inventory.map((p) => p.partId);
     expect(ids).toContain("engine_small");
     expect(ids).toContain("wheel_busted");
+  });
+});
+
+describe("garage bench", () => {
+  it("junk can't be cleaned, only stripped or sold", () => {
+    const s = give(createGame("g1"), "junk_seat", 1);
+    const uid = s.run.inventory[s.run.inventory.length - 1].uid;
+    expect(jobBlocker(s, { kind: "clean", partUid: uid })).toMatch(/Junk/);
+    expect(jobBlocker(s, { kind: "strip", partUid: uid })).toBeNull();
+  });
+
+  it("strip pays out exactly what stripYield promised", () => {
+    let s = give(createGame("g2"), "engine_lawn", 0);
+    const part = s.run.inventory[s.run.inventory.length - 1];
+    const promised = stripYield(part);
+    expect(promised).toEqual({ metal: 1, wiring: 1 });
+    const before = { ...s.run.materials };
+    s = must(s, { type: "enqueue", spec: { kind: "strip", partUid: part.uid } });
+    s = must(s, { type: "advance", ms: 10 * 60_000 });
+    expect(s.run.inventory.some((p) => p.uid === part.uid)).toBe(false);
+    expect(s.run.materials.metal - before.metal).toBe(promised.metal);
+    expect(s.run.materials.wiring - before.wiring).toBe(promised.wiring);
+  });
+
+  it("cleaning lands on the condition conditionAfter promised", () => {
+    let s = give(createGame("g3"), "engine_lawn", 1);
+    const uid = s.run.inventory[s.run.inventory.length - 1].uid;
+    s = must(s, { type: "enqueue", spec: { kind: "clean", partUid: uid } });
+    s = must(s, { type: "advance", ms: 30 * 60_000 });
+    expect(s.run.inventory.find((p) => p.uid === uid)?.condition).toBe(conditionAfter("clean", 1));
+  });
+
+  it("restore costs double a repair", () => {
+    const part: PartInstance = { uid: "x", partId: "engine_lawn", condition: 3, origin: "test" };
+    expect(benchCost(part, "restore")).toEqual({ metal: 2, wiring: 2 });
+    expect(benchCost(part, "repair")).toEqual({ metal: 1, wiring: 1 });
+    expect(benchCost(part, "clean")).toEqual({});
+  });
+
+  it("a sale quote matches what the batch actually sells for", () => {
+    let s = createGame("g4");
+    for (let i = 0; i < 4; i++) s = give(s, "junk_seat", 3);
+    const quote = saleQuote(s, s.run.inventory);
+    const cash = s.run.cash;
+    s = must(s, { type: "sell", partUids: s.run.inventory.map((p) => p.uid) });
+    expect(s.run.cash - cash).toBe(quote);
   });
 });
