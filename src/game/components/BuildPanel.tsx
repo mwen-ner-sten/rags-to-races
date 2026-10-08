@@ -13,6 +13,7 @@ import type { GameState, PartInstance, TuneSetting, Vehicle } from "@/core/types
 import { conditionName, num } from "../format";
 import { vehicleSprite } from "../sprites";
 import { useGame } from "../store";
+import { Tips } from "./Tips";
 
 function score(game: GameState, part: PartInstance): number {
   const def = getPart(part.partId);
@@ -240,6 +241,7 @@ export function BuildPanel() {
       {game.run.revealed.includes("build") && (
         <section className="section" aria-labelledby="build-h">
           <h2 id="build-h">Build</h2>
+          <Tips ids={["build"]} />
           <p className="sub">Plans you know. Pick parts for each slot; the best fit is chosen for you.</p>
           <div className="cards">
             {blueprints

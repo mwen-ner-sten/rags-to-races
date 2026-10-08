@@ -34,6 +34,9 @@ export type EventKind = "sprint" | "heat" | "feature";
 export type RaceCall = "push" | "nurse";
 export type TuneSetting = "balanced" | "power" | "reliable";
 export type MaterialId = "metal" | "rubber" | "wiring";
+
+/** What happens to parts when the driveway overflows. */
+export type DrivewayRule = "strip_sell" | "sell" | "strip" | "leave";
 export type CrewRole = "wrench" | "hauler" | "driver" | "spotter";
 
 export interface PartInstance {
@@ -89,6 +92,34 @@ export interface ActiveJob {
   template?: JobTemplate;
   /** What starting the job cost, refunded if it's cancelled. */
   paid?: { cash: number; materials: Partial<Record<MaterialId, number>>; lastEntered?: { key: string; prev: number | undefined } };
+  /** A race's outcome, rolled when it starts so it can be watched live; paid out when it finishes. */
+  race?: RaceRoll;
+}
+
+export type RaceBeatKind = "start" | "pass" | "passed" | "hold" | "wear" | "rival" | "last_lap" | "dnf" | "finish";
+
+export interface RaceBeat {
+  /** Ms into the race. */
+  at: number;
+  text: string;
+  /** Your running position after this moment (1 = leading). */
+  position: number;
+  kind?: RaceBeatKind;
+}
+
+/** Everything about a race decided at the green flag. */
+export interface RaceRoll {
+  position: number;
+  fieldSize: number;
+  dnf: boolean;
+  margin: number;
+  rivalBeaten: boolean;
+  weakestSlot: string | null;
+  /** Condition steps each installed slot loses, applied at the flag. */
+  wearSteps: Record<string, number>;
+  laps: number;
+  durationMs: number;
+  beats: RaceBeat[];
 }
 
 export interface RaceResult {
@@ -106,7 +137,10 @@ export interface RaceResult {
   rival?: { id: string; beaten: boolean };
   margin: number;
   weakestSlot: string | null;
-  beats: { at: number; text: string; position: number }[];
+  beats: RaceBeat[];
+  /** Laps run and race length (older saves don't have them). */
+  laps?: number;
+  durationMs?: number;
   wear: { slot: string; from: Condition; to: Condition }[];
 }
 
@@ -139,6 +173,12 @@ export interface MetaState {
   rivals: Record<string, { wins: number; losses: number }>;
   perks: Record<string, number>; // owned perk ranks
   perksUnlocked: string[]; // unlocked (buyable) by dares/milestones
+  /** What happens to parts the driveway can't hold (honoured once Sorting is learned). */
+  drivewayRule?: DrivewayRule;
+  /** One-time tips the player has dismissed. */
+  tipsSeen: string[];
+  /** The player hid the first-Season guide. */
+  guideOff?: boolean;
   daresCompleted: string[];
   disciplineMastery: Record<string, number>;
   hardshipMastery: Record<string, number>;
@@ -193,6 +233,8 @@ export interface RunState {
   rep: number;
   materials: Record<MaterialId, number>;
   inventory: PartInstance[];
+  /** Finds that didn't fit in the garage, waiting for the player to keep, strip or sell them. */
+  driveway: PartInstance[];
   vehicles: Vehicle[];
   placesOpen: string[];
   venuesOpen: string[];
@@ -212,7 +254,7 @@ export interface RunState {
   lastEntered: Record<string, number>;
   featureWins: Record<string, number>; // venue → season ms of first Feature win
   races: RaceResult[];
-  stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean };
+  stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number };
   revealed: string[];
   candidates: string[]; // crew candidates this Season (team era)
   shellsBought: number;

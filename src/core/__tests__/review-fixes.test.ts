@@ -32,13 +32,21 @@ describe("review fixes", () => {
     expect(Math.abs(away.run.races.length - live.run.races.length)).toBeLessThanOrEqual(1);
   });
 
-  it("cancelling a job refunds what it cost and frees the event", () => {
+  it("a race on the track can't be cancelled, so its outcome can't be re-rolled", () => {
     let s = racer("refund");
     s = must(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } });
     const job = s.run.jobs[0];
-    s = must(s, { type: "cancelJob", jobId: job.id });
-    expect(s.run.cash).toBe(1000);
-    expect(apply(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } }).error).toBeNull();
+    expect(apply(s, { type: "cancelJob", jobId: job.id }).error).toMatch(/on the track/);
+  });
+
+  it("cancelling a trip refunds its fee", () => {
+    let s = racer("refund2");
+    s.run.placesOpen.push("auction");
+    const cash = s.run.cash;
+    s = must(s, { type: "enqueue", spec: { kind: "haul", placeId: "auction" } });
+    expect(s.run.cash).toBeLessThan(cash);
+    s = must(s, { type: "cancelJob", jobId: s.run.jobs[0].id });
+    expect(s.run.cash).toBe(cash);
   });
 
   it("rejects negative or fractional tune-up points", () => {

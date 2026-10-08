@@ -7,6 +7,8 @@ export function SettingsPanel() {
   const exportSave = useGame((s) => s.exportSave);
   const importSave = useGame((s) => s.importSave);
   const reset = useGame((s) => s.reset);
+  const game = useGame((s) => s.game);
+  const dispatch = useGame((s) => s.dispatch);
   const [text, setText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
@@ -46,6 +48,24 @@ export function SettingsPanel() {
         <textarea id="save-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste a save here to import it" />
       </label>
       {message && <p className="notice">{message}</p>}
+      <h3 className="label">Help</h3>
+      <div className="actions">
+        {game && game.meta.seasonsPlayed === 0 && !game.era && (
+          <label className="check">
+            <input type="checkbox" checked={!game.meta.guideOff} onChange={(e) => dispatch({ type: "setGuide", on: e.target.checked })} />
+            Show the first-Season guide
+          </label>
+        )}
+        <button
+          className="btn"
+          onClick={() => {
+            dispatch({ type: "showTipsAgain" });
+            setMessage("Tips will show again as you visit each part of the game.");
+          }}
+        >
+          Show tips again
+        </button>
+      </div>
       <h3 className="label">Start over</h3>
       <p className="sub">Wipes this browser’s save, including your Notebook. This can’t be undone.</p>
       {confirmWipe ? (

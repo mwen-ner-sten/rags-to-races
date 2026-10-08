@@ -1,13 +1,32 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { RIVAL_BY_ID, venueName } from "@/core/content/events";
+import { DISCIPLINES, RIVAL_BY_ID, getVenue, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import type { GameState, RaceResult } from "@/core/types";
 import { conditionName, num, ordinal } from "../format";
 import { useGame } from "../store";
+import { RaceScreen, type RaceShown } from "./race/RaceScreen";
 
-const REPLAY_MS = 9000;
+/** A replay plays the whole race in this long, however long the real one was. */
+const REPLAY_MS = 14_000;
+
+function shownFrom(game: GameState, race: RaceResult): RaceShown {
+  const discipline = game.era?.discipline ?? "dirt";
+  const vehicle = game.run.vehicles.find((v) => v.uid === race.vehicleUid);
+  const durationMs = race.durationMs ?? getVenue(race.venueId).events[race.event].durationMs * DISCIPLINES[discipline].durationMult;
+  return {
+    venueId: race.venueId,
+    venueLabel: venueName(race.venueId, discipline),
+    event: race.event,
+    vehicleId: vehicle?.vehicleId ?? "push_mower",
+    fieldSize: race.fieldSize,
+    beats: race.beats,
+    laps: race.laps,
+    durationMs: Math.max(durationMs, race.beats[race.beats.length - 1]?.at ?? 0),
+    strip: discipline === "drag",
+  };
+}
 
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -32,10 +51,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const last = race.beats[race.beats.length - 1];
-  const total = Math.max(1, last.at);
-  const shown = race.beats.filter((b) => b.at / total <= t + 1e-6);
-  const current = shown[shown.length - 1] ?? race.beats[0];
+  const shown = shownFrom(game, race);
   const finished = t >= 1;
   const vehicle = game.run.vehicles.find((v) => v.uid === race.vehicleUid);
   const weakPart = race.weakestSlot ? vehicle?.parts[race.weakestSlot] : undefined;
@@ -43,21 +59,10 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
 
   return (
     <>
-      <h2 id="replay-h">
-        {venueName(race.venueId, game.era?.discipline ?? "dirt")} · {race.event}
+      <h2 id="replay-h" className="sr-only">
+        Replay: {shown.venueLabel} {race.event}
       </h2>
-      <div className="track" aria-hidden="true">
-        {Array.from({ length: race.fieldSize }, (_, i) => (
-          <span key={i} className={`slot ${i + 1 === current.position ? "you" : ""}`}>
-            {i + 1}
-          </span>
-        ))}
-      </div>
-      <ol className="beats" aria-live="polite">
-        {shown.map((b, i) => (
-          <li key={i}>{b.text}</li>
-        ))}
-      </ol>
+      <RaceScreen race={shown} ms={t * shown.durationMs} lines={finished ? 0 : 3} />
       {finished ? (
         <div className="debrief">
           <p className="big">{race.dnf ? "DNF" : `${ordinal(race.position)} of ${race.fieldSize}`}</p>

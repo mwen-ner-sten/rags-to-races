@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { venueName } from "@/core/content/events";
 import { getKnowhow } from "@/core/content/knowhow";
-import { duration, num, seasonClock } from "../format";
+import { capitalize, duration, num, ordinal, seasonClock } from "../format";
 import { useGame } from "../store";
 import { BuildPanel } from "./BuildPanel";
+import { Guide } from "./Guide";
 import { JobsBoard } from "./JobsBoard";
 import { LegacyPanel } from "./LegacyPanel";
 import { NotebookPanel } from "./NotebookPanel";
@@ -13,9 +15,19 @@ import { RacePanel } from "./RacePanel";
 import { RaceReplay } from "./RaceReplay";
 import { SettingsPanel } from "./SettingsPanel";
 import { TeamPanel } from "./TeamPanel";
+import { hasUnreadTip } from "./Tips";
 import { TripsPanel } from "./TripsPanel";
 
 type TabId = "trips" | "garage" | "race" | "notebook" | "legacy" | "team" | "settings";
+
+/** Tips that live on each tab; an unread one puts a dot on the tab. */
+const TAB_TIPS: Partial<Record<TabId, readonly string[]>> = {
+  trips: ["places", "tools"],
+  garage: ["garage", "materials", "driveway", "build"],
+  race: ["race"],
+  notebook: ["codex", "knowhow"],
+  team: ["crew"],
+};
 
 const TABS: { id: TabId; label: string; reveal: string | null }[] = [
   { id: "trips", label: "Trips", reveal: null },
@@ -101,6 +113,11 @@ function AwayDialog() {
         {away.races > 0 && <li>{away.races} races, {away.wins} won</li>}
         {away.cash !== 0 && <li>{away.cash > 0 ? "+" : ""}{num(away.cash)} Scrap Bucks</li>}
         {away.rep > 0 && <li>+{away.rep} Rep</li>}
+        {away.driveway > 0 && (
+          <li>
+            {away.driveway} part{away.driveway > 1 ? "s" : ""} waiting on the driveway
+          </li>
+        )}
         {away.learned.map((id) => (
           <li key={id}>Learned {getKnowhow(id).name}</li>
         ))}
@@ -110,6 +127,61 @@ function AwayDialog() {
         Back to the garage
       </button>
     </dialog>
+  );
+}
+
+/** What the game did on its own (like clearing an overflowing driveway), until the player dismisses it. */
+function Notices() {
+  const notices = useGame((s) => s.game?.run.notices ?? []);
+  const dispatch = useGame((s) => s.dispatch);
+  if (notices.length === 0) return null;
+  return (
+    <div className="notice notices" role="status">
+      <ul>
+        {notices.slice(-5).map((text, i) => (
+          <li key={i}>{text}</li>
+        ))}
+      </ul>
+      {notices.length > 5 && <p className="muted">…and {notices.length - 5} earlier.</p>}
+      <button className="link-btn" onClick={() => dispatch({ type: "dismissNotices" })}>
+        Got it
+      </button>
+    </div>
+  );
+}
+
+/** A race you entered finished while you were on another tab: say how it went, and offer the replay. */
+function RaceFinished({ onRaceTab }: { onRaceTab: boolean }) {
+  const race = useGame((s) => s.finished);
+  const discipline = useGame((s) => s.game?.era?.discipline ?? "dirt");
+  const clear = useGame((s) => s.clearFinished);
+  const showReplay = useGame((s) => s.showReplay);
+  useEffect(() => {
+    if (race && onRaceTab) clear();
+  }, [race, onRaceTab, clear]);
+  if (!race || onRaceTab) return null;
+  return (
+    <div className="toast race-toast" role="status">
+      <span>
+        <strong>{race.dnf ? "DNF" : race.position === 1 ? "You won" : `${ordinal(race.position)} place`}</strong>
+        {race.position === 1 && !race.dnf ? " the " : " at the "}
+        {venueName(race.venueId, discipline)} {capitalize(race.event)}
+        {race.prize > 0 && ` · +${num(race.prize)} Scrap Bucks`}
+        {race.rep > 0 && ` · +${race.rep} Rep`}
+      </span>
+      <button
+        className="btn small primary"
+        onClick={() => {
+          showReplay(race);
+          clear();
+        }}
+      >
+        Watch
+      </button>
+      <button className="link-btn" onClick={clear} aria-label="Dismiss">
+        ×
+      </button>
+    </div>
   );
 }
 
@@ -171,11 +243,19 @@ export function Game() {
         {tabs.map((t) => (
           <button key={t.id} className={active === t.id ? "on" : ""} aria-current={active === t.id ? "page" : undefined} onClick={() => setTab(t.id)}>
             {t.label}
+            {active !== t.id && hasUnreadTip(game, TAB_TIPS[t.id] ?? []) && <span className="tab-dot" aria-label="New tip" />}
+            {t.id === "garage" && game.run.driveway.length > 0 && (
+              <span className="tab-badge num" aria-label={`${game.run.driveway.length} on the driveway`}>
+                {game.run.driveway.length}
+              </span>
+            )}
           </button>
         ))}
       </nav>
+      <Guide tab={active} onShow={setTab} />
       <div className="layout">
         <main className="main">
+          <Notices />
           {active === "trips" && <TripsPanel />}
           {active === "garage" && (
             <div className="panel">
@@ -193,6 +273,7 @@ export function Game() {
       </div>
       <RaceReplay onFix={() => setTab("garage")} />
       <AwayDialog />
+      <RaceFinished onRaceTab={active === "race"} />
       <Toast />
     </div>
   );
