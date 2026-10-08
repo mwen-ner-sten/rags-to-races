@@ -2,7 +2,7 @@ import { channel } from "./channels";
 import { getPart } from "./content/parts";
 import { getPlace } from "./content/places";
 import { CREW_BY_ID } from "./content/team";
-import { enforceStorage } from "./garage";
+import { stowFinds } from "./garage";
 import { STORY, addJournal } from "./journal";
 import { nextUid, pickWeighted, rand } from "./rng";
 import { resolveFlags } from "./rules";
@@ -47,10 +47,9 @@ export function completeHaul(state: GameState, spec: HaulSpec, crewId?: string):
     finds.push(part);
     state.meta.codex.parts[partId] = (state.meta.codex.parts[partId] ?? 0) + 1;
   }
-  state.run.inventory.push(...finds);
   state.meta.codex.places[place.id] = (state.meta.codex.places[place.id] ?? 0) + 1;
   state.run.stats.hauls += 1;
   addJournal(state, "first_find", STORY.first_find);
-  enforceStorage(state);
+  stowFinds(state, finds);
   return finds;
 }

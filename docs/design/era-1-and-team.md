@@ -78,6 +78,8 @@ hand-written lists.
 | **Scrap Bucks** | 0 | Race prizes, selling parts |
 | **Rep**: local standing | 0 | Wins, beating rivals, records. Spent to open places and events. |
 
+**When the garage is full**, the game never touches parts already in it. Finds that don't fit wait on the **Driveway** (6 spaces), where the player keeps, strips or sells them. Only parts beyond those 6 go by the driveway rule: strip junk, then sell the cheapest. Each time that happens, a notice names what went and for how much. Learning **Sorting** (it becomes available the first time the driveway overflows) lets the player pick another rule: sell the cheapest, strip everything, or leave the newest finds at the curb. Trip cards warn before a trip whose finds won't fit.
+
 ### 3.2 Verbs, revealed one at a time
 
 | # | Reveal | Trigger | New decision |
@@ -102,6 +104,13 @@ hand-written lists.
 | 18 | Regional Invitational, then State Invitational | Win the County Fair Feature | Push territory (see §5) |
 
 Era 1 never shows crew, disciplines, sponsors or any other later system.
+
+**Helping a new player** (`src/core/guide.ts`, `src/core/content/tips.ts`). There are two layers, and neither takes control away from the player:
+
+- **First-Season guide.** A card above the tabs shows one next step at a time: first trip, clean, wheel, Push Mower, first race, the Backyard ladder and Feature, the Riding Mower plans and build, the Dirt Track, then the County Fair invite. Each step says what to do and where, and "Show me" jumps to the right tab. It only appears in a player's first ever Season. It can be hidden, and turned back on in Settings.
+- **One-time tips.** When a system appears (garage, materials, driveway, build, race, queue, places, tools, Notebook, know-how, habits, crew), a short dismissable note explains it where it lives. A dot on the tab marks one that hasn't been read. Tips are remembered forever (meta), so a new Season doesn't repeat them. Settings has "Show tips again".
+
+The Dirt Track opens with Rep, not a Feature win, so the Race tab shows a sign-up card for it once the Backyard Feature is won.
 
 ### 3.3 Jobs and durations (run 1 values)
 
@@ -155,6 +164,18 @@ This is how unlocks go from slow and manual to quick to automatic, without a
 - Events follow the existing Sprint/Heat/Feature ladder at each venue:
   Backyard Derby, Dirt Track, **County Fair** (new venue), Regional
   Invitational, State Invitational.
+- **Race day flow (2026-10-06).** The result is rolled at the green flag
+  (`rollRace`), stored on the running job, and paid out at the flag
+  (`settleRace`). That lets the race be watched live on an SVG track for
+  its real length (Race tab, plus a mini track in "On the go"). A race on
+  the track can't be cancelled, so the roll can't be re-tried. Entering
+  between runs is a **sign-up**: it waits in the queue and starts when
+  the event runs and your hands are free. A finished race no longer opens
+  a modal; off the Race tab a small card offers "Watch", and every result
+  can be replayed (about 14 s). `raceBeats.ts` writes 5–15 lap-by-lap
+  moments (passes, being passed, the rival, wear, last lap, DNF), and the
+  track animates between them. Laps: Sprint 3, Heat 5, Feature 8 (a drag
+  strip is one run). Odds and payouts are unchanged.
 
 ### 3.7 Economy notes (added during implementation, 2026-10-04)
 

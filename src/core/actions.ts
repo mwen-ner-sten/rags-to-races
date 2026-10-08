@@ -9,14 +9,15 @@ import { PERK_BY_ID } from "./content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADE_BY_ID } from "./content/team";
 import { TOOL_BY_ID } from "./content/tools";
 import { SHELL_PRICE, getVehicle } from "./content/vehicles";
-import { counterPrice, reservedPartUids, sellParts, vehicleBusy } from "./garage";
+import { DRIVEWAY_RULES, counterPrice, fillFromDriveway, reservedPartUids, sellParts, swapOutCandidate, vehicleBusy } from "./garage";
 import { templateBase } from "./habits";
 import { advance, afterChange, cancelJob, dispatch, dropJob, enqueue } from "./jobs";
 import { canOpenPlace, isLearned, learn, placeRepCost } from "./knowhowEngine";
 import { crewCap, performReset, type LayerId, type ScrapChoices, type TeamChoices } from "./layers";
 import { nextUid } from "./rng";
+import { TIP_BY_ID } from "./content/tips";
 import { resolveFlags } from "./rules";
-import type { CrewMember, GameState, JobSpec, JobTemplate, MaterialId, TuneSetting } from "./types";
+import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, MaterialId, TuneSetting } from "./types";
 
 export type Action =
   | { type: "advance"; ms: number; away?: boolean }
@@ -24,6 +25,8 @@ export type Action =
   | { type: "cancelQueued"; index: number }
   | { type: "cancelJob"; jobId: string }
   | { type: "sell"; partUids: string[] }
+  | { type: "swapIn"; partUid: string }
+  | { type: "setDrivewayRule"; rule: DrivewayRule }
   | { type: "openPlace"; knowhowId: string }
   | { type: "buyTool"; toolId: string }
   | { type: "buyShell" }
@@ -40,7 +43,10 @@ export type Action =
   | { type: "assignCrew"; crewId: string; assignment: CrewMember["assignment"] }
   | { type: "swapMeet"; partUids: string[]; partId: string }
   | { type: "reset"; layer: LayerId; choices: ScrapChoices | TeamChoices }
-  | { type: "dismissNotices" };
+  | { type: "dismissNotices" }
+  | { type: "dismissTip"; tipId: string }
+  | { type: "showTipsAgain" }
+  | { type: "setGuide"; on: boolean };
 
 export interface ActionResult {
   state: GameState;
@@ -51,6 +57,7 @@ export function apply(state: GameState, action: Action): ActionResult {
   const next = structuredClone(state);
   const error = applyMut(next, action);
   if (error) return { state, error };
+  fillFromDriveway(next);
   return { state: next, error: null };
 }
 
@@ -66,13 +73,16 @@ function applyMut(s: GameState, action: Action): string | null {
       if (action.index < 0 || action.index >= s.run.queue.length) return "Nothing there";
       s.run.queue.splice(action.index, 1);
       return null;
-    case "cancelJob":
+    case "cancelJob": {
+      const job = s.run.jobs.find((j) => j.id === action.jobId);
+      if (job?.spec.kind === "race") return "You're already on the track";
       cancelJob(s, action.jobId);
       return null;
+    }
     case "sell": {
       const reserved = reservedPartUids(s);
       const uids = new Set(action.partUids);
-      const parts = s.run.inventory.filter((p) => uids.has(p.uid));
+      const parts = [...s.run.inventory, ...s.run.driveway].filter((p) => uids.has(p.uid));
       if (parts.length === 0) return "Nothing to sell";
       if (parts.some((p) => reserved.has(p.uid))) return "A part is being worked on";
       sellParts(s, parts);
@@ -80,6 +90,22 @@ function applyMut(s: GameState, action: Action): string | null {
       afterChange(s);
       return null;
     }
+    case "swapIn": {
+      const part = s.run.driveway.find((p) => p.uid === action.partUid);
+      if (!part) return "That part isn't on the driveway";
+      if (reservedPartUids(s).has(part.uid)) return "That part is being stripped";
+      const out = swapOutCandidate(s);
+      if (!out) return "Everything in the garage is on the bench";
+      s.run.inventory = [...s.run.inventory.filter((p) => p.uid !== out.uid), part];
+      s.run.driveway = [...s.run.driveway.filter((p) => p.uid !== part.uid), out];
+      afterChange(s);
+      return null;
+    }
+    case "setDrivewayRule":
+      if (!s.run.learned.includes("tech:sorting")) return "Learn Sorting first";
+      if (!DRIVEWAY_RULES.some((r) => r.id === action.rule)) return "Unknown rule";
+      s.meta.drivewayRule = action.rule;
+      return null;
     case "openPlace": {
       const blocker = canOpenPlace(s, action.knowhowId);
       if (blocker) return blocker;
@@ -248,6 +274,16 @@ function applyMut(s: GameState, action: Action): string | null {
       return performReset(s, action.layer, action.choices);
     case "dismissNotices":
       s.run.notices = [];
+      return null;
+    case "dismissTip":
+      if (!TIP_BY_ID[action.tipId]) return "Unknown tip";
+      if (!s.meta.tipsSeen.includes(action.tipId)) s.meta.tipsSeen.push(action.tipId);
+      return null;
+    case "showTipsAgain":
+      s.meta.tipsSeen = [];
+      return null;
+    case "setGuide":
+      s.meta.guideOff = !action.on;
       return null;
   }
 }

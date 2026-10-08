@@ -20,6 +20,7 @@ export function initialMeta(): MetaState {
     seasonsPlayed: 0,
     totalTeamResets: 0,
     milestonesEver: [],
+    tipsSeen: [],
   };
 }
 
@@ -38,6 +39,7 @@ export function initialRun(): RunState {
     rep: 0,
     materials: { metal: 0, rubber: 0, wiring: 0 },
     inventory: [],
+    driveway: [],
     vehicles: [],
     placesOpen: ["curb"],
     venuesOpen: ["backyard"],
@@ -82,4 +84,13 @@ export function newGame(seed: string): GameState {
     run: initialRun(),
     config: initialConfig(),
   };
+}
+
+/** Fills in fields added after a save was written, so older saves keep loading. */
+export function upgradeSave(game: GameState): GameState {
+  const next = structuredClone(game);
+  next.run.driveway ??= [];
+  // Players from before tips existed already know the systems they've seen.
+  next.meta.tipsSeen ??= [...next.run.revealed];
+  return next;
 }

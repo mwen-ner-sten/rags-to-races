@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply, createGame, must } from "../index";
-import { partSellValue } from "../garage";
+import { DRIVEWAY_SPACE, partSellValue, stowFinds } from "../garage";
+import { upgradeSave } from "../state";
 import { teamAward } from "../layers";
 import { resolveRace, winChance } from "../race";
 import type { GameState, PartInstance, Vehicle } from "../types";
@@ -27,14 +28,33 @@ describe("races", () => {
     expect(ra?.dnf).toBe(rb?.dnf);
   });
 
-  it("run on a schedule: the same event can't be entered again until it comes round", () => {
+  it("run on a schedule: signing up between runs waits for the next one", () => {
     let { s } = withVehicle("sched");
-    s = must(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } });
+    const sprint = { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } as const;
+    s = must(s, { type: "enqueue", spec: sprint });
     s = must(s, { type: "advance", ms: 61_000 });
-    const again = apply(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } });
-    expect(again.error).toMatch(/Next sprint in/);
+    expect(s.run.races).toHaveLength(1);
+    s = must(s, { type: "enqueue", spec: sprint });
+    expect(apply(s, { type: "enqueue", spec: sprint }).error).toMatch(/already signed up/);
+    s = must(s, { type: "advance", ms: 30_000 });
+    expect(s.run.queue).toHaveLength(1);
+    expect(s.run.jobs.some((j) => j.spec.kind === "race")).toBe(false);
+    s = must(s, { type: "advance", ms: 3 * 60_000 });
+    expect(s.run.queue).toHaveLength(0);
+    expect(s.run.races).toHaveLength(2);
+  });
+
+  it("a race is rolled at the green flag and paid out exactly as rolled", () => {
+    let { s } = withVehicle("rolled");
+    s = must(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "push" } });
+    const job = s.run.jobs.find((j) => j.spec.kind === "race");
+    expect(job?.race?.beats.length).toBeGreaterThanOrEqual(3);
+    const roll = job!.race!;
     s = must(s, { type: "advance", ms: 2 * 60_000 });
-    expect(apply(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } }).error).toBeNull();
+    const result = s.run.races[s.run.races.length - 1];
+    expect(result.position).toBe(roll.position);
+    expect(result.dnf).toBe(roll.dnf);
+    expect(result.beats).toEqual(roll.beats);
   });
 
   it("a better car has better odds, and Push beats Nurse on pace", () => {
@@ -96,13 +116,93 @@ describe("economy", () => {
     expect(apply(s, { type: "sell", partUids: ["x"] }).error).toMatch(/worked on/);
   });
 
-  it("garage overflow sells the cheapest parts", () => {
+  it("a full garage never loses parts: finds wait on the driveway", () => {
     const s = createGame("overflow");
-    for (let i = 0; i < 14; i++) s.run.inventory.push({ uid: `j${i}`, partId: i < 2 ? "engine_v4" : "junk_misc", condition: 1, origin: "t" });
+    for (let i = 0; i < 12; i++) s.run.inventory.push({ uid: `g${i}`, partId: "junk_misc", condition: 1, origin: "t" });
     const next = must(s, { type: "enqueue", spec: { kind: "haul", placeId: "curb" } });
-    const done = must(next, { type: "advance", ms: 20_000 });
-    expect(done.run.inventory.length).toBeLessThanOrEqual(12);
-    expect(done.run.inventory.filter((p) => p.partId === "engine_v4")).toHaveLength(2);
+    const done = must(next, { type: "advance", ms: 20 * 60_000 });
+    expect(done.run.inventory.map((p) => p.uid)).toEqual(s.run.inventory.map((p) => p.uid));
+    expect(done.run.driveway.length).toBeGreaterThan(0);
+    expect(done.run.notices).toEqual([]);
+  });
+});
+
+function fullGarage(seed: string): GameState {
+  const s = createGame(seed);
+  for (let i = 0; i < 12; i++) s.run.inventory.push({ uid: `g${i}`, partId: "engine_v4", condition: 3, origin: "t" });
+  return s;
+}
+
+const find = (uid: string, partId: string): PartInstance => ({ uid, partId, condition: 1, origin: "t" });
+
+describe("driveway", () => {
+  it("by default strips junk, then sells the cheapest, and says what went", () => {
+    const s = fullGarage("dw1");
+    const finds = [find("a", "junk_seat"), ...Array.from({ length: 5 }, (_, i) => find(`e${i}`, "engine_lawn")), find("w", "wheel_busted"), find("v", "engine_v6")];
+    const metal = s.run.materials.metal;
+    stowFinds(s, finds);
+    expect(s.run.inventory).toHaveLength(12);
+    expect(s.run.driveway).toHaveLength(DRIVEWAY_SPACE);
+    expect(s.run.driveway.some((p) => p.uid === "a" || p.uid === "w")).toBe(false);
+    expect(s.run.driveway.some((p) => p.uid === "v")).toBe(true);
+    expect(s.run.materials.metal).toBe(metal + 1);
+    expect(s.run.notices[0]).toMatch(/stripped Old Seat .*sold Busted Wheel/);
+    expect(s.run.stats.drivewayOverflows).toBe(1);
+  });
+
+  it("Sorting lets you leave the newest finds at the curb instead", () => {
+    let s = fullGarage("dw2");
+    expect(apply(s, { type: "setDrivewayRule", rule: "leave" }).error).toMatch(/Sorting/);
+    s.run.learned.push("tech:sorting");
+    s = must(s, { type: "setDrivewayRule", rule: "leave" });
+    const cash = s.run.cash;
+    stowFinds(s, Array.from({ length: 8 }, (_, i) => find(`d${i}`, "engine_lawn")));
+    expect(s.run.driveway.map((p) => p.uid)).toEqual(["d0", "d1", "d2", "d3", "d4", "d5"]);
+    expect(s.run.cash).toBe(cash);
+    expect(s.run.notices[0]).toMatch(/left .* at the curb/);
+  });
+
+  it("waiting parts move into the garage as soon as space frees up", () => {
+    let s = fullGarage("dw3");
+    stowFinds(s, [find("k", "engine_lawn")]);
+    expect(s.run.driveway.map((p) => p.uid)).toEqual(["k"]);
+    s = must(s, { type: "sell", partUids: ["g0"] });
+    expect(s.run.inventory.some((p) => p.uid === "k")).toBe(true);
+    expect(s.run.driveway).toHaveLength(0);
+  });
+
+  it("the best finds go into the garage first; junk is what waits", () => {
+    const s = fullGarage("dw6");
+    s.run.inventory.splice(0, 1);
+    stowFinds(s, [find("j", "junk_misc"), find("e", "engine_lawn")]);
+    expect(s.run.inventory.some((p) => p.uid === "e")).toBe(true);
+    expect(s.run.driveway.map((p) => p.uid)).toEqual(["j"]);
+  });
+
+  it("swapping in sends the cheapest garage part out to the driveway", () => {
+    let s = fullGarage("dw7");
+    s.run.inventory[3] = { uid: "cheap", partId: "junk_misc", condition: 0, origin: "t" };
+    stowFinds(s, [find("k", "engine_lawn")]);
+    s = must(s, { type: "swapIn", partUid: "k" });
+    expect(s.run.inventory.some((p) => p.uid === "k")).toBe(true);
+    expect(s.run.driveway.map((p) => p.uid)).toEqual(["cheap"]);
+    expect(s.run.inventory).toHaveLength(12);
+  });
+
+  it("parts on the driveway can be stripped or sold, but not cleaned", () => {
+    let s = fullGarage("dw4");
+    stowFinds(s, [find("x", "engine_lawn"), find("y", "engine_lawn")]);
+    expect(apply(s, { type: "enqueue", spec: { kind: "clean", partUid: "x" } }).error).toBeTruthy();
+    s = must(s, { type: "enqueue", spec: { kind: "strip", partUid: "x" } });
+    s = must(s, { type: "advance", ms: 10 * 60_000 });
+    s = must(s, { type: "sell", partUids: ["y"] });
+    expect(s.run.driveway).toHaveLength(0);
+  });
+
+  it("older saves without a driveway load cleanly", () => {
+    const old = createGame("dw5") as Partial<GameState> & GameState;
+    delete (old.run as Partial<GameState["run"]>).driveway;
+    expect(upgradeSave(old).run.driveway).toEqual([]);
   });
 });
 

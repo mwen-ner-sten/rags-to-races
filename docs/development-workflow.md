@@ -100,10 +100,31 @@ The required `check` job runs:
 - ESLint
 - Vitest
 - Next.js production build
+- Playwright: the `@smoke` suite for PRs into `dev`, and the full desktop and mobile
+  matrix for PRs into `uat` and `main`
 
-The branch rules require this job to pass and require the pull request to be up to
-date with its target branch. No approval count is required for this solo project;
-the PR, checks, and deployment are the learning checkpoints.
+The branch rules require this job to pass. No approval count is required for this
+solo project; the PR, checks, and deployment are the learning checkpoints.
+
+**Up to date with the target branch.** Only `dev` requires this. `uat` and `main`
+do not, because `dev` keeps linear, squash-only history and so can never contain
+the merge commits that promotions create on `uat` and `main`. The `check` job on a
+pull request already tests the merged result. (Before this changed, every
+`dev` -> `uat` promotion showed "behind" and needed an ours-strategy reconcile
+branch, as in #93, #100 and #128.)
+
+**Security audit.** `npm audit --omit=dev` runs as a separate `audit` job that is
+not required. A newly published advisory shows up as a red `audit` check without
+blocking unrelated work. Dependabot security updates open the PRs that fix it.
+
+**Auto-merge.** When it's enabled for the repository, a PR can be queued with
+`gh pr merge <n> --squash --auto` (into `dev`) or `--merge --auto` (into `uat` and
+`main`), and it merges once `check` passes.
+
+**Lockfiles on Windows.** Running `npm install` on Windows can drop optional
+dependencies that only Linux needs (for example `@emnapi/*` under sharp), and CI's
+`npm ci` then fails with "Missing: ... from lock file". Regenerate the lockfile on
+Linux (WSL with Node, a container, or a Dependabot PR) when that happens.
 
 The Promotion Policy workflow permits:
 

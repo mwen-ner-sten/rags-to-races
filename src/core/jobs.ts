@@ -1,16 +1,16 @@
 import { channel } from "./channels";
 import { DISCIPLINES, getVenue } from "./content/events";
-import { REPAIR_COST, REPAIR_MINUTES, REPAIR_TECHNIQUE, STRIP_YIELD, getPart } from "./content/parts";
+import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
 import { CREW_BY_ID, crewLevel } from "./content/team";
 import { getVehicle } from "./content/vehicles";
-import { reservedPartUids, vehicleBusy } from "./garage";
+import { benchCost, conditionAfter, fillFromDriveway, reservedPartUids, stripYield, vehicleBusy } from "./garage";
 import { countRepetition, syncHabitSlots, templateBase } from "./habits";
 import { completeHaul } from "./haul";
 import { STORY, addJournal } from "./journal";
 import { getKnowhow } from "./content/knowhow";
 import { isLearned, learn, refreshKnowhow, studyMs } from "./knowhowEngine";
-import { raceDurationMs, resolveRace } from "./race";
+import { raceDurationMs, resolveRace, rollRace, settleRace } from "./race";
 import { refreshReveals } from "./reveal";
 import { nextUid } from "./rng";
 import { hasPerk, resolveFlags } from "./rules";
@@ -32,6 +32,11 @@ function findPart(state: GameState, uid: string | undefined): PartInstance | und
   return uid ? state.run.inventory.find((p) => p.uid === uid) : undefined;
 }
 
+/** A part in the garage or waiting on the driveway (only Strip works on the driveway). */
+function findAnyPart(state: GameState, uid: string | undefined): PartInstance | undefined {
+  return findPart(state, uid) ?? (uid ? state.run.driveway.find((p) => p.uid === uid) : undefined);
+}
+
 function hasMaterials(state: GameState, cost: Partial<Record<MaterialId, number>>, mult = 1): boolean {
   return Object.entries(cost).every(([m, n]) => state.run.materials[m as MaterialId] >= (n ?? 0) * mult);
 }
@@ -40,8 +45,11 @@ function payMaterials(state: GameState, cost: Partial<Record<MaterialId, number>
   for (const [m, n] of Object.entries(cost)) state.run.materials[m as MaterialId] -= (n ?? 0) * mult;
 }
 
-/** Why a job can't start right now (null = it can). Does not check lane availability. */
-export function jobBlocker(state: GameState, spec: JobSpec): string | null {
+/**
+ * Why a job can't start right now (null = it can). Does not check lane availability.
+ * `signUp` checks a race as a sign-up for the next run, so an event that isn't running yet is fine.
+ */
+export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): string | null {
   switch (spec.kind) {
     case "haul": {
       const place = PLACE_BY_ID[spec.placeId];
@@ -56,6 +64,7 @@ export function jobBlocker(state: GameState, spec: JobSpec): string | null {
     case "clean": {
       const part = findPart(state, spec.partUid);
       if (!part) return "Pick a part";
+      if (getPart(part.partId).category === "junk") return "Junk can only be stripped or sold";
       if (part.condition > 1) return "Only Scrap or Rusted parts need cleaning";
       return null;
     }
@@ -68,7 +77,7 @@ export function jobBlocker(state: GameState, spec: JobSpec): string | null {
       if (!isLearned(state, tech)) return `Needs ${getKnowhow(tech).name}`;
       const okFrom = hasPerk(state, "shade_tree") ? part.condition === 1 || part.condition === 2 : part.condition === 2;
       if (!okFrom) return hasPerk(state, "shade_tree") ? "Only Rusted or Worn parts" : "Only Worn parts can be repaired";
-      if (!hasMaterials(state, REPAIR_COST[def.category])) return "Not enough materials";
+      if (!hasMaterials(state, benchCost(part, "repair"))) return "Not enough materials";
       return null;
     }
     case "restore": {
@@ -78,11 +87,11 @@ export function jobBlocker(state: GameState, spec: JobSpec): string | null {
       if (part.condition !== 3) return "Only Good parts can be restored";
       const def = getPart(part.partId);
       if (def.category === "junk") return "Junk can only be stripped or sold";
-      if (!hasMaterials(state, REPAIR_COST[def.category], 2)) return "Not enough materials";
+      if (!hasMaterials(state, benchCost(part, "restore"))) return "Not enough materials";
       return null;
     }
     case "strip":
-      return findPart(state, spec.partUid) ? null : "Pick a part";
+      return findAnyPart(state, spec.partUid) ? null : "Pick a part";
     case "study": {
       const def = getKnowhow(spec.knowhowId);
       if (def.kind === "place") return "Places are opened with Rep";
@@ -112,7 +121,7 @@ export function jobBlocker(state: GameState, spec: JobSpec): string | null {
     case "race": {
       const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
       if (!vehicle) return "Pick a vehicle";
-      if (vehicleBusy(state, vehicle.uid)) return "That vehicle is already racing";
+      if (vehicleBusy(state, vehicle.uid) && !signUp) return "That vehicle is already racing";
       if (!state.run.venuesOpen.includes(spec.venueId)) return "That venue isn't open to you yet";
       const venue = getVenue(spec.venueId);
       const tier = getVehicle(vehicle.vehicleId).tier;
@@ -128,7 +137,7 @@ export function jobBlocker(state: GameState, spec: JobSpec): string | null {
         if (spec.call2 !== calls.a.id && spec.call2 !== calls.b.id) return "That call isn't part of this discipline";
       }
       const wait = nextEventInMs(state, spec.venueId, spec.event);
-      if (wait > 0) return `Next ${spec.event} in ${formatWait(wait)}`;
+      if (wait > 0 && !signUp) return `Next ${spec.event} in ${formatWait(wait)}`;
       if (state.run.cash < venue.events[spec.event].entry) return `Entry is ${venue.events[spec.event].entry} Scrap Bucks`;
       return null;
     }
@@ -178,7 +187,7 @@ export function baseDuration(state: GameState, spec: JobSpec): number {
       break;
     }
     case "strip": {
-      const part = findPart(state, spec.partUid);
+      const part = findAnyPart(state, spec.partUid);
       ms = (30_000 * (1 + (part ? tierFactor(part) : 0))) / channel(state, "bench_speed");
       break;
     }
@@ -208,14 +217,10 @@ function payForStart(state: GameState, spec: JobSpec): Paid {
     case "haul":
       paid.cash = getPlace(spec.placeId).fee;
       break;
-    case "repair": {
-      const part = findPart(state, spec.partUid);
-      if (part) paid.materials = scaled(REPAIR_COST[getPart(part.partId).category], 1);
-      break;
-    }
+    case "repair":
     case "restore": {
       const part = findPart(state, spec.partUid);
-      if (part) paid.materials = scaled(REPAIR_COST[getPart(part.partId).category], 2);
+      if (part) paid.materials = benchCost(part, spec.kind);
       break;
     }
     case "assemble": {
@@ -258,6 +263,7 @@ function startJob(state: GameState, lane: LaneId, spec: JobSpec, looping: boolea
   const duration = baseDuration(state, spec);
   const paid = payForStart(state, spec);
   const job: ActiveJob = { id: nextUid(state, "j"), lane, spec, duration, remaining: duration, looping, template, paid };
+  if (spec.kind === "race") job.race = rollRace(state, spec) ?? undefined;
   state.run.jobs.push(job);
   return job;
 }
@@ -424,32 +430,23 @@ function completeJob(state: GameState, job: ActiveJob): void {
     case "haul":
       completeHaul(state, spec, crewId);
       break;
-    case "clean": {
+    case "clean":
+    case "repair":
+    case "restore": {
       const part = findPart(state, spec.partUid);
-      if (part && part.condition <= 1) {
-        part.condition = (part.condition + 1) as Condition;
-        addJournal(state, "first_clean", STORY.first_clean);
+      const next = part ? conditionAfter(spec.kind, part.condition) : null;
+      if (part && next !== null) {
+        part.condition = next;
+        if (spec.kind === "clean") addJournal(state, "first_clean", STORY.first_clean);
       }
       break;
     }
-    case "repair": {
-      const part = findPart(state, spec.partUid);
-      if (part && part.condition <= 2) part.condition = 3;
-      break;
-    }
-    case "restore": {
-      const part = findPart(state, spec.partUid);
-      if (part && part.condition === 3) part.condition = 4;
-      break;
-    }
     case "strip": {
-      const part = findPart(state, spec.partUid);
+      const part = findAnyPart(state, spec.partUid);
       if (part) {
         state.run.inventory = state.run.inventory.filter((p) => p.uid !== part.uid);
-        const yieldMult = part.condition === 0 ? 0.5 : 1;
-        for (const [m, n] of Object.entries(STRIP_YIELD[getPart(part.partId).category])) {
-          state.run.materials[m as MaterialId] += Math.max(1, Math.round((n ?? 0) * yieldMult));
-        }
+        state.run.driveway = state.run.driveway.filter((p) => p.uid !== part.uid);
+        for (const [m, n] of Object.entries(stripYield(part))) state.run.materials[m as MaterialId] += n ?? 0;
       }
       break;
     }
@@ -460,7 +457,8 @@ function completeJob(state: GameState, job: ActiveJob): void {
       completeAssembly(state, spec);
       break;
     case "race":
-      resolveRace(state, spec);
+      if (job.race) settleRace(state, spec, job.race);
+      else resolveRace(state, spec);
       break;
   }
   countRepetition(state, spec);
@@ -497,8 +495,10 @@ function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "asse
 
 /** Validates and queues a job. Returns an error message or null. */
 export function enqueue(state: GameState, spec: JobSpec): string | null {
-  const blocker = jobBlocker(state, spec);
+  const blocker = jobBlocker(state, spec, true);
   if (blocker) return blocker;
+  if (spec.kind === "race" && signedUp(state, spec.venueId, spec.event)) return "You're already signed up for that";
+  if (spec.kind === "race" && state.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid)) return "That vehicle is already signed up for a race";
   if ("partUid" in spec && spec.partUid && reservedPartUids(state).has(spec.partUid)) return "That part is already being worked on";
   if (spec.kind === "assemble") {
     const reserved = reservedPartUids(state);
@@ -514,6 +514,12 @@ export function enqueue(state: GameState, spec: JobSpec): string | null {
   }
   afterChange(state);
   return null;
+}
+
+/** True when a race at this event is queued or running. */
+export function signedUp(state: GameState, venueId: string, event: EventKind): boolean {
+  const same = (spec: JobSpec) => spec.kind === "race" && spec.venueId === venueId && spec.event === event;
+  return state.run.queue.some(same) || state.run.jobs.some((j) => same(j.spec));
 }
 
 /** Cancels a running job and refunds its start cost; parts stay where they are. */
@@ -613,6 +619,7 @@ export function advance(state: GameState, ms: number, away = false): void {
 
 /** Re-evaluates triggers after anything changes. */
 export function afterChange(state: GameState): void {
+  fillFromDriveway(state);
   refreshKnowhow(state);
   syncHabitSlots(state);
   refreshReveals(state);

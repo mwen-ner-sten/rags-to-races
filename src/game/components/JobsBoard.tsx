@@ -2,16 +2,30 @@
 
 import { channel } from "@/core/channels";
 import { habitThreshold, templateBase } from "@/core/habits";
-import { jobRate } from "@/core/jobs";
+import { jobRate, nextEventInMs } from "@/core/jobs";
 import type { ActiveJob, GameState } from "@/core/types";
 import { duration } from "../format";
 import { habitLabel, habitOptions, jobLabel, laneLabel } from "../labels";
 import { useGame } from "../store";
+import { RaceLive } from "./race/RaceLive";
+import { Tips } from "./Tips";
 
 function JobRow({ game, job }: { game: GameState; job: ActiveJob }) {
   const dispatch = useGame((s) => s.dispatch);
   const done = 1 - job.remaining / job.duration;
   const rate = jobRate(game, job, false);
+  if (job.spec.kind === "race" && job.race) {
+    return (
+      <li className="job job-race">
+        <div className="job-head">
+          <span className="job-lane">{laneLabel(job.lane)}</span>
+          <span className="job-name">{jobLabel(game, job.spec)}</span>
+          <span className="job-time num">{duration(job.remaining / Math.max(rate, 0.01))}</span>
+        </div>
+        <RaceLive game={game} job={job} compact />
+      </li>
+    );
+  }
   return (
     <li className="job">
       <div className="job-head">
@@ -70,6 +84,7 @@ export function JobsBoard() {
   return (
     <aside className="board" aria-label="Work in progress">
       <h2 className="board-title">On the go</h2>
+      <Tips ids={["queue", "habits"]} />
       {!handsBusy && game.run.queue.length === 0 && <p className="notice">Your hands are free. Queue a trip or a study before you step away.</p>}
       <ul className="jobs">
         {game.run.jobs.map((job) => (
@@ -87,7 +102,12 @@ export function JobsBoard() {
             <ol>
               {game.run.queue.map((spec, i) => (
                 <li key={i}>
-                  <span>{jobLabel(game, spec)}</span>
+                  <span>
+                    {jobLabel(game, spec)}
+                    {spec.kind === "race" && nextEventInMs(game, spec.venueId, spec.event) > 0 && (
+                      <span className="muted num"> · next run in {duration(nextEventInMs(game, spec.venueId, spec.event))}</span>
+                    )}
+                  </span>
                   <button className="link-btn" onClick={() => dispatch({ type: "cancelQueued", index: i })}>
                     Remove
                   </button>

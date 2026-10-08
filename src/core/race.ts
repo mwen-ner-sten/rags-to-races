@@ -7,7 +7,8 @@ import { vehicleStats } from "./garage";
 import { STORY, addJournal, logSeason } from "./journal";
 import { nextUid, rand, randNormal } from "./rng";
 import { hasPerk, resolveFlags } from "./rules";
-import type { Condition, DisciplineId, EventKind, GameState, JobSpec, RaceResult, Vehicle } from "./types";
+import { LAPS, buildBeats } from "./raceBeats";
+import type { Condition, DisciplineId, EventKind, GameState, JobSpec, RaceResult, RaceRoll, Vehicle } from "./types";
 
 type RaceSpec = Extract<JobSpec, { kind: "race" }>;
 
@@ -102,7 +103,7 @@ function normalCdf(x: number): number {
   return x > 0 ? 1 - p : p;
 }
 
-function weakestSlot(vehicle: Vehicle): string | null {
+export function weakestSlot(vehicle: Vehicle): string | null {
   let worst: { slot: string; key: number } | null = null;
   for (const [slot, part] of Object.entries(vehicle.parts)) {
     if (!part) continue;
@@ -112,40 +113,13 @@ function weakestSlot(vehicle: Vehicle): string | null {
   return worst?.slot ?? null;
 }
 
-const CONDITION_LOSS_TEXT: Record<string, string> = {
-  engine: "engine started to fade",
-  wheel: "tyres gave up the grip",
-  frame: "frame flexed through the corners",
-  fuel: "fuel line sputtered",
-  electronics: "wiring cut out for a second",
-  drivetrain: "chain jumped a tooth",
-  exhaust: "exhaust came loose and dragged",
-  body: "a door flew open",
-};
-
-function buildBeats(position: number, fieldSize: number, dnf: boolean, weak: string | null, startPos: number, duration: number): RaceResult["beats"] {
-  const beats: RaceResult["beats"] = [];
-  beats.push({ at: 0, text: `Green flag. You start P${startPos}.`, position: startPos });
-  const mid = dnf ? startPos : Math.round((startPos + position) / 2);
-  if (mid !== startPos) beats.push({ at: duration * 0.35, text: mid < startPos ? `You work past ${startPos - mid} car${startPos - mid > 1 ? "s" : ""}.` : `You lose touch with the pack.`, position: mid });
-  if (weak && (dnf || position > mid)) beats.push({ at: duration * 0.6, text: `Your ${CONDITION_LOSS_TEXT[weak] ?? "car faded"}.`, position: dnf ? mid : Math.min(fieldSize, mid + 1) });
-  if (dnf) beats.push({ at: duration * 0.75, text: "Smoke, then silence. You coast into the infield. DNF.", position: fieldSize });
-  else beats.push({ at: duration, text: position === 1 ? "Checkered flag. You win!" : `Checkered flag. P${position}.`, position });
-  return beats;
-}
-
-export interface ResolveOutcome {
-  result: RaceResult;
-}
-
-/** Resolves a race at job completion. Mutates state. */
-export function resolveRace(state: GameState, spec: RaceSpec): RaceResult | null {
+/** Rolls a race's outcome at the green flag (it's revealed live and paid out at the flag). */
+export function rollRace(state: GameState, spec: RaceSpec): RaceRoll | null {
   const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
   if (!vehicle) return null;
   const flags = resolveFlags(state);
   const discipline = DISCIPLINES[flags.discipline];
-  const venue = getVenue(spec.venueId);
-  const event = venue.events[spec.event];
+  const event = getVenue(spec.venueId).events[spec.event];
 
   const dnfP = dnfChance(state, vehicle, spec.venueId, spec.event, spec.call, spec.call2);
   const dnf = rand(state) < dnfP;
@@ -157,27 +131,52 @@ export function resolveRace(state: GameState, spec: RaceSpec): RaceResult | null
   const reference = ahead.length > 0 ? Math.min(...ahead) : Math.max(...opps);
   const margin = (me - reference) / Math.max(1, event.field);
 
-  // Wear.
   const weak = weakestSlot(vehicle);
   const wearMult = (spec.call === "push" ? 1.6 : 0.6) * discipline.wearMult * channel(state, "wear") * (spec.call2 === "pit" ? 0.5 : spec.call2 === "stay" ? 1.3 : 1);
-  const wear: RaceResult["wear"] = [];
-  for (const [slot, part] of Object.entries(vehicle.parts)) {
-    if (!part) continue;
+  const wearSteps: Record<string, number> = {};
+  for (const slot of Object.keys(vehicle.parts)) {
     let steps = rand(state) < 0.08 * wearMult ? 1 : 0;
     if (dnf && slot === weak) steps += 1;
     if (dnf && slot === "engine") steps += discipline.engineBlowSteps;
-    if (steps > 0 && part.condition > 0) {
-      const from = part.condition;
-      part.condition = Math.max(0, part.condition - steps) as Condition;
-      wear.push({ slot, from, to: part.condition });
-    }
+    if (steps > 0) wearSteps[slot] = steps;
+  }
+
+  const startPos = 2 + Math.floor(rand(state) * (fieldSize - 1));
+  const rivalBeaten = spec.event === "feature" && !dnf && me > opps[0];
+  const laps = flags.discipline === "drag" ? 1 : LAPS[spec.event];
+  const durationMs = event.durationMs * discipline.durationMult;
+  const rivalId = spec.event === "feature" ? getVenue(spec.venueId).rival : undefined;
+  const beats = buildBeats(state, { startPos, position, fieldSize, dnf, weakSlot: weak, durationMs, laps, rivalId, rivalBeaten });
+  return { position, fieldSize, dnf, margin, rivalBeaten, weakestSlot: weak, wearSteps, laps, durationMs, beats };
+}
+
+/** Rolls and settles in one go (used when a race has no pre-rolled outcome). */
+export function resolveRace(state: GameState, spec: RaceSpec): RaceResult | null {
+  const roll = rollRace(state, spec);
+  return roll ? settleRace(state, spec, roll) : null;
+}
+
+/** Pays out a race at the flag: wear, prize, Rep, ladder and history. Mutates state. */
+export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll): RaceResult | null {
+  const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
+  if (!vehicle) return null;
+  const venue = getVenue(spec.venueId);
+  const event = venue.events[spec.event];
+  const { position, fieldSize, dnf, rivalBeaten } = roll;
+
+  const wear: RaceResult["wear"] = [];
+  for (const [slot, steps] of Object.entries(roll.wearSteps)) {
+    const part = vehicle.parts[slot];
+    if (!part || part.condition === 0) continue;
+    const from = part.condition;
+    part.condition = Math.max(0, part.condition - steps) as Condition;
+    wear.push({ slot, from, to: part.condition });
   }
 
   // Money and Rep.
   const isFirstWin = position === 1 && !state.run.races.some((r) => r.position === 1 && !r.dnf);
   let prize = dnf ? 0 : event.prize * (PRIZE_SHARE[position - 1] ?? 0) * channel(state, "race_payout");
   if (isFirstWin && hasPerk(state, "early_bird")) prize *= 3;
-  const rivalBeaten = spec.event === "feature" && !dnf && me > opps[0];
   if (rivalBeaten && hasPerk(state, "grudge_match")) prize *= 2;
   prize = Math.round(prize);
   const repShare = [1, 0.5, 0.25][position - 1] ?? 0;
@@ -185,7 +184,6 @@ export function resolveRace(state: GameState, spec: RaceSpec): RaceResult | null
   state.run.cash += prize;
   state.run.rep += rep;
 
-  const startPos = 2 + Math.floor(rand(state) * (fieldSize - 1));
   const result: RaceResult = {
     id: nextUid(state, "r"),
     seasonMs: state.run.seasonMs,
@@ -199,9 +197,11 @@ export function resolveRace(state: GameState, spec: RaceSpec): RaceResult | null
     prize,
     rep,
     rival: spec.event === "feature" ? { id: venue.rival, beaten: rivalBeaten } : undefined,
-    margin,
-    weakestSlot: weak,
-    beats: buildBeats(position, fieldSize, dnf, weak, startPos, event.durationMs * discipline.durationMult),
+    margin: roll.margin,
+    weakestSlot: roll.weakestSlot,
+    beats: roll.beats,
+    laps: roll.laps,
+    durationMs: roll.durationMs,
     wear,
   };
   state.run.races.push(result);
