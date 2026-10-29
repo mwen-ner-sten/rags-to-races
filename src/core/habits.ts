@@ -5,7 +5,7 @@ import { resolveFlags } from "./rules";
 import type { GameState, JobSpec, JobTemplate } from "./types";
 
 /** Base repetitions before a job becomes a Habit (haul thresholds live on places). */
-const BASE_THRESHOLD: Record<string, number> = { clean: 20, repair: 15, strip: 25, race: 10 };
+const BASE_THRESHOLD: Record<string, number> = { clean: 20, repair: 15, strip: 25, race: 12 };
 
 /** Template used for counting repetitions ("haul:curb", "clean", "race"). */
 export function baseTemplate(spec: JobSpec): JobTemplate | null {

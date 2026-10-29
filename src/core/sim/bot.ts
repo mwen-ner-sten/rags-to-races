@@ -163,9 +163,11 @@ export class Bot {
   }
 
   private study(): void {
+    // Queue what's available, keeping a slot free for races and hauls.
     for (const id of [...this.state.run.available]) {
-      if (this.state.run.queue.some((q) => q.kind === "study")) return;
-      if (this.state.run.jobs.some((j) => j.spec.kind === "study")) return;
+      if (this.queueFree() <= 1) return;
+      if (this.state.run.queue.some((q) => q.kind === "study" && q.knowhowId === id)) continue;
+      if (this.state.run.jobs.some((j) => j.spec.kind === "study" && j.spec.knowhowId === id)) continue;
       this.enqueue({ kind: "study", knowhowId: id });
     }
   }
