@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHANNELS, SOURCES, channel } from "../channels";
 import { createGame, must } from "../index";
-import { benchCost, conditionAfter, saleQuote, stripYield } from "../garage";
+import { benchCost, conditionAfter, nowhereToStow, saleQuote, stripYield } from "../garage";
 import { jobBlocker } from "../jobs";
 import { knowhowTier } from "../knowhowEngine";
 import type { GameState, PartInstance } from "../types";
@@ -81,10 +81,30 @@ describe("habits", () => {
   it("turns 25 curb trips into a Habit that runs in a slot", () => {
     let s = haul(createGame("h1"), "curb", 25);
     expect(s.run.habitsKnown).toContain("haul:curb");
+    s = structuredClone(s);
+    s.run.inventory = [];
+    s.run.driveway = [];
     s = must(s, { type: "setHabit", slot: 0, template: "haul:curb" });
     const before = s.meta.codex.places.curb;
+    s = must(s, { type: "advance", ms: 5 * 60_000 });
+    expect(s.meta.codex.places.curb - before).toBeGreaterThan(5);
+  });
+
+  it("pauses a haul Habit while the garage and driveway are full, instead of hauling into the driveway rule", () => {
+    let s = haul(createGame("h1b"), "curb", 25);
+    s = must(s, { type: "setHabit", slot: 0, template: "haul:curb" });
     s = must(s, { type: "advance", ms: 60 * 60_000 });
-    expect(s.meta.codex.places.curb - before).toBeGreaterThan(50);
+    expect(nowhereToStow(s)).toBe(true);
+    const before = s.meta.codex.places.curb;
+    const overflows = s.run.stats.drivewayOverflows ?? 0;
+    s = must(s, { type: "advance", ms: 60 * 60_000 });
+    expect(s.meta.codex.places.curb - before).toBeLessThanOrEqual(1);
+    expect((s.run.stats.drivewayOverflows ?? 0) - overflows).toBeLessThanOrEqual(1);
+    // Making room starts it again.
+    s = structuredClone(s);
+    s.run.driveway = [];
+    s = must(s, { type: "advance", ms: 60_000 });
+    expect(s.meta.codex.places.curb).toBeGreaterThan(before);
   });
 
   it("Hand Tools Only (a data-only modifier) turns Habits off", () => {
