@@ -4,7 +4,7 @@ import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
 import { CREW_BY_ID, crewLevel } from "./content/team";
 import { getVehicle } from "./content/vehicles";
-import { benchCost, conditionAfter, fillFromDriveway, reservedPartUids, stripYield, vehicleBusy } from "./garage";
+import { benchCost, conditionAfter, fillFromDriveway, nowhereToStow, reservedPartUids, stripYield, vehicleBusy } from "./garage";
 import { countRepetition, syncHabitSlots, templateBase } from "./habits";
 import { completeHaul } from "./haul";
 import { STORY, addJournal } from "./journal";
@@ -293,6 +293,8 @@ export function resolveTemplate(state: GameState, template: string): JobSpec | n
   if (base.startsWith("haul:")) {
     const [, placeId, focus] = template.split(":");
     const spec: JobSpec = { kind: "haul", placeId, focus: (focus as never) || undefined };
+    // A haul Habit waits rather than hauling straight into the driveway rule.
+    if (nowhereToStow(state)) return null;
     return jobBlocker(state, spec) ? null : spec;
   }
   if (base === "clean") {

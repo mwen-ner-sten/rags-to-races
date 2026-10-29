@@ -48,7 +48,7 @@ export class Bot {
   totalMs = 0;
   seasonStartMs = 0;
   log: MilestoneLog = {};
-  seasonLog: { season: number; ms: number; lp: number; policy: RunPolicy; venues: string[] }[] = [];
+  seasonLog: { season: number; ms: number; lp: number; policy: RunPolicy; venues: string[]; hauls: number; cash: number }[] = [];
   errors: string[] = [];
 
   constructor(state: GameState, public policy: RunPolicy = "sprint", public discipline: DisciplineId = "dirt") {
@@ -246,7 +246,8 @@ export class Bot {
   private benchWork(): void {
     const s = this.state;
     const benches = Math.floor(channel(s, "benches"));
-    let busy = s.run.jobs.filter((j) => isBenchKind(j.spec)).length + s.run.queue.filter((q) => isBenchKind(q)).length;
+    // Habit-lane jobs loop on their own; queued work takes the next free bench ahead of them.
+    let busy = s.run.jobs.filter((j) => isBenchKind(j.spec) && !j.lane.startsWith("habit:")).length + s.run.queue.filter((q) => isBenchKind(q)).length;
     const reserved = reservedPartUids(s);
     const candidates = s.run.inventory.filter((p) => !reserved.has(p.uid));
     const tryJob = (spec: JobSpec) => {
@@ -328,19 +329,24 @@ export class Bot {
     }
   }
 
-  private bestRace(): { vehicle: Vehicle; venueId: string; event: EventKind; p: number } | null {
+  /** `signUp` also considers events that aren't running yet (a sign-up for the next one). */
+  private bestRace(signUp = false, skip: (vehicleUid: string, venueId: string, event: EventKind) => boolean = () => false): { vehicle: Vehicle; venueId: string; event: EventKind; p: number } | null {
     const s = this.state;
     let best: { vehicle: Vehicle; venueId: string; event: EventKind; p: number; value: number } | null = null;
     for (const vehicle of s.run.vehicles) {
       if (vehicleBusy(s, vehicle.uid)) continue;
       for (const venueId of s.run.venuesOpen) {
         for (const event of EVENT_KINDS) {
+          if (skip(vehicle.uid, venueId, event)) continue;
           const spec: JobSpec = { kind: "race", vehicleUid: vehicle.uid, venueId, event, call: "push" };
-          if (jobBlocker(s, spec)) continue;
+          if (jobBlocker(s, spec, signUp)) continue;
           const p = winChance(s, vehicle, venueId, event, "push");
           const venue = getVenue(venueId);
           const tierIndex = VENUES.findIndex((v) => v.id === venueId);
-          const progress = event === "feature" && s.run.featureWins[venueId] === undefined ? 3 : 1;
+          // Climbing an unfinished ladder (its top rung, or the unwon Feature) is worth more than prize money.
+          const ladder = s.run.ladder[venueId] ?? [];
+          const climbing = s.run.featureWins[venueId] === undefined && ladder[ladder.length - 1] === event;
+          const progress = climbing || (event === "feature" && s.run.featureWins[venueId] === undefined) ? 3 : 1;
           const value = (p * venue.events[event].prize - venue.events[event].entry * 0.5) * progress + p * (tierIndex + 1) * 10 * progress;
           if (p < 0.08 && !(event !== "feature" && !(s.run.ladder[venueId] ?? []).includes(event === "sprint" ? "heat" : "feature"))) continue;
           if (!best || value > best.value) best = { vehicle, venueId, event, p, value };
@@ -380,7 +386,14 @@ export class Bot {
       if (!s.run.jobs.some((j) => j.lane === "hands") && s.run.queue.every((q) => isBenchKind(q))) this.enqueue({ kind: "haul", placeId: place });
       return;
     }
-    // Leaving: queue the longest useful trips.
+    // Leaving: sign up for upcoming races (one per vehicle, leaving a slot for a haul),
+    // then queue the longest useful trips.
+    while (this.queueFree() > 1) {
+      const queued = this.state.run.queue;
+      const pick = this.bestRace(true, (uid, venueId, event) => queued.some((q) => q.kind === "race" && (q.vehicleUid === uid || (q.venueId === venueId && q.event === event))));
+      if (!pick || pick.p < 0.15) break;
+      if (!this.enqueue({ kind: "race", vehicleUid: pick.vehicle.uid, venueId: pick.venueId, event: pick.event, call: pick.p > 0.6 ? "nurse" : "push" })) break;
+    }
     while (this.queueFree() > 0) {
       const p = this.bestHaulPlace(true);
       if (!p || !this.enqueue({ kind: "haul", placeId: p })) break;
@@ -394,13 +407,14 @@ export class Bot {
     const wanted: string[] = [];
     const bestHaul = ["haul:long_haul", "haul:junkyard", "haul:yards", "haul:curb"].find((t) => known.includes(t) && !jobBlocker(s, { kind: "haul", placeId: t.slice(5) }));
     if (bestHaul) wanted.push(bestHaul);
+    // Racing earns the Rep everything else waits on, so it outranks bench habits.
+    if (known.includes("race")) {
+      const pick = this.bestRace(true);
+      if (pick && pick.p > 0.25) wanted.push(`race:${pick.vehicle.uid}:${pick.venueId}:${pick.event}:nurse`);
+    }
     if (known.includes("clean")) wanted.push("clean");
     if (known.includes("repair")) wanted.push("repair");
     if (known.includes("strip")) wanted.push("strip");
-    if (known.includes("race")) {
-      const pick = this.bestRace();
-      if (pick && pick.p > 0.25) wanted.push(`race:${pick.vehicle.uid}:${pick.venueId}:${pick.event}:nurse`);
-    }
     s.run.habitSlots.forEach((current, i) => {
       const want = wanted[i] ?? null;
       if (want && current !== want) this.act({ type: "setHabit", slot: i, template: want });
@@ -469,7 +483,10 @@ export class Bot {
       if (!s.era || s.era.seasonIndex >= 3) {
         const choices: TeamChoices = { ...this.chooseScrap(2 + (s.team.upgrades.legacy_ledger ?? 0), 5, true, s.scrap.lp), discipline: s.era?.discipline === "dirt" ? "drag" : this.discipline, teamName: "Bot Racing", colors: ["#c33", "#eee"] };
         this.recordSeason();
-        if (this.act({ type: "reset", layer: "team", choices })) return;
+        if (this.act({ type: "reset", layer: "team", choices })) {
+          this.mark("team_founded");
+          return;
+        }
       }
     }
     if (!fairWon) return;
@@ -481,7 +498,8 @@ export class Bot {
   }
 
   private recordSeason(): void {
-    this.seasonLog.push({ season: this.state.meta.seasonsPlayed + 1, ms: this.state.run.seasonMs, lp: LAYERS.scrap.award(this.state), policy: this.policy, venues: Object.keys(this.state.run.featureWins) });
+    const run = this.state.run;
+    this.seasonLog.push({ season: this.state.meta.seasonsPlayed + 1, ms: run.seasonMs, lp: LAYERS.scrap.award(this.state), policy: this.policy, venues: Object.keys(run.featureWins), hauls: run.stats.hauls ?? 0, cash: run.cash });
   }
 }
 
