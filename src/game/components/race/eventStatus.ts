@@ -1,4 +1,4 @@
-import { jobBlocker, nextEventInMs } from "@/core/jobs";
+import { jobBlocker, nextEventInMs, rungPending } from "@/core/jobs";
 import { raceDurationMs } from "@/core/race";
 import type { EventKind, GameState, JobSpec } from "@/core/types";
 import { capitalize, duration } from "../../format";
@@ -28,21 +28,25 @@ function handsLater(game: GameState): string | null {
 /** Where an event stands for this vehicle, and what pressing its button would do. */
 export function eventStatus(game: GameState, spec: RaceSpec): EventStatus {
   const { venueId, event } = spec;
-  if (!(game.run.ladder[venueId] ?? []).includes(event)) {
-    const prev = PREVIOUS[event];
+  const prev = PREVIOUS[event];
+  // Signed up for the earlier rung: you can sign up for this one too, and it runs if that one podiums.
+  const pending = rungPending(game, venueId, event);
+  if (!(game.run.ladder[venueId] ?? []).includes(event) && !pending) {
     return { kind: "locked", text: prev ? `Finish top 3 in the ${capitalize(prev)} to open this` : "Not open yet" };
   }
+  const ifPodium = pending && prev ? ` if you finish top 3 in the ${capitalize(prev)}` : "";
   if (game.run.jobs.some((j) => isEvent(j.spec, venueId, event))) return { kind: "running", text: "On the track now" };
   const queueIndex = game.run.queue.findIndex((q) => isEvent(q, venueId, event));
   const wait = nextEventInMs(game, venueId, event);
   if (queueIndex >= 0) {
     const later = handsLater(game);
-    const text = wait > 0 ? `Signed up · starts in ${duration(wait)}` : later ? `Signed up · starts ${later}` : "Signed up · starting";
+    const text = ifPodium ? `Signed up · runs${ifPodium}` : wait > 0 ? `Signed up · starts in ${duration(wait)}` : later ? `Signed up · starts ${later}` : "Signed up · starting";
     return { kind: "signed_up", text, queueIndex };
   }
-  if (game.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid)) return { kind: "blocked", text: "This vehicle is signed up for another race" };
+  if (game.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid) && !pending) return { kind: "blocked", text: "This vehicle is signed up for another race" };
   const blocker = jobBlocker(game, spec, true);
   if (blocker) return { kind: "blocked", text: blocker };
+  if (ifPodium) return { kind: "ready", action: "Sign up", detail: `runs${ifPodium}` };
   if (wait > 0) return { kind: "ready", action: "Sign up", detail: `next run in ${duration(wait)}` };
   const later = handsLater(game);
   return { kind: "ready", action: "Enter", detail: later ? `starts ${later}` : `starts now · ${duration(raceDurationMs(game, spec))} race` };

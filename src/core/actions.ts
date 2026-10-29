@@ -11,7 +11,7 @@ import { TOOL_BY_ID } from "./content/tools";
 import { SHELL_PRICE, getVehicle } from "./content/vehicles";
 import { DRIVEWAY_RULES, counterPrice, fillFromDriveway, reservedPartUids, sellParts, swapOutCandidate, vehicleBusy } from "./garage";
 import { templateBase } from "./habits";
-import { advance, afterChange, cancelJob, dispatch, dropJob, enqueue } from "./jobs";
+import { advance, afterChange, cancelJob, dispatch, dropJob, dropOrphanSignUps, enqueue } from "./jobs";
 import { canOpenPlace, isLearned, learn, placeRepCost } from "./knowhowEngine";
 import { crewCap, performReset, type LayerId, type ScrapChoices, type TeamChoices } from "./layers";
 import { nextUid } from "./rng";
@@ -57,6 +57,7 @@ export function apply(state: GameState, action: Action): ActionResult {
   const next = structuredClone(state);
   const error = applyMut(next, action);
   if (error) return { state, error };
+  dropOrphanSignUps(next);
   fillFromDriveway(next);
   return { state: next, error: null };
 }

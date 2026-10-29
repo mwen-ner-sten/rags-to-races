@@ -1,5 +1,5 @@
 import { channel } from "./channels";
-import { DISCIPLINES, getVenue } from "./content/events";
+import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
 import { CREW_BY_ID, crewLevel } from "./content/team";
@@ -126,7 +126,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       const venue = getVenue(spec.venueId);
       const tier = getVehicle(vehicle.vehicleId).tier;
       if (tier < venue.tiers[0] || tier > venue.tiers[1]) return `Tier ${venue.tiers[0]}–${venue.tiers[1]} vehicles only`;
-      if (!(state.run.ladder[spec.venueId] ?? []).includes(spec.event)) return "Podium the previous event first";
+      if (!(state.run.ladder[spec.venueId] ?? []).includes(spec.event) && !(signUp && rungPending(state, spec.venueId, spec.event))) return "Podium the previous event first";
       const missing = getVehicle(vehicle.vehicleId).slots.find((sl) => sl.required && !vehicle.parts[sl.slot]);
       if (missing) return `The ${missing.slot} is out on the bench`;
       if (Object.values(vehicle.parts).some((p) => p && p.condition === 0)) return "A part is scrap. Fix it before racing";
@@ -141,6 +141,35 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       if (state.run.cash < venue.events[spec.event].entry) return `Entry is ${venue.events[spec.event].entry} Scrap Bucks`;
       return null;
     }
+  }
+}
+
+const PREVIOUS_RUNG: Record<EventKind, EventKind | null> = { sprint: null, heat: "sprint", feature: "heat" };
+
+/**
+ * True when this event is the next rung up from the ladder's top and a race for that rung is
+ * already queued or running, so you can sign up for the whole night ahead. The sign-up only runs
+ * if that race podiums; otherwise it's dropped (see `dropOrphanSignUps`).
+ */
+export function rungPending(state: GameState, venueId: string, event: EventKind): boolean {
+  const prev = PREVIOUS_RUNG[event];
+  if (!prev) return false;
+  const ladder = state.run.ladder[venueId] ?? [];
+  if (ladder.includes(event)) return false;
+  if (!ladder.includes(prev) && !rungPending(state, venueId, prev)) return false;
+  return signedUp(state, venueId, prev);
+}
+
+/** Drops queued races waiting on a rung that can no longer open (the race before it missed the podium). */
+export function dropOrphanSignUps(state: GameState): void {
+  const orphans = state.run.queue.filter((q) => q.kind === "race" && !(state.run.ladder[q.venueId] ?? []).includes(q.event) && !rungPending(state, q.venueId, q.event));
+  if (orphans.length === 0) return;
+  state.run.queue = state.run.queue.filter((q) => !orphans.includes(q));
+  for (const q of orphans) {
+    if (q.kind !== "race") continue;
+    const prev = PREVIOUS_RUNG[q.event];
+    const venue = venueName(q.venueId, resolveFlags(state).discipline);
+    state.run.notices.push(`Missed the podium in the ${prev}, so your ${q.event} sign-up at ${venue} was dropped. No entry fee was charged.`);
   }
 }
 
@@ -500,7 +529,7 @@ export function enqueue(state: GameState, spec: JobSpec): string | null {
   const blocker = jobBlocker(state, spec, true);
   if (blocker) return blocker;
   if (spec.kind === "race" && signedUp(state, spec.venueId, spec.event)) return "You're already signed up for that";
-  if (spec.kind === "race" && state.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid)) return "That vehicle is already signed up for a race";
+  if (spec.kind === "race" && state.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid) && !rungPending(state, spec.venueId, spec.event)) return "That vehicle is already signed up for a race";
   if ("partUid" in spec && spec.partUid && reservedPartUids(state).has(spec.partUid)) return "That part is already being worked on";
   if (spec.kind === "assemble") {
     const reserved = reservedPartUids(state);
@@ -621,6 +650,7 @@ export function advance(state: GameState, ms: number, away = false): void {
 
 /** Re-evaluates triggers after anything changes. */
 export function afterChange(state: GameState): void {
+  dropOrphanSignUps(state);
   fillFromDriveway(state);
   refreshKnowhow(state);
   syncHabitSlots(state);
