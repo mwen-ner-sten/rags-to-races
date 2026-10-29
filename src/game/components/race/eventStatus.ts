@@ -30,7 +30,7 @@ export function eventStatus(game: GameState, spec: RaceSpec): EventStatus {
   const { venueId, event } = spec;
   const prev = PREVIOUS[event];
   // Signed up for the earlier rung: you can sign up for this one too, and it runs if that one podiums.
-  const pending = rungPending(game, venueId, event);
+  const pending = rungPending(game, venueId, event, spec.vehicleUid);
   if (!(game.run.ladder[venueId] ?? []).includes(event) && !pending) {
     return { kind: "locked", text: prev ? `Finish top 3 in the ${capitalize(prev)} to open this` : "Not open yet" };
   }

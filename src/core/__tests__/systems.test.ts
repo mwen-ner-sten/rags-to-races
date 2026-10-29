@@ -74,6 +74,15 @@ describe("races", () => {
     expect(s.run.queue.some((q) => q.kind === "race" && q.event === "heat")).toBe(false);
   });
 
+  it("a race night belongs to one vehicle: another car can't take the next rung on its Sprint", () => {
+    let { s } = withVehicle("night-own", "push_mower", { engine: "engine_lawn", wheel: "wheel_basic" }, 4);
+    s.run.cash = 50;
+    s.run.vehicles.push({ ...structuredClone(s.run.vehicles[0]), uid: "v2" });
+    s = must(s, { type: "enqueue", spec: { kind: "haul", placeId: "curb" } });
+    s = must(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } });
+    expect(apply(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v2", venueId: "backyard", event: "heat", call: "nurse" } }).error).toMatch(/Podium the previous event/);
+  });
+
   it("drops a next-rung sign-up, without charging entry, when the race before it can't run", () => {
     let { s } = withVehicle("night-drop", "push_mower", { engine: "engine_lawn", wheel: "wheel_basic" }, 4);
     s.run.cash = 50;
