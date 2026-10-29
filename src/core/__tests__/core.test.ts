@@ -3,6 +3,7 @@ import { CHANNELS, SOURCES, channel } from "../channels";
 import { createGame, must } from "../index";
 import { benchCost, conditionAfter, nowhereToStow, saleQuote, stripYield } from "../garage";
 import { jobBlocker } from "../jobs";
+import { getKnowhow } from "../content/knowhow";
 import { knowhowTier } from "../knowhowEngine";
 import type { GameState, PartInstance } from "../types";
 
@@ -141,7 +142,7 @@ describe("know-how tiers", () => {
     s.run.cash = 500;
     s = must(s, { type: "buyTool", toolId: "welder" });
     s = must(s, { type: "enqueue", spec: { kind: "study", knowhowId: "tech:welding" } });
-    expect(s.run.jobs[0].duration).toBe(60 * 60_000);
+    expect(s.run.jobs[0].duration).toBe(getKnowhow("tech:welding").studyMs / 4);
   });
 });
 
