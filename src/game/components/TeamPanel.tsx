@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DISCIPLINES } from "@/core/content/events";
 import { CREW_BY_ID, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
+import { crewBusyRacing } from "@/core/crew";
 import type { CrewMember, GameState } from "@/core/types";
 import { num } from "../format";
 import { habitLabel, habitOptions } from "../labels";
@@ -20,6 +21,7 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
   const def = CREW_BY_ID[member.id];
   if (!def) return null;
   const level = crewLevel(member.jobsDone);
+  const racing = crewBusyRacing(game, member.id);
   const onChange = (value: string) => {
     const assignment: CrewMember["assignment"] = value.startsWith("habit:") ? { type: "habit", template: value.slice(6) } : ({ type: value } as CrewMember["assignment"]);
     dispatch({ type: "assignCrew", crewId: member.id, assignment });
@@ -41,7 +43,7 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
         </div>
         <label className="inline">
           <span>Doing</span>
-          <select value={assignmentValue(member.assignment)} onChange={(e) => onChange(e.target.value)}>
+          <select value={assignmentValue(member.assignment)} disabled={racing} onChange={(e) => onChange(e.target.value)}>
             <option value="queue">Jobs from the queue</option>
             {habitOptions(game).map((t) => (
               <option key={t} value={`habit:${t}`}>
@@ -53,7 +55,8 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
             <option value="rest">Resting</option>
           </select>
         </label>
-        <button className="link-btn" onClick={() => dispatch({ type: "dismiss", crewId: member.id })}>
+        {racing && <p className="why">On the track. Assignments can change after the race.</p>}
+        <button className="link-btn" disabled={racing} onClick={() => dispatch({ type: "dismiss", crewId: member.id })}>
           Let go
         </button>
       </div>

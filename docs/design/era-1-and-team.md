@@ -295,8 +295,9 @@ No kind dominates. The pacing simulator must show:
 
 - **Owned perks** persist in meta. **Loadout slots** limit how many are
   active in a Season.
-- Slots start at 2. You gain a slot at your first Regional Feature win, your
-  first State Feature win, and after 5 dares completed.
+- Slots start at 2. You gain an era slot at your first Regional Feature win
+  and your first State Feature win. Completing all four Dares grants one
+  permanent slot; it survives Team Resets because Dares are once-ever achievements.
 - Choosing a sprint loadout versus a push loadout is a real decision every
   reset.
 - LP buys perks and their ranks (1–3, with costs rising per rank).

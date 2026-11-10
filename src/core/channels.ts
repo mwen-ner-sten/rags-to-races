@@ -12,6 +12,7 @@ import { HARDSHIP_BY_ID, masteryValue } from "./content/modifiers";
 import { TOOL_BY_ID } from "./content/tools";
 import { VEHICLE_BY_ID } from "./content/vehicles";
 import { perkRank, teamUpgrade } from "./rules";
+import { allDaresCompleted } from "./perks";
 import type { GameState } from "./types";
 
 export type ChannelId =
@@ -105,7 +106,7 @@ export const SOURCES: readonly SourceDef[] = [
   { id: "mastery:rust_everything", label: "Mastery: Rust Everything", channels: ["wear"], value: (s) => hardshipMastery(s, "rust_everything") },
   { id: "mastery:dirt", label: "Mastery: Dirt Oval", channels: ["wear"], value: (s) => disciplineMastery(s, "dirt") },
   { id: "mastery:drag", label: "Mastery: Drag", channels: ["rebuild_speed"], value: (s) => disciplineMastery(s, "drag") },
-  { id: "scrap:milestones", label: "Deep runs this era", channels: ["perk_slots"], value: (s) => ["regional", "state"].filter((v) => s.scrap.milestonesThisEra.includes(v)).length + (s.scrap.daresThisEra >= 5 ? 1 : 0) },
+  { id: "scrap:milestones", label: "Deep runs and Dare completion", channels: ["perk_slots"], value: (s) => ["regional", "state"].filter((v) => s.scrap.milestonesThisEra.includes(v)).length + (allDaresCompleted(s) ? 1 : 0) },
   { id: "team:legacy_ledger", label: "Legacy Ledger", channels: ["perk_slots"], value: (s) => teamUpgrade(s, "legacy_ledger") },
 ];
 

@@ -8,6 +8,8 @@ import { STORY, addJournal, logSeason } from "./journal";
 import { nextUid, rand, randNormal } from "./rng";
 import { hasPerk, resolveFlags } from "./rules";
 import { LAPS, buildBeats } from "./raceBeats";
+import { creditCrew, crewEfficiency, racingCrewIds } from "./crew";
+import { refreshPerkUnlocks } from "./perks";
 import type { Condition, DisciplineId, EventKind, GameState, JobSpec, RaceResult, RaceRoll, Vehicle } from "./types";
 
 type RaceSpec = Extract<JobSpec, { kind: "race" }>;
@@ -35,13 +37,14 @@ function crewside(state: GameState): Crewside {
     const def = CREW_BY_ID[member.id];
     if (!def) continue;
     const levelBonus = 1 + 0.1 * (crewLevel(member.jobsDone) - 1);
+    const efficiency = crewEfficiency(member);
     if (member.assignment.type === "driver" && def.driverPerf) {
-      out.driverPerf += def.driverPerf * levelBonus;
+      out.driverPerf += def.driverPerf * levelBonus * efficiency;
       out.pushDnfMult *= def.pushDnfMult ?? 1;
       out.nurseScoreMult *= def.nurseScoreMult ?? 1;
       out.secondCall = true;
     }
-    if (member.assignment.type === "spotter" && def.dnfMult) out.dnfMult *= Math.max(0.3, def.dnfMult / levelBonus);
+    if (member.assignment.type === "spotter" && def.dnfMult) out.dnfMult *= 1 - (1 - Math.max(0.3, def.dnfMult / levelBonus)) * efficiency;
   }
   return out;
 }
@@ -147,7 +150,9 @@ export function rollRace(state: GameState, spec: RaceSpec): RaceRoll | null {
   const durationMs = event.durationMs * discipline.durationMult;
   const rivalId = spec.event === "feature" ? getVenue(spec.venueId).rival : undefined;
   const beats = buildBeats(state, { startPos, position, fieldSize, dnf, weakSlot: weak, durationMs, laps, rivalId, rivalBeaten });
-  return { position, fieldSize, dnf, margin, rivalBeaten, weakestSlot: weak, wearSteps, laps, durationMs, beats };
+  return { position, fieldSize, dnf, margin, rivalBeaten, weakestSlot: weak,
+    weakestPart: weak && vehicle.parts[weak] ? { ...vehicle.parts[weak] } : undefined,
+    crewIds: racingCrewIds(state), wearSteps, laps, durationMs, beats };
 }
 
 /** Rolls and settles in one go (used when a race has no pre-rolled outcome). */
@@ -199,6 +204,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll): Ra
     rival: spec.event === "feature" ? { id: venue.rival, beaten: rivalBeaten } : undefined,
     margin: roll.margin,
     weakestSlot: roll.weakestSlot,
+    weakestPart: roll.weakestPart,
     beats: roll.beats,
     laps: roll.laps,
     durationMs: roll.durationMs,
@@ -213,6 +219,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll): Ra
   if (!dnf) vehicle.history.bestFinish = vehicle.history.bestFinish === null ? position : Math.min(vehicle.history.bestFinish, position);
 
   state.run.practice[spec.venueId] = (state.run.practice[spec.venueId] ?? 0) + channel(state, "practice");
+  creditCrew(state, roll.crewIds ?? racingCrewIds(state));
   if (position > 1 || dnf) state.run.stats.racesLost[spec.venueId] = (state.run.stats.racesLost[spec.venueId] ?? 0) + 1;
 
   if (result.rival) {
@@ -261,6 +268,7 @@ function onFeatureWin(state: GameState, venueId: string, vehicle: Vehicle): void
     state.meta.stateWonEver = true;
     addJournal(state, "state_win", STORY.state_win);
   }
+  refreshPerkUnlocks(state);
 }
 
 function checkFairObjectives(state: GameState): void {
@@ -284,8 +292,7 @@ function completeDare(state: GameState, dareId: string): void {
   if (state.meta.daresCompleted.includes(dareId)) return;
   state.meta.daresCompleted.push(dareId);
   state.scrap.daresThisEra += 1;
-  const perk = { packrat: "swap_meet", settle_it: "grudge_match", mower_madness: "underdog", quick_season: "early_bird" }[dareId];
-  if (perk && !state.meta.perksUnlocked.includes(perk)) state.meta.perksUnlocked.push(perk);
+  refreshPerkUnlocks(state);
   logSeason(state, `dare:${dareId}`, `Dare completed. A new perk is on the shelf.`);
 }
 

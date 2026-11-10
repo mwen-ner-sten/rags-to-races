@@ -14,6 +14,7 @@ import { raceDurationMs, resolveRace, rollRace, settleRace } from "./race";
 import { refreshReveals } from "./reveal";
 import { nextUid } from "./rng";
 import { hasPerk, resolveFlags } from "./rules";
+import { creditCrew, crewBusyRacing, crewEfficiency, racingCrewIds } from "./crew";
 import type { ActiveJob, Condition, CrewMember, EventKind, GameState, JobSpec, LaneId, MaterialId, PartInstance } from "./types";
 
 const MIN = 60_000;
@@ -263,7 +264,10 @@ function startJob(state: GameState, lane: LaneId, spec: JobSpec, looping: boolea
   const duration = baseDuration(state, spec);
   const paid = payForStart(state, spec);
   const job: ActiveJob = { id: nextUid(state, "j"), lane, spec, duration, remaining: duration, looping, template, paid };
-  if (spec.kind === "race") job.race = rollRace(state, spec) ?? undefined;
+  if (spec.kind === "race") {
+    job.race = rollRace(state, spec) ?? undefined;
+    if (job.race && lane.startsWith("crew:")) job.race.crewIds = [...new Set([...(job.race.crewIds ?? []), lane.slice(5)])];
+  }
   state.run.jobs.push(job);
   return job;
 }
@@ -414,7 +418,7 @@ export function jobRate(state: GameState, job: ActiveJob, away: boolean): number
     if (def && member) {
       rate *= def.speed[job.spec.kind] ?? 1;
       if (def.longTrip && job.spec.kind === "haul") rate *= job.duration >= def.longTrip.thresholdMs ? def.longTrip.longMult : def.longTrip.shortMult;
-      rate *= 0.6 + 0.4 * (member.morale / 100);
+      rate *= crewEfficiency(member);
       if (!def.noExperience) rate *= 1 + 0.05 * (crewLevel(member.jobsDone) - 1);
     }
   }
@@ -426,6 +430,7 @@ export function jobRate(state: GameState, job: ActiveJob, away: boolean): number
 function completeJob(state: GameState, job: ActiveJob): void {
   const spec = job.spec;
   const crewId = job.lane.startsWith("crew:") ? job.lane.slice(5) : undefined;
+  const raceCrew = spec.kind === "race" ? (job.race?.crewIds ?? racingCrewIds(state)) : [];
   switch (spec.kind) {
     case "haul":
       completeHaul(state, spec, crewId);
@@ -462,10 +467,7 @@ function completeJob(state: GameState, job: ActiveJob): void {
       break;
   }
   countRepetition(state, spec);
-  if (crewId && state.era) {
-    const member = state.era.crew.find((c) => c.id === crewId);
-    if (member) member.jobsDone += 1;
-  }
+  if (crewId && !raceCrew.includes(crewId)) creditCrew(state, [crewId]);
 }
 
 function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "assemble" }>): void {
@@ -557,19 +559,26 @@ function updateCrew(state: GameState, dt: number): void {
   if (!state.era) return;
   for (const member of state.era.crew) {
     const def = CREW_BY_ID[member.id];
-    if (state.run.seasonMs - member.windowStartMs >= MORALE_WINDOW) {
-      member.windowStartMs = state.run.seasonMs;
-      member.workedInWindowMs = 0;
-    }
-    const working = state.run.jobs.some((j) => j.lane === `crew:${member.id}`);
-    const hours = dt / HOUR;
-    if (working) {
-      member.workedInWindowMs += dt;
-      const stamina = (def?.staminaHours ?? 8) * HOUR;
-      const drain = (member.workedInWindowMs > stamina ? 6 : 1) * (def?.moraleDrainMult ?? 1);
-      member.morale = Math.max(0, member.morale - drain * hours);
-    } else {
-      member.morale = Math.min(100, member.morale + 8 * hours);
+    const working = state.run.jobs.some((j) => j.lane === `crew:${member.id}`) || crewBusyRacing(state, member.id);
+    let left = dt;
+    let at = state.run.seasonMs;
+    while (left > 0) {
+      if (at >= member.windowStartMs + MORALE_WINDOW) {
+        member.windowStartMs += Math.floor((at - member.windowStartMs) / MORALE_WINDOW) * MORALE_WINDOW;
+        member.workedInWindowMs = 0;
+      }
+      const chunk = Math.min(left, member.windowStartMs + MORALE_WINDOW - at);
+      if (working) {
+        const stamina = (def?.staminaHours ?? 8) * HOUR;
+        const normal = Math.max(0, Math.min(chunk, stamina - member.workedInWindowMs));
+        const drain = (normal + 6 * (chunk - normal)) / HOUR * (def?.moraleDrainMult ?? 1);
+        member.morale = Math.max(0, member.morale - drain);
+        member.workedInWindowMs += chunk;
+      } else {
+        member.morale = Math.min(100, member.morale + 8 * chunk / HOUR);
+      }
+      at += chunk;
+      left -= chunk;
     }
   }
 }

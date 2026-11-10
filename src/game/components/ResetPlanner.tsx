@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { DISCIPLINES } from "@/core/content/events";
 import { DARES, HARDSHIPS, PERKS, PERK_BY_ID } from "@/core/content/modifiers";
 import { CREW_BY_ID } from "@/core/content/team";
-import { LAYERS, hardshipCap, nextSeasonPerkSlots, nextSeasonTuneUpPoints, planPurchases, scrapAward, teamAward, type TeamChoices } from "@/core/layers";
+import { LAYERS, hardshipCap, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planPurchases, scrapAward, teamAward, type TeamChoices } from "@/core/layers";
+import { perkUnlocked } from "@/core/perks";
 import type { DisciplineId, GameState, SkillId } from "@/core/types";
 import { num } from "../format";
 import { useGame } from "../store";
@@ -27,7 +28,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const isTeam = layer === "team";
   const award = isTeam ? teamAward(game) : scrapAward(game);
   const lpAvailable = isTeam ? game.scrap.lp : game.scrap.lp + award;
-  const slots = isTeam ? 2 + (game.team.upgrades.legacy_ledger ?? 0) + ((game.meta.hardshipMastery.rookie_plates ?? 0) > 0 ? 1 : 0) : nextSeasonPerkSlots(game);
+  const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game);
   const points = isTeam ? 5 : nextSeasonTuneUpPoints(game);
   const teamEraNext = isTeam || game.era !== null;
 
@@ -52,7 +53,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const equipped = equip.filter((id) => (ranks[id] ?? 0) > 0);
   const spent = SKILLS.reduce((sum, s) => sum + tune[s.id], 0);
 
-  const shelf = PERKS.filter((p) => p.unlock.type === "lp" || game.meta.perksUnlocked.includes(p.id));
+  const shelf = PERKS.filter((p) => perkUnlocked(game, p));
   const locked = PERKS.filter((p) => !shelf.includes(p));
   const gate = LAYERS[layer].gate(game);
 
@@ -64,6 +65,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
 
   return (
     <div className="planner">
+      <p className="hint">Completing all {DARES.length} Dares permanently adds one perk slot, including after a Team Reset.</p>
       <div className="award">
         <span className="big num">{num(award)}</span> {isTeam ? "Team Points" : "Legacy Points"} for this {isTeam ? "team" : "Season"}
       </div>

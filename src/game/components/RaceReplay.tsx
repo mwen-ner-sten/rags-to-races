@@ -53,8 +53,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
 
   const shown = shownFrom(game, race);
   const finished = t >= 1;
-  const vehicle = game.run.vehicles.find((v) => v.uid === race.vehicleUid);
-  const weakPart = race.weakestSlot ? vehicle?.parts[race.weakestSlot] : undefined;
+  const weakPart = race.weakestPart;
   const rival = race.rival ? RIVAL_BY_ID[race.rival.id] : null;
 
   return (
@@ -72,9 +71,9 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
           </p>
           {!race.dnf && race.position > 1 && <p className="muted">You were {Math.abs(race.margin * 100).toFixed(1)}% off the car ahead.</p>}
           {race.wear.length > 0 && <p>Wear: {race.wear.map((w) => `${w.slot} ${conditionName(w.from)} → ${conditionName(w.to)}`).join(", ")}</p>}
-          {weakPart && (
+          {race.weakestSlot && (
             <p className="tip">
-              Weakest link: the {race.weakestSlot}, a {conditionName(weakPart.condition)} {getPart(weakPart.partId).name}.{" "}
+              Weakest link at race entry: the {race.weakestSlot}{weakPart ? `, a ${conditionName(weakPart.condition)} ${getPart(weakPart.partId).name}` : ""}.{" "}
               <button
                 className="link-btn"
                 onClick={() => {

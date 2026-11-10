@@ -109,12 +109,16 @@ export interface RaceBeat {
 
 /** Everything about a race decided at the green flag. */
 export interface RaceRoll {
+  /** Crew committed at race entry, including any crew member running the job. Older saves omit this. */
+  crewIds?: string[];
   position: number;
   fieldSize: number;
   dnf: boolean;
   margin: number;
   rivalBeaten: boolean;
   weakestSlot: string | null;
+  /** The part at race entry, so a later swap cannot rewrite the debrief. */
+  weakestPart?: PartInstance;
   /** Condition steps each installed slot loses, applied at the flag. */
   wearSteps: Record<string, number>;
   laps: number;
@@ -137,6 +141,7 @@ export interface RaceResult {
   rival?: { id: string; beaten: boolean };
   margin: number;
   weakestSlot: string | null;
+  weakestPart?: PartInstance;
   beats: RaceBeat[];
   /** Laps run and race length (older saves don't have them). */
   laps?: number;

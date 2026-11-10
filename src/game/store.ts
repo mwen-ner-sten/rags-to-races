@@ -2,11 +2,13 @@
 
 import { create } from "zustand";
 import { apply, createGame, type Action } from "@/core";
-import { upgradeSave } from "@/core/state";
+import { decodeSave } from "./save";
+export { isGameState } from "./save";
 import type { GameState, RaceResult } from "@/core/types";
 
 const SAVE_KEY = "rags-to-races:v2";
 const BACKUP_KEY = "rags-to-races:v2:backup";
+const RECOVERY_KEY = "rags-to-races:v2:unreadable";
 const OFFLINE_CAP_MS = 48 * 3_600_000;
 /** Gaps longer than this count as being away (above the ~60 s timer throttling of hidden tabs). */
 const AWAY_THRESHOLD_MS = 5 * 60_000;
@@ -33,13 +35,16 @@ interface Store {
   finished: RaceResult | null;
   away: AwaySummary | null;
   lastTick: number;
+  /** Protect an unreadable original when browser storage could not keep a backup. */
+  saveBlocked: boolean;
   dispatch: (action: Action) => boolean;
   load: () => void;
   tick: () => void;
   save: () => void;
-  reset: () => void;
+  reset: () => boolean;
   importSave: (text: string) => string | null;
   exportSave: () => string;
+  exportBackup: () => string;
   clearError: () => void;
   closeReplay: () => void;
   clearFinished: () => void;
@@ -52,28 +57,14 @@ interface SaveFile {
   game: GameState;
 }
 
-const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
-
-/** Structural check of a loaded save: enough to render without crashing. */
-export function isGameState(value: unknown): value is GameState {
-  if (!isObject(value)) return false;
-  const g = value as Partial<GameState>;
-  if (g.version !== 1 || typeof g.seed !== "string" || typeof g.rng !== "number" || typeof g.uid !== "number") return false;
-  const { meta, run, scrap, team, config } = g;
-  if (!isObject(meta) || !isObject(run) || !isObject(scrap) || !isObject(team) || !isObject(config)) return false;
-  if (!isObject(meta.codex) || !Array.isArray(meta.journal) || !Array.isArray(meta.hallOfFame) || !isObject(meta.perks)) return false;
-  if (!Array.isArray(run.inventory) || !Array.isArray(run.vehicles) || !Array.isArray(run.jobs) || !Array.isArray(run.queue) || !Array.isArray(run.races)) return false;
-  if (typeof run.cash !== "number" || typeof run.seasonMs !== "number" || !isObject(run.materials) || !Array.isArray(run.revealed)) return false;
-  if (!Array.isArray(config.perks) || !isObject(config.tuneUp) || !Array.isArray(config.hardships)) return false;
-  return typeof scrap.lp === "number" && typeof team.tp === "number";
-}
-
-function backupRaw(raw: string | null): void {
-  if (!raw) return;
+function backupRaw(raw: string | null): boolean {
+  if (!raw) return true;
   try {
-    window.localStorage.setItem(BACKUP_KEY, raw);
+    // A corrupt primary must never replace the last readable backup.
+    window.localStorage.setItem(decodeSave(raw) ? BACKUP_KEY : RECOVERY_KEY, raw);
+    return true;
   } catch {
-    // Storage full or blocked: nothing more we can do here.
+    return false;
   }
 }
 
@@ -102,6 +93,7 @@ export const useGame = create<Store>((set, get) => ({
   finished: null,
   away: null,
   lastTick: 0,
+  saveBlocked: false,
 
   dispatch: (action) => {
     const { game } = get();
@@ -112,7 +104,7 @@ export const useGame = create<Store>((set, get) => ({
       set({ error: result.error });
       return false;
     }
-    set({ game: result.state, error: null });
+    set({ game: result.state, error: action.type === "advance" ? get().error : null });
     const latest = result.state.run.races[result.state.run.races.length - 1];
     // A race you entered by hand is announced; Habit races just land in the results list.
     if (latest && latest.id !== before && action.type === "advance" && !action.away && !isHabitRace(game, latest)) set({ finished: latest });
@@ -123,22 +115,26 @@ export const useGame = create<Store>((set, get) => ({
     let game: GameState | null = null;
     let savedAt = Date.now();
     let raw: string | null = null;
+    let storageUnavailable = false;
     try {
       raw = window.localStorage.getItem(SAVE_KEY);
       if (raw) {
-        const file = JSON.parse(raw) as SaveFile;
-        if (isGameState(file.game)) {
-          game = upgradeSave(file.game);
-          savedAt = typeof file.savedAt === "number" ? file.savedAt : Date.now();
+        const file = decodeSave(raw);
+        if (file) {
+          game = file.game;
+          savedAt = file.savedAt;
         }
       }
     } catch {
       game = null;
+      storageUnavailable = true;
     }
     if (!game) {
       // Never overwrite an unreadable save without keeping a copy.
-      if (raw) backupRaw(raw);
-      set({ game: createGame(), lastTick: Date.now(), error: raw ? "Your save couldn't be read, so a new game started. The old save is kept as a backup in this browser." : null });
+      const kept = !storageUnavailable && backupRaw(raw);
+      set({ game: createGame(), lastTick: Date.now(), replay: null, finished: null, away: null, saveBlocked: !kept,
+        error: !kept ? "Browser storage is unavailable. Automatic saving is paused to protect your original save. Export a copy in Settings."
+          : raw ? "Your save couldn't be read, so a new game started. Export the old save with Export browser backup in Settings." : null });
       get().save();
       return;
     }
@@ -146,9 +142,9 @@ export const useGame = create<Store>((set, get) => ({
     if (gap > AWAY_THRESHOLD_MS) {
       const ms = Math.min(gap, OFFLINE_CAP_MS);
       const result = apply(game, { type: "advance", ms, away: true });
-      set({ game: result.state, away: summarize(game, result.state, ms, gap > OFFLINE_CAP_MS), lastTick: Date.now() });
+      set({ game: result.state, away: summarize(game, result.state, ms, gap > OFFLINE_CAP_MS), lastTick: Date.now(), saveBlocked: false, error: null, replay: null, finished: null });
     } else {
-      set({ game, lastTick: Date.now() });
+      set({ game, lastTick: Date.now(), saveBlocked: false, error: null, away: null, replay: null, finished: null });
     }
     get().save();
   },
@@ -170,8 +166,8 @@ export const useGame = create<Store>((set, get) => ({
   },
 
   save: () => {
-    const { game } = get();
-    if (!game) return;
+    const { game, saveBlocked } = get();
+    if (!game || saveBlocked) return;
     try {
       window.localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), game } satisfies SaveFile));
     } catch {
@@ -180,9 +176,16 @@ export const useGame = create<Store>((set, get) => ({
   },
 
   reset: () => {
-    backupRaw(window.localStorage.getItem(SAVE_KEY));
-    set({ game: createGame(), replay: null, finished: null, away: null, lastTick: Date.now() });
-    get().save();
+    try {
+      if (!backupRaw(window.localStorage.getItem(SAVE_KEY))) throw new Error("backup");
+      const game = createGame();
+      window.localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), game } satisfies SaveFile));
+      set({ game, replay: null, finished: null, away: null, error: null, saveBlocked: false, lastTick: Date.now() });
+      return true;
+    } catch {
+      set({ error: "Couldn't keep your previous save safely. Your current game has been kept. Export it before starting over." });
+      return false;
+    }
   },
 
   exportSave: () => {
@@ -190,17 +193,34 @@ export const useGame = create<Store>((set, get) => ({
     return game ? toBase64(JSON.stringify({ savedAt: Date.now(), game })) : "";
   },
 
-  importSave: (text) => {
+  exportBackup: () => {
     try {
-      const file = JSON.parse(fromBase64(text.trim())) as SaveFile;
-      if (!isGameState(file.game)) return "That doesn't look like a Rags to Races save.";
-      backupRaw(window.localStorage.getItem(SAVE_KEY));
-      set({ game: file.game, lastTick: Date.now(), replay: null, finished: null, away: null });
-      get().save();
-      return null;
+      const raw = window.localStorage.getItem(BACKUP_KEY) ?? window.localStorage.getItem(RECOVERY_KEY)
+        ?? (get().saveBlocked ? window.localStorage.getItem(SAVE_KEY) : null);
+      return raw ? toBase64(raw) : "";
+    } catch {
+      set({ error: "Couldn't read the browser backup. Browser storage may be blocked." });
+      return "";
+    }
+  },
+
+  importSave: (text) => {
+    let file: SaveFile | null;
+    try {
+      file = decodeSave(fromBase64(text.trim()));
     } catch {
       return "That doesn't look like a Rags to Races save.";
     }
+    if (!file) return "That doesn't look like a Rags to Races save.";
+    try {
+      if (!backupRaw(window.localStorage.getItem(SAVE_KEY))) return "Couldn't back up your current save. Your current game has been kept.";
+      // Persist before changing the running game, so storage failures cannot replace it in memory.
+      window.localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), game: file.game } satisfies SaveFile));
+    } catch {
+      return "Couldn't save the imported game to this browser. Your current game has been kept.";
+    }
+    set({ game: file.game, lastTick: Date.now(), replay: null, finished: null, away: null, error: null, saveBlocked: false });
+    return null;
   },
 
   clearError: () => set({ error: null }),

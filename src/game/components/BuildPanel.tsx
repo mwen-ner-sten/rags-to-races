@@ -14,6 +14,7 @@ import { conditionName, num } from "../format";
 import { vehicleSprite } from "../sprites";
 import { useGame } from "../store";
 import { Tips } from "./Tips";
+import { SwapMeet } from "./SwapMeet";
 
 function score(game: GameState, part: PartInstance): number {
   const def = getPart(part.partId);
@@ -254,6 +255,7 @@ export function BuildPanel() {
         </section>
       )}
       {game.run.revealed.includes("tools") && <PartsCounter game={game} />}
+      <SwapMeet game={game} />
     </>
   );
 }

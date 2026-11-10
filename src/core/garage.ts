@@ -83,6 +83,7 @@ export function sellParts(state: GameState, parts: PartInstance[]): number {
   state.run.inventory = state.run.inventory.filter((p) => !uids.has(p.uid));
   state.run.driveway = state.run.driveway.filter((p) => !uids.has(p.uid));
   state.run.cash += earned;
+  state.run.stats.partsSold += parts.length;
   return earned;
 }
 
