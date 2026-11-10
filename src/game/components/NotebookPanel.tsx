@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { RIVALS } from "@/core/content/events";
 import { KNOWHOW } from "@/core/content/knowhow";
 import { PARTS } from "@/core/content/parts";
@@ -41,9 +41,12 @@ function KnowhowList({ game }: { game: GameState }) {
               {learned ? (
                 <span className="chip win">Known</span>
               ) : available ? (
-                <button className="btn small primary" disabled={!!blocker} onClick={() => dispatch({ type: "enqueue", spec: { kind: "study", knowhowId: k.id } })}>
-                  Study · {duration(studyMs(game, k.id))}
-                </button>
+                <div className="row-action">
+                  <button className="btn small primary" disabled={!!blocker} onClick={() => dispatch({ type: "enqueue", spec: { kind: "study", knowhowId: k.id } })}>
+                    Study · {duration(studyMs(game, k.id))}
+                  </button>
+                  {blocker && <span className="why">{blocker}</span>}
+                </div>
               ) : null}
             </li>
           );
@@ -113,6 +116,7 @@ function Rivals({ game }: { game: GameState }) {
         return (
           <li key={r.id}>
             <strong>{r.name}</strong> <span className="muted">{r.line}</span>
+            <p className="blurb">{r.style}</p>
             <div className="num">{rec ? `${rec.wins} beaten · ${rec.losses} lost` : "Not met yet"}</div>
           </li>
         );
@@ -145,13 +149,21 @@ export function NotebookPanel() {
   const game = useGame((s) => s.game);
   const [tab, setTab] = useState<(typeof SECTIONS)[number]>("Journal");
   if (!game) return null;
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (step === 0) return;
+    e.preventDefault();
+    const next = SECTIONS[(SECTIONS.indexOf(tab) + step + SECTIONS.length) % SECTIONS.length];
+    setTab(next);
+    document.getElementById(`nb-tab-${next}`)?.focus();
+  };
   return (
     <section className="section" aria-labelledby="notebook-h">
       <h2 id="notebook-h">Notebook</h2>
       <Tips ids={["codex", "knowhow"]} />
-      <div className="subtabs" role="tablist">
+      <div className="subtabs" role="tablist" aria-label="Notebook sections" onKeyDown={onTabKey}>
         {SECTIONS.map((s) => (
-          <button key={s} role="tab" id={`nb-tab-${s}`} aria-controls="nb-panel" aria-selected={tab === s} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>
+          <button key={s} role="tab" id={`nb-tab-${s}`} aria-controls="nb-panel" aria-selected={tab === s} tabIndex={tab === s ? 0 : -1} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>
             {s}
           </button>
         ))}

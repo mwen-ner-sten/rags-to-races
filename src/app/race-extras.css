@@ -1,0 +1,186 @@
+/* Styles for this feature area. Use only tokens from globals.css; never hardcode a colour. */
+
+/* ── Venue character, demand and rival ─────────────────────────────────── */
+
+.venue-info {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.venue-info p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.venue-character {
+  color: var(--ink-2);
+  font-style: italic;
+}
+
+.demand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.demand-chip {
+  font-size: 0.72rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.demand-more {
+  border-color: var(--ok);
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.demand-less {
+  border-style: dashed;
+  color: var(--ink-3);
+}
+
+.venue-rival {
+  overflow-wrap: anywhere;
+}
+
+/* ── Event cards ───────────────────────────────────────────────────────── */
+
+.event-purse,
+.event-yellow {
+  margin: 0;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+/* ── Driver's call ─────────────────────────────────────────────────────── */
+
+.call2 {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.call2-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--ink-3);
+}
+
+.call2-options li {
+  padding-left: 8px;
+  border-left: 3px solid var(--line);
+}
+
+.call2-options li.on {
+  color: var(--ink);
+  border-left-color: var(--accent);
+}
+
+.call2-yellow {
+  margin: 0;
+}
+
+/* ── Results list when drag results are in it ──────────────────────────── */
+
+.results.wide li {
+  grid-template-columns: minmax(7.5em, auto) minmax(0, 1fr) auto auto;
+}
+
+.results.wide .pos {
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .results.wide li {
+    grid-template-columns: minmax(6.5em, 8.5em) minmax(0, 1fr) auto;
+  }
+}
+
+/* ── Race beats: yellow flag and a new drag round ──────────────────────── */
+
+.race-lines li.beat-caution:not(:first-child),
+.race-lines li.beat-caution:first-child {
+  color: var(--ink);
+  padding-left: 6px;
+  border-left: 4px solid var(--highlight);
+  background: color-mix(in srgb, var(--highlight) 30%, transparent);
+}
+
+.race-lines li.beat-round:not(:first-child),
+.race-lines li.beat-round:first-child {
+  color: var(--ink-2);
+  padding-top: 2px;
+  border-top: 1px dashed var(--ink-3);
+}
+
+/* The position column holds "1st of 6", so it needs more room than a bare ordinal. */
+.results li {
+  grid-template-columns: minmax(4.8em, auto) minmax(0, 1fr) auto auto;
+}
+
+.results .pos {
+  white-space: nowrap;
+}
+
+.results.wide .pos {
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .results li {
+    grid-template-columns: minmax(4.8em, auto) minmax(0, 1fr) auto;
+  }
+}
+
+/* A long "signed up, starts after…" note wraps inside its card instead of spilling out. */
+.event-action {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.event-action .chip {
+  white-space: normal;
+  min-width: 0;
+}
+
+/* Enter buttons carry a "starts after…" line that can be long: let it wrap on narrow cards. */
+.event-action .btn.act {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
+.event-action .btn.act .act-detail {
+  white-space: normal;
+}
+
+/* On a phone the venue picture sits above the text, so the event cards get the full width. */
+@media (max-width: 640px) {
+  .card.venue {
+    flex-direction: column;
+  }
+
+  .card.venue > img {
+    width: 100%;
+    height: 72px;
+    object-fit: cover;
+  }
+
+  .card.venue > .card-body {
+    width: 100%;
+    min-width: 0;
+  }
+}

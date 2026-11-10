@@ -1,8 +1,8 @@
 "use client";
 
-import { RIVAL_BY_ID, VENUES, getVenue } from "@/core/content/events";
+import { BRACKET_SPREAD, DISCIPLINES, RIVAL_BY_ID, VENUES, getVenue } from "@/core/content/events";
 import { LAPS } from "@/core/raceBeats";
-import { dnfChance, raceDurationMs, winChance } from "@/core/race";
+import { cautionChance, dnfChance, purseFactor, raceDurationMs, winChance } from "@/core/race";
 import type { EventKind, GameState, JobSpec, Vehicle } from "@/core/types";
 import { capitalize, duration, num, pct } from "../../format";
 import { useGame } from "../../store";
@@ -27,12 +27,34 @@ function oddsBand(p: number): string {
 }
 
 /** What finishing well here gets you. */
-function stakes(game: GameState, venueId: string, event: EventKind): string {
+function stakes(game: GameState, venueId: string, event: EventKind, bracket: boolean): string {
   const next = NEXT[event];
-  if (next) return `Top 3 opens the ${capitalize(next)}.`;
+  if (next) return bracket ? `${event === "sprint" ? "Win to open the Heat" : "Reach the final to open the Feature"}.` : `Top 3 opens the ${capitalize(next)}.`;
   const rival = RIVAL_BY_ID[getVenue(venueId).rival];
   const opens = VENUES.find((v) => v.opens.type === "feature" && v.opens.venueId === venueId && !game.run.venuesOpen.includes(v.id));
-  return [rival ? `Rival: ${rival.name}.` : "", opens ? `A win opens the ${opens.name}.` : ""].filter(Boolean).join(" ");
+  const invited = opens && opens.opens.type === "feature" && opens.opens.invitation && game.meta.records[venueId] === undefined;
+  const opener = !opens ? "" : invited ? `A win earns next Season's invitation to the ${opens.name}.` : `A win opens the ${opens.name}.`;
+  return [rival ? `Rival: ${rival.name}.` : "", opener].filter(Boolean).join(" ");
+}
+
+/** "1 pass", "2 rounds", "3 rounds" in a bracket; laps otherwise. */
+function runLabel(event: EventKind, bracket: boolean): string {
+  if (!bracket) return `${LAPS[event]} laps`;
+  const rounds = BRACKET_SPREAD[event].length;
+  return rounds === 1 ? "1 pass" : `${rounds} rounds`;
+}
+
+/** How much of the purse is left after the promoter trims one you keep winning (null when it's whole). */
+function purseNote(factor: number): string | null {
+  const share = Math.round(factor * 100);
+  return share >= 100 ? null : `Purse is down to ${share}%: you keep winning this one. It recovers if you race elsewhere for a while.`;
+}
+
+/** What the driver's call is worth in this event, shown only when a call is set on an oval. */
+function YellowLine({ game, event }: { game: GameState; event: EventKind }) {
+  const chance = cautionChance(game, event);
+  if (chance <= 0) return <p className="muted event-yellow">No yellow flags in a {capitalize(event)}: the driver’s call won’t matter here.</p>;
+  return <p className="muted event-yellow">Yellow flag chance: {pct(chance)}</p>;
 }
 
 export function EventCard({ game, vehicle, spec, strip }: { game: GameState; vehicle: Vehicle; spec: RaceSpec; strip: boolean }) {
@@ -41,6 +63,10 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
   const status = eventStatus(game, spec);
   const dyno = (game.team.upgrades.dyno ?? 0) > 0;
   const locked = status.kind === "locked";
+  const bracket = strip && DISCIPLINES[game.era?.discipline ?? "dirt"].format === "bracket";
+  const factor = purseFactor(game, spec.venueId, spec.event);
+  const note = purseNote(factor);
+  const showYellow = !!spec.call2 && !!game.era && !bracket;
   const p = winChance(game, vehicle, spec.venueId, spec.event, spec.call, spec.call2);
   return (
     <article className={`event-card ${status.kind}`}>
@@ -56,13 +82,13 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
         <div>
           <dt>Win</dt>
           <dd className="num">
-            {num(def.prize)} Scrap Bucks · {def.rep} Rep
+            {num(Math.round(def.prize * factor))} Scrap Bucks · {def.rep} Rep
           </dd>
         </div>
         <div>
           <dt>Race</dt>
           <dd className="num">
-            {strip ? "1 run" : `${LAPS[spec.event]} laps`} · {duration(raceDurationMs(game, spec))}
+            {runLabel(spec.event, bracket)} · {duration(raceDurationMs(game, spec))}
           </dd>
         </div>
         {dyno && !locked && (
@@ -72,7 +98,9 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
           </div>
         )}
       </dl>
-      <p className="event-stakes muted">{stakes(game, spec.venueId, spec.event)}</p>
+      {note && <p className="why event-purse">{note}</p>}
+      <p className="event-stakes muted">{stakes(game, spec.venueId, spec.event, bracket)}</p>
+      {showYellow && <YellowLine game={game} event={spec.event} />}
       <div className="event-action">
         {status.kind === "ready" && (
           <button className="btn small act primary" onClick={() => dispatch({ type: "enqueue", spec })}>

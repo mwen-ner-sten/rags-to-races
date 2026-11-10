@@ -1,0 +1,141 @@
+/* Styles for this feature area. Use only tokens from globals.css; never hardcode a colour. */
+
+/* ── Lately ──────────────────────────────────────────────────────────── */
+
+.lately {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.lately-list {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.lately-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+  align-items: baseline;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  --kind: var(--ink-3);
+}
+
+.lately-item[data-kind="haul"] { --kind: var(--ok); }
+.lately-item[data-kind="driveway"] { --kind: var(--warn); }
+.lately-item[data-kind="bench"] { --kind: var(--c4); }
+.lately-item[data-kind="habit"] { --kind: var(--accent); }
+.lately-item[data-kind="place"] { --kind: var(--c1); }
+.lately-item[data-kind="knowhow"] { --kind: var(--c2); }
+.lately-item[data-kind="build"] { --kind: var(--c4); }
+.lately-item[data-kind="race"] { --kind: var(--bad); }
+
+.lately-kind {
+  font-family: var(--font-sign);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kind);
+  border: 1px solid var(--kind);
+  border-radius: 3px;
+  padding: 0 4px;
+  min-width: 4.4em;
+  text-align: center;
+}
+
+.lately-age {
+  grid-column: 2;
+  font-size: 0.74rem;
+}
+
+.lately-count {
+  color: var(--ink-2);
+}
+
+.lately-item[data-kind="story"] .lately-text {
+  font-style: italic;
+  color: var(--ink-2);
+  padding-left: 8px;
+  border-left: 3px solid var(--highlight);
+}
+
+[data-era="curb"] .lately-item[data-kind="story"] .lately-text {
+  font-family: var(--font-hand);
+  font-style: normal;
+  font-size: 1rem;
+}
+
+/* ── Passing toasts ──────────────────────────────────────────────────── */
+
+.feed-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: grid;
+  gap: 6px;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.feed-toast {
+  pointer-events: auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--ink);
+  color: var(--paper);
+  border-left: 5px solid var(--highlight);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+  animation: feed-toast-in 220ms ease-out;
+}
+
+.feed-toast .link-btn {
+  color: var(--paper);
+  min-width: 32px;
+  min-height: 32px;
+}
+
+@keyframes feed-toast-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-toast {
+    animation: none;
+  }
+}
+
+.away-items {
+  margin: 4px 0 12px;
+  padding-left: 18px;
+  font-size: 0.9rem;
+}
+
+/* The side column sticks while the page scrolls; when it is taller than the window it scrolls on its own. */
+@media (min-width: 961px) {
+  .board {
+    max-height: calc(100dvh - var(--topbar-h, 60px) - 68px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

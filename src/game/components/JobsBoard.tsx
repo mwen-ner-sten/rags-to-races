@@ -1,12 +1,14 @@
 "use client";
 
 import { channel } from "@/core/channels";
+import { nowhereToStow } from "@/core/garage";
 import { habitThreshold, templateBase } from "@/core/habits";
 import { jobRate, nextEventInMs } from "@/core/jobs";
 import type { ActiveJob, GameState } from "@/core/types";
 import { duration } from "../format";
 import { habitLabel, habitOptions, jobLabel, laneLabel } from "../labels";
 import { useGame } from "../store";
+import { Lately } from "./Feed";
 import { RaceLive } from "./race/RaceLive";
 import { Tips } from "./Tips";
 
@@ -63,6 +65,7 @@ function HabitSlots({ game }: { game: GameState }) {
               </option>
             ))}
           </select>
+          {template?.startsWith("haul:") && nowhereToStow(game) && <span className="hint">Paused: the garage and driveway are full.</span>}
         </label>
       ))}
       {game.run.habitsKnown.length === 0 && <p className="hint">Repeat a job enough times and it becomes a Habit you can drop in a slot.</p>}
@@ -117,6 +120,7 @@ export function JobsBoard() {
           )}
         </div>
       )}
+      <Lately />
       <HabitSlots game={game} />
       {game.run.revealed.includes("habits") && nextHabits.length > 0 && (
         <div className="habit-progress">

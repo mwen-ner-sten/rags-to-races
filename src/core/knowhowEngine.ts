@@ -1,5 +1,6 @@
 import { channel } from "./channels";
 import { KNOWHOW, PLACE_REP, getKnowhow } from "./content/knowhow";
+import { pushFeed } from "./feed";
 import { addJournal } from "./journal";
 import { resolveFlags, teamUpgrade } from "./rules";
 import type { GameState } from "./types";
@@ -68,7 +69,8 @@ export function learn(state: GameState, id: string): void {
       state.run.placesOpen.push(placeId);
     }
   }
-  addJournal(state, `learned:${id}`, learnedLine(id));
+  addJournal(state, `learned:${id}`, learnedLine(id), false);
+  pushFeed(state, id.startsWith("place:") ? "place" : "knowhow", learnedLine(id));
 }
 
 function learnedLine(id: string): string {

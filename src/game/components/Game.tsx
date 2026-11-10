@@ -6,6 +6,8 @@ import { getKnowhow } from "@/core/content/knowhow";
 import { capitalize, duration, num, ordinal, seasonClock } from "../format";
 import { useGame } from "../store";
 import { BuildPanel } from "./BuildPanel";
+import { feedAge } from "./Feed";
+import { FeedToasts } from "./FeedToasts";
 import { Guide } from "./Guide";
 import { JobsBoard } from "./JobsBoard";
 import { LegacyPanel } from "./LegacyPanel";
@@ -23,7 +25,7 @@ type TabId = "trips" | "garage" | "race" | "notebook" | "legacy" | "team" | "set
 /** Tips that live on each tab; an unread one puts a dot on the tab. */
 const TAB_TIPS: Partial<Record<TabId, readonly string[]>> = {
   trips: ["places", "tools"],
-  garage: ["garage", "materials", "driveway", "build"],
+  garage: ["garage", "materials", "driveway", "build", "venues", "street_stock"],
   race: ["race"],
   notebook: ["codex", "knowhow"],
   team: ["crew"],
@@ -123,6 +125,18 @@ function AwayDialog() {
         ))}
         {away.trips === 0 && away.races === 0 && away.learned.length === 0 && <li>Nothing much. Queue long jobs before you leave.</li>}
       </ul>
+      {away.items.length > 0 && (
+        <>
+          <h3 className="label">What happened</h3>
+          <ul className="away-items">
+            {away.items.map((item) => (
+              <li key={item.id}>
+                {item.text} <span className="muted num">{feedAge(Math.max(0, away.seasonMs - item.at))}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <button className="btn primary" onClick={onClose} autoFocus>
         Back to the garage
       </button>
@@ -195,7 +209,7 @@ function Toast() {
   }, [error, clear]);
   if (!error) return null;
   return (
-    <div className="toast" role="status">
+    <div className="toast" role="alert">
       {error}
       <button className="link-btn" onClick={clear} aria-label="Dismiss">
         ×
@@ -275,6 +289,7 @@ export function Game() {
       <AwayDialog />
       <RaceFinished onRaceTab={active === "race"} />
       <Toast />
+      <FeedToasts />
     </div>
   );
 }

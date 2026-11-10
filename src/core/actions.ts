@@ -11,12 +11,14 @@ import { TOOL_BY_ID } from "./content/tools";
 import { SHELL_PRICE, getVehicle } from "./content/vehicles";
 import { DRIVEWAY_RULES, counterPrice, fillFromDriveway, reservedPartUids, sellParts, swapOutCandidate, vehicleBusy } from "./garage";
 import { templateBase } from "./habits";
-import { advance, afterChange, cancelJob, dispatch, dropJob, enqueue } from "./jobs";
+import { advance, afterChange, cancelJob, dispatch, dropJob, dropOrphanSignUps, enqueue } from "./jobs";
 import { canOpenPlace, isLearned, learn, placeRepCost } from "./knowhowEngine";
 import { crewCap, performReset, type LayerId, type ScrapChoices, type TeamChoices } from "./layers";
 import { nextUid } from "./rng";
 import { TIP_BY_ID } from "./content/tips";
 import { resolveFlags } from "./rules";
+import { perkUnlocked } from "./perks";
+import { crewBusyRacing } from "./crew";
 import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, MaterialId, TuneSetting } from "./types";
 
 export type Action =
@@ -57,6 +59,7 @@ export function apply(state: GameState, action: Action): ActionResult {
   const next = structuredClone(state);
   const error = applyMut(next, action);
   if (error) return { state, error };
+  dropOrphanSignUps(next);
   fillFromDriveway(next);
   return { state: next, error: null };
 }
@@ -86,7 +89,6 @@ function applyMut(s: GameState, action: Action): string | null {
       if (parts.length === 0) return "Nothing to sell";
       if (parts.some((p) => reserved.has(p.uid))) return "A part is being worked on";
       sellParts(s, parts);
-      s.run.stats.partsSold += parts.length;
       afterChange(s);
       return null;
     }
@@ -120,6 +122,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!tool) return "Unknown tool";
       const owned = s.run.tools[tool.id] ?? 0;
       if (owned >= tool.max) return "You already have that";
+      if (!toolStocked(s, tool.id)) return "The counter doesn't stock that for you yet";
       if (s.run.cash < tool.cash) return `Needs ${tool.cash} Scrap Bucks`;
       for (const [m, n] of Object.entries(tool.materials)) if (s.run.materials[m as MaterialId] < (n ?? 0)) return "Not enough materials";
       s.run.cash -= tool.cash;
@@ -141,7 +144,8 @@ function applyMut(s: GameState, action: Action): string | null {
     case "buyPart": {
       const blocker = counterBlocker(s, action.partId);
       if (blocker) return blocker;
-      s.run.cash -= counterPrice(action.partId);
+      s.run.cash -= counterPrice(s, action.partId);
+      s.run.stats.counterBuys = (s.run.stats.counterBuys ?? 0) + 1;
       s.run.inventory.push({ uid: nextUid(s, "p"), partId: action.partId, condition: 3, origin: "Parts counter" });
       afterChange(s);
       return null;
@@ -193,14 +197,15 @@ function applyMut(s: GameState, action: Action): string | null {
       if (action.slot < 0 || action.slot >= s.run.habitSlots.length) return "No such slot";
       if (action.template && !s.run.habitsKnown.includes(templateBase(action.template))) return "You haven't made that a Habit yet";
       s.run.habitSlots[action.slot] = action.template;
-      for (const job of s.run.jobs.filter((j) => j.lane === `habit:${action.slot}`)) dropJob(s, job.id);
+      // A new assignment takes over after an in-flight race finishes.
+      for (const job of s.run.jobs.filter((j) => j.lane === `habit:${action.slot}` && j.spec.kind !== "race")) dropJob(s, job.id);
       dispatch(s);
       return null;
     }
     case "buyPerk": {
       const perk = PERK_BY_ID[action.perkId];
       if (!perk) return "Unknown perk";
-      if (perk.unlock.type !== "lp" && !s.meta.perksUnlocked.includes(perk.id)) {
+      if (!perkUnlocked(s, perk)) {
         return perk.unlock.type === "dare" ? "Complete its dare first" : "Win that Feature first";
       }
       const rank = s.meta.perks[perk.id] ?? 0;
@@ -237,6 +242,7 @@ function applyMut(s: GameState, action: Action): string | null {
     }
     case "dismiss": {
       if (!s.era) return "No team";
+      if (crewBusyRacing(s, action.crewId)) return "They're on the track. Wait for the race to finish";
       for (const job of s.run.jobs.filter((j) => j.lane === `crew:${action.crewId}`)) dropJob(s, job.id);
       s.era.crew = s.era.crew.filter((c) => c.id !== action.crewId);
       return null;
@@ -245,6 +251,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!s.era) return "No team";
       const member = s.era.crew.find((c) => c.id === action.crewId);
       if (!member) return "Not on your crew";
+      if (crewBusyRacing(s, member.id)) return "They're on the track. Wait for the race to finish";
       const a = action.assignment;
       if (a.type === "habit" && !s.run.habitsKnown.includes(templateBase(a.template))) return "That isn't a Habit yet";
       if (a.type === "habit" && a.template === "race") return "Pick a race setup for Race Day";
@@ -256,15 +263,9 @@ function applyMut(s: GameState, action: Action): string | null {
       return null;
     }
     case "swapMeet": {
-      if (!s.config.perks.includes("swap_meet") || s.config.hardships.includes("rookie_plates")) return "Equip Swap Meet Regular";
-      if (action.partUids.length !== 3) return "Trade exactly 3 parts";
-      const reserved = reservedPartUids(s);
-      const parts = s.run.inventory.filter((p) => action.partUids.includes(p.uid));
-      if (parts.length !== 3 || parts.some((p) => reserved.has(p.uid))) return "Pick 3 free parts";
+      const blocker = swapMeetBlocker(s, action.partUids, action.partId);
+      if (blocker) return blocker;
       const target = getPart(action.partId);
-      if ((s.meta.codex.parts[target.id] ?? 0) < 1) return "You've never seen one of those";
-      const maxTier = Math.max(...parts.map((p) => getPart(p.partId).tier));
-      if (target.tier > maxTier) return "Trade at least one part of that tier";
       s.run.inventory = s.run.inventory.filter((p) => !action.partUids.includes(p.uid));
       s.run.inventory.push({ uid: nextUid(s, "p"), partId: target.id, condition: 2, origin: "Swap meet" });
       afterChange(s);
@@ -296,8 +297,15 @@ export function counterBlocker(s: GameState, partId: string): string | null {
   if ((s.meta.codex.parts[partId] ?? 0) < 1) return "You've never seen one; the counter can't order it";
   const ownedTier = Math.max(0, ...s.run.vehicles.map((v) => getVehicle(v.vehicleId).tier));
   if (def.tier > ownedTier + 1) return "Too far ahead of what you drive";
-  if (s.run.cash < counterPrice(partId)) return `Needs ${counterPrice(partId)} Scrap Bucks`;
+  if (s.run.cash < counterPrice(s, partId)) return `Needs ${counterPrice(s, partId)} Scrap Bucks`;
   return null;
+}
+
+/** Bigger shop tools only appear once you're building machines that need them. */
+export function toolStocked(s: GameState, toolId: string): boolean {
+  const minTier = TOOL_BY_ID[toolId]?.minTier ?? 0;
+  if (minTier === 0 || (s.run.tools[toolId] ?? 0) > 0) return true;
+  return s.run.vehicles.some((v) => getVehicle(v.vehicleId).tier >= minTier);
 }
 
 /** Convenience for the simulator and tests: apply or throw. */
@@ -308,3 +316,16 @@ export function must(state: GameState, action: Action): GameState {
 }
 
 export { channel };
+
+/** Shared by the trade form and reducer, including part reservations. */
+export function swapMeetBlocker(s: GameState, partUids: string[], partId: string): string | null {
+  if (!s.config.perks.includes("swap_meet") || !(s.meta.perks.swap_meet > 0) || s.config.hardships.includes("rookie_plates")) return "Equip Swap Meet Regular";
+  if (partUids.length !== 3 || new Set(partUids).size !== 3) return "Trade exactly 3 different parts";
+  const reserved = reservedPartUids(s);
+  const parts = s.run.inventory.filter((p) => partUids.includes(p.uid));
+  if (parts.length !== 3 || parts.some((p) => reserved.has(p.uid))) return "Pick 3 free parts";
+  if ((s.meta.codex.parts[partId] ?? 0) < 1) return "Pick a part you've seen before";
+  const maxTier = Math.max(...parts.map((p) => getPart(p.partId).tier));
+  if (getPart(partId).tier > maxTier) return "Trade at least one part of that tier";
+  return null;
+}

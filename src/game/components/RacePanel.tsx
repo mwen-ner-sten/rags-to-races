@@ -2,46 +2,22 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { DISCIPLINES, EVENT_KINDS, RIVAL_BY_ID, VENUES, getVenue, venueName } from "@/core/content/events";
+import { DISCIPLINES, EVENT_KINDS, VENUES, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
 import { vehicleBusy } from "@/core/garage";
-import { canOpenPlace, placeRepCost } from "@/core/knowhowEngine";
 import { practiceBonus, weakestSlot } from "@/core/race";
-import type { GameState, JobSpec, RaceCall, Vehicle } from "@/core/types";
-import { capitalize, conditionName, num, ordinal, pct } from "../format";
+import type { GameState, RaceCall, Vehicle } from "@/core/types";
+import { capitalize, conditionName, num, pct } from "../format";
 import { venueSprite } from "../sprites";
 import { useGame } from "../store";
+import { DriversCall, type Call2 } from "./race/DriversCall";
 import { EventCard } from "./race/EventCard";
 import { OnTrack } from "./race/OnTrack";
+import { finishText } from "./race/resultText";
+import { VenueInfo } from "./race/VenueInfo";
+import { DirtSignup, LockedVenue } from "./race/VenueCards";
 import { Tips } from "./Tips";
-
-type Call2 = Extract<JobSpec, { kind: "race" }>["call2"];
-
-/** The Dirt Track opens with Rep rather than a Feature win, so it gets a sign-up card once it's within reach. */
-function DirtSignup({ game }: { game: GameState }) {
-  const dispatch = useGame((s) => s.dispatch);
-  if (game.run.venuesOpen.includes("dirt") || game.run.featureWins.backyard === undefined) return null;
-  const venue = getVenue("dirt");
-  const blocker = canOpenPlace(game, "place:dirt");
-  return (
-    <article className="card venue locked">
-      <Image src={venueSprite(venue.id)} alt="" width={120} height={64} />
-      <div className="card-body">
-        <h3>{venue.name}</h3>
-        <p className="blurb">
-          {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}.
-        </p>
-        <div className="actions">
-          <button className="btn" disabled={!!blocker} title={blocker ?? undefined} onClick={() => dispatch({ type: "openPlace", knowhowId: "place:dirt" })}>
-            Sign up · {placeRepCost(game, "place:dirt")} Rep
-          </button>
-          {blocker && <span className="why">{blocker}</span>}
-        </div>
-      </div>
-    </article>
-  );
-}
 
 /** The part most likely to wear or fail, called out before you race. */
 function WeakPart({ vehicle }: { vehicle: Vehicle }) {
@@ -79,10 +55,10 @@ function Results({ game }: { game: GameState }) {
   return (
     <section className="section" aria-labelledby="results-h">
       <h2 id="results-h">Results</h2>
-      <ul className="results">
+      <ul className={`results${races.some((r) => r.rounds !== undefined) ? " wide" : ""}`}>
         {races.map((r) => (
           <li key={r.id} className={r.position === 1 && !r.dnf ? "win" : r.dnf ? "dnf" : ""}>
-            <span className="pos num">{r.dnf ? "DNF" : ordinal(r.position)}</span>
+            <span className="pos num">{finishText(r)}</span>
             <span>
               {venueName(r.venueId, discipline)} {capitalize(r.event)}
             </span>
@@ -141,24 +117,13 @@ export function RacePanel() {
               Nurse it
             </button>
           </fieldset>
-          {driver && (
-            <fieldset className="segmented">
-              <legend>Driver’s call</legend>
-              <button className={call2 === discipline.secondCall.a.id ? "on" : ""} onClick={() => setCall2(call2 === discipline.secondCall.a.id ? undefined : discipline.secondCall.a.id)}>
-                {discipline.secondCall.a.name}
-              </button>
-              <button className={call2 === discipline.secondCall.b.id ? "on" : ""} onClick={() => setCall2(call2 === discipline.secondCall.b.id ? undefined : discipline.secondCall.b.id)}>
-                {discipline.secondCall.b.name}
-              </button>
-            </fieldset>
-          )}
         </div>
         <p className="hint">Push is faster but wears parts and risks a DNF. Nurse it is safer and slower. The odds below change with your call.</p>
+        <DriversCall game={game} driver={driver} value={call2} onChange={setCall2} />
         <WeakPart vehicle={vehicle} />
         <div className="venues">
           {VENUES.filter((v) => game.run.venuesOpen.includes(v.id)).map((venue) => {
             const allowed = tier >= venue.tiers[0] && tier <= venue.tiers[1];
-            const rival = RIVAL_BY_ID[venue.rival];
             return (
               <article key={venue.id} className="card venue">
                 <Image src={venueSprite(venue.id)} alt="" width={120} height={64} />
@@ -168,8 +133,9 @@ export function RacePanel() {
                     {game.run.featureWins[venue.id] !== undefined && <span className="chip win">Feature won</span>}
                   </h3>
                   <p className="blurb">
-                    {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}. Feature rival: {rival?.name}. Practice +{pct(practiceBonus(game, venue.id))}.
+                    {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}. Practice +{pct(practiceBonus(game, venue.id))}.
                   </p>
+                  <VenueInfo game={game} venue={venue} />
                   <Ladder game={game} venueId={venue.id} />
                   {allowed ? (
                     <div className="event-grid">
@@ -185,6 +151,7 @@ export function RacePanel() {
             );
           })}
           <DirtSignup game={game} />
+          <LockedVenue game={game} />
         </div>
       </section>
       <Results game={game} />

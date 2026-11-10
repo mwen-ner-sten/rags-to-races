@@ -1,0 +1,143 @@
+/* Styles for this feature area. Use only tokens from globals.css; never hardcode a colour. */
+
+/* Channel breakdowns: a value you can open to see what feeds it. */
+.channel-why {
+  display: inline-block;
+  vertical-align: baseline;
+  max-width: 100%;
+}
+
+.channel-why summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+  cursor: pointer;
+  list-style: none;
+}
+
+.channel-why summary::-webkit-details-marker {
+  display: none;
+}
+
+.channel-why-hint {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  text-decoration: underline dotted;
+}
+
+.channel-why summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.channel-why ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  display: grid;
+  gap: 2px;
+  min-width: min(240px, 100%);
+  font-size: 0.82rem;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.channel-why li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.channel-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 4px 0 8px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+.garage-space-why {
+  margin: 4px 0 8px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+/* Garage: part hints. */
+.garage-strong {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--ok);
+}
+
+/* Build: venue selector, per-slot worth and suggestions. */
+.build-venue {
+  margin: 6px 0;
+}
+
+.build-venue .inline {
+  flex-wrap: wrap;
+}
+
+.build-venue p {
+  margin: 4px 0 0;
+}
+
+.build-slot .build-worth {
+  white-space: nowrap;
+}
+
+.build-slot .why {
+  grid-column: 2;
+}
+
+.build-better {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--paper-2);
+  border-left: 3px solid var(--ok);
+  border-radius: var(--radius);
+  color: var(--ink);
+}
+
+.build-better .btn {
+  margin-left: auto;
+}
+
+/* Reset planner. */
+.reset-locked {
+  margin-top: 8px;
+}
+
+.reset-locked summary {
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.reset-locked summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.perks.locked li {
+  opacity: 0.85;
+}
+
+.reset-rules {
+  margin: 6px 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+@media (max-width: 640px) {
+  .build-better .btn {
+    margin-left: 0;
+  }
+}

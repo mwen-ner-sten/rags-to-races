@@ -1,4 +1,6 @@
 import type { GameState, MetaState, RunConfig, RunState, ScrapLayerState, TeamLayerState } from "./types";
+import { refreshPerkUnlocks } from "./perks";
+import { racingCrewIds } from "./crew";
 
 export function initialMeta(): MetaState {
   return {
@@ -63,6 +65,7 @@ export function initialRun(): RunState {
     shellsBought: 0,
     saleSat: {},
     notices: [],
+    feed: [],
     pushOnlyRaces: true,
   };
 }
@@ -90,7 +93,17 @@ export function newGame(seed: string): GameState {
 export function upgradeSave(game: GameState): GameState {
   const next = structuredClone(game);
   next.run.driveway ??= [];
+  next.run.feed ??= [];
   // Players from before tips existed already know the systems they've seen.
   next.meta.tipsSeen ??= [...next.run.revealed];
+  for (const job of next.run.jobs) {
+    if (!job.race) continue;
+    job.race.crewIds ??= [...new Set([...racingCrewIds(next), ...(job.lane.startsWith("crew:") ? [job.lane.slice(5)] : [])])];
+    const spec = job.spec;
+    const vehicle = spec.kind === "race" ? next.run.vehicles.find((v) => v.uid === spec.vehicleUid) : undefined;
+    const part = job.race.weakestSlot ? vehicle?.parts[job.race.weakestSlot] : undefined;
+    if (!job.race.weakestPart && part) job.race.weakestPart = { ...part };
+  }
+  refreshPerkUnlocks(next);
   return next;
 }

@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { DISCIPLINES } from "@/core/content/events";
+import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
-import type { CrewMember, GameState } from "@/core/types";
+import { crewBusyRacing } from "@/core/crew";
+import type { CrewMember, DisciplineId, GameState } from "@/core/types";
 import { num } from "../format";
 import { habitLabel, habitOptions } from "../labels";
 import { useGame } from "../store";
@@ -20,6 +22,7 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
   const def = CREW_BY_ID[member.id];
   if (!def) return null;
   const level = crewLevel(member.jobsDone);
+  const racing = crewBusyRacing(game, member.id);
   const onChange = (value: string) => {
     const assignment: CrewMember["assignment"] = value.startsWith("habit:") ? { type: "habit", template: value.slice(6) } : ({ type: value } as CrewMember["assignment"]);
     dispatch({ type: "assignCrew", crewId: member.id, assignment });
@@ -41,7 +44,7 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
         </div>
         <label className="inline">
           <span>Doing</span>
-          <select value={assignmentValue(member.assignment)} onChange={(e) => onChange(e.target.value)}>
+          <select value={assignmentValue(member.assignment)} disabled={racing} onChange={(e) => onChange(e.target.value)}>
             <option value="queue">Jobs from the queue</option>
             {habitOptions(game).map((t) => (
               <option key={t} value={`habit:${t}`}>
@@ -53,11 +56,48 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
             <option value="rest">Resting</option>
           </select>
         </label>
-        <button className="link-btn" onClick={() => dispatch({ type: "dismiss", crewId: member.id })}>
+        {racing && <p className="why">On the track. Assignments can change after the race.</p>}
+        <button className="link-btn" disabled={racing} onClick={() => dispatch({ type: "dismiss", crewId: member.id })}>
           Let go
         </button>
       </div>
     </article>
+  );
+}
+
+function RulesAndMastery({ game, discipline }: { game: GameState; discipline: DisciplineId }) {
+  const disciplines = (Object.keys(DISCIPLINES) as DisciplineId[]).filter((id) => (game.meta.disciplineMastery[id] ?? 0) > 0);
+  const hardships = Object.keys(game.meta.hardshipMastery).filter((id) => (game.meta.hardshipMastery[id] ?? 0) > 0 && HARDSHIP_BY_ID[id]);
+  return (
+    <>
+      <section className="section" aria-labelledby="rules-h">
+        <h2 id="rules-h">This team&apos;s rules</h2>
+        <ul className="plain">
+          {DISCIPLINES[discipline].rules.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+      </section>
+      {(disciplines.length > 0 || hardships.length > 0) && (
+        <section className="section" aria-labelledby="mastered-h">
+          <h2 id="mastered-h">What you&apos;ve mastered</h2>
+          <ul className="plain">
+            {disciplines.map((id) => (
+              <li key={id}>
+                <strong>{DISCIPLINES[id].name}</strong> <span className="num muted">level {game.meta.disciplineMastery[id]}</span>
+                <p className="blurb">{DISCIPLINES[id].mastery.text}</p>
+              </li>
+            ))}
+            {hardships.map((id) => (
+              <li key={id}>
+                <strong>{HARDSHIP_BY_ID[id].name}</strong> <span className="num muted">done {game.meta.hardshipMastery[id]}×</span>
+                <p className="blurb">{HARDSHIP_BY_ID[id].reward}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -118,6 +158,7 @@ export function TeamPanel() {
           </div>
         </dl>
       </section>
+      <RulesAndMastery game={game} discipline={era.discipline} />
       <section className="section" aria-labelledby="crew-h">
         <Tips ids={["crew"]} />
         <h2 id="crew-h">
@@ -143,9 +184,12 @@ export function TeamPanel() {
                         {def.strength} <span className="muted">{def.quirk}</span>
                       </p>
                     </div>
-                    <button className="btn" disabled={era.crew.length >= cap} onClick={() => dispatch({ type: "hire", crewId: id })}>
-                      Hire
-                    </button>
+                    <div className="row-action">
+                      <button className="btn" disabled={era.crew.length >= cap} onClick={() => dispatch({ type: "hire", crewId: id })}>
+                        Hire
+                      </button>
+                      {era.crew.length >= cap && <span className="why">Crew is full ({era.crew.length}/{cap})</span>}
+                    </div>
                   </div>
                 );
               })}
@@ -165,9 +209,12 @@ export function TeamPanel() {
                   <strong>{u.name}</strong> {u.cost.length > 1 && <span className="muted num">{rank}/{u.cost.length}</span>}
                   <p className="blurb">{u.text}</p>
                 </div>
-                <button className="btn" disabled={cost === undefined || game.team.tp < cost} onClick={() => dispatch({ type: "buyTeamUpgrade", upgradeId: u.id })}>
-                  {cost === undefined ? "Built" : `${cost} TP`}
-                </button>
+                <div className="row-action">
+                  <button className="btn wrap" disabled={cost === undefined || game.team.tp < cost} onClick={() => dispatch({ type: "buyTeamUpgrade", upgradeId: u.id })}>
+                    {cost === undefined ? "Built" : `${cost} Team Points`}
+                  </button>
+                  {cost !== undefined && game.team.tp < cost && <span className="why">Needs {cost - game.team.tp} more Team Points</span>}
+                </div>
               </div>
             );
           })}

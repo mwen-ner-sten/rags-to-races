@@ -1,6 +1,9 @@
 import { channel } from "./channels";
 import { CONDITION_STAT, CONDITION_VALUE, REPAIR_COST, STRIP_YIELD, getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
+import { pushFeed } from "./feed";
+import { hasPerk } from "./rules";
+import { STORY, addJournal } from "./journal";
 import type { Condition, DrivewayRule, GameState, MaterialId, PartInstance, TuneSetting, Vehicle } from "./types";
 
 export interface Stats {
@@ -8,6 +11,8 @@ export interface Stats {
   handling: number;
   reliability: number;
   weight: number;
+  /** Grip of the tyres alone (what a drag strip cares about). */
+  traction: number;
 }
 
 const TUNE: Record<TuneSetting, { power: number; reliability: number }> = {
@@ -18,11 +23,12 @@ const TUNE: Record<TuneSetting, { power: number; reliability: number }> = {
 
 export function vehicleStats(vehicle: Vehicle): Stats {
   const def = getVehicle(vehicle.vehicleId);
-  const stats: Stats = { ...def.base };
-  for (const part of Object.values(vehicle.parts)) {
+  const stats: Stats = { ...def.base, traction: 0 };
+  for (const [slot, part] of Object.entries(vehicle.parts)) {
     if (!part) continue;
     const p = getPart(part.partId);
     const m = CONDITION_STAT[part.condition];
+    if (slot === "wheel") stats.traction += p.handling * m;
     stats.power += p.power * m;
     stats.handling += p.handling * m;
     stats.reliability += p.reliability * m;
@@ -83,12 +89,20 @@ export function sellParts(state: GameState, parts: PartInstance[]): number {
   state.run.inventory = state.run.inventory.filter((p) => !uids.has(p.uid));
   state.run.driveway = state.run.driveway.filter((p) => !uids.has(p.uid));
   state.run.cash += earned;
+  state.run.stats.partsSold += parts.length;
   return earned;
 }
 
-/** Parts Counter price: three times Good value. */
-export function counterPrice(partId: string): number {
-  return getPart(partId).value * 3;
+/** Parts Counter price: three times Good value (twice with the Coupon Book). */
+export function counterPrice(state: GameState, partId: string): number {
+  return getPart(partId).value * (hasPerk(state, "coupon_book") ? 2 : 3);
+}
+
+/** What one part adds to a car's stats in its current condition. */
+export function partStats(part: PartInstance): Omit<Stats, "traction"> {
+  const p = getPart(part.partId);
+  const m = CONDITION_STAT[part.condition];
+  return { power: p.power * m, handling: p.handling * m, reliability: p.reliability * m, weight: p.weight };
 }
 
 export type BenchKind = "clean" | "repair" | "restore" | "strip";
@@ -155,6 +169,11 @@ export function garageSpace(state: GameState): number {
   return Math.floor(channel(state, "storage"));
 }
 
+/** True when the garage and the driveway are both full, so a haul Habit has nowhere to put its finds. */
+export function nowhereToStow(state: GameState): boolean {
+  return state.run.inventory.length >= garageSpace(state) && state.run.driveway.length >= DRIVEWAY_SPACE;
+}
+
 /** Puts finds in the garage while there's room (best first), the rest on the driveway; clears an overflowing driveway by the rule. */
 export function stowFinds(state: GameState, finds: PartInstance[]): void {
   state.run.driveway.push(...finds);
@@ -191,10 +210,11 @@ function clearDriveway(state: GameState): void {
   const over = state.run.driveway.length - DRIVEWAY_SPACE;
   if (over <= 0) return;
   state.run.stats.drivewayOverflows = (state.run.stats.drivewayOverflows ?? 0) + 1;
+  addJournal(state, "first_overflow", STORY.first_overflow);
   const rule = drivewayRule(state);
   if (rule === "leave") {
     const left = state.run.driveway.splice(state.run.driveway.length - over, over);
-    state.run.notices.push(`Driveway full: left ${partNames(left)} at the curb.`);
+    overflowFeed(state, `Driveway full: left ${partNames(left)} at the curb.`, { left: left.length });
     return;
   }
   const reserved = reservedPartUids(state);
@@ -206,6 +226,7 @@ function clearDriveway(state: GameState): void {
   const strip = picked.filter((p) => rule === "strip" || junkFirst(p) === 0);
   const sell = picked.filter((p) => !strip.includes(p));
   const said: string[] = [];
+  const tally: Record<string, number> = {};
   if (strip.length > 0) {
     const got: Partial<Record<MaterialId, number>> = {};
     for (const part of strip) for (const [m, n] of Object.entries(stripYield(part))) got[m as MaterialId] = (got[m as MaterialId] ?? 0) + (n ?? 0);
@@ -213,7 +234,29 @@ function clearDriveway(state: GameState): void {
     const uids = new Set(strip.map((p) => p.uid));
     state.run.driveway = state.run.driveway.filter((p) => !uids.has(p.uid));
     said.push(`stripped ${partNames(strip)} for ${Object.entries(got).map(([m, n]) => `${n} ${m}`).join(", ")}`);
+    tally.stripped = strip.length;
   }
-  if (sell.length > 0) said.push(`sold ${partNames(sell)} for ${sellParts(state, sell)} Scrap Bucks`);
-  if (said.length > 0) state.run.notices.push(`Driveway full: ${said.join("; ")}.`);
+  if (sell.length > 0) {
+    const earned = sellParts(state, sell);
+    said.push(`sold ${partNames(sell)} for ${earned} Scrap Bucks`);
+    tally.sold = sell.length;
+    tally.cash = earned;
+  }
+  if (said.length > 0) overflowFeed(state, `Driveway full: ${said.join("; ")}.`, tally);
+}
+
+/** One line per overflow; a run of them folds into a single summary so it never buries everything else. */
+function overflowFeed(state: GameState, text: string, tally: Record<string, number>): void {
+  pushFeed(state, "driveway", text, {
+    key: "driveway",
+    tally,
+    merged: (t, count) => {
+      const bits = [
+        t.stripped ? `${t.stripped} stripped for materials` : "",
+        t.sold ? `${t.sold} sold for ${t.cash ?? 0} Scrap Bucks` : "",
+        t.left ? `${t.left} left at the curb` : "",
+      ].filter(Boolean);
+      return `Driveway overflowed ${count} times: ${bits.join(", ")}.`;
+    },
+  });
 }

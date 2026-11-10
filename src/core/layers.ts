@@ -5,13 +5,14 @@
  */
 import { channel } from "./channels";
 import { CREW, BASE_CREW_CAP, crewLevel } from "./content/team";
-import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID } from "./content/modifiers";
+import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, hardshipConflict } from "./content/modifiers";
 import { VENUES, getVenue } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { syncHabitSlots, templateBase } from "./habits";
 import { afterChange, dispatch } from "./jobs";
 import { STORY, addJournal } from "./journal";
 import { learn } from "./knowhowEngine";
+import { allDaresCompleted, perkUnlocked, refreshPerkUnlocks } from "./perks";
 import { nextUid } from "./rng";
 import { initialConfig, initialRun, initialScrap } from "./state";
 import type { DisciplineId, EraState, GameState, PartInstance, RunConfig, Scope, SkillId } from "./types";
@@ -86,6 +87,11 @@ export function nextSeasonPerkSlots(state: GameState): number {
   return perkSlots(state) + fresh;
 }
 
+/** Deep-run slots restart with the team; the once-ever Dare reward is permanent. */
+export function nextTeamPerkSlots(state: GameState): number {
+  return 2 + (state.team.upgrades.legacy_ledger ?? 0) + ((state.meta.hardshipMastery.rookie_plates ?? 0) > 0 ? 1 : 0) + (allDaresCompleted(state) ? 1 : 0);
+}
+
 /** Tune-up points available after a Scrap Reset. */
 export function nextSeasonTuneUpPoints(state: GameState): number {
   return state.scrap.tuneUpPoints + firstEverMilestones(state).length + (state.scrap.resets === 0 && !state.era ? 5 : 0);
@@ -103,7 +109,7 @@ export function planPurchases(state: GameState, buy: string[], lpAvailable: numb
   for (const id of buy) {
     const perk = PERK_BY_ID[id];
     if (!perk) return `Unknown perk ${id}`;
-    if (perk.unlock.type !== "lp" && !state.meta.perksUnlocked.includes(id)) return `${perk.name} isn't on the shelf yet`;
+    if (!perkUnlocked(state, perk)) return `${perk.name} isn't on the shelf yet`;
     const rank = ranks[id] ?? 0;
     if (rank >= perk.maxRank) return `${perk.name} is already at max rank`;
     const cost = perk.cost[rank];
@@ -137,7 +143,8 @@ function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: nu
   if (choices.hardships.length > 0 && !teamEra) return "Hardships open up once you found a team";
   if (choices.hardships.length > hardshipCap(state)) return `Up to ${hardshipCap(state)} hardships`;
   for (const id of choices.hardships) if (!HARDSHIP_BY_ID[id]) return `Unknown hardship ${id}`;
-  return null;
+  if (new Set(choices.hardships).size !== choices.hardships.length) return "A hardship is picked twice";
+  return hardshipConflict(choices.hardships, choices.dare);
 }
 
 function toConfig(choices: ScrapChoices): RunConfig {
@@ -179,7 +186,7 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
     if (!c.teamName.trim()) return "Name your team";
     if (c.keepCrewId && !(s.team.upgrades.old_hands ?? 0)) return "You need Old Hands to keep a crew member";
     // After a Team Reset the Scrap layer starts over: 2 base slots (+ team upgrades), 5 tune-up points.
-    const slots = 2 + (s.team.upgrades.legacy_ledger ?? 0) + ((s.meta.hardshipMastery.rookie_plates ?? 0) > 0 ? 1 : 0);
+    const slots = nextTeamPerkSlots(s);
     return validateScrapChoices(s, c, slots, 5, true, s.scrap.lp);
   },
   apply: (s, award, choices, before) => {
@@ -258,11 +265,13 @@ function commitSeason(state: GameState): void {
     state.era.seasonIndex += 1;
   }
   meta.seasonsPlayed += 1;
+  refreshPerkUnlocks(state);
 }
 
 /** Sets up a fresh Season from the config and long-lived scopes. */
 export function startSeason(state: GameState): void {
   const { run, config, meta } = state;
+  if (config.perks.includes("scavengers_map") && !config.hardships.includes("rookie_plates")) learn(state, "place:long_haul");
   if (config.perks.includes("kid_brother") && meta.lastTopHabit && !config.hardships.includes("rookie_plates") && !config.hardships.includes("hand_tools")) {
     run.habitsKnown.push(templateBase(meta.lastTopHabit));
   }

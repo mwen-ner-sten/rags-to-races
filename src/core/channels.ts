@@ -12,6 +12,7 @@ import { HARDSHIP_BY_ID, masteryValue } from "./content/modifiers";
 import { TOOL_BY_ID } from "./content/tools";
 import { VEHICLE_BY_ID } from "./content/vehicles";
 import { perkRank, teamUpgrade } from "./rules";
+import { allDaresCompleted } from "./perks";
 import type { GameState } from "./types";
 
 export type ChannelId =
@@ -62,6 +63,12 @@ const disciplineMastery = (state: GameState, id: "dirt" | "drag"): number => {
   return Math.min(def.cap, def.perLevel * (state.meta.disciplineMastery[id] ?? 0));
 };
 
+type ToolNumber = "benchSpeed" | "benches" | "storage" | "buildSpeed" | "rebuildSpeed";
+
+/** Sum of one tool effect over everything owned this Season. */
+const toolSum = (state: GameState, field: ToolNumber): number =>
+  Object.entries(state.run.tools).reduce((sum, [id, n]) => sum + (TOOL_BY_ID[id]?.[field] ?? 0) * n, 0);
+
 export const SOURCES: readonly SourceDef[] = [
   { id: "vehicle:carrier", label: "Vehicles you own", channels: ["carry"], value: (s) => Math.max(0, ...s.run.vehicles.map((v) => VEHICLE_BY_ID[v.vehicleId]?.carry ?? 0)) - (s.run.vehicles.some((v) => (VEHICLE_BY_ID[v.vehicleId]?.carry ?? 0) > 0) ? 2 : 0) },
   { id: "vehicle:habit_slots", label: "Vehicles built this Season", channels: ["automation"], value: (s) => new Set(s.run.vehicles.filter((v) => VEHICLE_BY_ID[v.vehicleId]?.habitSlot).map((v) => v.vehicleId)).size },
@@ -80,19 +87,22 @@ export const SOURCES: readonly SourceDef[] = [
   },
   { id: "perk:junkyard_eyes", label: "Junkyard Eyes", channels: ["find_quality"], value: (s) => (perkRank(s, "junkyard_eyes") > 0 ? 0.5 : 0) },
   { id: "mastery:one_yard", label: "Mastery: One Yard", channels: ["find_quality"], value: (s) => hardshipMastery(s, "one_yard") },
-  { id: "tools:bench_gear", label: "Shop tools", channels: ["bench_speed"], value: (s) => Object.entries(s.run.tools).reduce((sum, [id, n]) => sum + (TOOL_BY_ID[id]?.benchSpeed ?? 0) * n, 0) },
+  { id: "tools:bench_gear", label: "Shop tools", channels: ["bench_speed"], value: (s) => toolSum(s, "benchSpeed") },
+  { id: "tools:build_gear", label: "Torque Wrench", channels: ["build_speed"], value: (s) => toolSum(s, "buildSpeed") },
+  { id: "tools:engine_stand", label: "Engine Stand", channels: ["rebuild_speed"], value: (s) => toolSum(s, "rebuildSpeed") },
+  { id: "perk:hot_shoe", label: "Hot Shoe", channels: ["wear"], value: (s) => (perkRank(s, "hot_shoe") > 0 ? 0.2 : 0) },
   { id: "tuneup:wrench", label: "Tune-up: Wrench", channels: ["bench_speed"], value: (s) => 0.1 * (s.config.tuneUp.wrench ?? 0) },
   { id: "mastery:hand_tools", label: "Mastery: Hand Tools Only", channels: ["bench_speed"], value: (s) => hardshipMastery(s, "hand_tools") },
-  { id: "tools:second_bench", label: "Second Bench (tool)", channels: ["benches"], value: (s) => s.run.tools.second_bench ?? 0 },
+  { id: "tools:second_bench", label: "Second Bench (tool)", channels: ["benches"], value: (s) => toolSum(s, "benches") },
   { id: "perk:second_bench", label: "Second Bench (perk)", channels: ["benches"], value: (s) => perkRank(s, "second_bench") },
   { id: "team:second_bay", label: "Second Bay", channels: ["benches"], value: (s) => teamUpgrade(s, "second_bay") },
-  { id: "tools:shelving", label: "Shelving", channels: ["storage"], value: (s) => 6 * (s.run.tools.shelving ?? 0) },
+  { id: "tools:shelving", label: "Shelving", channels: ["storage"], value: (s) => toolSum(s, "storage") },
   { id: "team:parts_room", label: "Parts Room", channels: ["storage"], value: (s) => 12 * teamUpgrade(s, "parts_room") },
   { id: "knowhow:haggling", label: "Haggling", channels: ["sell_value"], value: (s) => (s.run.learned.includes("tech:haggling") ? 0.15 : 0) },
   { id: "tuneup:build", label: "Tune-up: Build", channels: ["build_speed"], value: (s) => 0.1 * (s.config.tuneUp.build ?? 0) },
   { id: "tuneup:race", label: "Tune-up: Race prep", channels: ["practice"], value: (s) => 0.1 * (s.config.tuneUp.race ?? 0) },
   { id: "team:sponsor_board", label: "Sponsor Board", channels: ["race_payout"], value: (s) => 0.15 * teamUpgrade(s, "sponsor_board") },
-  { id: "mastery:solo", label: "Mastery: Solo", channels: ["automation"], value: (s) => ((s.meta.hardshipMastery.solo ?? 0) > 0 ? 1 : 0) },
+  { id: "mastery:solo", label: "Mastery: Solo", channels: ["crew_cap"], value: (s) => ((s.meta.hardshipMastery.solo ?? 0) > 0 ? 1 : 0) },
   { id: "team:crew_quarters", label: "Crew Quarters", channels: ["crew_cap"], value: (s) => teamUpgrade(s, "crew_quarters") },
   { id: "perk:old_notebook", label: "Old Notebook", channels: ["unlock_speed"], value: (s) => (perkRank(s, "old_notebook") > 0 ? 0.6 : 0) },
   { id: "perk:night_owl", label: "Night Owl", channels: ["away_efficiency"], value: (s) => 0.25 * perkRank(s, "night_owl") },
@@ -105,7 +115,7 @@ export const SOURCES: readonly SourceDef[] = [
   { id: "mastery:rust_everything", label: "Mastery: Rust Everything", channels: ["wear"], value: (s) => hardshipMastery(s, "rust_everything") },
   { id: "mastery:dirt", label: "Mastery: Dirt Oval", channels: ["wear"], value: (s) => disciplineMastery(s, "dirt") },
   { id: "mastery:drag", label: "Mastery: Drag", channels: ["rebuild_speed"], value: (s) => disciplineMastery(s, "drag") },
-  { id: "scrap:milestones", label: "Deep runs this era", channels: ["perk_slots"], value: (s) => ["regional", "state"].filter((v) => s.scrap.milestonesThisEra.includes(v)).length + (s.scrap.daresThisEra >= 5 ? 1 : 0) },
+  { id: "scrap:milestones", label: "Deep runs and Dare completion", channels: ["perk_slots"], value: (s) => ["regional", "state"].filter((v) => s.scrap.milestonesThisEra.includes(v)).length + (allDaresCompleted(s) ? 1 : 0) },
   { id: "team:legacy_ledger", label: "Legacy Ledger", channels: ["perk_slots"], value: (s) => teamUpgrade(s, "legacy_ledger") },
 ];
 
@@ -119,16 +129,16 @@ export const CHANNELS: readonly ChannelDef[] = [
   { id: "benches", label: "Benches", kind: "add", base: 1, sources: ["tools:second_bench", "perk:second_bench", "team:second_bay"] },
   { id: "storage", label: "Garage space", kind: "add", base: 12, sources: ["tools:shelving", "team:parts_room"] },
   { id: "sell_value", label: "Sell value", kind: "pct", base: 0, sources: ["knowhow:haggling"] },
-  { id: "build_speed", label: "Assembly speed", kind: "pct", base: 0, sources: ["tuneup:build"] },
+  { id: "build_speed", label: "Assembly speed", kind: "pct", base: 0, sources: ["tuneup:build", "tools:build_gear"] },
   { id: "practice", label: "Practice gain", kind: "pct", base: 0, sources: ["tuneup:race"] },
   { id: "race_payout", label: "Race prizes", kind: "pct", base: 0, sources: ["team:sponsor_board"] },
-  { id: "automation", label: "Habit slots", kind: "add", base: 1, sources: ["vehicle:habit_slots", "mastery:solo"] },
-  { id: "crew_cap", label: "Crew capacity", kind: "add", base: 2, sources: ["team:crew_quarters"] },
+  { id: "automation", label: "Habit slots", kind: "add", base: 1, sources: ["vehicle:habit_slots"] },
+  { id: "crew_cap", label: "Crew capacity", kind: "add", base: 2, sources: ["team:crew_quarters", "mastery:solo"] },
   { id: "unlock_speed", label: "Familiar study time saved", kind: "add", base: 0, sources: ["perk:old_notebook"] },
   { id: "away_efficiency", label: "Away bench speed", kind: "pct", base: 0, sources: ["perk:night_owl", "mastery:short_season"] },
   { id: "legacy_gain", label: "Legacy gain", kind: "pct", base: 0, sources: ["mastery:rookie_plates"] },
-  { id: "wear", label: "Part wear", kind: "reduce", base: 0, sources: ["mastery:rust_everything", "mastery:dirt"] },
-  { id: "rebuild_speed", label: "Engine repair speed", kind: "pct", base: 0, sources: ["mastery:drag"] },
+  { id: "wear", label: "Part wear", kind: "reduce", base: 0, sources: ["mastery:rust_everything", "mastery:dirt", "perk:hot_shoe"] },
+  { id: "rebuild_speed", label: "Engine repair speed", kind: "pct", base: 0, sources: ["mastery:drag", "tools:engine_stand"] },
   { id: "perk_slots", label: "Perk slots", kind: "add", base: 2, sources: ["scrap:milestones", "team:legacy_ledger", "mastery:rookie_plates"] },
 ];
 

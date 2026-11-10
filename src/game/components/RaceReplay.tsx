@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { DISCIPLINES, RIVAL_BY_ID, getVenue, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import type { GameState, RaceResult } from "@/core/types";
-import { conditionName, num, ordinal } from "../format";
+import { conditionName, num } from "../format";
 import { useGame } from "../store";
+import { finishText } from "./race/resultText";
 import { RaceScreen, type RaceShown } from "./race/RaceScreen";
 
 /** A replay plays the whole race in this long, however long the real one was. */
@@ -25,6 +26,7 @@ function shownFrom(game: GameState, race: RaceResult): RaceShown {
     laps: race.laps,
     durationMs: Math.max(durationMs, race.beats[race.beats.length - 1]?.at ?? 0),
     strip: discipline === "drag",
+    rounds: race.rounds,
   };
 }
 
@@ -53,8 +55,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
 
   const shown = shownFrom(game, race);
   const finished = t >= 1;
-  const vehicle = game.run.vehicles.find((v) => v.uid === race.vehicleUid);
-  const weakPart = race.weakestSlot ? vehicle?.parts[race.weakestSlot] : undefined;
+  const weakPart = race.weakestPart;
   const rival = race.rival ? RIVAL_BY_ID[race.rival.id] : null;
 
   return (
@@ -65,16 +66,18 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
       <RaceScreen race={shown} ms={t * shown.durationMs} lines={finished ? 0 : 3} />
       {finished ? (
         <div className="debrief">
-          <p className="big">{race.dnf ? "DNF" : `${ordinal(race.position)} of ${race.fieldSize}`}</p>
+          <p className="big">{finishText(race)}</p>
           <p>
             +{num(race.prize)} Scrap Bucks · +{race.rep} Rep
             {rival && ` · ${rival.name}: ${race.rival?.beaten ? "beaten" : "ahead of you"}`}
           </p>
+          {race.caution && <p>The yellow flag came out.</p>}
+          {race.rivalOut && rival && <p>{rival.name}’s car quit before the flag.</p>}
           {!race.dnf && race.position > 1 && <p className="muted">You were {Math.abs(race.margin * 100).toFixed(1)}% off the car ahead.</p>}
           {race.wear.length > 0 && <p>Wear: {race.wear.map((w) => `${w.slot} ${conditionName(w.from)} → ${conditionName(w.to)}`).join(", ")}</p>}
-          {weakPart && (
+          {race.weakestSlot && (
             <p className="tip">
-              Weakest link: the {race.weakestSlot}, a {conditionName(weakPart.condition)} {getPart(weakPart.partId).name}.{" "}
+              Weakest link at race entry: the {race.weakestSlot}{weakPart ? `, a ${conditionName(weakPart.condition)} ${getPart(weakPart.partId).name}` : ""}.{" "}
               <button
                 className="link-btn"
                 onClick={() => {

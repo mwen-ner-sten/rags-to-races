@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DISCIPLINES } from "@/core/content/events";
-import { DARES, HARDSHIPS, PERKS, PERK_BY_ID } from "@/core/content/modifiers";
+import { DARES, PERK_BY_ID, hardshipConflict } from "@/core/content/modifiers";
 import { CREW_BY_ID } from "@/core/content/team";
-import { LAYERS, hardshipCap, nextSeasonPerkSlots, nextSeasonTuneUpPoints, planPurchases, scrapAward, teamAward, type TeamChoices } from "@/core/layers";
+import { LAYERS, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planPurchases, scrapAward, teamAward, type TeamChoices } from "@/core/layers";
 import type { DisciplineId, GameState, SkillId } from "@/core/types";
 import { num } from "../format";
 import { useGame } from "../store";
+import { ResetDisciplines } from "./ResetDisciplines";
+import { ResetHardships } from "./ResetHardships";
+import { ResetPerks } from "./ResetPerks";
 
 const SKILLS: { id: SkillId; label: string }[] = [
   { id: "haul", label: "Haul (trip speed)" },
@@ -27,7 +29,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const isTeam = layer === "team";
   const award = isTeam ? teamAward(game) : scrapAward(game);
   const lpAvailable = isTeam ? game.scrap.lp : game.scrap.lp + award;
-  const slots = isTeam ? 2 + (game.team.upgrades.legacy_ledger ?? 0) + ((game.meta.hardshipMastery.rookie_plates ?? 0) > 0 ? 1 : 0) : nextSeasonPerkSlots(game);
+  const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game);
   const points = isTeam ? 5 : nextSeasonTuneUpPoints(game);
   const teamEraNext = isTeam || game.era !== null;
 
@@ -52,9 +54,9 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const equipped = equip.filter((id) => (ranks[id] ?? 0) > 0);
   const spent = SKILLS.reduce((sum, s) => sum + tune[s.id], 0);
 
-  const shelf = PERKS.filter((p) => p.unlock.type === "lp" || game.meta.perksUnlocked.includes(p.id));
-  const locked = PERKS.filter((p) => !shelf.includes(p));
   const gate = LAYERS[layer].gate(game);
+  const conflict = hardshipConflict(hardships, dare);
+  const blocker = gate.ok ? conflict : gate.reason;
 
   const confirm = () => {
     const base = { buy, perks: equipped, tuneUp: tune, dare, hardships };
@@ -64,6 +66,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
 
   return (
     <div className="planner">
+      <p className="hint">Completing all {DARES.length} Dares permanently adds one perk slot, including after a Team Reset.</p>
       <div className="award">
         <span className="big num">{num(award)}</span> {isTeam ? "Team Points" : "Legacy Points"} for this {isTeam ? "team" : "Season"}
       </div>
@@ -87,73 +90,23 @@ export function ResetPlanner({ layer, onDone }: Props) {
         </div>
       </div>
 
-      <fieldset>
-        <legend>
-          Perk shelf · <span className="num">{num(lpLeft)}</span> LP to spend
-        </legend>
-        <ul className="perks">
-          {shelf.map((p) => {
-            const rank = ranks[p.id] ?? 0;
-            const cost = p.cost[rank];
-            const canBuy = rank < p.maxRank && cost !== undefined && lpLeft >= cost;
-            const isEquipped = equipped.includes(p.id);
-            return (
-              <li key={p.id} className={isEquipped ? "equipped" : ""}>
-                <div>
-                  <strong>{p.name}</strong> <span className="chip">{p.kind}</span>
-                  {p.maxRank > 1 && (
-                    <span className="muted num">
-                      {" "}
-                      rank {rank}/{p.maxRank}
-                    </span>
-                  )}
-                  <p className="blurb">{p.text}</p>
-                </div>
-                <div className="perk-actions">
-                  {rank < p.maxRank && (
-                    <button className="btn small" disabled={!canBuy} onClick={() => setBuy([...buy, p.id])}>
-                      Buy · {cost} LP
-                    </button>
-                  )}
-                  {rank > 0 && (
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={isEquipped}
-                        disabled={!isEquipped && equipped.length >= slots}
-                        onChange={(e) => setEquip(e.target.checked ? [...equipped, p.id] : equipped.filter((id) => id !== p.id))}
-                      />
-                      Equip
-                    </label>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="hint">
-          {equipped.length}/{slots} slots used.{" "}
-          {buy.length > 0 && (
-            <button className="link-btn" onClick={() => setBuy([])}>
-              Undo purchases
-            </button>
-          )}
-        </p>
-        {locked.length > 0 && (
-          <p className="hint">
-            Still to unlock:{" "}
-            {locked
-              .map((p) => (p.unlock.type === "dare" ? `${p.name} (dare)` : p.unlock.type === "milestone" ? `${p.name} (win the ${p.unlock.venueId} Feature)` : p.name))
-              .join(", ")}
-            .
-          </p>
-        )}
-      </fieldset>
+      <ResetPerks
+        game={game}
+        ranks={ranks}
+        lpLeft={lpLeft}
+        slots={slots}
+        equipped={equipped}
+        purchases={buy.length}
+        onBuy={(id) => setBuy([...buy, id])}
+        onUndo={() => setBuy([])}
+        onEquip={setEquip}
+      />
 
       <fieldset>
         <legend>
           Tune-up points · {spent}/{points}
         </legend>
+        {spent >= points && <p className="why">No tune-up points left to spend</p>}
         <div className="steppers">
           {SKILLS.map((s) => (
             <div key={s.id} className="stepper">
@@ -185,26 +138,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
         ))}
       </fieldset>
 
-      {teamEraNext && (
-        <fieldset>
-          <legend>
-            Hardships (optional, up to {hardshipCap(game)})
-          </legend>
-          {HARDSHIPS.map((h) => (
-            <label key={h.id} className="check">
-              <input
-                type="checkbox"
-                checked={hardships.includes(h.id)}
-                disabled={!hardships.includes(h.id) && hardships.length >= hardshipCap(game)}
-                onChange={(e) => setHardships(e.target.checked ? [...hardships, h.id] : hardships.filter((x) => x !== h.id))}
-              />
-              <span>
-                <strong>{h.name}</strong>: {h.rule} Reward: {h.reward}. <span className="muted">Done {game.meta.hardshipMastery[h.id] ?? 0}×</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      )}
+      {teamEraNext && <ResetHardships game={game} chosen={hardships} conflict={conflict} onChange={setHardships} />}
 
       {isTeam && (
         <fieldset>
@@ -218,16 +152,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
             <input type="color" value={colorA} onChange={(e) => setColorA(e.target.value)} aria-label="Main colour" />
             <input type="color" value={colorB} onChange={(e) => setColorB(e.target.value)} aria-label="Second colour" />
           </label>
-          <div className="disciplines">
-            {(Object.keys(DISCIPLINES) as DisciplineId[]).map((id) => (
-              <label key={id} className={`card choice ${discipline === id ? "on" : ""}`}>
-                <input type="radio" name="discipline" checked={discipline === id} onChange={() => setDiscipline(id)} />
-                <strong>{DISCIPLINES[id].name}</strong>
-                <p className="blurb">{DISCIPLINES[id].blurb}</p>
-                <p className="muted small">Mastery: {DISCIPLINES[id].mastery.text}. You have {game.meta.disciplineMastery[id] ?? 0} levels.</p>
-              </label>
-            ))}
-          </div>
+          <ResetDisciplines game={game} chosen={discipline} onChoose={setDiscipline} />
           {game.era && (game.team.upgrades.old_hands ?? 0) > 0 && (
             <label className="inline">
               <span>Keep one crew member</span>
@@ -245,13 +170,13 @@ export function ResetPlanner({ layer, onDone }: Props) {
       )}
 
       <div className="actions">
-        <button className="btn primary big" disabled={!gate.ok} onClick={confirm}>
+        <button className="btn primary big wrap" disabled={!!blocker} onClick={confirm}>
           {isTeam ? (game.era ? "Fold the team and start over" : "Found the team") : "End the Season: Scrap Reset"}
         </button>
         <button className="btn" onClick={onDone}>
           Not yet
         </button>
-        {!gate.ok && <span className="why">{gate.reason}</span>}
+        {blocker && <span className="why">{blocker}</span>}
       </div>
     </div>
   );

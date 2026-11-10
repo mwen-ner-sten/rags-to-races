@@ -3,23 +3,23 @@
  * the UI dispatches, on a schedule of visits, and records when milestones
  * happen. It is deliberately reasonable, not optimal.
  */
-import { apply, counterBlocker, type Action } from "../actions";
+import { apply, counterBlocker, toolStocked, type Action } from "../actions";
 import { counterPrice } from "../garage";
 import { DISCIPLINES, EVENT_KINDS, VENUES, getVenue } from "../content/events";
 import { CONDITION_STAT, REPAIR_TECHNIQUE, STRIP_YIELD, getPart } from "../content/parts";
 import { PLACES, getPlace } from "../content/places";
 import { CREW_BY_ID, TEAM_UPGRADES } from "../content/team";
 import { TOOLS } from "../content/tools";
-import { VEHICLES, getVehicle } from "../content/vehicles";
+import { SHELL_PRICE, VEHICLES, getVehicle } from "../content/vehicles";
 import { channel } from "../channels";
 import { reservedPartUids, vehicleBusy } from "../garage";
 import { templateBase } from "../habits";
-import { isBenchKind, jobBlocker } from "../jobs";
+import { QUEUE_LIMIT, isBenchKind, jobBlocker } from "../jobs";
 import { canOpenPlace } from "../knowhowEngine";
 import { planPurchases, crewCap, nextSeasonPerkSlots, nextSeasonTuneUpPoints, LAYERS, type ScrapChoices, type TeamChoices } from "../layers";
 import { winChance } from "../race";
 import { resolveFlags } from "../rules";
-import type { DisciplineId, EventKind, GameState, JobSpec, PartInstance, Vehicle } from "../types";
+import type { DisciplineId, EventKind, GameState, JobSpec, PartCategory, PartInstance, Vehicle } from "../types";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -48,7 +48,7 @@ export class Bot {
   totalMs = 0;
   seasonStartMs = 0;
   log: MilestoneLog = {};
-  seasonLog: { season: number; ms: number; lp: number; policy: RunPolicy; venues: string[] }[] = [];
+  seasonLog: { season: number; ms: number; lp: number; policy: RunPolicy; venues: string[]; hauls: number; cash: number }[] = [];
   errors: string[] = [];
 
   constructor(state: GameState, public policy: RunPolicy = "sprint", public discipline: DisciplineId = "dirt") {
@@ -129,7 +129,7 @@ export class Bot {
   }
 
   private queueFree(): number {
-    return 3 - this.state.run.queue.length;
+    return QUEUE_LIMIT - this.state.run.queue.length;
   }
 
   private enqueue(spec: JobSpec): boolean {
@@ -150,10 +150,12 @@ export class Bot {
   }
 
   private buyTools(): void {
-    const order = ["parts_washer", "shelving", "welder", "tire_machine", "shelving", "impact_wrench", "second_bench", "engine_hoist", "shelving", "shelving"];
+    const order = ["parts_washer", "shelving", "welder", "tire_machine", "shelving", "impact_wrench", "second_bench", "engine_hoist", "shelving", "shelving", "engine_stand", "torque_wrench", "parts_tumbler"];
     for (const id of order) {
       const tool = TOOLS.find((t) => t.id === id)!;
       if ((this.state.run.tools[id] ?? 0) >= tool.max) continue;
+      if (!toolStocked(this.state, id)) continue;
+      if (id === "engine_hoist" && this.state.config.perks.includes("short_cut")) continue;
       if (id === "engine_hoist" && !this.state.run.vehicles.some((v) => v.vehicleId === "go_kart")) continue;
       if (id === "welder" && !this.state.run.venuesOpen.includes("dirt")) continue;
       if (this.state.run.cash - tool.cash < this.reserve()) return;
@@ -163,9 +165,11 @@ export class Bot {
   }
 
   private study(): void {
+    // Queue what's available, keeping a slot free for races and hauls.
     for (const id of [...this.state.run.available]) {
-      if (this.state.run.queue.some((q) => q.kind === "study")) return;
-      if (this.state.run.jobs.some((j) => j.spec.kind === "study")) return;
+      if (this.queueFree() <= 1) return;
+      if (this.state.run.queue.some((q) => q.kind === "study" && q.knowhowId === id)) continue;
+      if (this.state.run.jobs.some((j) => j.spec.kind === "study" && j.spec.knowhowId === id)) continue;
       this.enqueue({ kind: "study", knowhowId: id });
     }
   }
@@ -176,7 +180,7 @@ export class Bot {
     return (def.power * w.power + def.handling * w.handling + def.reliability * w.reliability) * CONDITION_STAT[part.condition] - def.weight * w.weight;
   }
 
-  /** Part ids any current-or-future vehicle can use. */
+  /** Part ids your best vehicle or a future one can use. Spares for machines you've outgrown aren't worth the shelf space. */
   private usefulPartIds(): Set<string> {
     const maxTier = Math.max(-1, ...this.state.run.vehicles.map((v) => getVehicle(v.vehicleId).tier));
     const ids = new Set<string>();
@@ -194,19 +198,19 @@ export class Bot {
       byId.set(p.partId, [...(byId.get(p.partId) ?? []), p]);
     }
     const sell: string[] = [];
+    const rubberShort = this.shortMaterials().has("rubber");
     for (const [partId, parts] of byId) {
       const def = getPart(partId);
       if (def.category === "junk") continue; // stripped on the bench
       const sorted = [...parts].sort((a, b) => b.condition - a.condition);
-      const keep = useful.has(partId) ? (def.category === "wheel" ? 2 : 1) : 0;
+      const keep = useful.has(partId) ? (def.category === "wheel" && !rubberShort ? 2 : 1) : 0;
       sorted.slice(keep).forEach((p) => sell.push(p.uid));
     }
     const storage = Math.floor(channel(s, "storage"));
     const junk = s.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !reserved.has(p.uid));
     if (s.run.inventory.length - sell.length > storage * 0.8) junk.slice(0, Math.max(0, junk.length - 3)).forEach((p) => sell.push(p.uid));
     // Keep surplus that yields a short material for stripping instead of selling it.
-    const m = s.run.materials;
-    const short = new Set<string>([m.metal < 20 ? "metal" : "", m.rubber < 6 ? "rubber" : "", m.wiring < 4 ? "wiring" : ""].filter(Boolean));
+    const short = this.shortMaterials();
     this.surplus = new Set(sell.filter((uid) => {
       const part = s.run.inventory.find((p) => p.uid === uid);
       return part ? Object.keys(STRIP_YIELD[getPart(part.partId).category]).some((mat) => short.has(mat)) : false;
@@ -217,38 +221,68 @@ export class Bot {
 
   private surplus = new Set<string>();
 
-  private materialsShort(): boolean {
-    const m = this.state.run.materials;
-    return m.metal < 20 || m.rubber < 6 || m.wiring < 4;
+  /** Materials below what the next build needs (plus a little for repairs). */
+  private shortMaterials(): Set<string> {
+    const s = this.state;
+    const owned = new Set(s.run.vehicles.map((v) => v.vehicleId));
+    const next = VEHICLES.find((v) => !owned.has(v.id) && (!v.blueprint || s.run.learned.includes(v.blueprint) || s.run.available.includes(v.blueprint)));
+    const want = { metal: Math.max(20, (next?.materials.metal ?? 0) + 6), rubber: Math.max(6, (next?.materials.rubber ?? 0) + 3), wiring: Math.max(4, (next?.materials.wiring ?? 0) + 2) };
+    const m = s.run.materials;
+    return new Set<string>([m.metal < want.metal ? "metal" : "", m.rubber < want.rubber ? "rubber" : "", m.wiring < want.wiring ? "wiring" : ""].filter(Boolean));
   }
 
-  /** Buys parts the next vehicle is missing at the Parts Counter when cash allows. */
+  private materialsShort(): boolean {
+    return this.shortMaterials().size > 0;
+  }
+
+  /** Buys parts the next vehicle (or an owned one with an empty required slot) is missing at the Parts Counter. */
   private buyMissing(): void {
     const s = this.state;
+    for (const vehicle of s.run.vehicles) {
+      for (const slot of getVehicle(vehicle.vehicleId).slots) {
+        if (!slot.required || vehicle.parts[slot.slot]) continue;
+        if (s.run.inventory.some((p) => slot.accepts.includes(p.partId) && p.condition > 0)) continue;
+        const pick = slot.accepts.find((id) => !counterBlocker(this.state, id) && this.state.run.cash - counterPrice(this.state, id) > this.reserve());
+        if (pick) this.act({ type: "buyPart", partId: pick });
+      }
+    }
     const owned = new Set(s.run.vehicles.map((v) => v.vehicleId));
     const next = VEHICLES.find((v) => !owned.has(v.id) && (!v.blueprint || s.run.learned.includes(v.blueprint)));
     if (!next) return;
     for (const slot of next.slots) {
       if (!slot.required || slot.minCondition !== undefined) continue;
       if (s.run.inventory.some((p) => slot.accepts.includes(p.partId) && p.condition > 0)) continue;
-      const pick = slot.accepts.find((id) => !counterBlocker(this.state, id) && this.state.run.cash - counterPrice(id) > this.reserve());
+      const pick = slot.accepts.find((id) => !counterBlocker(this.state, id) && this.state.run.cash - counterPrice(this.state, id) > this.reserve());
       if (pick) this.act({ type: "buyPart", partId: pick });
     }
   }
 
   private buyShell(): void {
     const s = this.state;
-    if (!s.run.learned.includes("blueprint:beater_car")) return;
-    if (s.run.vehicles.some((v) => v.vehicleId === "beater_car") || s.run.inventory.some((p) => p.partId === "beater_shell")) return;
-    if (s.run.cash - 150 > this.reserve()) this.act({ type: "buyShell" });
+    if (s.run.inventory.some((p) => p.partId === "beater_shell")) return;
+    const owned = new Set(s.run.vehicles.map((v) => v.vehicleId));
+    const wantsShell = VEHICLES.some((v) => !owned.has(v.id) && v.blueprint && s.run.learned.includes(v.blueprint) && v.slots.some((sl) => sl.accepts.includes("beater_shell")));
+    if (!wantsShell) return;
+    if (s.run.cash - SHELL_PRICE > this.reserve()) this.act({ type: "buyShell" });
   }
 
   private benchWork(): void {
     const s = this.state;
     const benches = Math.floor(channel(s, "benches"));
-    let busy = s.run.jobs.filter((j) => isBenchKind(j.spec)).length + s.run.queue.filter((q) => isBenchKind(q)).length;
+    // Habit-lane jobs loop on their own; queued work takes the next free bench ahead of them.
+    let busy = s.run.jobs.filter((j) => isBenchKind(j.spec) && !j.lane.startsWith("habit:")).length + s.run.queue.filter((q) => isBenchKind(q)).length;
     const reserved = reservedPartUids(s);
-    const candidates = s.run.inventory.filter((p) => !reserved.has(p.uid));
+    // A part that an owned vehicle is waiting on (an empty required slot) goes to the front of the bench.
+    const waiting = new Set<string>();
+    for (const vehicle of s.run.vehicles) {
+      for (const slot of getVehicle(vehicle.vehicleId).slots) if (slot.required && !vehicle.parts[slot.slot]) slot.accepts.forEach((id) => waiting.add(id));
+    }
+    // Next comes whatever the next build needs (the shell above all), then everything else.
+    const ownedIds = new Set(s.run.vehicles.map((v) => v.vehicleId));
+    const nextBuild = VEHICLES.find((v) => !ownedIds.has(v.id) && (!v.blueprint || s.run.learned.includes(v.blueprint) || s.run.available.includes(v.blueprint)));
+    const forNext = new Set<string>(nextBuild?.slots.filter((sl) => sl.required).flatMap((sl) => sl.accepts) ?? []);
+    const urgent = (p: PartInstance) => (waiting.has(p.partId) ? 0 : getPart(p.partId).category === "body" ? 1 : forNext.has(p.partId) ? 2 : 3);
+    const candidates = s.run.inventory.filter((p) => !reserved.has(p.uid)).sort((a, b) => urgent(a) - urgent(b) || b.condition - a.condition);
     const tryJob = (spec: JobSpec) => {
       if (busy >= benches || this.queueFree() <= 0) return;
       if (jobBlocker(s, spec)) return;
@@ -328,19 +362,24 @@ export class Bot {
     }
   }
 
-  private bestRace(): { vehicle: Vehicle; venueId: string; event: EventKind; p: number } | null {
+  /** `signUp` also considers events that aren't running yet (a sign-up for the next one). */
+  private bestRace(signUp = false, skip: (vehicleUid: string, venueId: string, event: EventKind) => boolean = () => false): { vehicle: Vehicle; venueId: string; event: EventKind; p: number } | null {
     const s = this.state;
     let best: { vehicle: Vehicle; venueId: string; event: EventKind; p: number; value: number } | null = null;
     for (const vehicle of s.run.vehicles) {
       if (vehicleBusy(s, vehicle.uid)) continue;
       for (const venueId of s.run.venuesOpen) {
         for (const event of EVENT_KINDS) {
+          if (skip(vehicle.uid, venueId, event)) continue;
           const spec: JobSpec = { kind: "race", vehicleUid: vehicle.uid, venueId, event, call: "push" };
-          if (jobBlocker(s, spec)) continue;
+          if (jobBlocker(s, spec, signUp)) continue;
           const p = winChance(s, vehicle, venueId, event, "push");
           const venue = getVenue(venueId);
           const tierIndex = VENUES.findIndex((v) => v.id === venueId);
-          const progress = event === "feature" && s.run.featureWins[venueId] === undefined ? 3 : 1;
+          // Climbing an unfinished ladder (its top rung, or the unwon Feature) is worth more than prize money.
+          const ladder = s.run.ladder[venueId] ?? [];
+          const climbing = s.run.featureWins[venueId] === undefined && (ladder[ladder.length - 1] === event || !ladder.includes(event));
+          const progress = climbing || (event === "feature" && s.run.featureWins[venueId] === undefined) ? 3 : 1;
           const value = (p * venue.events[event].prize - venue.events[event].entry * 0.5) * progress + p * (tierIndex + 1) * 10 * progress;
           if (p < 0.08 && !(event !== "feature" && !(s.run.ladder[venueId] ?? []).includes(event === "sprint" ? "heat" : "feature"))) continue;
           if (!best || value > best.value) best = { vehicle, venueId, event, p, value };
@@ -359,6 +398,38 @@ export class Bot {
     this.enqueue({ kind: "race", vehicleUid: pick.vehicle.uid, venueId: pick.venueId, event: pick.event, call: pick.p > 0.6 ? "nurse" : "push" });
   }
 
+  /** A part the next vehicle needs that you don't have and the counter can't sell yet. */
+  private neededFind(): { partIds: string[]; category: PartCategory } | null {
+    const s = this.state;
+    const owned = new Set(s.run.vehicles.map((v) => v.vehicleId));
+    const next = VEHICLES.find((v) => !owned.has(v.id) && (!v.blueprint || s.run.learned.includes(v.blueprint) || s.run.available.includes(v.blueprint)));
+    if (!next) return null;
+    const have = [...s.run.inventory, ...s.run.driveway];
+    for (const slot of next.slots) {
+      if (!slot.required || slot.minCondition !== undefined) continue;
+      if (have.some((p) => slot.accepts.includes(p.partId) && p.condition > 0)) continue;
+      if (slot.accepts.some((id) => !counterBlocker(s, id))) continue;
+      return { partIds: slot.accepts, category: getPart(slot.accepts[0]).category };
+    }
+    return null;
+  }
+
+  /** The haul to queue: a place that stocks a needed part when one is missing, else the best place. */
+  private haulSpec(longOk: boolean): JobSpec | null {
+    const s = this.state;
+    const need = this.neededFind();
+    if (need) {
+      const odds = (placeId: string) => {
+        const finds = getPlace(placeId).finds;
+        return finds.filter((f) => need.partIds.includes(f.partId)).reduce((n, f) => n + f.weight, 0) / finds.reduce((n, f) => n + f.weight, 0);
+      };
+      const best = s.run.placesOpen.filter((id) => odds(id) > 0 && !jobBlocker(s, { kind: "haul", placeId: id })).sort((a, b) => odds(b) - odds(a))[0];
+      if (best) return { kind: "haul", placeId: best, focus: s.run.learned.includes("tech:scouting") ? need.category : undefined };
+    }
+    const place = this.bestHaulPlace(longOk);
+    return place ? { kind: "haul", placeId: place } : null;
+  }
+
   private bestHaulPlace(longOk: boolean): string | null {
     const s = this.state;
     const open = PLACES.filter((p) => s.run.placesOpen.includes(p.id) && !jobBlocker(s, { kind: "haul", placeId: p.id }));
@@ -374,16 +445,24 @@ export class Bot {
   private fillHands(present: boolean): void {
     const s = this.state;
     if (s.run.jobs.some((j) => j.lane === "hands") && this.queueFree() <= (present ? 2 : 0)) return;
-    const place = this.bestHaulPlace(!present);
-    if (!place) return;
+    const haul = this.haulSpec(!present);
+    if (!haul) return;
     if (present) {
-      if (!s.run.jobs.some((j) => j.lane === "hands") && s.run.queue.every((q) => isBenchKind(q))) this.enqueue({ kind: "haul", placeId: place });
+      if (!s.run.jobs.some((j) => j.lane === "hands") && s.run.queue.every((q) => isBenchKind(q))) this.enqueue(haul);
       return;
     }
-    // Leaving: queue the longest useful trips.
+    // Leaving: sign up for upcoming races (one per vehicle, leaving a slot for a haul),
+    // then queue the longest useful trips.
+    while (this.queueFree() > 1) {
+      const queued = this.state.run.queue;
+      // One venue per vehicle; a vehicle can take the next rungs at the same venue (a whole race night).
+      const pick = this.bestRace(true, (uid, venueId, event) => queued.some((q) => q.kind === "race" && ((q.vehicleUid === uid && q.venueId !== venueId) || (q.venueId === venueId && q.event === event))));
+      if (!pick || pick.p < 0.15) break;
+      if (!this.enqueue({ kind: "race", vehicleUid: pick.vehicle.uid, venueId: pick.venueId, event: pick.event, call: pick.p > 0.6 ? "nurse" : "push" })) break;
+    }
     while (this.queueFree() > 0) {
-      const p = this.bestHaulPlace(true);
-      if (!p || !this.enqueue({ kind: "haul", placeId: p })) break;
+      const next = this.haulSpec(true);
+      if (!next || !this.enqueue(next)) break;
     }
   }
 
@@ -394,13 +473,14 @@ export class Bot {
     const wanted: string[] = [];
     const bestHaul = ["haul:long_haul", "haul:junkyard", "haul:yards", "haul:curb"].find((t) => known.includes(t) && !jobBlocker(s, { kind: "haul", placeId: t.slice(5) }));
     if (bestHaul) wanted.push(bestHaul);
+    // Racing earns the Rep everything else waits on, so it outranks bench habits.
+    if (known.includes("race")) {
+      const pick = this.bestRace(true);
+      if (pick && pick.p > 0.25) wanted.push(`race:${pick.vehicle.uid}:${pick.venueId}:${pick.event}:nurse`);
+    }
     if (known.includes("clean")) wanted.push("clean");
     if (known.includes("repair")) wanted.push("repair");
     if (known.includes("strip")) wanted.push("strip");
-    if (known.includes("race")) {
-      const pick = this.bestRace();
-      if (pick && pick.p > 0.25) wanted.push(`race:${pick.vehicle.uid}:${pick.venueId}:${pick.event}:nurse`);
-    }
     s.run.habitSlots.forEach((current, i) => {
       const want = wanted[i] ?? null;
       if (want && current !== want) this.act({ type: "setHabit", slot: i, template: want });
@@ -437,7 +517,7 @@ export class Bot {
 
   private chooseScrap(slots: number, points: number, teamEra: boolean, lpAvailable: number): ScrapChoices {
     const buy: string[] = [];
-    const order = ["barn_find", "tow_hitch", "kid_brother", "night_owl", "shade_tree", "junkyard_eyes", "old_notebook", "tow_hitch", "second_bench", "swap_meet", "underdog", "early_bird", "tow_hitch", "night_owl", "scavengers_map", "grudge_match"];
+    const order = ["barn_find", "tow_hitch", "kid_brother", "night_owl", "shade_tree", "junkyard_eyes", "old_notebook", "tow_hitch", "second_bench", "borrowed_trailer", "hot_shoe", "local_hero", "coupon_book", "swap_meet", "underdog", "early_bird", "tow_hitch", "night_owl", "short_cut", "scavengers_map", "grudge_match"];
     let ranks: Record<string, number> = { ...this.state.meta.perks };
     for (const id of order) {
       const attempt = planPurchases(this.state, [...buy, id], lpAvailable);
@@ -449,7 +529,7 @@ export class Bot {
     const priority = this.policy === "push" ? ["tow_hitch", "second_bench", "barn_find", "shade_tree", "night_owl", "kid_brother", "junkyard_eyes", "old_notebook", "underdog"] : ["barn_find", "tow_hitch", "kid_brother", "shade_tree", "night_owl", "junkyard_eyes", "second_bench", "early_bird"];
     const perks = priority.filter((id) => (ranks[id] ?? 0) > 0).slice(0, slots);
     const half = Math.floor(points / 2);
-    const dares = ["mower_madness", "quick_season", "packrat", "settle_it"].filter((d) => !this.state.meta.daresCompleted.includes(d));
+    const dares = ["clean_sweep", "penny_pincher", "mower_madness", "quick_season", "packrat", "settle_it", "hot_lap", "kart_to_fair"].filter((d) => !this.state.meta.daresCompleted.includes(d));
     return {
       buy,
       perks,
@@ -469,11 +549,16 @@ export class Bot {
       if (!s.era || s.era.seasonIndex >= 3) {
         const choices: TeamChoices = { ...this.chooseScrap(2 + (s.team.upgrades.legacy_ledger ?? 0), 5, true, s.scrap.lp), discipline: s.era?.discipline === "dirt" ? "drag" : this.discipline, teamName: "Bot Racing", colors: ["#c33", "#eee"] };
         this.recordSeason();
-        if (this.act({ type: "reset", layer: "team", choices })) return;
+        if (this.act({ type: "reset", layer: "team", choices })) {
+          this.mark("team_founded");
+          return;
+        }
       }
     }
     if (!fairWon) return;
-    const wantReset = this.policy === "sprint" ? true : stateWon || stuck;
+    // The State Invitational only opens to drivers who won the Regional in an earlier Season.
+    const noInvite = s.run.featureWins.regional !== undefined && s.meta.records.regional === undefined;
+    const wantReset = this.policy === "sprint" ? true : stateWon || noInvite || stuck;
     if (!wantReset) return;
     const choices = this.chooseScrap(nextSeasonPerkSlots(s), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + LAYERS.scrap.award(s));
     this.recordSeason();
@@ -481,7 +566,8 @@ export class Bot {
   }
 
   private recordSeason(): void {
-    this.seasonLog.push({ season: this.state.meta.seasonsPlayed + 1, ms: this.state.run.seasonMs, lp: LAYERS.scrap.award(this.state), policy: this.policy, venues: Object.keys(this.state.run.featureWins) });
+    const run = this.state.run;
+    this.seasonLog.push({ season: this.state.meta.seasonsPlayed + 1, ms: run.seasonMs, lp: LAYERS.scrap.award(this.state), policy: this.policy, venues: Object.keys(run.featureWins), hauls: run.stats.hauls ?? 0, cash: run.cash });
   }
 }
 

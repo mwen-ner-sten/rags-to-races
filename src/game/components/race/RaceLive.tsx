@@ -25,6 +25,7 @@ export function liveRace(game: GameState, job: ActiveJob): RaceShown | null {
     laps: job.race.laps,
     durationMs: job.race.durationMs,
     strip: discipline === "drag",
+    rounds: job.race.rounds,
   };
 }
 
