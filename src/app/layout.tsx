@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Barlow_Condensed, IBM_Plex_Mono, IBM_Plex_Sans, Kalam } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import "./feed.css";
+import "./race-extras.css";
+import "./garage-extras.css";
 
 // Era 1 writes in pencil (Kalam); the Team era paints shop signs (Barlow Condensed).
 const kalam = Kalam({ variable: "--font-kalam", subsets: ["latin"], weight: ["400", "700"], display: "swap" });

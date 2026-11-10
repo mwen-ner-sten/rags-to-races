@@ -1,6 +1,6 @@
 import { channel } from "./channels";
 import { BRACKET_SPREAD, CALL2, DISCIPLINES, OPPONENT_SPREAD, PRIZE_SHARE, RIVAL_BY_ID, getVenue, venueName, type DisciplineDef, type VenueDemand } from "./content/events";
-import { getPart } from "./content/parts";
+import { CONDITION_STAT, getPart } from "./content/parts";
 import { CREW_BY_ID, crewLevel } from "./content/team";
 import { getVehicle } from "./content/vehicles";
 import { vehicleStats } from "./garage";
@@ -559,4 +559,33 @@ function completeDare(state: GameState, dareId: string): void {
 export function raceDurationMs(state: GameState, spec: RaceSpec): number {
   const flags = resolveFlags(state);
   return getVenue(spec.venueId).events[spec.event].durationMs * DISCIPLINES[flags.discipline].durationMult;
+}
+
+/** What one part is worth to a car's score at a venue (pass the slot so tyres count for traction in Drag). */
+export function partScoreAt(part: { partId: string; condition: Condition }, discipline: DisciplineId, venueId: string | undefined, slot: string): number {
+  const def = getPart(part.partId);
+  const m = CONDITION_STAT[part.condition];
+  const rules = DISCIPLINES[discipline];
+  const w = rules.weights;
+  const d = venueId && rules.format === "oval" ? getVenue(venueId).demand : NEUTRAL;
+  const traction = slot === "wheel" ? def.handling * m * w.traction : 0;
+  return def.power * m * w.power * d.power + def.handling * m * w.handling * d.handling + def.reliability * m * w.reliability * d.reliability + traction - def.weight * w.weight;
+}
+
+/** Why a venue that isn't open yet stays closed, in the player's words (null when it's open). */
+export function venueLockReason(state: GameState, venueId: string): string | null {
+  if (state.run.venuesOpen.includes(venueId)) return null;
+  const venue = getVenue(venueId);
+  const discipline = resolveFlags(state).discipline;
+  if (venue.opens.type === "feature") {
+    const from = venueName(venue.opens.venueId, discipline);
+    if (venue.opens.invitation && state.meta.records[venue.opens.venueId] === undefined) {
+      return state.run.featureWins[venue.opens.venueId] !== undefined
+        ? `Invitation only. You won the ${from} this Season, so win it again next Season and you're in.`
+        : `Invitation only: win the ${from} Feature in one Season, then again in a later one.`;
+    }
+    return `Win the ${from} Feature.`;
+  }
+  if (venue.opens.type === "knowhow") return "Sign up with Rep.";
+  return null;
 }
