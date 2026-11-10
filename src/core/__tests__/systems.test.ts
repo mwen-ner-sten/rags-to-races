@@ -186,7 +186,7 @@ describe("driveway", () => {
     expect(s.run.driveway.some((p) => p.uid === "a" || p.uid === "w")).toBe(false);
     expect(s.run.driveway.some((p) => p.uid === "v")).toBe(true);
     expect(s.run.materials.metal).toBe(metal + 1);
-    expect(s.run.notices[0]).toMatch(/stripped Old Seat .*sold Busted Wheel/);
+    expect(s.run.feed.find((f) => f.kind === "driveway")?.text).toMatch(/stripped Old Seat .*sold Busted Wheel/);
     expect(s.run.stats.drivewayOverflows).toBe(1);
   });
 
@@ -199,7 +199,7 @@ describe("driveway", () => {
     stowFinds(s, Array.from({ length: 8 }, (_, i) => find(`d${i}`, "engine_lawn")));
     expect(s.run.driveway.map((p) => p.uid)).toEqual(["d0", "d1", "d2", "d3", "d4", "d5"]);
     expect(s.run.cash).toBe(cash);
-    expect(s.run.notices[0]).toMatch(/left .* at the curb/);
+    expect(s.run.feed.find((f) => f.kind === "driveway")?.text).toMatch(/left .* at the curb/);
   });
 
   it("waiting parts move into the garage as soon as space frees up", () => {

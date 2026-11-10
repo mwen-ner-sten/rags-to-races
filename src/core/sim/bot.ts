@@ -3,14 +3,14 @@
  * the UI dispatches, on a schedule of visits, and records when milestones
  * happen. It is deliberately reasonable, not optimal.
  */
-import { apply, counterBlocker, type Action } from "../actions";
+import { apply, counterBlocker, toolStocked, type Action } from "../actions";
 import { counterPrice } from "../garage";
 import { DISCIPLINES, EVENT_KINDS, VENUES, getVenue } from "../content/events";
 import { CONDITION_STAT, REPAIR_TECHNIQUE, STRIP_YIELD, getPart } from "../content/parts";
 import { PLACES, getPlace } from "../content/places";
 import { CREW_BY_ID, TEAM_UPGRADES } from "../content/team";
 import { TOOLS } from "../content/tools";
-import { VEHICLES, getVehicle } from "../content/vehicles";
+import { SHELL_PRICE, VEHICLES, getVehicle } from "../content/vehicles";
 import { channel } from "../channels";
 import { reservedPartUids, vehicleBusy } from "../garage";
 import { templateBase } from "../habits";
@@ -150,10 +150,12 @@ export class Bot {
   }
 
   private buyTools(): void {
-    const order = ["parts_washer", "shelving", "welder", "tire_machine", "shelving", "impact_wrench", "second_bench", "engine_hoist", "shelving", "shelving"];
+    const order = ["parts_washer", "shelving", "welder", "tire_machine", "shelving", "impact_wrench", "second_bench", "engine_hoist", "shelving", "shelving", "engine_stand", "torque_wrench", "parts_tumbler"];
     for (const id of order) {
       const tool = TOOLS.find((t) => t.id === id)!;
       if ((this.state.run.tools[id] ?? 0) >= tool.max) continue;
+      if (!toolStocked(this.state, id)) continue;
+      if (id === "engine_hoist" && this.state.config.perks.includes("short_cut")) continue;
       if (id === "engine_hoist" && !this.state.run.vehicles.some((v) => v.vehicleId === "go_kart")) continue;
       if (id === "welder" && !this.state.run.venuesOpen.includes("dirt")) continue;
       if (this.state.run.cash - tool.cash < this.reserve()) return;
@@ -178,12 +180,11 @@ export class Bot {
     return (def.power * w.power + def.handling * w.handling + def.reliability * w.reliability) * CONDITION_STAT[part.condition] - def.weight * w.weight;
   }
 
-  /** Part ids an owned or future vehicle can use. */
+  /** Part ids your best vehicle or a future one can use. Spares for machines you've outgrown aren't worth the shelf space. */
   private usefulPartIds(): Set<string> {
     const maxTier = Math.max(-1, ...this.state.run.vehicles.map((v) => getVehicle(v.vehicleId).tier));
-    const owned = new Set(this.state.run.vehicles.map((v) => v.vehicleId));
     const ids = new Set<string>();
-    for (const v of VEHICLES) if (v.tier >= maxTier || owned.has(v.id)) for (const slot of v.slots) slot.accepts.forEach((id) => ids.add(id));
+    for (const v of VEHICLES) if (v.tier >= maxTier) for (const slot of v.slots) slot.accepts.forEach((id) => ids.add(id));
     return ids;
   }
 
@@ -197,19 +198,19 @@ export class Bot {
       byId.set(p.partId, [...(byId.get(p.partId) ?? []), p]);
     }
     const sell: string[] = [];
+    const rubberShort = this.shortMaterials().has("rubber");
     for (const [partId, parts] of byId) {
       const def = getPart(partId);
       if (def.category === "junk") continue; // stripped on the bench
       const sorted = [...parts].sort((a, b) => b.condition - a.condition);
-      const keep = useful.has(partId) ? (def.category === "wheel" ? 2 : 1) : 0;
+      const keep = useful.has(partId) ? (def.category === "wheel" && !rubberShort ? 2 : 1) : 0;
       sorted.slice(keep).forEach((p) => sell.push(p.uid));
     }
     const storage = Math.floor(channel(s, "storage"));
     const junk = s.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !reserved.has(p.uid));
     if (s.run.inventory.length - sell.length > storage * 0.8) junk.slice(0, Math.max(0, junk.length - 3)).forEach((p) => sell.push(p.uid));
     // Keep surplus that yields a short material for stripping instead of selling it.
-    const m = s.run.materials;
-    const short = new Set<string>([m.metal < 20 ? "metal" : "", m.rubber < 6 ? "rubber" : "", m.wiring < 4 ? "wiring" : ""].filter(Boolean));
+    const short = this.shortMaterials();
     this.surplus = new Set(sell.filter((uid) => {
       const part = s.run.inventory.find((p) => p.uid === uid);
       return part ? Object.keys(STRIP_YIELD[getPart(part.partId).category]).some((mat) => short.has(mat)) : false;
@@ -220,9 +221,18 @@ export class Bot {
 
   private surplus = new Set<string>();
 
+  /** Materials below what the next build needs (plus a little for repairs). */
+  private shortMaterials(): Set<string> {
+    const s = this.state;
+    const owned = new Set(s.run.vehicles.map((v) => v.vehicleId));
+    const next = VEHICLES.find((v) => !owned.has(v.id) && (!v.blueprint || s.run.learned.includes(v.blueprint) || s.run.available.includes(v.blueprint)));
+    const want = { metal: Math.max(20, (next?.materials.metal ?? 0) + 6), rubber: Math.max(6, (next?.materials.rubber ?? 0) + 3), wiring: Math.max(4, (next?.materials.wiring ?? 0) + 2) };
+    const m = s.run.materials;
+    return new Set<string>([m.metal < want.metal ? "metal" : "", m.rubber < want.rubber ? "rubber" : "", m.wiring < want.wiring ? "wiring" : ""].filter(Boolean));
+  }
+
   private materialsShort(): boolean {
-    const m = this.state.run.materials;
-    return m.metal < 20 || m.rubber < 6 || m.wiring < 4;
+    return this.shortMaterials().size > 0;
   }
 
   /** Buys parts the next vehicle (or an owned one with an empty required slot) is missing at the Parts Counter. */
@@ -232,7 +242,7 @@ export class Bot {
       for (const slot of getVehicle(vehicle.vehicleId).slots) {
         if (!slot.required || vehicle.parts[slot.slot]) continue;
         if (s.run.inventory.some((p) => slot.accepts.includes(p.partId) && p.condition > 0)) continue;
-        const pick = slot.accepts.find((id) => !counterBlocker(this.state, id) && this.state.run.cash - counterPrice(id) > this.reserve());
+        const pick = slot.accepts.find((id) => !counterBlocker(this.state, id) && this.state.run.cash - counterPrice(this.state, id) > this.reserve());
         if (pick) this.act({ type: "buyPart", partId: pick });
       }
     }
@@ -242,16 +252,18 @@ export class Bot {
     for (const slot of next.slots) {
       if (!slot.required || slot.minCondition !== undefined) continue;
       if (s.run.inventory.some((p) => slot.accepts.includes(p.partId) && p.condition > 0)) continue;
-      const pick = slot.accepts.find((id) => !counterBlocker(this.state, id) && this.state.run.cash - counterPrice(id) > this.reserve());
+      const pick = slot.accepts.find((id) => !counterBlocker(this.state, id) && this.state.run.cash - counterPrice(this.state, id) > this.reserve());
       if (pick) this.act({ type: "buyPart", partId: pick });
     }
   }
 
   private buyShell(): void {
     const s = this.state;
-    if (!s.run.learned.includes("blueprint:beater_car")) return;
-    if (s.run.vehicles.some((v) => v.vehicleId === "beater_car") || s.run.inventory.some((p) => p.partId === "beater_shell")) return;
-    if (s.run.cash - 150 > this.reserve()) this.act({ type: "buyShell" });
+    if (s.run.inventory.some((p) => p.partId === "beater_shell")) return;
+    const owned = new Set(s.run.vehicles.map((v) => v.vehicleId));
+    const wantsShell = VEHICLES.some((v) => !owned.has(v.id) && v.blueprint && s.run.learned.includes(v.blueprint) && v.slots.some((sl) => sl.accepts.includes("beater_shell")));
+    if (!wantsShell) return;
+    if (s.run.cash - SHELL_PRICE > this.reserve()) this.act({ type: "buyShell" });
   }
 
   private benchWork(): void {
@@ -260,7 +272,17 @@ export class Bot {
     // Habit-lane jobs loop on their own; queued work takes the next free bench ahead of them.
     let busy = s.run.jobs.filter((j) => isBenchKind(j.spec) && !j.lane.startsWith("habit:")).length + s.run.queue.filter((q) => isBenchKind(q)).length;
     const reserved = reservedPartUids(s);
-    const candidates = s.run.inventory.filter((p) => !reserved.has(p.uid));
+    // A part that an owned vehicle is waiting on (an empty required slot) goes to the front of the bench.
+    const waiting = new Set<string>();
+    for (const vehicle of s.run.vehicles) {
+      for (const slot of getVehicle(vehicle.vehicleId).slots) if (slot.required && !vehicle.parts[slot.slot]) slot.accepts.forEach((id) => waiting.add(id));
+    }
+    // Next comes whatever the next build needs (the shell above all), then everything else.
+    const ownedIds = new Set(s.run.vehicles.map((v) => v.vehicleId));
+    const nextBuild = VEHICLES.find((v) => !ownedIds.has(v.id) && (!v.blueprint || s.run.learned.includes(v.blueprint) || s.run.available.includes(v.blueprint)));
+    const forNext = new Set<string>(nextBuild?.slots.filter((sl) => sl.required).flatMap((sl) => sl.accepts) ?? []);
+    const urgent = (p: PartInstance) => (waiting.has(p.partId) ? 0 : getPart(p.partId).category === "body" ? 1 : forNext.has(p.partId) ? 2 : 3);
+    const candidates = s.run.inventory.filter((p) => !reserved.has(p.uid)).sort((a, b) => urgent(a) - urgent(b) || b.condition - a.condition);
     const tryJob = (spec: JobSpec) => {
       if (busy >= benches || this.queueFree() <= 0) return;
       if (jobBlocker(s, spec)) return;
@@ -495,7 +517,7 @@ export class Bot {
 
   private chooseScrap(slots: number, points: number, teamEra: boolean, lpAvailable: number): ScrapChoices {
     const buy: string[] = [];
-    const order = ["barn_find", "tow_hitch", "kid_brother", "night_owl", "shade_tree", "junkyard_eyes", "old_notebook", "tow_hitch", "second_bench", "swap_meet", "underdog", "early_bird", "tow_hitch", "night_owl", "scavengers_map", "grudge_match"];
+    const order = ["barn_find", "tow_hitch", "kid_brother", "night_owl", "shade_tree", "junkyard_eyes", "old_notebook", "tow_hitch", "second_bench", "borrowed_trailer", "hot_shoe", "local_hero", "coupon_book", "swap_meet", "underdog", "early_bird", "tow_hitch", "night_owl", "short_cut", "scavengers_map", "grudge_match"];
     let ranks: Record<string, number> = { ...this.state.meta.perks };
     for (const id of order) {
       const attempt = planPurchases(this.state, [...buy, id], lpAvailable);
@@ -507,7 +529,7 @@ export class Bot {
     const priority = this.policy === "push" ? ["tow_hitch", "second_bench", "barn_find", "shade_tree", "night_owl", "kid_brother", "junkyard_eyes", "old_notebook", "underdog"] : ["barn_find", "tow_hitch", "kid_brother", "shade_tree", "night_owl", "junkyard_eyes", "second_bench", "early_bird"];
     const perks = priority.filter((id) => (ranks[id] ?? 0) > 0).slice(0, slots);
     const half = Math.floor(points / 2);
-    const dares = ["mower_madness", "quick_season", "packrat", "settle_it"].filter((d) => !this.state.meta.daresCompleted.includes(d));
+    const dares = ["clean_sweep", "penny_pincher", "mower_madness", "quick_season", "packrat", "settle_it", "hot_lap", "kart_to_fair"].filter((d) => !this.state.meta.daresCompleted.includes(d));
     return {
       buy,
       perks,
@@ -534,7 +556,9 @@ export class Bot {
       }
     }
     if (!fairWon) return;
-    const wantReset = this.policy === "sprint" ? true : stateWon || stuck;
+    // The State Invitational only opens to drivers who won the Regional in an earlier Season.
+    const noInvite = s.run.featureWins.regional !== undefined && s.meta.records.regional === undefined;
+    const wantReset = this.policy === "sprint" ? true : stateWon || noInvite || stuck;
     if (!wantReset) return;
     const choices = this.chooseScrap(nextSeasonPerkSlots(s), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + LAYERS.scrap.award(s));
     this.recordSeason();

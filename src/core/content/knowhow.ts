@@ -1,4 +1,5 @@
 import type { GameState } from "../types";
+import { hasPerk } from "../rules";
 import { PART_BY_ID } from "./parts";
 
 /**
@@ -45,10 +46,11 @@ export const KNOWHOW: readonly KnowhowDef[] = [
 
   { id: "blueprint:riding_mower", name: "Riding Mower plans", kind: "blueprint", blurb: "Sit-down power. Tows a trailer.", studyMs: 4 * HOUR, trigger: (s) => featureWon(s, "backyard"), hint: "Win the Backyard Feature" },
   { id: "blueprint:go_kart", name: "Go-Kart plans", kind: "blueprint", blurb: "A welded kart chassis and a real engine.", studyMs: 8 * HOUR, trigger: (s) => s.run.venuesOpen.includes("dirt") && s.run.learned.includes("tech:welding"), hint: "Open the Dirt Track and learn Welding" },
-  { id: "blueprint:beater_car", name: "Beater plans", kind: "blueprint", blurb: "A whole car. The longest project of the Season.", studyMs: 8 * HOUR, trigger: (s) => (s.run.tools.engine_hoist ?? 0) > 0 && owns(s, "go_kart"), hint: "Own a Go-Kart and an engine hoist" },
+  { id: "blueprint:beater_car", name: "Beater plans", kind: "blueprint", blurb: "A whole car. The longest project of the Season.", studyMs: 8 * HOUR, trigger: (s) => ((s.run.tools.engine_hoist ?? 0) > 0 || hasPerk(s, "short_cut")) && owns(s, "go_kart"), hint: "Own a Go-Kart and an engine hoist" },
+  { id: "blueprint:street_stock", name: "Street Stock plans", kind: "blueprint", blurb: "A caged sedan for the Invitationals. Needs a second shell and a Caged Chassis.", studyMs: 8 * HOUR, trigger: (s) => featureWon(s, "county_fair") && owns(s, "beater_car"), hint: "Win the County Fair Feature and own a Beater" },
 
   { id: "place:yards", name: "Neighbourhood Yards", kind: "place", blurb: "Ask the neighbours if you can look around.", studyMs: 0, trigger: () => true, hint: "" },
-  { id: "place:junkyard", name: "Marisol's Junkyard", kind: "place", blurb: "Membership card and a promise not to pet the dog.", studyMs: 0, trigger: (s) => owns(s, "riding_mower"), hint: "Own a Riding Mower" },
+  { id: "place:junkyard", name: "Marisol's Junkyard", kind: "place", blurb: "Membership card and a promise not to pet the dog.", studyMs: 0, trigger: (s) => owns(s, "riding_mower") || hasPerk(s, "borrowed_trailer"), hint: "Own a Riding Mower" },
   { id: "place:auction", name: "Salvage Auction", kind: "place", blurb: "A bidder number with your name on it.", studyMs: 0, trigger: (s) => s.run.venuesOpen.includes("dirt"), hint: "Open the Dirt Track" },
   { id: "place:long_haul", name: "The Long Haul", kind: "place", blurb: "The county yard lets you in if you can carry it out.", studyMs: 0, trigger: (s) => owns(s, "beater_car") || s.config.perks.includes("scavengers_map"), hint: "Finish the Beater" },
   { id: "place:dirt", name: "Dirt Track entry", kind: "place", blurb: "Your name on the sign-up sheet at the Dirt Track.", studyMs: 0, trigger: (s) => owns(s, "riding_mower"), hint: "Own a Riding Mower" },

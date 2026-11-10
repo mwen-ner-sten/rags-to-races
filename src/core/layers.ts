@@ -5,7 +5,7 @@
  */
 import { channel } from "./channels";
 import { CREW, BASE_CREW_CAP, crewLevel } from "./content/team";
-import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID } from "./content/modifiers";
+import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, hardshipConflict } from "./content/modifiers";
 import { VENUES, getVenue } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { syncHabitSlots, templateBase } from "./habits";
@@ -143,7 +143,8 @@ function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: nu
   if (choices.hardships.length > 0 && !teamEra) return "Hardships open up once you found a team";
   if (choices.hardships.length > hardshipCap(state)) return `Up to ${hardshipCap(state)} hardships`;
   for (const id of choices.hardships) if (!HARDSHIP_BY_ID[id]) return `Unknown hardship ${id}`;
-  return null;
+  if (new Set(choices.hardships).size !== choices.hardships.length) return "A hardship is picked twice";
+  return hardshipConflict(choices.hardships, choices.dare);
 }
 
 function toConfig(choices: ScrapChoices): RunConfig {

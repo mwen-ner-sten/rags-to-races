@@ -1,5 +1,6 @@
 import { channel } from "./channels";
 import { PLACE_BY_ID } from "./content/places";
+import { pushFeed } from "./feed";
 import { STORY, addJournal } from "./journal";
 import { resolveFlags } from "./rules";
 import type { GameState, JobSpec, JobTemplate } from "./types";
@@ -45,8 +46,18 @@ export function countRepetition(state: GameState, spec: JobSpec): void {
   if (resolveFlags(state).habitsDisabled) return;
   if (state.run.reps[template] >= habitThreshold(state, template)) {
     state.run.habitsKnown.push(template);
+    pushFeed(state, "habit", `${habitName(template)} is now a Habit. Give it a slot and it runs by itself.`);
     addJournal(state, "first_habit", STORY.first_habit);
   }
+}
+
+const HABIT_NAMES: Record<string, string> = { clean: "Cleaning", repair: "Repairs", strip: "Stripping", race: "Race Day" };
+
+/** Player-facing name of a Habit ("Trips to Curbside", "Cleaning"). */
+export function habitName(template: JobTemplate): string {
+  const base = templateBase(template);
+  if (base.startsWith("haul:")) return `Trips to ${PLACE_BY_ID[base.slice(5)]?.name ?? "somewhere"}`;
+  return HABIT_NAMES[base] ?? base;
 }
 
 /** Keeps the habit slot array the size of the automation channel (Era 1 only). */

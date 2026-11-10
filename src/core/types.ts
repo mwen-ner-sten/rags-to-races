@@ -96,7 +96,7 @@ export interface ActiveJob {
   race?: RaceRoll;
 }
 
-export type RaceBeatKind = "start" | "pass" | "passed" | "hold" | "wear" | "rival" | "last_lap" | "dnf" | "finish";
+export type RaceBeatKind = "start" | "pass" | "passed" | "hold" | "wear" | "rival" | "last_lap" | "dnf" | "finish" | "caution" | "round";
 
 export interface RaceBeat {
   /** Ms into the race. */
@@ -116,6 +116,16 @@ export interface RaceRoll {
   dnf: boolean;
   margin: number;
   rivalBeaten: boolean;
+  /** The rival's own car quit. */
+  rivalOut?: boolean;
+  /** The yellow flag came out (Team-era ovals). */
+  caution?: boolean;
+  /** Drag: elimination rounds in this event. */
+  rounds?: number;
+  /** Finished well enough to open the next event (older saves: top three). */
+  advanced?: boolean;
+  /** Every installed part was Good or better at the green flag. */
+  cleanBuild?: boolean;
   weakestSlot: string | null;
   /** The part at race entry, so a later swap cannot rewrite the debrief. */
   weakestPart?: PartInstance;
@@ -139,6 +149,9 @@ export interface RaceResult {
   prize: number;
   rep: number;
   rival?: { id: string; beaten: boolean };
+  rivalOut?: boolean;
+  caution?: boolean;
+  rounds?: number;
   margin: number;
   weakestSlot: string | null;
   weakestPart?: PartInstance;
@@ -147,6 +160,21 @@ export interface RaceResult {
   laps?: number;
   durationMs?: number;
   wear: { slot: string; from: Condition; to: Condition }[];
+}
+
+export type FeedKind = "haul" | "driveway" | "bench" | "habit" | "place" | "knowhow" | "build" | "race" | "story";
+
+/** Something that just happened, shown in the "Lately" list and as a passing toast. */
+export interface FeedItem {
+  id: string;
+  /** Season ms when it happened (or last happened, for a merged item). */
+  at: number;
+  kind: FeedKind;
+  text: string;
+  /** Repeats of the same thing (a Habit's trips, driveway overflows) merge into one item. */
+  key?: string;
+  count?: number;
+  tally?: Record<string, number>;
 }
 
 export interface JournalEntry {
@@ -259,13 +287,17 @@ export interface RunState {
   lastEntered: Record<string, number>;
   featureWins: Record<string, number>; // venue → season ms of first Feature win
   races: RaceResult[];
-  stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number };
+  stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number; dnfs?: number; counterBuys?: number };
   revealed: string[];
   candidates: string[]; // crew candidates this Season (team era)
   shellsBought: number;
   /** Dealer saturation per part id, decaying 1 per hour (see garage.partSellValue). */
   saleSat: Record<string, { n: number; at: number }>;
+  /** Recent wins per "venue:event", decaying over time: keep winning the same event and its purse shrinks (see race.purseFactor). */
+  purseSat?: Record<string, { n: number; at: number }>;
   notices: string[];
+  /** Recent happenings, newest last (see feed.ts). */
+  feed: FeedItem[];
   pushOnlyRaces: boolean;
 }
 

@@ -44,12 +44,13 @@ const jobSpec = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("assemble"), vehicleId: known(VEHICLE_BY_ID), partUids: z.record(id, id), name: z.string() }).passthrough(),
   z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, call2: z.enum(["pit", "stay", "launch_hard", "launch_soft"]).optional() }).passthrough(),
 ]);
-const beat = z.object({ at: amount, text: z.string(), position: count.positive(), kind: z.enum(["start", "pass", "passed", "hold", "wear", "rival", "last_lap", "dnf", "finish"]).optional() });
+const beat = z.object({ at: amount, text: z.string(), position: count.positive(), kind: z.enum(["start", "pass", "passed", "hold", "wear", "rival", "last_lap", "dnf", "finish", "caution", "round"]).optional() });
 const raceFields = {
   position: count.positive(), fieldSize: count.positive(), dnf: z.boolean(), margin: number,
   weakestSlot: id.nullable(), weakestPart: part.optional(), beats: z.array(beat),
+  rivalOut: z.boolean().optional(), caution: z.boolean().optional(), rounds: count.positive().optional(),
 };
-const roll = z.object({ ...raceFields, rivalBeaten: z.boolean(), crewIds: z.array(known(CREW_BY_ID)).optional(), wearSteps: z.record(id, count), laps: count.positive(), durationMs: amount.positive() });
+const roll = z.object({ ...raceFields, rivalBeaten: z.boolean(), advanced: z.boolean().optional(), cleanBuild: z.boolean().optional(), crewIds: z.array(known(CREW_BY_ID)).optional(), wearSteps: z.record(id, count), laps: count.positive(), durationMs: amount.positive() });
 const result = z.object({
   ...raceFields, id, seasonMs: amount, vehicleUid: id, venueId: known(VENUE_BY_ID), event, call,
   prize: amount, rep: amount, rival: z.object({ id: known(RIVAL_BY_ID), beaten: z.boolean() }).optional(),
@@ -92,9 +93,13 @@ const run = z.object({
   reps: z.record(template, count), habitsKnown: z.array(template), habitSlots: z.array(template.nullable()),
   jobs: z.array(job), queue: z.array(jobSpec), idleLanes: z.array(id), practice: z.record(known(VENUE_BY_ID), amount),
   lastEntered: z.record(id, amount), featureWins: z.record(known(VENUE_BY_ID), amount), races: z.array(result),
-  stats: z.object({ partsSold: count, hauls: count, racesLost: z.record(known(VENUE_BY_ID), count), firstStartDone: z.boolean(), drivewayOverflows: count.optional() }),
+  stats: z.object({ partsSold: count, hauls: count, racesLost: z.record(known(VENUE_BY_ID), count), firstStartDone: z.boolean(), drivewayOverflows: count.optional(), dnfs: count.optional(), counterBuys: count.optional() }),
   revealed: z.array(id), candidates: z.array(known(CREW_BY_ID)), shellsBought: count,
-  saleSat: z.record(known(PART_BY_ID), z.object({ n: amount, at: amount })), notices: z.array(z.string()), pushOnlyRaces: z.boolean(),
+  saleSat: z.record(known(PART_BY_ID), z.object({ n: amount, at: amount })), purseSat: z.record(id, z.object({ n: amount, at: amount })).optional(), notices: z.array(z.string()), pushOnlyRaces: z.boolean(),
+  feed: z.array(z.object({
+    id, at: amount, text: z.string(), key: id.optional(), count: count.optional(), tally: z.record(id, number).optional(),
+    kind: z.enum(["haul", "driveway", "bench", "habit", "place", "knowhow", "build", "race", "story"]),
+  })),
 });
 const gameSchema = z.object({
   version: z.literal(1), seed: z.string(), rng: count, uid: count, meta, run,
@@ -104,7 +109,7 @@ const gameSchema = z.object({
   config: z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: known(DARE_BY_ID).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)) }),
 });
 // Only fields actually absent from older rewrite saves are optional. Missing core data is corruption.
-const compatibleSchema = gameSchema.extend({ meta: meta.extend({ tipsSeen: meta.shape.tipsSeen.optional() }), run: run.extend({ driveway: run.shape.driveway.optional() }) });
+const compatibleSchema = gameSchema.extend({ meta: meta.extend({ tipsSeen: meta.shape.tipsSeen.optional() }), run: run.extend({ driveway: run.shape.driveway.optional(), feed: run.shape.feed.optional() }) });
 
 function referencesValid(game: GameState): boolean {
   const inventory = new Map(game.run.inventory.map((part) => [part.uid, part]));
@@ -156,7 +161,7 @@ export function decodeGameState(value: unknown): GameState | null {
   const game: GameState = {
     ...parsed.data,
     meta: { ...parsed.data.meta, tipsSeen: parsed.data.meta.tipsSeen ?? [...parsed.data.run.revealed] },
-    run: { ...parsed.data.run, driveway: parsed.data.run.driveway ?? [] },
+    run: { ...parsed.data.run, driveway: parsed.data.run.driveway ?? [], feed: parsed.data.run.feed ?? [] },
   };
   return referencesValid(game) ? upgradeSave(game) : null;
 }

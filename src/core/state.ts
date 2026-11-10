@@ -65,6 +65,7 @@ export function initialRun(): RunState {
     shellsBought: 0,
     saleSat: {},
     notices: [],
+    feed: [],
     pushOnlyRaces: true,
   };
 }
@@ -92,6 +93,7 @@ export function newGame(seed: string): GameState {
 export function upgradeSave(game: GameState): GameState {
   const next = structuredClone(game);
   next.run.driveway ??= [];
+  next.run.feed ??= [];
   // Players from before tips existed already know the systems they've seen.
   next.meta.tipsSeen ??= [...next.run.revealed];
   for (const job of next.run.jobs) {

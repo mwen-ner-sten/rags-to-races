@@ -7,7 +7,9 @@ import { getVehicle } from "./content/vehicles";
 import { benchCost, conditionAfter, fillFromDriveway, nowhereToStow, reservedPartUids, stripYield, vehicleBusy } from "./garage";
 import { countRepetition, syncHabitSlots, templateBase } from "./habits";
 import { completeHaul } from "./haul";
-import { STORY, addJournal } from "./journal";
+import { pushFeed } from "./feed";
+import { STORY, addJournal, tell } from "./journal";
+import { CONDITION_NAMES } from "./content/parts";
 import { getKnowhow } from "./content/knowhow";
 import { isLearned, learn, refreshKnowhow, studyMs } from "./knowhowEngine";
 import { raceDurationMs, resolveRace, rollRace, settleRace } from "./race";
@@ -463,9 +465,18 @@ function completeJob(state: GameState, job: ActiveJob): void {
   const crewId = job.lane.startsWith("crew:") ? job.lane.slice(5) : undefined;
   const raceCrew = spec.kind === "race" ? (job.race?.crewIds ?? racingCrewIds(state)) : [];
   switch (spec.kind) {
-    case "haul":
-      completeHaul(state, spec, crewId);
+    case "haul": {
+      const finds = completeHaul(state, spec, crewId);
+      const place = getPlace(spec.placeId).name;
+      const found = finds.map((p) => `${getPart(p.partId).name} (${CONDITION_NAMES[p.condition]})`).join(", ");
+      const who = laneName(state, job.lane);
+      pushFeed(state, "haul", `${who ? `${who}: ` : ""}${place} trip brought home ${found}.`, job.looping ? {
+        key: `haul:${spec.placeId}:${job.lane}`,
+        tally: { parts: finds.length },
+        merged: (t, count) => `${who ? `${who}: ` : ""}${count} trips to ${place}, ${t.parts} parts. Latest: ${found}.`,
+      } : {});
       break;
+    }
     case "clean":
     case "repair":
     case "restore": {
@@ -474,6 +485,8 @@ function completeJob(state: GameState, job: ActiveJob): void {
       if (part && next !== null) {
         part.condition = next;
         if (spec.kind === "clean") addJournal(state, "first_clean", STORY.first_clean);
+        if (spec.kind === "restore") tell(state, "first_restore");
+        benchFeed(state, job, `${getPart(part.partId).name} is now ${CONDITION_NAMES[next]}.`);
       }
       break;
     }
@@ -482,7 +495,9 @@ function completeJob(state: GameState, job: ActiveJob): void {
       if (part) {
         state.run.inventory = state.run.inventory.filter((p) => p.uid !== part.uid);
         state.run.driveway = state.run.driveway.filter((p) => p.uid !== part.uid);
-        for (const [m, n] of Object.entries(stripYield(part))) state.run.materials[m as MaterialId] += n ?? 0;
+        const got = stripYield(part);
+        for (const [m, n] of Object.entries(got)) state.run.materials[m as MaterialId] += n ?? 0;
+        benchFeed(state, job, `Stripped ${getPart(part.partId).name} for ${Object.entries(got).map(([m, n]) => `${n} ${m}`).join(", ")}.`);
       }
       break;
     }
@@ -497,8 +512,26 @@ function completeJob(state: GameState, job: ActiveJob): void {
       else resolveRace(state, spec);
       break;
   }
+  if (job.duration >= MAX_JOB_MS) tell(state, "first_long_job");
   countRepetition(state, spec);
   if (crewId && !raceCrew.includes(crewId)) creditCrew(state, [crewId]);
+}
+
+const BENCH_VERB: Record<string, string> = { clean: "cleaning", repair: "repair", restore: "restore", strip: "strip" };
+
+/** Who is doing a looping job, for the feed ("Habit", a crew member's name), or "" for your own hands and benches. */
+function laneName(state: GameState, lane: LaneId): string {
+  if (lane.startsWith("habit:")) return "Habit";
+  if (lane.startsWith("crew:")) return CREW_BY_ID[lane.slice(5)]?.name ?? "Crew";
+  return "";
+}
+
+function benchFeed(state: GameState, job: ActiveJob, text: string): void {
+  const who = laneName(state, job.lane);
+  pushFeed(state, "bench", `${who ? `${who}: ` : ""}${text}`, job.looping ? {
+    key: `bench:${job.spec.kind}:${job.lane}`,
+    merged: (_t, count) => `${who}: ${count} ${BENCH_VERB[job.spec.kind] ?? job.spec.kind} jobs done. Latest: ${text}`,
+  } : {});
 }
 
 function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "assemble" }>): void {
@@ -519,10 +552,12 @@ function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "asse
     history: { races: 0, wins: 0, dnfs: 0, bestFinish: null },
     builtAtSeasonMs: state.run.seasonMs,
   });
+  pushFeed(state, "build", `${spec.name || def.name} is built and ready to race.`);
   if (!state.run.stats.firstStartDone) {
     state.run.stats.firstStartDone = true;
     addJournal(state, "first_start", STORY.first_start);
   }
+  tell(state, `built_${def.id}`);
   syncHabitSlots(state);
 }
 
@@ -665,6 +700,7 @@ export function afterChange(state: GameState): void {
   syncHabitSlots(state);
   refreshReveals(state);
   if (state.run.notices.length > 20) state.run.notices.splice(0, state.run.notices.length - 20);
+  state.run.feed ??= [];
 }
 
 export type { Condition };

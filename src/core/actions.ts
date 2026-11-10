@@ -122,6 +122,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!tool) return "Unknown tool";
       const owned = s.run.tools[tool.id] ?? 0;
       if (owned >= tool.max) return "You already have that";
+      if (!toolStocked(s, tool.id)) return "The counter doesn't stock that for you yet";
       if (s.run.cash < tool.cash) return `Needs ${tool.cash} Scrap Bucks`;
       for (const [m, n] of Object.entries(tool.materials)) if (s.run.materials[m as MaterialId] < (n ?? 0)) return "Not enough materials";
       s.run.cash -= tool.cash;
@@ -143,7 +144,8 @@ function applyMut(s: GameState, action: Action): string | null {
     case "buyPart": {
       const blocker = counterBlocker(s, action.partId);
       if (blocker) return blocker;
-      s.run.cash -= counterPrice(action.partId);
+      s.run.cash -= counterPrice(s, action.partId);
+      s.run.stats.counterBuys = (s.run.stats.counterBuys ?? 0) + 1;
       s.run.inventory.push({ uid: nextUid(s, "p"), partId: action.partId, condition: 3, origin: "Parts counter" });
       afterChange(s);
       return null;
@@ -295,8 +297,15 @@ export function counterBlocker(s: GameState, partId: string): string | null {
   if ((s.meta.codex.parts[partId] ?? 0) < 1) return "You've never seen one; the counter can't order it";
   const ownedTier = Math.max(0, ...s.run.vehicles.map((v) => getVehicle(v.vehicleId).tier));
   if (def.tier > ownedTier + 1) return "Too far ahead of what you drive";
-  if (s.run.cash < counterPrice(partId)) return `Needs ${counterPrice(partId)} Scrap Bucks`;
+  if (s.run.cash < counterPrice(s, partId)) return `Needs ${counterPrice(s, partId)} Scrap Bucks`;
   return null;
+}
+
+/** Bigger shop tools only appear once you're building machines that need them. */
+export function toolStocked(s: GameState, toolId: string): boolean {
+  const minTier = TOOL_BY_ID[toolId]?.minTier ?? 0;
+  if (minTier === 0 || (s.run.tools[toolId] ?? 0) > 0) return true;
+  return s.run.vehicles.some((v) => getVehicle(v.vehicleId).tier >= minTier);
 }
 
 /** Convenience for the simulator and tests: apply or throw. */

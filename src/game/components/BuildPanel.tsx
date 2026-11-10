@@ -214,7 +214,7 @@ function PartsCounter({ game }: { game: GameState }) {
             </div>
             <div className="row-action">
               <button className="btn small wrap" disabled={!!counterBlocker(game, p.id)} onClick={() => dispatch({ type: "buyPart", partId: p.id })}>
-                {num(counterPrice(p.id))} Scrap Bucks
+                {num(counterPrice(game, p.id))} Scrap Bucks
               </button>
               {counterBlocker(game, p.id) && <span className="why">{counterBlocker(game, p.id)}</span>}
             </div>
