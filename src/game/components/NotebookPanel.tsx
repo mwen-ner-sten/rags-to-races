@@ -116,6 +116,7 @@ function Rivals({ game }: { game: GameState }) {
         return (
           <li key={r.id}>
             <strong>{r.name}</strong> <span className="muted">{r.line}</span>
+            <p className="blurb">{r.style}</p>
             <div className="num">{rec ? `${rec.wins} beaten · ${rec.losses} lost` : "Not met yet"}</div>
           </li>
         );

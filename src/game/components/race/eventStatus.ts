@@ -1,3 +1,4 @@
+import { DISCIPLINES } from "@/core/content/events";
 import { jobBlocker, nextEventInMs, rungPending } from "@/core/jobs";
 import { raceDurationMs } from "@/core/race";
 import type { EventKind, GameState, JobSpec } from "@/core/types";
@@ -17,6 +18,17 @@ export type EventStatus =
 
 const isEvent = (spec: JobSpec, venueId: string, event: EventKind) => spec.kind === "race" && spec.venueId === venueId && spec.event === event;
 
+/** Team-era drag runs head-to-head brackets instead of a field of six. */
+export function isBracket(game: GameState): boolean {
+  return DISCIPLINES[game.era?.discipline ?? "dirt"].format === "bracket";
+}
+
+/** What it takes to open the event after `prev`, in the player's words. */
+export function openRule(bracket: boolean, prev: EventKind): string {
+  if (!bracket) return `Finish top 3 in the ${capitalize(prev)}`;
+  return prev === "sprint" ? "Win the Sprint" : `Reach the final of the ${capitalize(prev)}`;
+}
+
 /** What your hands are doing, as "after your trip (2m)", or null when they're free. */
 function handsLater(game: GameState): string | null {
   const hands = game.run.jobs.find((j) => j.lane === "hands");
@@ -32,9 +44,9 @@ export function eventStatus(game: GameState, spec: RaceSpec): EventStatus {
   // Signed up for the earlier rung: you can sign up for this one too, and it runs if that one podiums.
   const pending = rungPending(game, venueId, event, spec.vehicleUid);
   if (!(game.run.ladder[venueId] ?? []).includes(event) && !pending) {
-    return { kind: "locked", text: prev ? `Finish top 3 in the ${capitalize(prev)} to open this` : "Not open yet" };
+    return { kind: "locked", text: prev ? `${openRule(isBracket(game), prev)} to open this` : "Not open yet" };
   }
-  const ifPodium = pending && prev ? ` if you finish top 3 in the ${capitalize(prev)}` : "";
+  const ifPodium = pending && prev ? ` if you ${openRule(isBracket(game), prev).replace(/^\w/, (c) => c.toLowerCase())}` : "";
   if (game.run.jobs.some((j) => isEvent(j.spec, venueId, event))) return { kind: "running", text: "On the track now" };
   const queueIndex = game.run.queue.findIndex((q) => isEvent(q, venueId, event));
   const wait = nextEventInMs(game, venueId, event);

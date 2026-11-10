@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { apply, createGame, type Action } from "@/core";
 import { decodeSave } from "./save";
 export { isGameState } from "./save";
-import type { GameState, RaceResult } from "@/core/types";
+import type { FeedItem, FeedKind, GameState, RaceResult } from "@/core/types";
 
 const SAVE_KEY = "rags-to-races:v2";
 const BACKUP_KEY = "rags-to-races:v2:backup";
@@ -25,6 +25,33 @@ export interface AwaySummary {
   learned: string[];
   /** Parts waiting on the driveway when you got back. */
   driveway: number;
+  /** What happened while you were away (newest first, at most AWAY_ITEMS). */
+  items: FeedItem[];
+  /** Season time when you got back, for ageing the items. */
+  seasonMs: number;
+}
+
+export interface Toast {
+  id: string;
+  kind: FeedKind;
+  text: string;
+}
+
+const AWAY_ITEMS = 8;
+const MAX_TOASTS = 3;
+const TOAST_KINDS: readonly FeedKind[] = ["habit", "place", "knowhow", "build", "race", "story"];
+let toastSeq = 0;
+
+/** Feed items that are new or changed since `before` and worth a passing toast. */
+export function toastsFor(before: readonly FeedItem[], after: readonly FeedItem[]): Toast[] {
+  const seen = new Map(before.map((item) => [item.id, item.text]));
+  const out: Toast[] = [];
+  for (const item of after) {
+    if (seen.get(item.id) === item.text) continue;
+    const worthy = TOAST_KINDS.includes(item.kind) || ((item.kind === "haul" || item.kind === "bench") && !item.key);
+    if (worthy) out.push({ id: `${item.id}:${toastSeq++}`, kind: item.kind, text: item.text });
+  }
+  return out;
 }
 
 interface Store {
@@ -34,6 +61,7 @@ interface Store {
   /** A race you entered by hand that just finished; announced off the Race tab, cleared once seen. */
   finished: RaceResult | null;
   away: AwaySummary | null;
+  toasts: Toast[];
   lastTick: number;
   /** Protect an unreadable original when browser storage could not keep a backup. */
   saveBlocked: boolean;
@@ -50,6 +78,7 @@ interface Store {
   clearFinished: () => void;
   showReplay: (race: RaceResult) => void;
   closeAway: () => void;
+  dismissToast: (id: string) => void;
 }
 
 interface SaveFile {
@@ -83,6 +112,8 @@ function summarize(before: GameState, after: GameState, ms: number, capped: bool
     rep: after.run.rep - before.run.rep,
     learned: after.run.learned.filter((id) => !before.run.learned.includes(id)),
     driveway: after.run.driveway.length,
+    seasonMs: after.run.seasonMs,
+    items: sameSeason ? after.run.feed.filter((f) => f.at > before.run.seasonMs).slice(-AWAY_ITEMS).reverse() : [],
   };
 }
 
@@ -92,6 +123,7 @@ export const useGame = create<Store>((set, get) => ({
   replay: null,
   finished: null,
   away: null,
+  toasts: [],
   lastTick: 0,
   saveBlocked: false,
 
@@ -104,7 +136,12 @@ export const useGame = create<Store>((set, get) => ({
       set({ error: result.error });
       return false;
     }
-    set({ game: result.state, error: action.type === "advance" ? get().error : null });
+    const fresh = action.type === "advance" && action.away ? [] : toastsFor(game.run.feed, result.state.run.feed);
+    set({
+      game: result.state,
+      error: action.type === "advance" ? get().error : null,
+      ...(fresh.length > 0 ? { toasts: [...get().toasts, ...fresh].slice(-MAX_TOASTS) } : {}),
+    });
     const latest = result.state.run.races[result.state.run.races.length - 1];
     // A race you entered by hand is announced; Habit races just land in the results list.
     if (latest && latest.id !== before && action.type === "advance" && !action.away && !isHabitRace(game, latest)) set({ finished: latest });
@@ -132,7 +169,7 @@ export const useGame = create<Store>((set, get) => ({
     if (!game) {
       // Never overwrite an unreadable save without keeping a copy.
       const kept = !storageUnavailable && backupRaw(raw);
-      set({ game: createGame(), lastTick: Date.now(), replay: null, finished: null, away: null, saveBlocked: !kept,
+      set({ game: createGame(), lastTick: Date.now(), replay: null, finished: null, away: null, toasts: [], saveBlocked: !kept,
         error: !kept ? "Browser storage is unavailable. Automatic saving is paused to protect your original save. Export a copy in Settings."
           : raw ? "Your save couldn't be read, so a new game started. Export the old save with Export browser backup in Settings." : null });
       get().save();
@@ -180,7 +217,7 @@ export const useGame = create<Store>((set, get) => ({
       if (!backupRaw(window.localStorage.getItem(SAVE_KEY))) throw new Error("backup");
       const game = createGame();
       window.localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), game } satisfies SaveFile));
-      set({ game, replay: null, finished: null, away: null, error: null, saveBlocked: false, lastTick: Date.now() });
+      set({ game, replay: null, finished: null, away: null, toasts: [], error: null, saveBlocked: false, lastTick: Date.now() });
       return true;
     } catch {
       set({ error: "Couldn't keep your previous save safely. Your current game has been kept. Export it before starting over." });
@@ -219,7 +256,7 @@ export const useGame = create<Store>((set, get) => ({
     } catch {
       return "Couldn't save the imported game to this browser. Your current game has been kept.";
     }
-    set({ game: file.game, lastTick: Date.now(), replay: null, finished: null, away: null, error: null, saveBlocked: false });
+    set({ game: file.game, lastTick: Date.now(), replay: null, finished: null, away: null, toasts: [], error: null, saveBlocked: false });
     return null;
   },
 
@@ -228,6 +265,7 @@ export const useGame = create<Store>((set, get) => ({
   clearFinished: () => set({ finished: null }),
   showReplay: (race) => set({ replay: race }),
   closeAway: () => set({ away: null }),
+  dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 }));
 
 function toBase64(text: string): string {

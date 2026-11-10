@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { DISCIPLINES } from "@/core/content/events";
+import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
 import { crewBusyRacing } from "@/core/crew";
-import type { CrewMember, GameState } from "@/core/types";
+import type { CrewMember, DisciplineId, GameState } from "@/core/types";
 import { num } from "../format";
 import { habitLabel, habitOptions } from "../labels";
 import { useGame } from "../store";
@@ -61,6 +62,42 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
         </button>
       </div>
     </article>
+  );
+}
+
+function RulesAndMastery({ game, discipline }: { game: GameState; discipline: DisciplineId }) {
+  const disciplines = (Object.keys(DISCIPLINES) as DisciplineId[]).filter((id) => (game.meta.disciplineMastery[id] ?? 0) > 0);
+  const hardships = Object.keys(game.meta.hardshipMastery).filter((id) => (game.meta.hardshipMastery[id] ?? 0) > 0 && HARDSHIP_BY_ID[id]);
+  return (
+    <>
+      <section className="section" aria-labelledby="rules-h">
+        <h2 id="rules-h">This team&apos;s rules</h2>
+        <ul className="plain">
+          {DISCIPLINES[discipline].rules.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+      </section>
+      {(disciplines.length > 0 || hardships.length > 0) && (
+        <section className="section" aria-labelledby="mastered-h">
+          <h2 id="mastered-h">What you&apos;ve mastered</h2>
+          <ul className="plain">
+            {disciplines.map((id) => (
+              <li key={id}>
+                <strong>{DISCIPLINES[id].name}</strong> <span className="num muted">level {game.meta.disciplineMastery[id]}</span>
+                <p className="blurb">{DISCIPLINES[id].mastery.text}</p>
+              </li>
+            ))}
+            {hardships.map((id) => (
+              <li key={id}>
+                <strong>{HARDSHIP_BY_ID[id].name}</strong> <span className="num muted">done {game.meta.hardshipMastery[id]}×</span>
+                <p className="blurb">{HARDSHIP_BY_ID[id].reward}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -121,6 +158,7 @@ export function TeamPanel() {
           </div>
         </dl>
       </section>
+      <RulesAndMastery game={game} discipline={era.discipline} />
       <section className="section" aria-labelledby="crew-h">
         <Tips ids={["crew"]} />
         <h2 id="crew-h">
@@ -172,8 +210,8 @@ export function TeamPanel() {
                   <p className="blurb">{u.text}</p>
                 </div>
                 <div className="row-action">
-                  <button className="btn" disabled={cost === undefined || game.team.tp < cost} onClick={() => dispatch({ type: "buyTeamUpgrade", upgradeId: u.id })}>
-                    {cost === undefined ? "Built" : `${cost} TP`}
+                  <button className="btn wrap" disabled={cost === undefined || game.team.tp < cost} onClick={() => dispatch({ type: "buyTeamUpgrade", upgradeId: u.id })}>
+                    {cost === undefined ? "Built" : `${cost} Team Points`}
                   </button>
                   {cost !== undefined && game.team.tp < cost && <span className="why">Needs {cost - game.team.tp} more Team Points</span>}
                 </div>

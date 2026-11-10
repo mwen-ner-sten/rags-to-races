@@ -49,7 +49,7 @@ export function LegacyPanel() {
           return (
             <li key={v.id} className={at !== undefined ? "done" : ""}>
               <span>{venueName(v.id, discipline)} Feature</span>
-              <span className="num">{v.lp} LP</span>
+              <span className="num">{v.lp} Legacy Points</span>
               <span className="muted">{at !== undefined ? `won at ${duration(at)}` : record !== undefined ? `best: ${duration(record)}` : ""}</span>
             </li>
           );

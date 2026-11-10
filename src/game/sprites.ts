@@ -3,6 +3,28 @@ const PART_SPRITE: Record<string, string> = {
   wheel_kart: "wheel_basic",
   junk_misc: "misc_junk",
   junk_seat: "misc_seat",
+  engine_tiller: "engine_lawn",
+  engine_twin: "engine_v4",
+  engine_turbo4: "engine_turbo_v6",
+  engine_six: "engine_v6",
+  wheel_knobby: "wheel_basic",
+  wheel_dirt: "wheel_basic",
+  wheel_at: "wheel_sport",
+  wheel_slick: "wheel_racing",
+  wheel_groove: "wheel_racing",
+  frame_wagon: "frame_scrap",
+  frame_tube: "frame_steel",
+  frame_cage: "misc_roll_cage",
+  fuel_cell: "fuel_tank_large",
+  elec_ignition: "elec_racing",
+  drive_auto: "drive_manual",
+  drive_race: "drive_sequential",
+  exhaust_glasspack: "exhaust_straight",
+};
+
+/** Vehicles whose image file has a different name. */
+const VEHICLE_SPRITE: Record<string, string> = {
+  street_stock: "stock_car",
 };
 
 export function partSprite(partId: string): string {
@@ -11,7 +33,7 @@ export function partSprite(partId: string): string {
 }
 
 export function vehicleSprite(vehicleId: string): string {
-  return `/sprites/vehicles/${vehicleId}.webp`;
+  return `/sprites/vehicles/${VEHICLE_SPRITE[vehicleId] ?? vehicleId}.webp`;
 }
 
 const PLACE_SPRITE: Record<string, string> = {

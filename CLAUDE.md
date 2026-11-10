@@ -9,6 +9,8 @@ npm run typecheck   # TypeScript type checking
 npm run lint        # ESLint
 npm test            # Vitest unit tests (src/core)
 npm run sim         # Pacing simulator: npm run sim -- mixed 30 sprint 3
+npx tsx scripts/pacing-check.ts 8   # Pacing goals, PASS/FAIL (run after any content number change)
+npx tsx scripts/balance-report.ts   # Win odds of reference builds at every event (dirt | drag)
 npm run test:e2e    # Playwright smoke tests
 ```
 
@@ -22,6 +24,10 @@ The pre-rebuild game is archived at the git tag `archive/pre-rebuild`. Design so
   - **One time path.** `advance()` in `src/core/jobs.ts` runs live ticks, offline catch-up and the simulator. Don't add a second settlement path.
   - **Bonuses go through channels** (`src/core/channels.ts`). A test enforces at most 3 sources per channel and at most 2 channels per source. Car performance never takes a global percentage; it comes from the car itself.
   - **Rule changes are flags** (`src/core/rules.ts`, `resolveFlags`). Hardships, perks and disciplines are content (`src/core/content/`), not `if` branches scattered through the engine.
+  - **Parts are authored, never random.** Alternatives within a tier trade one stat for another, and each venue weights the stats differently (`VenueDef.demand`). `depth.test.ts` checks that every alternative is the better pick at some venue: add a row when you add a part.
+  - **Races come in two formats** (`DisciplineDef.format`): an oval field (`rollOval`) or a Drag elimination bracket (`rollBracket`). A discipline's rules, second-call effects (`CALL2`) and rival styles (`RivalDef`) are data in `content/events.ts`.
+  - **Tell the player what happened** through `pushFeed()` (`src/core/feed.ts`). Give repeats a `key` so they fold into one line. `run.notices` is only for things that need attention.
+  - **New state fields** must be added to the zod schema in `src/game/save.ts` (it strips unknown keys) and defaulted in `upgradeSave` so older saves load.
 - `src/game/` is the UI: a Zustand store (`store.ts`: save/load, 500 ms tick, offline catch-up capped at 48 h, race replays) plus panels in `components/`.
 - `scripts/sim-core.ts` is the pacing bot (`src/core/sim/bot.ts`). Re-run it after changing any number in `src/core/content/`. Targets: Season 1 takes 7–10 days at 4×15 min visits a day, and a push player founds a team in about 3–5 weeks.
 
@@ -50,4 +56,6 @@ The pre-rebuild game is archived at the git tag `archive/pre-rebuild`. Design so
 - ❌ Adding a bonus that bypasses `channels.ts`, or a source that feeds many channels.
 - ❌ Shortening Era 1 for convenience: the owner wants it slow and hands-on. Make waiting meaningful instead.
 - ❌ Adding `any` types to silence TypeScript.
-- ❌ Changing content numbers without re-running `npm run sim`.
+- ❌ Changing content numbers without re-running `npm run sim` and `scripts/pacing-check.ts`.
+- ❌ Adding a repeatable income source without a brake. Dealer saturation and the shrinking purse (`purseFactor`) exist because unattended loops printed money.
+- ❌ Random stats on parts or crew. Variety comes from authored content.

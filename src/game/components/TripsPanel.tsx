@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { channel } from "@/core/channels";
+import { toolStocked } from "@/core/actions";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PLACES, codexLevel } from "@/core/content/places";
 import { TOOLS } from "@/core/content/tools";
@@ -15,6 +16,7 @@ import type { GameState, MaterialId, PartCategory } from "@/core/types";
 import { duration, num } from "../format";
 import { placeSprite } from "../sprites";
 import { useGame } from "../store";
+import { ChannelWhy } from "./ChannelWhy";
 import { Tips } from "./Tips";
 
 const FOCUS: PartCategory[] = ["engine", "wheel", "frame", "fuel", "electronics", "drivetrain", "exhaust"];
@@ -72,6 +74,14 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
             <dd className="num">Lv {level}</dd>
           </div>
         </dl>
+        <div className="channel-line">
+          <span>
+            Carry <ChannelWhy game={game} channelId="carry" />
+          </span>
+          <span>
+            Trip speed <ChannelWhy game={game} channelId="haul_speed" placeId={placeId} />
+          </span>
+        </div>
         {open ? (
           <div className="actions">
             {scouting && (
@@ -109,13 +119,19 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
 
 function Tools({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
+  const stocked = TOOLS.filter((tool) => toolStocked(game, tool.id));
   return (
     <section aria-labelledby="tools-h" className="section">
       <h2 id="tools-h">Tools counter</h2>
       <Tips ids={["tools"]} />
       <p className="sub">Bought with Scrap Bucks. They stay until the Season ends.</p>
+      <div className="sub channel-line">
+        <span>
+          Bench speed <ChannelWhy game={game} channelId="bench_speed" />
+        </span>
+      </div>
       <div className="grid-list">
-        {TOOLS.map((tool) => {
+        {stocked.map((tool) => {
           const owned = game.run.tools[tool.id] ?? 0;
           const maxed = owned >= tool.max;
           const mats = Object.entries(tool.materials).map(([m, n]) => `${n} ${m}`);
@@ -144,6 +160,7 @@ function Tools({ game }: { game: GameState }) {
           );
         })}
       </div>
+      {stocked.length < TOOLS.length && <p className="muted small">Bigger shop tools turn up once you&apos;re building bigger machines.</p>}
     </section>
   );
 }

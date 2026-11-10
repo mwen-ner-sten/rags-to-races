@@ -111,7 +111,7 @@ export const VENUES: readonly VenueDef[] = [
   {
     id: "state",
     name: "State Invitational",
-    blurb: "Real grandstands. Real scouts. Invitation only: they ask back the drivers who won a Regional before.",
+    blurb: "Real grandstands. Real scouts. Lou from the race shop is watching.",
     tiers: [3, 4],
     events: ladder([120, 136, 152], [90, 160, 300], [400, 900, 2400], [12, 18, 30], [120, 480, 1440]),
     demand: { power: 1.15, handling: 0.9, reliability: 1.1 },

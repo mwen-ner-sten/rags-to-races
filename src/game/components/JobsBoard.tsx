@@ -8,6 +8,7 @@ import type { ActiveJob, GameState } from "@/core/types";
 import { duration } from "../format";
 import { habitLabel, habitOptions, jobLabel, laneLabel } from "../labels";
 import { useGame } from "../store";
+import { Lately } from "./Feed";
 import { RaceLive } from "./race/RaceLive";
 import { Tips } from "./Tips";
 
@@ -119,6 +120,7 @@ export function JobsBoard() {
           )}
         </div>
       )}
+      <Lately />
       <HabitSlots game={game} />
       {game.run.revealed.includes("habits") && nextHabits.length > 0 && (
         <div className="habit-progress">

@@ -9,6 +9,8 @@ import type { Condition, DrivewayRule, GameState, JobSpec, MaterialId, PartInsta
 import { capitalize, conditionName, duration, num, pct } from "../format";
 import { partSprite } from "../sprites";
 import { useGame } from "../store";
+import { ChannelWhy } from "./ChannelWhy";
+import { useStrongAt } from "./GarageStrongAt";
 import { Tips } from "./Tips";
 
 const UPGRADES: { kind: Exclude<BenchKind, "strip">; label: string }[] = [
@@ -122,6 +124,8 @@ function BusyStatus({ game, part }: { game: GameState; part: PartInstance }) {
 interface PartProps {
   game: GameState;
   part: PartInstance;
+  /** "Strong at" phrase for this part, when it has one. */
+  strongAt?: string;
   /** The part is waiting on the driveway rather than in the garage. */
   onDriveway?: boolean;
 }
@@ -158,7 +162,7 @@ function PartActions({ game, part, onDriveway }: PartProps) {
   );
 }
 
-function PartRow({ game, part, reserved, onDriveway }: PartProps & { reserved: boolean }) {
+function PartRow({ game, part, reserved, onDriveway, strongAt }: PartProps & { reserved: boolean }) {
   const def = getPart(part.partId);
   const hint = reserved || onDriveway || nextUpgrade(game, part) ? null : upgradeHint(game, part);
   return (
@@ -175,6 +179,7 @@ function PartRow({ game, part, reserved, onDriveway }: PartProps & { reserved: b
           <span>from {part.origin}</span>
         </div>
         <PartStats part={part} />
+        {strongAt && <div className="garage-strong">{strongAt}</div>}
         {hint && <div className="why">{hint}</div>}
       </div>
       {reserved ? <BusyStatus game={game} part={part} /> : <PartActions game={game} part={part} onDriveway={onDriveway} />}
@@ -230,7 +235,7 @@ function RulePicker({ game }: { game: GameState }) {
   );
 }
 
-function DrivewaySection({ game, reserved }: { game: GameState; reserved: Set<string> }) {
+function DrivewaySection({ game, reserved, strong }: { game: GameState; reserved: Set<string>; strong: Record<string, string> }) {
   const parts = game.run.driveway;
   if (parts.length === 0) return null;
   const rule = DRIVEWAY_RULES.find((r) => r.id === drivewayRule(game));
@@ -250,7 +255,7 @@ function DrivewaySection({ game, reserved }: { game: GameState; reserved: Set<st
       <RulePicker game={game} />
       <ul className="parts">
         {parts.map((p) => (
-          <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} onDriveway />
+          <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} onDriveway strongAt={strong[p.partId]} />
         ))}
       </ul>
     </div>
@@ -262,6 +267,7 @@ export function PartsPanel() {
   const dispatch = useGame((s) => s.dispatch);
   const [filter, setFilter] = useState("all");
   const reserved = useMemo(() => (game ? reservedPartUids(game) : new Set<string>()), [game]);
+  const strong = useStrongAt(game);
   if (!game) return null;
   const parts = [...game.run.inventory]
     .filter((p) => filter === "all" || getPart(p.partId).category === filter)
@@ -275,8 +281,11 @@ export function PartsPanel() {
         <h2 id="parts-h">Parts</h2>
         <SpaceMeter game={game} />
       </div>
+      <div className="garage-space-why">
+        Garage space: <ChannelWhy game={game} channelId="storage" />
+      </div>
       <Tips ids={["garage", "driveway", "materials"]} />
-      <DrivewaySection game={game} reserved={reserved} />
+      <DrivewaySection game={game} reserved={reserved} strong={strong} />
       <ConditionLadder />
       <p className="sub">
         The percentage is how much of a part’s stats it gives on the track. Strip breaks a part down into the materials Repair and Restore use. The dealer pays less for a part they’ve just bought a pile of.
@@ -305,7 +314,7 @@ export function PartsPanel() {
       ) : (
         <ul className="parts">
           {parts.map((p) => (
-            <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} />
+            <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} strongAt={strong[p.partId]} />
           ))}
         </ul>
       )}
