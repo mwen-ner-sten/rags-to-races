@@ -143,12 +143,21 @@ export function dnfChance(state: GameState, vehicle: Vehicle, venueId: string, e
 
 /** Probability of winning (finishing, and beating everyone you have to), estimated in closed form for previews. */
 export function winChance(state: GameState, vehicle: Vehicle, venueId: string, event: EventKind, call: RaceSpec["call"], call2?: RaceSpec["call2"]): number {
+  const bracket = DISCIPLINES[resolveFlags(state).discipline].format === "bracket";
+  const hard = bracket && call2 === "launch_hard";
+  const base = baseScore(state, vehicle, venueId, call);
   const me = effectiveScore(state, vehicle, venueId, call, call2, event);
   // P(me·(1+N) > opp·(1+N')) for independent normals; product over opponents (approximation).
+  const beats = (mine: number, opp: Opponent): number => {
+    const sd = NOISE * Math.sqrt(mine * mine + opp.score * opp.score * opp.variation * opp.variation);
+    return opp.out + (1 - opp.out) * normalCdf((mine - opp.score) / sd);
+  };
   let p = 1;
   for (const opp of opponents(state, venueId, event, call)) {
-    const sd = NOISE * Math.sqrt(me * me + opp.score * opp.score * opp.variation * opp.variation);
-    p *= opp.out + (1 - opp.out) * normalCdf((me - opp.score) / sd);
+    // A hard launch either hooks or spins each round; a spin usually loses that round, so average the outcomes, not the scores.
+    p *= hard
+      ? (1 - CALL2.launch_hard.spinChance) * beats(base * CALL2.launch_hard.hook, opp) + CALL2.launch_hard.spinChance * beats(base * CALL2.launch_hard.spin, opp)
+      : beats(me, opp);
   }
   return p * (1 - dnfChance(state, vehicle, venueId, event, call, call2));
 }
@@ -254,7 +263,7 @@ function rollOval(ctx: RollContext): RaceRoll {
   const cautionLap = caution ? Math.max(2, Math.round(laps * (0.4 + 0.3 * rand(state)))) : undefined;
   const beats = buildBeats(state, { startPos, position, fieldSize, dnf, weakSlot: weak, durationMs, laps, rivalId, rivalBeaten, rivalOut, caution: cautionLap !== undefined && cautionText ? { lap: cautionLap, text: cautionText } : undefined });
   return {
-    position, fieldSize, dnf, margin, rivalBeaten, rivalOut, caution, weakestSlot: weak, wearSteps, laps, durationMs, beats,
+    position, fieldSize, dnf, margin, rivalBeaten, rivalOut, rivalFaced: Boolean(rival), caution, weakestSlot: weak, wearSteps, laps, durationMs, beats,
     advanced: !dnf && position <= 3,
   };
 }
@@ -272,8 +281,10 @@ function rollBracket(ctx: RollContext): RaceRoll {
   let margin = 0;
   let blew = false;
   let rivalOut = false;
+  let rivalFaced = false;
   for (let r = 1; r <= rounds; r++) {
     const lane = lanes[r - 1];
+    if (lane.rival) rivalFaced = true;
     const t0 = (r - 1) * roundMs;
     const who = lane.rival ? RIVAL_BY_ID[getVenue(spec.venueId).rival]?.name ?? "your rival" : carName(state);
     const stage = rounds === 1 ? "One pass" : r === rounds ? "The final" : `Round ${r} of ${rounds}`;
@@ -315,7 +326,7 @@ function rollBracket(ctx: RollContext): RaceRoll {
     engineBlowSteps: discipline.engineBlowSteps,
   });
   return {
-    position, fieldSize, dnf: blew, margin, rivalBeaten: spec.event === "feature" && won === rounds, rivalOut, weakestSlot: weak, wearSteps, laps: 1, rounds, durationMs, beats,
+    position, fieldSize, dnf: blew, margin, rivalBeaten: spec.event === "feature" && won === rounds, rivalOut, rivalFaced, weakestSlot: weak, wearSteps, laps: 1, rounds, durationMs, beats,
     advanced: !blew && won >= Math.max(1, rounds - 1),
   };
 }
@@ -423,7 +434,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll): Ra
     dnf,
     prize,
     rep,
-    rival: spec.event === "feature" ? { id: venue.rival, beaten: rivalBeaten } : undefined,
+    rival: spec.event === "feature" && (roll.rivalFaced ?? true) ? { id: venue.rival, beaten: rivalBeaten } : undefined,
     rivalOut: roll.rivalOut,
     caution: roll.caution,
     rounds: roll.rounds,

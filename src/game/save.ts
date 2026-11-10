@@ -50,7 +50,7 @@ const raceFields = {
   weakestSlot: id.nullable(), weakestPart: part.optional(), beats: z.array(beat),
   rivalOut: z.boolean().optional(), caution: z.boolean().optional(), rounds: count.positive().optional(),
 };
-const roll = z.object({ ...raceFields, rivalBeaten: z.boolean(), advanced: z.boolean().optional(), cleanBuild: z.boolean().optional(), crewIds: z.array(known(CREW_BY_ID)).optional(), wearSteps: z.record(id, count), laps: count.positive(), durationMs: amount.positive() });
+const roll = z.object({ ...raceFields, rivalBeaten: z.boolean(), rivalFaced: z.boolean().optional(), advanced: z.boolean().optional(), cleanBuild: z.boolean().optional(), crewIds: z.array(known(CREW_BY_ID)).optional(), wearSteps: z.record(id, count), laps: count.positive(), durationMs: amount.positive() });
 const result = z.object({
   ...raceFields, id, seasonMs: amount, vehicleUid: id, venueId: known(VENUE_BY_ID), event, call,
   prize: amount, rep: amount, rival: z.object({ id: known(RIVAL_BY_ID), beaten: z.boolean() }).optional(),

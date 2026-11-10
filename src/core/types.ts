@@ -116,6 +116,8 @@ export interface RaceRoll {
   dnf: boolean;
   margin: number;
   rivalBeaten: boolean;
+  /** You actually raced the rival (in a Drag bracket, only if you reached the final). Older saves: assume yes. */
+  rivalFaced?: boolean;
   /** The rival's own car quit. */
   rivalOut?: boolean;
   /** The yellow flag came out (Team-era ovals). */

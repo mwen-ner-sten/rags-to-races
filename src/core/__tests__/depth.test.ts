@@ -407,6 +407,37 @@ describe("Drag is a bracket", () => {
     expect(seen.has(1)).toBe(true);
   });
 
+  it("going out early in a Feature is not a loss to a rival you never raced", () => {
+    const { s, v } = withCar("drag-early", "go_kart", KART, 1);
+    s.era = era("drag");
+    openAll(s, "county_fair");
+    for (let i = 0; i < 8; i++) {
+      const result = resolveRace(s, { kind: "race", vehicleUid: v.uid, venueId: "county_fair", event: "feature", call: "nurse" })!;
+      expect(result.position).toBe(5);
+      expect(result.rival).toBeUndefined();
+      for (const part of Object.values(v.parts)) if (part) part.condition = 1;
+    }
+    expect(s.meta.rivals.big_ron).toBeUndefined();
+    expect(s.meta.journal.some((j) => j.id === "lost_big_ron")).toBe(false);
+  });
+
+  it("the odds shown for a hard launch match what the rounds actually do", () => {
+    const driver = { id: "deshawn", assignment: { type: "driver" as const }, morale: 100, workedInWindowMs: 0, windowStartMs: 0, jobsDone: 0 };
+    const spec: RaceSpec = { kind: "race", vehicleUid: "v1", venueId: "state", event: "heat", call: "push", call2: "launch_hard" };
+    let wins = 0;
+    let preview = 0;
+    const runs = 1500;
+    for (let i = 0; i < runs; i++) {
+      const { s, v } = withCar(`odds-${i}`, "street_stock", STREET_STOCK);
+      s.era = era("drag", [structuredClone(driver)]);
+      openAll(s, "state");
+      if (i === 0) preview = winChance(s, v, "state", "heat", "push", "launch_hard");
+      const roll = rollRace(s, spec)!;
+      if (roll.position === 1 && !roll.dnf) wins += 1;
+    }
+    expect(Math.abs(wins / runs - preview)).toBeLessThan(0.06);
+  });
+
   it("a lost one-pass Sprint pays nothing and doesn't open the Heat", () => {
     const { s, v } = withCar("drag-loss", "go_kart", KART, 1);
     s.era = era("drag");
