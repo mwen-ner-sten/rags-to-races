@@ -156,6 +156,11 @@ export function garageSpace(state: GameState): number {
   return Math.floor(channel(state, "storage"));
 }
 
+/** True when the garage and the driveway are both full, so a haul Habit has nowhere to put its finds. */
+export function nowhereToStow(state: GameState): boolean {
+  return state.run.inventory.length >= garageSpace(state) && state.run.driveway.length >= DRIVEWAY_SPACE;
+}
+
 /** Puts finds in the garage while there's room (best first), the rest on the driveway; clears an overflowing driveway by the rule. */
 export function stowFinds(state: GameState, finds: PartInstance[]): void {
   state.run.driveway.push(...finds);

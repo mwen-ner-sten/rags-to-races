@@ -1,6 +1,7 @@
 "use client";
 
 import { channel } from "@/core/channels";
+import { nowhereToStow } from "@/core/garage";
 import { habitThreshold, templateBase } from "@/core/habits";
 import { jobRate, nextEventInMs } from "@/core/jobs";
 import type { ActiveJob, GameState } from "@/core/types";
@@ -63,6 +64,7 @@ function HabitSlots({ game }: { game: GameState }) {
               </option>
             ))}
           </select>
+          {template?.startsWith("haul:") && nowhereToStow(game) && <span className="hint">Paused: the garage and driveway are full.</span>}
         </label>
       ))}
       {game.run.habitsKnown.length === 0 && <p className="hint">Repeat a job enough times and it becomes a Habit you can drop in a slot.</p>}

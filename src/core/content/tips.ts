@@ -51,6 +51,7 @@ export const TIPS: readonly TipDef[] = [
     lines: [
       "The odds show your chance of winning with this vehicle and call. Your car races on the track while you get on with other things.",
       "A top-3 finish opens the next event at that venue. Winning a Feature opens new places to race.",
+      "Heading out? Sign up for the Sprint, then the Heat and Feature too. Each one runs only if you podium the race before it.",
       "Racing wears parts down. Check them in the Garage between races.",
     ],
     when: revealed("race"),

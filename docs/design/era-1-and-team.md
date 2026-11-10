@@ -118,8 +118,9 @@ The Dirt Track opens with Rep, not a Feature win, so the Race tab shows a sign-u
 |---|---|---|
 | Haul | Curb / Yards / Junkyard / Auction lot / Long haul (bulk junkyard) | 15 s / 2 min / 10 min / 1 h / **8 h** |
 | Bench | Clean / patch tyre / rebuild carb / strip mower / weld bracket / strip car / engine rebuild | 1 min / 5 min / 20 min / 30 min / 45 min / 4 h / **8 h** |
-| Study | Rebuilding / Welding / Tuning / Wiring / Bodywork | 10 min / 1 h / 2 h / 4 h / 6 h |
-| Race | Sprint / Heat / Feature | Prep plus a 10–20 s replay. Events run **on a schedule** (Backyard every 2/5/15 min up to State every 2/8/24 h), like Friday night at the Dirt Track. This caps prize income and gives each visit a "race night" to plan around. |
+| Study | Rebuilding / Welding / Tuning / Wiring / Bodywork | 45 min / 6 h / 6 h / 7 h / 8 h (plans: Riding Mower 4 h, Go-Kart 8 h, Beater 8 h) |
+| Build | Push Mower / Riding Mower / Go-Kart / Beater | 1 min / 1 h / 6 h / **8 h** |
+| Race | Sprint / Heat / Feature | Prep plus a 10–20 s replay. Events run **on a schedule** (Backyard every 2/5/15 min up to State every 2/8/24 h), like Friday night at the Dirt Track. This caps prize income and gives each visit a "race night" to plan around. With a Sprint (or Heat) signed up, you can also sign up for the next rung; it runs only if the race before it podiums, otherwise it's dropped with a notice and no entry is charged. |
 
 No job exceeds 8 hours. When the queue empties, the game says so plainly. It
 never silently wastes the player's time.
@@ -186,7 +187,14 @@ This is how unlocks go from slow and manual to quick to automatic, without a
 - **Perks are bought and equipped in the same reset screen**, using the Legacy Points that reset awards.
 - **Scripted opening.** The first two trips ever find a seized engine and a busted wheel.
 
-Measured with `npm run sim` (4×15 min visits a day): Season 1 takes about 6.5–7 days. Later Sprint Seasons take 3–5 days, with high variance from the greedy bot. A push player founds a team in about 34 days.
+Pacing goals live in `scripts/pacing-check.ts` (`npx tsx scripts/pacing-check.ts 10`), which runs the sim bot and prints PASS/FAIL per goal. Measured 2026-10-29 on 10 seeds:
+
+- 4×15 min a day: Season 1 median 6.9 days (5.9–10.3).
+- 1×5 min a day: Season 1 median 20.9 days (18.4–23.4). Before this pass it didn't finish in 30.
+- 6×30 min a day: Season 1 median 4.9 days.
+- A push player founds a team in 16–21 days.
+
+What sets the daily player's pace: Rep comes only from races, so the Race habit (12 races) is the big unlock; race-night sign-ups save a visit per ladder rung; and timers of a few hours (builds, studies, Feature intervals) slow frequent players without touching daily ones, who sleep through them. Haul Habits pause when the garage and driveway are both full, so away time can't loop a 15 s trip into thousands of driveway sales.
 
 ### 3.8 Vehicles do more than race
 
