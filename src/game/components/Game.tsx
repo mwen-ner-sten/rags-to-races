@@ -195,7 +195,7 @@ function Toast() {
   }, [error, clear]);
   if (!error) return null;
   return (
-    <div className="toast" role="status">
+    <div className="toast" role="alert">
       {error}
       <button className="link-btn" onClick={clear} aria-label="Dismiss">
         ×

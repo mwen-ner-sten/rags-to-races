@@ -119,16 +119,27 @@ function Tools({ game }: { game: GameState }) {
           const owned = game.run.tools[tool.id] ?? 0;
           const maxed = owned >= tool.max;
           const mats = Object.entries(tool.materials).map(([m, n]) => `${n} ${m}`);
-          const short = game.run.cash < tool.cash || Object.entries(tool.materials).some(([m, n]) => game.run.materials[m as MaterialId] < (n ?? 0));
+          const missing = Object.entries(tool.materials).filter(([m, n]) => game.run.materials[m as MaterialId] < (n ?? 0));
+          const short = game.run.cash < tool.cash || missing.length > 0;
+          const reason = maxed
+            ? null
+            : game.run.cash < tool.cash
+              ? `Needs ${num(tool.cash - game.run.cash)} more Scrap Bucks`
+              : missing.length > 0
+                ? `Needs more ${missing.map(([m]) => m).join(", ")}`
+                : null;
           return (
             <div key={tool.id} className="row-card">
               <div>
                 <strong>{tool.name}</strong> {tool.max > 1 && <span className="muted num">{owned}/{tool.max}</span>}
                 <p className="blurb">{tool.blurb}</p>
               </div>
-              <button className="btn" disabled={maxed || short} onClick={() => dispatch({ type: "buyTool", toolId: tool.id })}>
-                {maxed ? "Owned" : `${num(tool.cash)} SB${mats.length ? ` + ${mats.join(", ")}` : ""}`}
-              </button>
+              <div className="row-action">
+                <button className="btn wrap" disabled={maxed || short} onClick={() => dispatch({ type: "buyTool", toolId: tool.id })}>
+                  {maxed ? "Owned" : `${num(tool.cash)} Scrap Bucks${mats.length ? ` + ${mats.join(", ")}` : ""}`}
+                </button>
+                {reason && <span className="why">{reason}</span>}
+              </div>
             </div>
           );
         })}
@@ -165,9 +176,12 @@ export function TripsPanel() {
               <strong>Sedan shell</strong>
               <p className="blurb">The auction has a rotten four-door with your name on it. It needs cleaning, then Bodywork, before it can become a Beater.</p>
             </div>
-            <button className="btn" disabled={game.run.cash < SHELL_PRICE} onClick={() => dispatch({ type: "buyShell" })}>
-              Buy · {SHELL_PRICE} SB
-            </button>
+            <div className="row-action">
+              <button className="btn wrap" disabled={game.run.cash < SHELL_PRICE} onClick={() => dispatch({ type: "buyShell" })}>
+                Buy · {SHELL_PRICE} Scrap Bucks
+              </button>
+              {game.run.cash < SHELL_PRICE && <span className="why">Needs {num(SHELL_PRICE - game.run.cash)} more Scrap Bucks</span>}
+            </div>
           </div>
         )}
       </section>

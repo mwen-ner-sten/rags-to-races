@@ -146,9 +146,12 @@ export function TeamPanel() {
                         {def.strength} <span className="muted">{def.quirk}</span>
                       </p>
                     </div>
-                    <button className="btn" disabled={era.crew.length >= cap} onClick={() => dispatch({ type: "hire", crewId: id })}>
-                      Hire
-                    </button>
+                    <div className="row-action">
+                      <button className="btn" disabled={era.crew.length >= cap} onClick={() => dispatch({ type: "hire", crewId: id })}>
+                        Hire
+                      </button>
+                      {era.crew.length >= cap && <span className="why">Crew is full ({era.crew.length}/{cap})</span>}
+                    </div>
                   </div>
                 );
               })}
@@ -168,9 +171,12 @@ export function TeamPanel() {
                   <strong>{u.name}</strong> {u.cost.length > 1 && <span className="muted num">{rank}/{u.cost.length}</span>}
                   <p className="blurb">{u.text}</p>
                 </div>
-                <button className="btn" disabled={cost === undefined || game.team.tp < cost} onClick={() => dispatch({ type: "buyTeamUpgrade", upgradeId: u.id })}>
-                  {cost === undefined ? "Built" : `${cost} TP`}
-                </button>
+                <div className="row-action">
+                  <button className="btn" disabled={cost === undefined || game.team.tp < cost} onClick={() => dispatch({ type: "buyTeamUpgrade", upgradeId: u.id })}>
+                    {cost === undefined ? "Built" : `${cost} TP`}
+                  </button>
+                  {cost !== undefined && game.team.tp < cost && <span className="why">Needs {cost - game.team.tp} more Team Points</span>}
+                </div>
               </div>
             );
           })}

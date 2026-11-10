@@ -113,9 +113,12 @@ export function ResetPlanner({ layer, onDone }: Props) {
                 </div>
                 <div className="perk-actions">
                   {rank < p.maxRank && (
-                    <button className="btn small" disabled={!canBuy} onClick={() => setBuy([...buy, p.id])}>
-                      Buy · {cost} LP
-                    </button>
+                    <>
+                      <button className="btn small" disabled={!canBuy} onClick={() => setBuy([...buy, p.id])}>
+                        Buy · {cost} LP
+                      </button>
+                      {!canBuy && cost !== undefined && <span className="why">Needs {cost - lpLeft} more Legacy Points</span>}
+                    </>
                   )}
                   {rank > 0 && (
                     <label className="check">
@@ -128,6 +131,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
                       Equip
                     </label>
                   )}
+                  {rank > 0 && !isEquipped && equipped.length >= slots && <span className="why">No free perk slot</span>}
                 </div>
               </li>
             );
@@ -156,6 +160,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
         <legend>
           Tune-up points · {spent}/{points}
         </legend>
+        {spent >= points && <p className="why">No tune-up points left to spend</p>}
         <div className="steppers">
           {SKILLS.map((s) => (
             <div key={s.id} className="stepper">

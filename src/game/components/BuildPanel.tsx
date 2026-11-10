@@ -79,8 +79,8 @@ function Blueprint({ game, def }: { game: GameState; def: VehicleDef }) {
           })}
         </div>
         <div className="actions">
-          <button className="btn primary" disabled={!!blocker} onClick={() => dispatch({ type: "enqueue", spec })}>
-            Assemble{def.cash ? ` · ${num(def.cash)} SB` : ""}
+          <button className="btn primary wrap" disabled={!!blocker} onClick={() => dispatch({ type: "enqueue", spec })}>
+            Assemble{def.cash ? ` · ${num(def.cash)} Scrap Bucks` : ""}
             {mats.length ? ` + ${mats.join(", ")}` : ""}
           </button>
           {blocker && <span className="why">{blocker}</span>}
@@ -212,9 +212,12 @@ function PartsCounter({ game }: { game: GameState }) {
             <div>
               <strong>{p.name}</strong> <span className="muted">T{p.tier} {p.category}</span>
             </div>
-            <button className="btn small" disabled={!!counterBlocker(game, p.id)} onClick={() => dispatch({ type: "buyPart", partId: p.id })}>
-              {num(counterPrice(p.id))} SB
-            </button>
+            <div className="row-action">
+              <button className="btn small wrap" disabled={!!counterBlocker(game, p.id)} onClick={() => dispatch({ type: "buyPart", partId: p.id })}>
+                {num(counterPrice(p.id))} Scrap Bucks
+              </button>
+              {counterBlocker(game, p.id) && <span className="why">{counterBlocker(game, p.id)}</span>}
+            </div>
           </div>
         ))}
       </div>
