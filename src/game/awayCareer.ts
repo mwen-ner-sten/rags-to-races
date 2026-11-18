@@ -1,6 +1,6 @@
 import { getVenue, venueName } from "@/core/content/events";
 import { CHARTERS, finishPoints, ownerCharterBlocker, tourScore } from "@/core/ownership";
-import { PROMOTER_CHARTERS, STEWARDSHIP, promoterBookingReason, promoterGate, promoterReport } from "@/core/promoter";
+import { PROMOTER_CHARTERS, promoterBookingReason, promoterGate, promoterReport, promoterSchedule, promoterTargets } from "@/core/promoter";
 import type { GameState } from "@/core/types";
 import { ordinal } from "./format";
 
@@ -45,20 +45,21 @@ export function awayCareer(before: GameState, after: GameState) {
   const previousMeet = before.promoter?.meet;
   if (meet && previousMeet && before.promoter?.season === after.promoter?.season && meet.results.length > previousMeet.results.length) {
     const charter = PROMOTER_CHARTERS[meet.charter];
-    const rules = STEWARDSHIP[meet.stewardship];
+    const targets = promoterTargets(meet.charter, meet.stewardship, meet.route);
     const report = promoterReport(meet);
     const count = meet.results.length - previousMeet.results.length;
-    const detail = `${count} ${count === 1 ? "meeting ran" : "meetings ran"}. ${report.fieldFinishes}/${rules.finishes} field finishes${rules.closeFinishes ? ` and ${report.closeFinishes}/${rules.closeFinishes} close finishes` : ""}.`;
-    const nextRound = charter.rounds[meet.results.length];
+    const detail = `${count} ${count === 1 ? "meeting ran" : "meetings ran"}. ${report.fieldFinishes}/${targets.fieldFinishes} field finishes${targets.closeFinishes ? ` and ${report.closeFinishes}/${targets.closeFinishes} close finishes` : ""}${targets.winners ? ` and ${report.winners}/${targets.winners} different winners` : ""}.`;
+    const nextRound = promoterSchedule(meet.charter, meet.route)[meet.results.length];
     let next: string;
     if (report.qualified) next = "Publish the report to certify the charter.";
     else if (report.complete) {
       const missed: string[] = [];
-      if (report.points < charter.minimumPoints) missed.push(`${report.points}/${charter.minimumPoints} guest points`);
-      if (report.finishes < charter.minimumFinishes) missed.push(`${report.finishes}/${charter.minimumFinishes} guest finishes`);
-      if (report.podiums < charter.minimumPodiums) missed.push(`${report.podiums}/${charter.minimumPodiums} guest podiums`);
-      if (report.fieldFinishes < rules.finishes) missed.push("field finishes");
-      if (report.closeFinishes < rules.closeFinishes) missed.push("close finishes");
+      if (report.points < targets.points) missed.push(`${report.points}/${targets.points} guest points`);
+      if (report.finishes < targets.finishes) missed.push(`${report.finishes}/${targets.finishes} guest finishes`);
+      if (report.podiums < targets.podiums) missed.push(`${report.podiums}/${targets.podiums} guest podiums`);
+      if (report.fieldFinishes < targets.fieldFinishes) missed.push("field finishes");
+      if (report.closeFinishes < targets.closeFinishes) missed.push("close finishes");
+      if (report.winners < targets.winners) missed.push("different winners");
       next = `Certification missed on ${missed.join(", ")}. Review the standings before starting another calendar.`;
     } else if (meet.booking) next = `Next meeting booked at ${getVenue(nextRound.venueId).name}.`;
     else next = promoterBookingReason(meet) ?? `Book the next meeting at ${getVenue(nextRound.venueId).name}.`;
