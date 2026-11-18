@@ -14,6 +14,8 @@ import {
   shopFoundingReady,
   serviceCandidates,
   serviceDelivery,
+  stockedServiceClient,
+  unpaidServiceClients,
   shopLegacyName,
   type CustomerId,
   type ShopLegacy,
@@ -105,13 +107,13 @@ function Transfer({ game }: { game: GameState }) {
 
 export function ServiceCounter({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
-  const [selected, setSelected] = useState<CustomerId>("marina");
+  const [selected, setSelected] = useState<CustomerId>();
   const [partUid, setPart] = useState("");
   if (!game.run.revealed.includes("bench") && !game.run.serviceBook && !game.config.shopLegacy) return null;
   const book = game.run.serviceBook;
   const ticket = book?.ticket;
-  const pending = CUSTOMER_IDS.filter((id) => !book?.invoices.some((r) => r.client === id));
-  const client = ticket?.client ?? (pending.includes(selected) ? selected : pending[0]);
+  const pending = unpaidServiceClients(game);
+  const client = ticket?.client ?? (selected && pending.includes(selected) ? selected : stockedServiceClient(game, pending) ?? pending[0]);
   const request = client && CUSTOMERS[client];
   const candidates = client ? serviceCandidates(game, client) : [];
   const part = ticket

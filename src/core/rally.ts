@@ -2,12 +2,12 @@ import { vehicleStats } from "./garage";
 import { rand, randNormal } from "./rng";
 import type { EventKind, GameState, JobSpec, RaceBeat, Vehicle } from "./types";
 import type { Opponent } from "./race";
-import { totalTime, type RallyPace } from "./timecards";
+import { STAGE_COUNT, totalTime, tripmeterAvailable, type RallyPace } from "./timecards";
 import type { CourseSurface } from "./clubTrack";
 
 const SURFACES = ["fast lane", "switchbacks", "loose gravel", "broken road"] as const;
 type Surface = typeof SURFACES[number];
-export const STAGE_COUNT = { sprint: 2, heat: 3, feature: 4 } as const;
+export { STAGE_COUNT } from "./timecards";
 const FIRST: Record<string, number> = { backyard: 0, dirt: 2, county_fair: 1, regional: 3, state: 2 };
 export function rallyRoute(venueId: string, event: EventKind, stages?: readonly CourseSurface[]): Surface[] {
   if (stages) return stages.slice(0, STAGE_COUNT[event]);
@@ -63,6 +63,7 @@ export function rallyWinForecast(car: Vehicle, venue: string, event: EventKind, 
 export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf: boolean, base: number, field: number, rivals: readonly Opponent[], durationMs: number, stages?: readonly CourseSurface[], reference?: RallyPace) {
   const route = rallyRoute(spec.venueId, spec.event, stages);
   const modifiers = surfaceModifiers(car);
+  const useTripmeter = spec.regularity && spec.holdMarks && reference && tripmeterAvailable(car);
   const runners = rivals.map((driver) => ({ driver, time: 0, out: driver.out > 0 && rand(state) < driver.out }));
   const beats: RaceBeat[] = [{ at: 0, position: 1, kind: "start", text: "The marshal starts your clock. The other cars leave at intervals." }];
   const failedStage = dnf ? Math.floor(rand(state) * route.length) : -1;
@@ -88,7 +89,7 @@ export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf
     const pace = base * modifiers[surface] * (notes ? 1.015 : cut ? 1.06 : 1) * (1 + (notes ? 0.035 : 0.085) * randNormal(state));
     const flatOut = nominal * field / Math.max(0.1, pace) + penalty;
     // A tripmeter lets the driver lift before a control. It can never recover time already lost.
-    const target = spec.holdMarks && reference ? reference.splitsMs[index] / 1000 : 0;
+    const target = useTripmeter ? reference.splitsMs[index] / 1000 : 0;
     const split = Math.max(flatOut, target * 0.99);
     const lifted = split - flatOut;
     time += split;

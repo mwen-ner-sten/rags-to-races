@@ -113,6 +113,14 @@ export function serviceCandidates(game: GameState, client: CustomerId) {
   );
 }
 
+export function unpaidServiceClients(game: GameState): CustomerId[] {
+  return CUSTOMER_IDS.filter((client) => !game.run.serviceBook?.invoices.some((invoice) => invoice.client === client));
+}
+
+export function stockedServiceClient(game: GameState, clients = unpaidServiceClients(game)): CustomerId | undefined {
+  return clients.find((client) => serviceCandidates(game, client).length > 0);
+}
+
 export function recordService(game: GameState, part: PartInstance) {
   const order = game.run.serviceBook?.ticket;
   if (order?.partUid === part.uid) order.worked = true;

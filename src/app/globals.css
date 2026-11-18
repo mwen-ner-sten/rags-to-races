@@ -1454,6 +1454,24 @@ dialog.replay {
   max-width: min(760px, calc(100vw - 32px));
 }
 
+.replay-class {
+  margin: 0 0 8px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.replay-progress {
+  display: flex;
+  align-items: center;
+  flex: 1 1 185px;
+  gap: 6px;
+}
+
+.replay-progress input {
+  flex: 1;
+  min-width: 0;
+}
+
 .debrief .big {
   font-family: var(--display);
   font-size: 2rem;

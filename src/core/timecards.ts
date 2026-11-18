@@ -1,6 +1,7 @@
 import type { ClubCourseId } from "./clubTrack";
-import type { EventKind, GameState, Vehicle } from "./types";
+import type { EventKind, GameState, JobSpec, Vehicle } from "./types";
 import { VENUES, venueName } from "./content/events";
+import { getVehicle } from "./content/vehicles";
 import { logSeason } from "./journal";
 import { pushFeed } from "./feed";
 
@@ -25,6 +26,8 @@ export interface RallyCard extends RallyPace {
   course?: ClubCourseId;
 }
 
+type RallyEntry = Extract<JobSpec, { kind: "race" }>;
+export const STAGE_COUNT = { sprint: 2, heat: 3, feature: 4 } as const;
 export const totalTime = (splitsMs: readonly number[]) => splitsMs.reduce((a, b) => a + b, 0);
 
 /** Wall-clock replay time uses equal segments. Compare the two cars at the same simulated stage time. */
@@ -42,7 +45,15 @@ export function referencePosition(clock: RallyClock, stages: number, progress: n
 }
 
 export function tripmeterAvailable(vehicle: Vehicle): boolean {
-  return vehicle.vehicleId === "roadbook_special" && (vehicle.parts.electronics?.condition ?? 0) >= 2;
+  const electronics = vehicle.parts.electronics;
+  return vehicle.vehicleId === "roadbook_special" && !!electronics && electronics.condition >= 2
+    && getVehicle(vehicle.vehicleId).slots.some((slot) => slot.slot === "electronics" && slot.accepts.includes(electronics.partId));
+}
+
+/** Special-event clocks never read or write the ordinary class timecard. */
+export function usesRallyClassCard(spec: RallyEntry, course?: ClubCourseId): boolean {
+  if (spec.countyMatch || spec.tourRound || spec.worksRound || spec.ownerDrive || spec.tourReserve !== undefined) return false;
+  return !spec.clubRound || course !== undefined;
 }
 
 export function cardFor(game: GameState, venueId: string, event: EventKind, vehicleId: string, course?: ClubCourseId): RallyCard | undefined {
@@ -93,7 +104,8 @@ export function rallyReferencesValid(game: GameState): boolean {
   const season = game.meta.seasonsPlayed + 1;
   const cards = game.meta.rallyCards ?? [];
   const keys = cards.map((card) => [card.venueId, card.event, card.vehicleId, card.course ?? ""].join("/"));
-  if (new Set(keys).size !== keys.length || cards.some((card) => card.season > season || (card.lastRun && card.lastRun.season > season))) return false;
+  if (new Set(keys).size !== keys.length || cards.some((card) => card.season > season || card.splitsMs.length !== STAGE_COUNT[card.event]
+    || (card.lastRun && (card.lastRun.season > season || card.lastRun.splitsMs.length !== STAGE_COUNT[card.event])))) return false;
   if (Object.values(game.meta.rallyLicences ?? {}).some((first) => first > season)) return false;
   if (Object.keys(game.run.regularityFeatures ?? {}).some((venue) => game.era?.discipline !== "rally" || !game.meta.rallyLicences?.[venue])) return false;
   for (const spec of [...game.run.queue, ...game.run.jobs.map((job) => job.spec)]) {
@@ -102,8 +114,19 @@ export function rallyReferencesValid(game: GameState): boolean {
     if (spec.useLastPace && !spec.regularity) return false;
     if (!spec.regularity) continue;
     const car = game.run.vehicles.find((vehicle) => vehicle.uid === spec.vehicleUid);
-    if (!car || game.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || spec.worksRound || !cardFor(game, spec.venueId, spec.event, car.vehicleId)) return false;
+    if (!car || game.era?.discipline !== "rally" || !usesRallyClassCard(spec) || !cardFor(game, spec.venueId, spec.event, car.vehicleId)) return false;
   }
   return game.run.jobs.every((job) => job.spec.kind !== "race" || !job.race ||
-    Boolean(job.spec.regularity) === Boolean(job.race.rallyClock?.regularity));
+    (Boolean(job.spec.regularity) === Boolean(job.race.rallyClock?.regularity)
+      && frozenReferenceValid(job.race.rallyClock, job.spec.event, season)))
+    && game.run.races.every((race) => (!(race.countyMeeting || race.course) || !race.rallyClock?.regularity)
+      && frozenReferenceValid(race.rallyClock, race.event, season));
+}
+
+function frozenReferenceValid(clock: RallyClock | undefined, event: EventKind, season: number): boolean {
+  if (!clock?.referenceSplitsMs) return true;
+  return clock.referenceSplitsMs.length === STAGE_COUNT[event]
+    && clock.splitsMs.length <= STAGE_COUNT[event]
+    && totalTime(clock.referenceSplitsMs) === clock.previousMs
+    && (clock.referenceSeason === undefined || clock.referenceSeason <= season);
 }

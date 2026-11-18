@@ -75,6 +75,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
   const slots = getVehicle(shown.vehicleId).slots;
   const slotName = (slot: string) => slots.find((def) => def.slot === slot)?.label?.toLowerCase() ?? slot.replace("_", " ");
   const finished = t >= 1;
+  const regularity = race.rallyClock?.regularity;
   const weakPart = race.weakestPart;
   const rival = race.rival ? RIVAL_BY_ID[race.rival.id] : null;
 
@@ -83,6 +84,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
       <h2 id="replay-h" className="sr-only">
         Replay: {shown.venueLabel} {race.event}
       </h2>
+      {regularity && <p className="replay-class">{getVehicle(shown.vehicleId).name} · Regularity replay</p>}
       <RaceScreen race={shown} ms={t * shown.durationMs} lines={finished ? 0 : 3} />
       <div className="actions replay-transport">
         <button className="btn" onClick={() => {
@@ -94,13 +96,15 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
             {[0.5, 1, 2].map((value) => <option key={value} value={value}>{value}×</option>)}
           </select>
         </label>
-        <label>Race progress{" "}
-          <input type="range" min="0" max="1000" value={Math.round(t * 1000)} onChange={(event) => seek(Number(event.target.value) / 1000)} />
+        <label className="replay-progress">Race progress{" "}
+          <input type="range" min="0" max="1000" value={Math.round(t * 1000)} aria-valuetext={`${Math.round(t * 100)}% through the replay`} onChange={(event) => seek(Number(event.target.value) / 1000)} />
         </label>
+        <button className="btn" onClick={onClose}>{finished ? "Done" : "Close replay"}</button>
       </div>
       {finished ? (
         <div className="debrief">
-          <p className="big">{finishText(race)}</p>
+          <p className="big">{regularity ? regularity.passed ? "Regularity certificate earned" : race.dnf ? "Regularity entry retired" : "Outside regularity tolerance" : finishText(race)}</p>
+          {regularity && <p><strong>{regularity.matched}/{regularity.required} stages within 8%</strong> · {finishText(race)}</p>}
           {race.rallyClock && !race.dnf && <p>Stage time · {(totalTime(race.rallyClock.splitsMs) / 1000).toFixed(1)}s
             {race.rallyClock.previousMs && <> · {race.rallyClock.previousCar}’s reference time was {(race.rallyClock.previousMs / 1000).toFixed(1)}s</>}
           </p>}
@@ -111,7 +115,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
           {race.caution && <p>The yellow flag came out.</p>}
           {race.rallyClock?.referenceSplitsMs && <details>
             <summary>Stage-by-stage comparison</summary>
-            <table className="opening-table"><thead><tr><th>Stage</th><th>Your split</th><th>Reference split</th><th>Difference</th></tr></thead>
+            <table className="opening-table"><thead><tr><th scope="col">Stage</th><th scope="col">Your split</th><th scope="col">Target</th><th scope="col">Split delta</th></tr></thead>
               <tbody>{race.rallyClock.splitsMs.map((ms,i) => {
                 const target=race.rallyClock!.referenceSplitsMs![i];
                 const delta=ms-target;
@@ -119,7 +123,6 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
               })}</tbody>
             </table>
           </details>}
-          {race.rallyClock?.regularity && <p>{race.rallyClock.regularity.passed ? "Regularity certificate earned" : "Outside regularity tolerance"} · {race.rallyClock.regularity.matched}/{race.rallyClock.regularity.required} stages within 8%.</p>}
           {race.course && <p>{CLUB_COURSES[race.course].brief}</p>}
           {race.countyMeeting && <p>{COUNTY_RIVALS[race.countyMeeting.rival].name} {race.countyMeeting.rivalOut ? "retired" : race.countyMeeting.beaten ? "finished behind you" : "finished ahead of you"}.</p>}
           {race.rivalOut && rival && <p>{rival.name}’s car quit before the flag.</p>}
@@ -139,9 +142,6 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
               </button>
             </p>
           )}
-          <button className="btn primary" onClick={onClose} autoFocus>
-            Done
-          </button>
         </div>
       ) : (
         <button className="btn" onClick={() => seek(1)}>
@@ -157,20 +157,25 @@ export function RaceReplay({ onFix }: { onFix: () => void }) {
   const game = useGame((s) => s.game);
   const close = useGame((s) => s.closeReplay);
   const dialog = useRef<HTMLDialogElement>(null);
+  const opener = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const d = dialog.current;
-    if (race && d && !d.open) d.showModal();
+    if (race && d && !d.open) {
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      d.showModal();
+    }
   }, [race]);
 
   const onClose = () => {
-    dialog.current?.close();
     close();
+    if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+    opener.current = null;
   };
 
   return (
     <dialog ref={dialog} className="replay" onClose={onClose} aria-labelledby="replay-h">
-      {race && game && <Replay key={race.id} race={race} game={game} onClose={onClose} onFix={onFix} />}
+      {race && game && <Replay key={race.id} race={race} game={game} onClose={() => dialog.current?.close()} onFix={onFix} />}
     </dialog>
   );
 }

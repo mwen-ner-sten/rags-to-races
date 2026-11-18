@@ -30,3 +30,42 @@ test("the garage can close for a customer route with zero racing wins", async ({
   await page.getByRole("tab",{name:"Seasons"}).click();
   await expect(page.getByText(/Shop Move after/).first()).toBeVisible();
 });
+
+test("the first haul opens a workshop route for the engine actually found", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-11-01T18:00:00Z") });
+  await page.goto("/");
+  const workshop = page.getByRole("button", { name: "Follow the workshop route" });
+  await expect(workshop).toHaveCount(0);
+  await page.getByRole("button", { name: "Go", exact: true }).click();
+  await page.clock.fastForward(18_000);
+  await expect(workshop).toBeVisible();
+  await expect(page.getByText(/Three paid invoices and a hauler/).first()).toBeVisible();
+  await workshop.click();
+
+  const counter = page.locator("#service-counter");
+  const requests = page.getByLabel("Open request");
+  const register = page.getByRole("button", { name: "Register for service" });
+  await expect(counter).toBeFocused();
+  await expect(counter).toBeInViewport();
+  await expect(requests).toHaveValue("orchard");
+  await expect(page.getByLabel("Register a part").locator("option:checked")).toHaveText(/Small Engine · Rusted · Curbside/);
+
+  // A different open request is still allowed, even without a matching part.
+  await requests.selectOption("marina");
+  await page.clock.fastForward(1_000);
+  await expect(requests).toHaveValue("marina");
+  await expect(register).toBeDisabled();
+
+  await page.getByRole("button", { name: "Trips", exact: true }).click();
+  await expect(page.getByLabel("Pin a project")).toHaveValue("paid-work");
+  await expect(page.getByText(/Open a work order for Orchard grounds crew/)).toBeVisible();
+  await page.getByRole("button", { name: "Open customer repairs", exact: true }).click();
+  await expect(counter).toBeFocused();
+  await register.click();
+  await expect(page.getByText("Small Engine · Rusted · Curbside", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clean registered part" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Deliver part and collect payment" })).toBeDisabled();
+
+  await page.getByRole("button", { name: "Trips", exact: true }).click();
+  await expect(page.getByText(/Service the part registered to Orchard grounds crew/)).toBeVisible();
+});

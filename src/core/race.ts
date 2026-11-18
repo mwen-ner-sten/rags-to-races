@@ -1,6 +1,6 @@
 import { channel } from "./channels";
 import { rallyExpectedPace, rallySplits, rallyWinForecast } from "./rally";
-import { bankRallyTime, cardFor, judgeRegularity, stampRallyFeature } from "./timecards";
+import { bankRallyTime, cardFor, judgeRegularity, stampRallyFeature, usesRallyClassCard } from "./timecards";
 import { heritageFinish, heritageRaceEntry } from "./heritage";
 import { recordChallengeWin } from "./challenges";
 import { recordClubRace } from "./club";
@@ -402,7 +402,7 @@ export function rollRace(state: GameState, spec: RaceSpec, grid?: readonly RaceG
   };
   let roll: ClassifiedRoll;
   if (discipline.format === "stages") {
-    const card = cardFor(state, spec.venueId, spec.event, vehicle.vehicleId, course);
+    const card = !grid && usesRallyClassCard(spec, course) ? cardFor(state, spec.venueId, spec.event, vehicle.vehicleId, course) : undefined;
     const reference = spec.useLastPace ? card?.lastRun ?? card : card;
     const results = rallySplits(state, spec, vehicle, dnf, ctx.base, ctx.field, grid ?? opponents(state, spec.venueId, spec.event, spec.call, spec.countyMatch), ctx.durationMs, layout?.stages, reference);
     const { places, winningGap, ...finish } = results;
@@ -526,7 +526,9 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
     ...(roll.rallyClock && { rallyClock: roll.rallyClock }),
   };
   state.run.races.push(result);
-  if (!dnf && roll.rallyClock && !spec.regularity) bankRallyTime(state, vehicle, spec.venueId, spec.event, roll.course, roll.rallyClock.splitsMs);
+  if (!dnf && roll.rallyClock && !spec.regularity && usesRallyClassCard(spec, roll.course)) {
+    bankRallyTime(state, vehicle, spec.venueId, spec.event, roll.course, roll.rallyClock.splitsMs);
+  }
   if (state.run.races.length > 60) state.run.races.splice(0, state.run.races.length - 60);
 
   vehicle.history.races += 1;

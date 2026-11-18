@@ -2,13 +2,106 @@ import { expect, it } from "vitest";
 import { racer, teamRacer } from "../../../tests/fixtures/rewrite";
 import { decodeGameState } from "../../game/save";
 import { apply, must } from "../index";
+import { jobBlocker } from "../jobs";
 import { rollRace, settleRace, winChance } from "../race";
 import { SCRAP_LAYER, TEAM_LAYER, scrapAward } from "../layers";
-import { cardFor, judgeRegularity, stampRallyFeature } from "../timecards";
+import { bankRallyTime, cardFor, judgeRegularity, stampRallyFeature, totalTime } from "../timecards";
 import { rallyRoute } from "../rally";
 import type { JobSpec } from "../types";
 
 type Race = Extract<JobSpec, { kind: "race" }>;
+
+function roadbookFixture() {
+  const game = teamRacer("roadbook-equal-rng");
+  game.era!.discipline = "rally";
+  const car = racer("roadbook-car", "roadbook_special").run.vehicles[0];
+  game.run.vehicles = [car];
+  game.run.venuesOpen.push("county_fair");
+  game.run.ladder.county_fair = ["sprint", "heat", "feature"];
+  const spec: Race = { kind: "race", vehicleUid: car.uid, event: "feature", venueId: "county_fair", call: "nurse", call2: "recce" };
+  return { game, car, spec };
+}
+
+it("uses equal RNG for calibrated and ordinary splits, lifting only on fast stages", () => {
+  const { game, car, spec } = roadbookFixture();
+  const trial = rollRace(structuredClone(game), spec)!;
+  expect(trial.dnf).toBe(false);
+  const splits = trial.rallyClock!.splitsMs;
+  const target = splits.map((ms, stage) => Math.round(ms * (stage === 0 ? 1.25 : 0.85)));
+  bankRallyTime(game, car, spec.venueId, spec.event, undefined, target);
+  const ordinary = structuredClone(game);
+  const calibrated = structuredClone(game);
+  const flat = rollRace(ordinary, { ...spec, regularity: true })!;
+  const held = rollRace(calibrated, { ...spec, regularity: true, holdMarks: true })!;
+  expect(calibrated.rng).toBe(ordinary.rng);
+  expect(flat.rallyClock?.splitsMs).toEqual(splits);
+  expect(held.rallyClock?.splitsMs).toEqual([Math.round(target[0] * 0.99), ...splits.slice(1)]);
+  expect(held.rallyClock?.regularity).toEqual({ matched: 1, required: 4, passed: false });
+  expect(held.beats.filter(({ text }) => text.includes("Lifted for"))).toHaveLength(1);
+});
+
+it("requires a regularity entry and working Roadbook electronics to arm the tripmeter", () => {
+  const { game, car, spec } = roadbookFixture();
+  bankRallyTime(game, car, spec.venueId, spec.event, undefined, [1000, 1500, 2000, 2500]);
+  expect(jobBlocker(game, { ...spec, holdMarks: true }, true)).toMatch(/regularity entry/);
+  const calibrated = { ...spec, regularity: true, holdMarks: true } as const;
+  expect(jobBlocker(game, calibrated, true)).toBeNull();
+  car.parts.electronics!.condition = 2;
+  expect(jobBlocker(game, calibrated, true)).toBeNull();
+  car.parts.electronics!.condition = 1;
+  expect(jobBlocker(game, calibrated, true)).toMatch(/Worn or better electronics/);
+  car.parts.electronics!.condition = 3;
+  car.parts.electronics!.partId = "elec_ignition";
+  expect(jobBlocker(game, calibrated, true)).toMatch(/Worn or better electronics/);
+  const ordinary = racer("ordinary-electronics", "beater_car").run.vehicles[0];
+  game.run.vehicles = [ordinary];
+  bankRallyTime(game, ordinary, spec.venueId, spec.event, undefined, [1000, 1500, 2000, 2500]);
+  expect(jobBlocker(game, calibrated, true)).toMatch(/Use a Roadbook Special/);
+});
+
+it("validates frozen stage counts and totals in active and finished saves while accepting older clocks", () => {
+  const { game, car, spec } = roadbookFixture();
+  const baseline = [1000, 1500, 2000, 2500];
+  bankRallyTime(game, car, spec.venueId, spec.event, undefined, baseline);
+  const entered = must(game, { type: "enqueue", spec: { ...spec, regularity: true, holdMarks: true } });
+  const job = entered.run.jobs.find((entry) => entry.spec.kind === "race")!;
+  const valid = decodeGameState(entered);
+  expect(valid?.run.jobs.find((entry) => entry.id === job.id)?.race?.rallyClock?.referenceSplitsMs).toEqual(baseline);
+  const finished = must(valid!, { type: "advance", ms: job.duration, away: true });
+  expect(finished.run.races.at(-1)?.rallyClock?.referenceSplitsMs).toEqual(baseline);
+  for (const candidate of [entered, finished]) {
+    const clock = candidate.run.races.at(-1)?.rallyClock ?? candidate.run.jobs.find((entry) => entry.spec.kind === "race")!.race!.rallyClock!;
+    clock.referenceSplitsMs = baseline.slice(0, -1);
+    clock.previousMs = totalTime(clock.referenceSplitsMs);
+    expect(decodeGameState(candidate)).toBeNull();
+    clock.referenceSplitsMs = baseline;
+    expect(decodeGameState(candidate)).toBeNull();
+    delete clock.referenceSplitsMs;
+    delete clock.referenceSeason;
+    expect(decodeGameState(candidate)).not.toBeNull();
+  }
+});
+
+it.each([
+  { countyMatch: "inez" as const },
+  { tourRound: "owner-round" },
+  { worksRound: "works-round" },
+])("isolates a tagged Rally event from regularity and the ordinary timecard (%j)", (special) => {
+  const { game, car, spec } = roadbookFixture();
+  bankRallyTime(game, car, spec.venueId, spec.event, undefined, [1_000_000, 1_000_000, 1_000_000, 1_000_000]);
+  const ordinary = structuredClone(game.meta.rallyCards);
+  const tagged = { ...spec, ...special };
+  const regularity = { ...tagged, regularity: true, holdMarks: true } as const;
+  expect(jobBlocker(game, regularity, true)).toMatch(/standard Rally event/);
+  expect(decodeGameState({ ...game, run: { ...game.run, queue: [regularity] } })).toBeNull();
+  const roll = rollRace(game, tagged)!;
+  expect(roll.dnf).toBe(false);
+  expect(roll.rallyClock?.splitsMs).toHaveLength(4);
+  expect(roll.rallyClock?.referenceSplitsMs).toBeUndefined();
+  const result = settleRace(game, tagged, roll)!;
+  expect(result.rallyClock?.regularity).toBeUndefined();
+  expect(game.meta.rallyCards).toEqual(ordinary);
+});
 
 it("offers Stage Rally on a later Team Reset or through a grassroots challenge on first founding", () => {
   const game = racer();

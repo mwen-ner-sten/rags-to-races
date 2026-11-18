@@ -328,7 +328,7 @@ export function Game() {
           </button>
         ))}
       </nav>
-      {!game.meta.careerPin && <Guide tab={active} onShow={showTab} />}
+      {!game.meta.careerPin && <Guide tab={active} onShow={showTab} onOpen={showCareerTarget} />}
       <div className="layout">
         <main className="main">
           <Notices />

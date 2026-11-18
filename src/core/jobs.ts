@@ -6,7 +6,7 @@ import { countySpecMatches } from "./countyRivals";
 import { channel } from "./channels";
 import { countyPlaceBlocker } from "./counties";
 import { customerLeads, recordService } from "./serviceShop";
-import { cardFor, tripmeterAvailable } from "./timecards";
+import { cardFor, tripmeterAvailable, usesRallyClassCard } from "./timecards";
 import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
@@ -143,6 +143,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "race": {
       const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
       if (!vehicle) return "Pick a vehicle";
+      if (spec.regularity && !usesRallyClassCard(spec)) return "Enter regularity through a standard Rally event.";
       if (spec.clubRound && !clubSpecMatches(state, spec, vehicle)) return "That club sign-up is no longer current";
       if (spec.worksRound && !worksSpecMatches(state, spec, vehicle)) return "That works sign-up needs the signed engine and three family parts";
       if (spec.countyMatch && !countySpecMatches(state, spec)) return "That county sign-up needs the local Push Mower build";
@@ -157,7 +158,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       if (Object.values(vehicle.parts).some((p) => p && p.condition === 0)) return "A part is scrap. Fix it before racing";
       if (spec.holdMarks && (!spec.regularity || !tripmeterAvailable(vehicle))) return "Use a Roadbook Special with Worn or better electronics in a regularity entry.";
       if (spec.useLastPace && !spec.regularity) return "Choose a regularity entry to use a declared pace.";
-      if (spec.regularity && (state.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || spec.worksRound || !cardFor(state, spec.venueId, spec.event, vehicle.vehicleId))) {
+      if (spec.regularity && (state.era?.discipline !== "rally" || !cardFor(state, spec.venueId, spec.event, vehicle.vehicleId))) {
         return "Set a class time on this standard Rally course before entering regularity.";
       }
       if (spec.call2) {

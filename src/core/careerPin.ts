@@ -3,7 +3,7 @@ import { venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { eligibleHistory } from "./heritage";
 import { worksReport, WORKS_FAMILIES } from "./manufacturer";
-import { CUSTOMERS, CUSTOMER_IDS, shopFoundingReady, shopMoveReady } from "./serviceShop";
+import { CUSTOMERS, shopFoundingReady, shopMoveReady, stockedServiceClient } from "./serviceShop";
 import type { GameState } from "./types";
 
 export const PIN_IDS = ["first-fair", "paid-work", "heritage", "manufacturer", "regularity"] as const;
@@ -77,16 +77,14 @@ export function careerPinStep(game: GameState, pin: CareerPin): Step {
       };
     const done = game.run.serviceBook?.invoices ?? [];
     const ticket = game.run.serviceBook?.ticket;
-    const client = ticket?.client ?? CUSTOMER_IDS.find((id) => !done.some((i) => i.client === id));
+    const client = ticket?.client ?? stockedServiceClient(game);
     const message = shopMoveReady(game)
       ? "All three invoices are paid and a hauler is ready. Choose what to take to your next shop."
-      : client
-        ? (ticket ? "Service the part registered to " : "Open a work order for ") +
-          CUSTOMERS[client].name +
-          ". " +
-          done.length +
-          " of 3 invoices are paid."
-        : "Your invoices are paid. Build a Riding Mower or larger hauler to move the shop.";
+      : done.length === 3
+        ? "Your invoices are paid. Build a Riding Mower or larger hauler to move the shop."
+        : `${client
+            ? (ticket ? "Service the part registered to " : "Open a work order for ") + CUSTOMERS[client].name + "."
+            : "Check the open requests and haul a repairable part that matches one."} ${done.length} of 3 invoices are paid.`;
     return { detail: message, label: "Open customer repairs", destination: { tab: "garage", section: "service" } };
   }
   if (pin === "heritage") {
