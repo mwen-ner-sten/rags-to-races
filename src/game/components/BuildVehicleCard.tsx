@@ -10,9 +10,11 @@ import { reservedPartUids, vehicleBusy, vehicleStats } from "@/core/garage";
 import { rawScore } from "@/core/race";
 import type { GameState, TuneSetting, Vehicle } from "@/core/types";
 import { num } from "../format";
+import { canRetireMower } from "@/core/retirement";
 import { vehicleSprite } from "../sprites";
 import { useGame } from "../store";
 import { BuildSlotRow } from "./BuildSlotRow";
+import { VehicleRetirement } from "./VehicleRetirement";
 
 const TUNES: { id: TuneSetting; label: string }[] = [
   { id: "balanced", label: "Balanced" },
@@ -117,6 +119,7 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
           </select>
           {!tuning && <span className="why">Learn Tuning</span>}
         </label>
+        {canRetireMower(vehicle) && <VehicleRetirement game={game} vehicle={vehicle} />}
       </div>
     </article>
   );

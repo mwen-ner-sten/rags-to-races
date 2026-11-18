@@ -122,7 +122,7 @@ type OwnerRecords = Record<DisciplineId, Partial<Record<OwnerCharter, { points: 
 
 export function ownerRecords(owner: OwnerState): OwnerRecords {
   if (owner.records) return owner.records;
-  const records: OwnerRecords = { dirt: {}, drag: {} };
+  const records: OwnerRecords = { dirt: {}, drag: {}, rally: {} };
   for (const tour of [owner.tour, ...owner.history]) creditOwnerRecord(records, tour);
   return records;
 }
@@ -163,7 +163,7 @@ export function reverseTourUnlocked(state: GameState, charter: OwnerCharter): bo
 export function enduranceTourUnlocked(state: GameState, charter: OwnerCharter): boolean {
   if (!state.owner) return false;
   const records = ownerRecords(state.owner);
-  return !!(records.dirt[charter]?.titles && records.drag[charter]?.titles);
+  return Object.values(records).filter((disc) => (disc[charter]?.titles ?? 0) > 0).length >= 2;
 }
 
 export function tourCalendar(tour: OwnerTour): readonly TourStop[] {
@@ -340,7 +340,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
         return "Win this charter in your current discipline to race it in reverse.";
       }
       if (move.itinerary === "endurance" && !enduranceTourUnlocked(state, move.charter)) {
-        return "Win this charter in both Dirt Oval and Drag to run the all-Feature tour.";
+        return "Win this charter in two disciplines to run the all-Feature tour.";
       }
       if (move.itinerary !== undefined && move.itinerary !== "reverse" && move.itinerary !== "endurance") return "Choose an available itinerary.";
       const newTour: OwnerTour = {

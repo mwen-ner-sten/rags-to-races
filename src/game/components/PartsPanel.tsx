@@ -178,6 +178,7 @@ function PartRow({ game, part, reserved, onDriveway, strongAt }: PartProps & { r
           <span>{capitalize(def.category)}</span>
           <span>Tier {def.tier}</span>
           <span>from {part.origin}</span>
+          {part.inherited && <span>Carried from last Season</span>}
         </div>
         <PartStats part={part} />
         {strongAt && <div className="garage-strong">{strongAt}</div>}

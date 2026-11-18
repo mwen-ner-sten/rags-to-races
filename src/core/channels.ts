@@ -58,7 +58,7 @@ export interface ChannelDef {
 const hardshipMastery = (state: GameState, id: string): number =>
   masteryValue(HARDSHIP_BY_ID[id].mastery.cap, state.meta.hardshipMastery[id] ?? 0);
 
-const disciplineMastery = (state: GameState, id: "dirt" | "drag"): number => {
+const disciplineMastery = (state: GameState, id: "dirt" | "drag" | "rally"): number => {
   const def = DISCIPLINES[id].mastery;
   return Math.min(def.cap, def.perLevel * (state.meta.disciplineMastery[id] ?? 0));
 };
@@ -121,6 +121,7 @@ export const SOURCES: readonly SourceDef[] = [
   } },
   { id: "mastery:rust_everything", label: "Mastery: Rust Everything", channels: ["wear"], value: (s) => hardshipMastery(s, "rust_everything") },
   { id: "mastery:dirt", label: "Mastery: Dirt Oval", channels: ["wear"], value: (s) => disciplineMastery(s, "dirt") },
+  { id: "mastery:rally", label: "Mastery: Stage Rally", channels: ["practice"], value: (s) => disciplineMastery(s, "rally") },
   { id: "mastery:drag", label: "Mastery: Drag", channels: ["rebuild_speed"], value: (s) => disciplineMastery(s, "drag") },
   { id: "scrap:milestones", label: "Deep runs and Dare completion", channels: ["perk_slots"], value: (s) => ["regional", "state"].filter((v) => s.scrap.milestonesThisEra.includes(v)).length + (allDaresCompleted(s) ? 1 : 0) },
   { id: "team:legacy_ledger", label: "Legacy Ledger", channels: ["perk_slots"], value: (s) => teamUpgrade(s, "legacy_ledger") },
@@ -137,7 +138,7 @@ export const CHANNELS: readonly ChannelDef[] = [
   { id: "storage", label: "Garage space", kind: "add", base: 12, sources: ["tools:shelving", "team:parts_room"] },
   { id: "sell_value", label: "Sell value", kind: "pct", base: 0, sources: ["knowhow:haggling"] },
   { id: "build_speed", label: "Assembly speed", kind: "pct", base: 0, sources: ["tuneup:build", "tools:build_gear", "mastery:hand_me_down"] },
-  { id: "practice", label: "Practice gain", kind: "pct", base: 0, sources: ["tuneup:race", "mastery:homebuilt_relay"] },
+  { id: "practice", label: "Practice gain", kind: "pct", base: 0, sources: ["tuneup:race", "mastery:homebuilt_relay", "mastery:rally"] },
   { id: "race_payout", label: "Race prizes", kind: "pct", base: 0, sources: ["team:sponsor_board"] },
   { id: "automation", label: "Habit slots", kind: "add", base: 1, sources: ["vehicle:habit_slots"] },
   { id: "crew_cap", label: "Crew capacity", kind: "add", base: 2, sources: ["team:crew_quarters", "mastery:solo"] },

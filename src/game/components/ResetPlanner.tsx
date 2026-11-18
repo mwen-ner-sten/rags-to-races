@@ -2,15 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { DARES, PERK_BY_ID, SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
-import { CREW_BY_ID } from "@/core/content/team";
+import { CREW_BY_ID, TEAM_ORGANIZATION_IDS, TEAM_ORGANIZATIONS, type TeamOrganization } from "@/core/content/team";
+import { APPRENTICE_JOBS, HANDOVER_COST, crewHandoverOffers, handoverId, handoverName } from "@/core/crewLegacy";
 import { BUILDER_LOADOUTS, LAYERS, SCRAP_LAYER, TEAM_LAYER, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planBuilderLoadout, planPurchases, scrapAward, teamAward, teamResetLegacyBudget, type TeamChoices } from "@/core/layers";
 import { ownerTourActive } from "@/core/ownership";
+import { CLUB_CHARTERS, clubGate, clubScore, type ClubCharter } from "@/core/club";
 import type { DisciplineId, GameState, SkillId } from "@/core/types";
 import { num, pct } from "../format";
 import { useGame } from "../store";
 import { ResetDisciplines } from "./ResetDisciplines";
 import { ResetHardships } from "./ResetHardships";
 import { ResetPerks } from "./ResetPerks";
+import { ResetSalvage } from "./ResetSalvage";
 
 const SKILLS: { id: SkillId; label: string }[] = [
   { id: "haul", label: "Haul (trip speed)" },
@@ -22,15 +25,20 @@ const SKILLS: { id: SkillId; label: string }[] = [
 interface Props {
   layer: "scrap" | "team";
   onDone: () => void;
+  initialClub?: ClubCharter;
 }
 
-export function ResetPlanner({ layer, onDone }: Props) {
+const clubCharters = Object.keys(CLUB_CHARTERS) as ClubCharter[];
+
+export function ResetPlanner({ layer, onDone, initialClub }: Props) {
   const game = useGame((s) => s.game) as GameState;
   const dispatch = useGame((s) => s.dispatch);
   const isTeam = layer === "team";
+  const [retainedPartUid, setRetainedPartUid] = useState("");
+  const [club, setClub] = useState<ClubCharter | undefined>(initialClub);
   const award = isTeam ? teamAward(game) : scrapAward(game);
   const lpAvailable = isTeam ? teamResetLegacyBudget(game) : game.scrap.lp + award;
-  const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game);
+  const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game, !!retainedPartUid);
   const points = isTeam ? 5 : nextSeasonTuneUpPoints(game);
   const teamEraNext = isTeam || game.era !== null;
 
@@ -48,6 +56,8 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const [colorA, setColorA] = useState(game.era?.colors[0] ?? "#c8372d");
   const [colorB, setColorB] = useState(game.era?.colors[1] ?? "#f2f2ee");
   const [keepCrew, setKeepCrew] = useState<string>("");
+  const [organization, setOrganization] = useState<TeamOrganization>(game.era?.organization ?? "independent");
+  const [handoverKey, setHandoverKey] = useState("");
 
   const plan = useMemo(() => planPurchases(game, buy, lpAvailable), [game, buy, lpAvailable]);
   const ranks = typeof plan === "string" ? game.meta.perks : plan.ranks;
@@ -58,8 +68,10 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const gate = LAYERS[layer].gate(game);
   const nextDiscipline = isTeam ? discipline : game.era?.discipline ?? "dirt";
   const conflict = seasonObjectiveConflict(hardships, dare, nextDiscipline);
-  const choices = { buy, perks: equipped, tuneUp: tune, dare, hardships };
-  const teamChoices = { ...choices, discipline, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices;
+  const choices = { buy, perks: equipped, tuneUp: tune, dare, hardships, retainedPartUid: isTeam ? undefined : retainedPartUid || undefined, club: isTeam ? undefined : club };
+  const handovers = isTeam ? crewHandoverOffers(game, discipline) : [];
+  const handover = handovers.find((offer) => handoverId(offer) === handoverKey);
+  const teamChoices = { ...choices, discipline, organization, handover, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices;
   const blocker = gate.ok ? (isTeam ? TEAM_LAYER.validate(game, teamChoices) : SCRAP_LAYER.validate(game, choices)) : gate.reason;
   const activeChallenge = game.config.dare;
 
@@ -81,18 +93,29 @@ export function ResetPlanner({ layer, onDone }: Props) {
             <li>Your Notebook: Codex, Know-how, Habit memory, records, rivals, Hall of Fame</li>
             <li>Perks you own{isTeam ? " (slots go back to the base)" : ""}</li>
             {isTeam ? <li>Team Points and team upgrades</li> : <li>Legacy Points you don’t spend</li>}
-            {!isTeam && game.era && <li>Your team, crew and discipline</li>}
+            {!isTeam && game.era && <li>Your team, crew, discipline and organization</li>}
           </ul>
         </div>
         <div>
           <h3 className="label">You lose</h3>
           <ul>
-            <li>Parts, vehicles, Scrap Bucks, Rep, tools</li>
+            <li>{retainedPartUid && !isTeam ? "Other parts" : "Parts"}, vehicles, Scrap Bucks, Rep, tools</li>
             <li>Places and venues opened this Season</li>
-            {isTeam && <li>Unspent Legacy Points, your crew{game.team.upgrades.old_hands ? " (keep one with Old Hands)" : ""}, discipline</li>}
+            {isTeam && <li>Unspent Legacy Points and your crew{game.team.upgrades.old_hands ? " (keep one with Old Hands)" : ""}. Choose your next discipline and organization below.</li>}
           </ul>
         </div>
       </div>
+
+      {!isTeam && <ResetSalvage game={game} value={retainedPartUid} slots={nextSeasonPerkSlots(game)} rookie={hardships.includes("rookie_plates")} onChange={setRetainedPartUid} />}
+      {!isTeam && !clubGate(game) && <fieldset>
+        <legend>Club charter (optional)</legend>
+        <p className="hint">Your team and Circuit certificates carry forward. The club supplies its opening support alongside your usual perks and any retained part.</p>
+        <label className="check"><input type="radio" name="club-charter" checked={!club} onChange={() => setClub(undefined)} /> Race without a club</label>
+        {clubCharters.map((id) => <label className="check" key={id}>
+          <input type="radio" name="club-charter" checked={club === id} onChange={() => setClub(id)} />
+          <span><strong>{CLUB_CHARTERS[id].name}</strong>. {CLUB_CHARTERS[id].opening}</span>
+        </label>)}
+      </fieldset>}
 
       <fieldset>
         <legend>Builder loadouts</legend>
@@ -200,6 +223,33 @@ export function ResetPlanner({ layer, onDone }: Props) {
             <input type="color" value={colorB} onChange={(e) => setColorB(e.target.value)} aria-label="Second colour" />
           </label>
           <ResetDisciplines game={game} chosen={discipline} onChoose={setDiscipline} />
+          <fieldset>
+            <legend>Team organization</legend>
+            {TEAM_ORGANIZATION_IDS.map((id) => (
+              <label className="check" key={id}>
+                <input type="radio" name="team-organization" checked={organization === id} onChange={() => setOrganization(id)} />
+                <span><strong>{TEAM_ORGANIZATIONS[id].name}</strong>. {TEAM_ORGANIZATIONS[id].description}</span>
+              </label>
+            ))}
+          </fieldset>
+          {handovers.length > 0 && (
+            <>
+              <label className="inline">
+                <span>Crew handover</span>
+                <select value={handover ? handoverKey : ""} onChange={(event) => setHandoverKey(event.target.value)}>
+                  <option value="">No handover</option>
+                  {handovers.map((offer) => (
+                    <option key={handoverId(offer)} value={handoverId(offer)}>{handoverName(offer, discipline)}</option>
+                  ))}
+                </select>
+              </label>
+              {handover && <p className="hint">
+                Costs {HANDOVER_COST} Team Points from your balance and this reset’s award. {handover.type === "apprenticeship"
+                  ? `One new crew member must finish ${APPRENTICE_JOBS} matching jobs to teach the Habit to this team across future Seasons.`
+                  : "Open the venue as usual. These notes let you enter its Heat directly in future Seasons with this team."}
+              </p>}
+            </>
+          )}
           {game.era && (game.team.upgrades.old_hands ?? 0) > 0 && (
             <label className="inline">
               <span>Keep one crew member</span>
@@ -217,6 +267,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
       )}
 
       {ownerTourActive(game) && <p className="why">This reset forfeits the active Owner tour and its unearned rewards.</p>}
+      {game.club?.active && !clubScore(game.club.active).complete && <p className="why">This reset retires the active Club calendar and archives its completed rounds.</p>}
       {isSeasonChallenge(activeChallenge) && game.run.challenge.completedAt === undefined && (
         <p className="why">This reset ends your current {SEASON_CHALLENGES[activeChallenge].name} attempt. You can select it again for the next Season.</p>
       )}

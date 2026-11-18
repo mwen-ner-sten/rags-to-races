@@ -50,6 +50,9 @@ export class Bot {
   log: MilestoneLog = {};
   seasonLog: { season: number; ms: number; lp: number; policy: RunPolicy; venues: string[]; hauls: number; cash: number }[] = [];
   errors: string[] = [];
+  /** Pause on a legal reset so a playtest can compare choices from the same earned garage. */
+  holdAt?: "team" | "scrap";
+  heldReset?: Extract<Action, { type: "reset" }>;
 
   constructor(state: GameState, public policy: RunPolicy = "sprint", public discipline: DisciplineId = "dirt") {
     this.state = state;
@@ -82,11 +85,12 @@ export class Bot {
 
   /** Plays until `untilMs` of total time, following the schedule. */
   run(schedule: Schedule, untilMs: number, maxSeasons = 50): void {
-    while (this.totalMs < untilMs && this.seasonLog.length < maxSeasons) {
+    while (!this.heldReset && this.totalMs < untilMs && this.seasonLog.length < maxSeasons) {
       const dayMs = this.totalMs % (24 * HOUR);
       const dayStart = this.totalMs - dayMs;
       const nextVisit = schedule.visits.map((h) => dayStart + h * HOUR).find((t) => t >= this.totalMs) ?? dayStart + 24 * HOUR + schedule.visits[0] * HOUR;
       this.prepareToLeave();
+      if (this.heldReset) break;
       this.advance(nextVisit - this.totalMs, true);
       this.visit(schedule.visitMinutes * MIN);
     }
@@ -97,6 +101,7 @@ export class Bot {
     let guard = 0;
     while (this.totalMs < end && guard++ < 2000) {
       this.decide(true);
+      if (this.heldReset) return;
       const hands = this.state.run.jobs.find((j) => j.lane === "hands");
       const step = Math.max(1000, Math.min(end - this.totalMs, hands ? hands.remaining + 1 : MIN));
       this.advance(step, false);
@@ -112,6 +117,7 @@ export class Bot {
 
   private decide(present: boolean): void {
     this.maybeReset();
+    if (this.heldReset) return;
     this.buyMeta();
     this.openPlaces();
     this.buyTools();
@@ -548,6 +554,10 @@ export class Bot {
     if (LAYERS.team.gate(s).ok && (stateWon || (s.era && fairWon && (this.policy === "sprint" || stuck)))) {
       if (!s.era || s.era.seasonIndex >= 3) {
         const choices: TeamChoices = { ...this.chooseScrap(2 + (s.team.upgrades.legacy_ledger ?? 0), 5, true, s.scrap.lp), discipline: s.era?.discipline === "dirt" ? "drag" : this.discipline, teamName: "Bot Racing", colors: ["#c33", "#eee"] };
+        if (this.holdAt === "team") {
+          this.heldReset = { type: "reset", layer: "team", choices };
+          return;
+        }
         this.recordSeason();
         if (this.act({ type: "reset", layer: "team", choices })) {
           this.mark("team_founded");
@@ -561,6 +571,10 @@ export class Bot {
     const wantReset = this.policy === "sprint" ? true : stateWon || noInvite || stuck;
     if (!wantReset) return;
     const choices = this.chooseScrap(nextSeasonPerkSlots(s), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + LAYERS.scrap.award(s));
+    if (this.holdAt === "scrap") {
+      this.heldReset = { type: "reset", layer: "scrap", choices };
+      return;
+    }
     this.recordSeason();
     if (!this.act({ type: "reset", layer: "scrap", choices })) this.errors.push("scrap reset failed");
   }

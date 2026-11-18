@@ -7,6 +7,7 @@ import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
 import { vehicleBusy } from "@/core/garage";
 import { practiceBonus, weakestSlot } from "@/core/race";
+import { retiredVehicle } from "@/core/vehicleArchive";
 import type { GameState, RaceCall, Vehicle } from "@/core/types";
 import { capitalize, conditionName, num, pct } from "../format";
 import { venueSprite } from "../sprites";
@@ -81,6 +82,7 @@ function Results({ game }: { game: GameState }) {
             <span className="pos num">{finishText(r)}</span>
             <span>
               {venueName(r.venueId, discipline)} {capitalize(r.event)}
+              {retiredVehicle(game, r.vehicleUid) && <span className="muted"> · {retiredVehicle(game, r.vehicleUid)!.name}</span>}
             </span>
             <span className="num muted">
               +{num(r.prize)} Scrap Bucks · +{r.rep} Rep
@@ -107,7 +109,7 @@ export function RacePanel() {
   const discipline = DISCIPLINES[game.era?.discipline ?? "dirt"];
   const driver = game.era?.crew.some((c) => c.assignment.type === "driver") ?? false;
   const activeCall2 = driver ? call2 : undefined;
-  if (!vehicle) return <p className="empty">Build something that runs first.</p>;
+  if (!vehicle) return <><p className="empty">Build something that runs first.</p><Results game={game} /></>;
   const tier = getVehicle(vehicle.vehicleId).tier;
   return (
     <div className="panel">
@@ -154,7 +156,7 @@ export function RacePanel() {
                     {game.run.featureWins[venue.id] !== undefined && <span className="chip win">Feature won</span>}
                   </h3>
                   <p className="blurb">
-                    {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}. Practice +{pct(practiceBonus(game, venue.id))}.
+                    {discipline.id === "dirt" && venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}. Practice +{pct(practiceBonus(game, venue.id))}.
                   </p>
                   <VenueInfo game={game} venue={venue} />
                   <Ladder game={game} venueId={venue.id} />

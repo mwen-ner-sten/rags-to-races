@@ -1,5 +1,7 @@
 import { channel } from "./channels";
+import { rallyExpectedPace, rallySplits, rallyWinForecast } from "./rally";
 import { recordChallengeWin } from "./challenges";
+import { recordClubRace } from "./club";
 import { BRACKET_SPREAD, CALL2, DISCIPLINES, OPPONENT_SPREAD, PRIZE_SHARE, RIVAL_BY_ID, getVenue, venueName, type DisciplineDef, type VenueDemand } from "./content/events";
 import { CONDITION_STAT, getPart } from "./content/parts";
 import { CREW_BY_ID, crewLevel } from "./content/team";
@@ -88,6 +90,7 @@ function call2Expected(state: GameState, event: EventKind, call2: RaceSpec["call
 
 /** The player's expected score in an event before luck (used by previews and the Dyno). */
 export function effectiveScore(state: GameState, vehicle: Vehicle, venueId: string, call: RaceSpec["call"], call2?: RaceSpec["call2"], event: EventKind = "heat"): number {
+  if (state.era?.discipline === "rally") return baseScore(state, vehicle, venueId, call) * rallyExpectedPace(vehicle, venueId, event, call2);
   return baseScore(state, vehicle, venueId, call) * call2Expected(state, event, call2);
 }
 
@@ -160,6 +163,11 @@ export function winChance(state: GameState, vehicle: Vehicle, venueId: string, e
   const bracket = DISCIPLINES[resolveFlags(state).discipline].format === "bracket";
   const hard = bracket && call2 === "launch_hard";
   const base = baseScore(state, vehicle, venueId, call);
+  if (state.era?.discipline === "rally") {
+    const field = getVenue(venueId).events[event].field * DISCIPLINES.rally.fieldScale;
+    const forecast = rallyWinForecast(vehicle, venueId, event, call2, base, field, grid ?? opponents(state, venueId, event, call), normalCdf);
+    return forecast * (1 - dnfChance(state, vehicle, venueId, event, call, call2));
+  }
   const me = effectiveScore(state, vehicle, venueId, call, call2, event);
   // P(me·(1+N) > opp·(1+N')) for independent normals; product over opponents (approximation).
   const beats = (mine: number, opp: Opponent): number => {
@@ -367,7 +375,16 @@ export function rollRace(state: GameState, spec: RaceSpec, grid?: readonly RaceG
     base: baseScore(state, vehicle, spec.venueId, spec.call),
     grid,
   };
-  const roll = discipline.format === "bracket" ? rollBracket(ctx) : rollOval(ctx);
+  let roll: ClassifiedRoll;
+  if (discipline.format === "stages") {
+    const results = rallySplits(state, spec, vehicle, dnf, ctx.base, ctx.field, grid ?? opponents(state, spec.venueId, spec.event, spec.call), ctx.durationMs);
+    const { places, winningGap, ...finish } = results;
+    const wearSteps = rollWear(state, vehicle, { mult: (spec.call === "push" ? 1.6 : 0.6) * discipline.wearMult * channel(state, "wear"), wheelMult: discipline.wheelWearMult, dnf, weak, engineBlowSteps: 0 });
+    roll = { ...finish, dnf, wearSteps, weakestSlot: weak, durationMs: ctx.durationMs,
+      grid: grid && { winningGap, entrants: grid.map(({ id }, i) => ({ id, ...places[i] })) } };
+  } else {
+    roll = discipline.format === "bracket" ? rollBracket(ctx) : rollOval(ctx);
+  }
   return {
     ...roll,
     weakestPart: weak && vehicle.parts[weak] ? { ...vehicle.parts[weak] } : undefined,
@@ -476,7 +493,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
   if (!dnf) vehicle.history.bestFinish = vehicle.history.bestFinish === null ? position : Math.min(vehicle.history.bestFinish, position);
 
   state.run.practice[spec.venueId] = (state.run.practice[spec.venueId] ?? 0) + channel(state, "practice");
-  creditCrew(state, roll.crewIds ?? racingCrewIds(state));
+  creditCrew(state, roll.crewIds ?? racingCrewIds(state), spec);
   if (!won) state.run.stats.racesLost[spec.venueId] = (state.run.stats.racesLost[spec.venueId] ?? 0) + 1;
   if (dnf) state.run.stats.dnfs = (state.run.stats.dnfs ?? 0) + 1;
 
@@ -510,6 +527,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
     recordChallengeWin(state, spec.venueId, vehicle);
   }
   recordOwnerFinish(state, spec, result, paidEntry ?? event.entry);
+  if (spec.clubRound) recordClubRace(state, spec, result);
   return result;
 }
 

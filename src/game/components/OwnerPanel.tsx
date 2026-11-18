@@ -120,7 +120,7 @@ export function OwnerPanel() {
       {replayable && !active && (
         <section className="section" aria-labelledby="owner-charters">
           <h3 id="owner-charters">Choose a charter</h3>
-          {!!owner?.titles && <p className="sub">A title in both Dirt Oval and Drag unlocks the all-Feature itinerary for that charter.</p>}
+          {!!owner?.titles && <p className="sub">Titles in any two disciplines unlock the all-Feature itinerary for that charter.</p>}
           {!!owner?.titles && (
             <>
               <label htmlFor="owner-sponsor">Sponsorship</label>

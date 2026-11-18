@@ -4,9 +4,11 @@ import { useState } from "react";
 import { ownerGate } from "@/core/ownership";
 import { DISCIPLINES, venueName } from "@/core/content/events";
 import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
-import { CREW_BY_ID, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
+import { CREW_BY_ID, TEAM_ORGANIZATIONS, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
-import { crewBusyRacing } from "@/core/crew";
+import { crewBusyRacing, crewTravelBlocker, teamOrganization } from "@/core/crew";
+import { APPRENTICE_JOBS, HANDOVER_TRACK_STARTS, handoverName } from "@/core/crewLegacy";
+import { habitName } from "@/core/habits";
 import type { CrewMember, DisciplineId, GameState } from "@/core/types";
 import { num } from "../format";
 import { habitLabel, habitOptions } from "../labels";
@@ -24,6 +26,9 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
   if (!def) return null;
   const level = crewLevel(member.jobsDone);
   const racing = crewBusyRacing(game, member.id);
+  const discipline = game.era?.discipline ?? "dirt";
+  const recordedWork = Object.entries(member.service?.workshop ?? {});
+  const recordedStarts = Object.entries(member.service?.venues?.[discipline] ?? {}).filter(([venue]) => venue !== "backyard");
   const onChange = (value: string) => {
     const assignment: CrewMember["assignment"] = value.startsWith("habit:") ? { type: "habit", template: value.slice(6) } : ({ type: value } as CrewMember["assignment"]);
     dispatch({ type: "assignCrew", crewId: member.id, assignment });
@@ -37,6 +42,15 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
         <p className="blurb">
           {def.strength} <span className="muted">{def.quirk}</span>
         </p>
+        {(recordedWork.length > 0 || recordedStarts.length > 0) && (
+          <details>
+            <summary>Handover experience</summary>
+            <ul className="plain">
+              {recordedWork.map(([routine, count]) => <li key={routine}>{habitName(routine)} · {count} crew jobs</li>)}
+              {recordedStarts.map(([venue, count]) => <li key={venue}>{venueName(venue, discipline)} · {count} starts</li>)}
+            </ul>
+          </details>
+        )}
         <div className="mini-progress">
           <span>Morale</span>
           <div className="bar small" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(member.morale)}>
@@ -47,7 +61,7 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
           <span>Doing</span>
           <select value={assignmentValue(member.assignment)} disabled={racing} onChange={(e) => onChange(e.target.value)}>
             <option value="queue">Jobs from the queue</option>
-            {habitOptions(game).map((t) => (
+            {habitOptions(game).filter((template) => !crewTravelBlocker(game, template)).map((t) => (
               <option key={t} value={`habit:${t}`}>
                 Habit: {habitLabel(game, t)}
               </option>
@@ -137,6 +151,7 @@ export function TeamPanel() {
   }
   const era = game.era;
   const cap = crewCap(game);
+  const organization = TEAM_ORGANIZATIONS[teamOrganization(game)];
   return (
     <div className="panel">
       <section className="section" aria-labelledby="team-h">
@@ -144,6 +159,7 @@ export function TeamPanel() {
         <p className="sub">
           {DISCIPLINES[era.discipline].name}. {DISCIPLINES[era.discipline].blurb}
         </p>
+        <p className="sub"><strong>{organization.name}</strong>. {organization.description}</p>
         <dl className="facts wide">
           <div>
             <dt>Team Points</dt>
@@ -174,6 +190,17 @@ export function TeamPanel() {
           Crew <span className="muted num">{era.crew.length}/{cap}</span>
         </h2>
         {game.config.hardships.includes("solo") && <p className="notice">Solo Season: no crew until it ends.</p>}
+        {era.crew.length > 0 && !era.handover && <p className="sub">A level 2 crew member can leave a handover on Team Reset after {APPRENTICE_JOBS} jobs of one workshop routine or {HANDOVER_TRACK_STARTS} starts as a driver or spotter at the same venue.</p>}
+        {era.handover && (
+          <p className="sub"><strong>{handoverName(era.handover, era.discipline)}</strong>. {era.handover.type === "track_notes"
+            ? "The notes qualify you for the Heat whenever this venue opens."
+            : era.handover.completed >= APPRENTICE_JOBS
+              ? "Graduated. This Habit stays with the team across Scrap Resets when Habits are enabled."
+              : `${era.handover.completed}/${APPRENTICE_JOBS} jobs. ${era.handover.apprenticeId
+                ? `${CREW_BY_ID[era.handover.apprenticeId].name} is the apprentice.`
+                : "The first eligible crew member to complete a matching job begins training."}`}
+          </p>
+        )}
         <div className="cards">
           {era.crew.map((m) => (
             <CrewCard key={m.id} game={game} member={m} />

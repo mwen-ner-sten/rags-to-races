@@ -20,11 +20,13 @@ import { ownerGate } from "@/core/ownership";
 import { promoterGate } from "@/core/promoter";
 import { OwnerPanel } from "./OwnerPanel";
 import { PromoterPanel } from "./PromoterPanel";
+import { clubGate } from "@/core/club";
+import { ClubPanel } from "./ClubPanel";
 import { TeamPanel } from "./TeamPanel";
 import { hasUnreadTip } from "./Tips";
 import { TripsPanel } from "./TripsPanel";
 
-type TabId = "trips" | "garage" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "settings";
+type TabId = "trips" | "garage" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "settings";
 
 /** Tips that live on each tab; an unread one puts a dot on the tab. */
 const TAB_TIPS: Partial<Record<TabId, readonly string[]>> = {
@@ -44,6 +46,7 @@ const TABS: { id: TabId; label: string; reveal: string | null }[] = [
   { id: "team", label: "Team", reveal: "team" },
   { id: "owner", label: "Owner", reveal: "owner" },
   { id: "promoter", label: "Circuit", reveal: "promoter" },
+  { id: "club", label: "Club", reveal: "club" },
   { id: "settings", label: "Settings", reveal: null },
 ];
 
@@ -273,6 +276,7 @@ export function Game() {
   const tabs = TABS.filter((t) => {
     if (t.id === "owner") return !!game.owner || ownerGate(game).ok;
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
+    if (t.id === "club") return !clubGate(game);
     return !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0);
   });
   const active = tabs.some((t) => t.id === tab) ? tab : "trips";
@@ -310,6 +314,7 @@ export function Game() {
           {active === "team" && <TeamPanel />}
           {active === "owner" && <OwnerPanel />}
           {active === "promoter" && <PromoterPanel />}
+          {active === "club" && <ClubPanel />}
           {active === "settings" && <SettingsPanel />}
         </main>
         <JobsBoard />

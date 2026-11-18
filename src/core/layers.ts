@@ -4,7 +4,9 @@
  * the only reset function; adding a layer is adding an entry here.
  */
 import { channel } from "./channels";
-import { CREW, BASE_CREW_CAP, crewLevel } from "./content/team";
+import { CREW, BASE_CREW_CAP, TEAM_ORGANIZATIONS, crewLevel, type TeamOrganization } from "./content/team";
+import { crewTravelBlocker, teamOrganization } from "./crew";
+import { acceptHandover, applyCrewHandover, crewHandoverOffers, handoverId, HANDOVER_COST, type CrewHandoverChoice } from "./crewLegacy";
 import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, isSeasonChallenge, seasonObjectiveConflict } from "./content/modifiers";
 import { VENUES, getVenue } from "./content/events";
 import { getVehicle } from "./content/vehicles";
@@ -14,9 +16,13 @@ import { STORY, addJournal } from "./journal";
 import { learn } from "./knowhowEngine";
 import { allDaresCompleted, perkUnlocked, refreshPerkUnlocks } from "./perks";
 import { forfeitOwnerTour } from "./ownership";
+import { disciplineBlocker } from "./content/events";
+import { archiveClubSeason, clubChoicesBlocker, startClubSeason, type ClubCharter } from "./club";
 import { nextUid } from "./rng";
 import { hasPerk } from "./rules";
+import { salvageCarryBlocker, salvageCarryCandidates } from "./salvageCarry";
 import { initialConfig, initialRun, initialScrap } from "./state";
+import { archiveVehicle } from "./vehicleArchive";
 import type { DisciplineId, EraState, GameState, PartInstance, RunConfig, Scope, SkillId } from "./types";
 
 export type LayerId = "scrap" | "team";
@@ -28,9 +34,13 @@ export interface ScrapChoices {
   tuneUp: Record<SkillId, number>;
   dare: string | null;
   hardships: string[];
+  retainedPartUid?: string;
+  club?: ClubCharter;
 }
 
 export interface TeamChoices extends ScrapChoices {
+  organization?: TeamOrganization;
+  handover?: CrewHandoverChoice;
   discipline: DisciplineId;
   teamName: string;
   colors: [string, string];
@@ -80,13 +90,13 @@ export function teamAward(state: GameState): number {
 }
 
 export function perkSlots(state: GameState): number {
-  return Math.floor(channel(state, "perk_slots"));
+  return Math.floor(channel(state, "perk_slots")) - (state.config.salvageSlot ? 1 : 0);
 }
 
 /** Perk slots the next Season will have after a Scrap Reset (counts this Season's deep wins). */
-export function nextSeasonPerkSlots(state: GameState): number {
+export function nextSeasonPerkSlots(state: GameState, retainingPart = false): number {
   const fresh = ["regional", "state"].filter((v) => state.run.featureWins[v] !== undefined && !state.scrap.milestonesThisEra.includes(v)).length;
-  return perkSlots(state) + fresh;
+  return Math.floor(channel(state, "perk_slots")) + fresh - (retainingPart ? 1 : 0);
 }
 
 /** Deep-run slots restart with the team; the once-ever Dare reward is permanent. */
@@ -179,6 +189,8 @@ function toConfig(choices: ScrapChoices): RunConfig {
     tuneUp: { haul: choices.tuneUp.haul ?? 0, wrench: choices.tuneUp.wrench ?? 0, build: choices.tuneUp.build ?? 0, race: choices.tuneUp.race ?? 0 },
     dare: choices.dare,
     hardships: [...choices.hardships],
+    ...(choices.retainedPartUid ? { salvageSlot: true } : {}),
+    ...(choices.club && { club: choices.club }),
   };
 }
 
@@ -188,13 +200,26 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
   clears: ["run", "config"],
   gate: (s) => (s.run.featureWins.county_fair !== undefined ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature" }),
   award: scrapAward,
-  validate: (s, c) => validateScrapChoices(s, c, nextSeasonPerkSlots(s), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + scrapAward(s), s.era?.discipline ?? "dirt"),
-  apply: (s, award, choices) => {
+  validate: (s, c) => {
+    const clubBlocked = clubChoicesBlocker(s, c.club);
+    if (clubBlocked) return clubBlocked;
+    if (c.retainedPartUid) {
+      const blocked = salvageCarryBlocker(s, c.retainedPartUid, c.hardships);
+      if (blocked) return blocked;
+    }
+    return validateScrapChoices(s, c, nextSeasonPerkSlots(s, !!c.retainedPartUid), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + scrapAward(s), s.era?.discipline ?? "dirt");
+  },
+  apply: (s, award, choices, before) => {
     s.scrap.lp += award;
     s.scrap.lifetimeLp += award;
     s.scrap.resets += 1;
     buyPerks(s, choices.buy ?? []);
     s.config = toConfig(choices);
+    if (choices.retainedPartUid) {
+      const retained = salvageCarryCandidates(before).find(({ part }) => part.uid === choices.retainedPartUid)!.part;
+      s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin };
+      s.run.inventory.push({ ...retained, inherited: true });
+    }
   },
 };
 
@@ -208,9 +233,22 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
   },
   award: teamAward,
   validate: (s, c) => {
-    if (c.discipline !== "dirt" && c.discipline !== "drag") return "Pick a discipline";
+    if (c.organization !== undefined && !Object.hasOwn(TEAM_ORGANIZATIONS, c.organization)) return "Pick a team organization";
+    if (c.retainedPartUid) return "Salvage carryover is only available on Scrap Reset";
+    if (c.club !== undefined) return "Found a club on Scrap Reset to keep your team.";
+    if (c.discipline !== "dirt" && c.discipline !== "drag" && c.discipline !== "rally") return "Pick a discipline";
+    const locked = disciplineBlocker(s, c.discipline);
+    if (locked) return locked;
     if (!c.teamName.trim()) return "Name your team";
     if (c.keepCrewId && !(s.team.upgrades.old_hands ?? 0)) return "You need Old Hands to keep a crew member";
+    const handover = c.handover;
+    if (handover) {
+      if (c.keepCrewId === handover.mentorId) return "Choose whether this crew member leaves a handover or stays with Old Hands.";
+      if (!crewHandoverOffers(s, c.discipline).some((offer) => handoverId(offer) === handoverId(handover))) {
+        return "Choose a handover earned by your current crew for this discipline.";
+      }
+      if (s.team.tp + teamAward(s) < HANDOVER_COST) return `A crew handover costs ${HANDOVER_COST} Team Points.`;
+    }
     // After a Team Reset the Scrap layer starts over: 2 base slots (+ team upgrades), 5 tune-up points.
     const slots = nextTeamPerkSlots(s);
     return validateScrapChoices(s, c, slots, 5, true, teamResetLegacyBudget(s), c.discipline);
@@ -222,12 +260,15 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
     buyPerks(s, choices.buy ?? []);
     s.scrap.lp = 0;
     s.team.tp += award;
+    if (choices.handover) s.team.tp -= HANDOVER_COST;
     s.team.lifetimeTp += award;
     s.team.resets += 1;
     s.meta.totalTeamResets += 1;
     s.scrap.tuneUpPoints = 5;
     const kept = choices.keepCrewId ? before.era?.crew.find((c) => c.id === choices.keepCrewId) : undefined;
     const era: EraState = {
+      organization: choices.organization ?? before.era?.organization ?? "independent",
+      handover: choices.handover ? acceptHandover(choices.handover, choices.discipline) : undefined,
       discipline: choices.discipline,
       teamName: choices.teamName.trim().slice(0, 40),
       colors: choices.colors,
@@ -265,16 +306,7 @@ function commitSeason(state: GameState): void {
   }
   const top = Object.entries(state.run.reps).filter(([t]) => state.run.habitsKnown.includes(t)).sort((a, b) => b[1] - a[1])[0];
   meta.lastTopHabit = top ? top[0] : meta.lastTopHabit;
-  for (const vehicle of state.run.vehicles) {
-    meta.hallOfFame.push({
-      season: meta.seasonsPlayed + 1,
-      vehicleId: vehicle.vehicleId,
-      name: vehicle.name,
-      history: { ...vehicle.history },
-      parts: Object.entries(vehicle.parts).flatMap(([slot, p]) => (p ? [{ slot, partId: p.partId, condition: p.condition, origin: p.origin }] : [])),
-    });
-  }
-  if (meta.hallOfFame.length > 200) meta.hallOfFame.splice(0, meta.hallOfFame.length - 200);
+  for (const vehicle of state.run.vehicles) archiveVehicle(state, vehicle);
   const newThisEra = firstEverMilestones(state);
   for (const [venueId, at] of Object.entries(state.run.featureWins)) {
     meta.records[venueId] = Math.min(meta.records[venueId] ?? Infinity, at);
@@ -313,20 +345,28 @@ export function startSeason(state: GameState): void {
     };
     run.vehicles.push({ uid: nextUid(state, "v"), vehicleId: def.id, name: "Barn Find", parts, tune: "balanced", history: { races: 0, wins: 0, dnfs: 0, bestFinish: null }, builtAtSeasonMs: 0 });
   }
+  applyCrewHandover(state);
   if (state.era) {
     for (const member of state.era.crew) {
       member.windowStartMs = 0;
       member.workedInWindowMs = 0;
       member.morale = 100;
-      if (member.assignment.type === "habit" && !run.habitsKnown.includes(templateBase(member.assignment.template))) member.assignment = { type: "queue" };
+      if (member.assignment.type === "habit" && (
+        !run.habitsKnown.includes(templateBase(member.assignment.template)) || crewTravelBlocker(state, member.assignment.template)
+      )) member.assignment = { type: "queue" };
     }
   }
   if (state.era && !config.hardships.includes("solo")) {
     const hired = new Set(state.era.crew.map((c) => c.id));
     const pool = CREW.filter((c) => !hired.has(c.id));
     const start = (state.era.seasonIndex * 3 + meta.totalTeamResets) % Math.max(1, pool.length);
-    run.candidates = [0, 1, 2].map((k) => pool[(start + k) % pool.length]?.id).filter((id): id is string => Boolean(id) && !hired.has(id as string));
-    run.candidates = [...new Set(run.candidates)];
+    const rotated = [...pool.slice(start), ...pool.slice(0, start)];
+    const candidates = rotated.slice(0, 3);
+    if (teamOrganization(state) === "collective" && candidates.every((candidate) => candidate.role !== "wrench")) {
+      const mechanic = rotated.find((candidate) => candidate.role === "wrench");
+      if (mechanic) candidates[2] = mechanic;
+    }
+    run.candidates = candidates.map(({ id }) => id);
   }
   if (meta.seasonsPlayed > 0) addJournal(state, "new_season", STORY.new_season);
   syncHabitSlots(state);
@@ -343,10 +383,21 @@ export function performReset(state: GameState, layerId: LayerId, choices: ScrapC
   if (invalid) return invalid;
   const before = structuredClone(state);
   const award = layer.award(state);
+  const log = state.meta.seasonLog ??= [];
+  log.push({
+    season: state.meta.seasonsPlayed + 1, endedBy: layerId,
+    teamName: state.era?.teamName ?? null, discipline: state.era?.discipline ?? "dirt",
+    organization: state.era ? state.era.organization ?? "independent" : undefined,
+    setup: before.config, durationMs: state.run.seasonMs, featureWins: { ...state.run.featureWins },
+    builds: state.run.vehicles.length, hauls: state.run.stats.hauls,
+  });
+  if (log.length > 100) log.shift();
   forfeitOwnerTour(state);
+  archiveClubSeason(state);
   commitSeason(state);
   for (const scope of layer.clears) clearScope(state, scope);
   layer.apply(state, award, choices, before);
+  startClubSeason(state);
   startSeason(state);
   return null;
 }

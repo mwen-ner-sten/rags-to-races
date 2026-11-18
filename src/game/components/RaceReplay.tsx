@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { DISCIPLINES, RIVAL_BY_ID, getVenue, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import type { GameState, RaceResult } from "@/core/types";
+import { retiredVehicle } from "@/core/vehicleArchive";
 import { conditionName, num } from "../format";
 import { useGame } from "../store";
 import { finishText } from "./race/resultText";
@@ -20,12 +21,13 @@ function shownFrom(game: GameState, race: RaceResult): RaceShown {
     venueId: race.venueId,
     venueLabel: venueName(race.venueId, discipline),
     event: race.event,
-    vehicleId: vehicle?.vehicleId ?? "push_mower",
+    vehicleId: vehicle?.vehicleId ?? retiredVehicle(game, race.vehicleUid)?.vehicleId ?? "push_mower",
     fieldSize: race.fieldSize,
     beats: race.beats,
     laps: race.laps,
     durationMs: Math.max(durationMs, race.beats[race.beats.length - 1]?.at ?? 0),
     strip: discipline === "drag",
+    rally: discipline === "rally",
     rounds: race.rounds,
   };
 }

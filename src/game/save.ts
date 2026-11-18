@@ -1,15 +1,19 @@
 import { ownerReferencesValid, ownerSchema } from "./ownerSave";
 import { promoterSchema } from "./promoterSave";
+import { clubCharterSchema, clubReferencesValid, clubRoundSchema, clubSchema } from "./clubSave";
 import { z } from "zod";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PART_BY_ID } from "@/core/content/parts";
 import { PLACE_BY_ID } from "@/core/content/places";
 import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, SEASON_CHALLENGE_IDS, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
-import { CREW_BY_ID, TEAM_UPGRADE_BY_ID } from "@/core/content/team";
+import { CREW_BY_ID, TEAM_ORGANIZATION_IDS, TEAM_UPGRADE_BY_ID } from "@/core/content/team";
+import { APPRENTICE_JOBS, WORKSHOP_ROUTINES } from "@/core/crewLegacy";
 import { TOOL_BY_ID } from "@/core/content/tools";
 import { VEHICLE_BY_ID } from "@/core/content/vehicles";
 import { DISCIPLINES, RIVAL_BY_ID, VENUE_BY_ID } from "@/core/content/events";
 import { upgradeSave } from "@/core/state";
+import { perkSlots } from "@/core/layers";
+import { isCarryableSalvage, salvageCarryUnlocked } from "@/core/salvageCarry";
 import type { GameState, JobSpec } from "@/core/types";
 
 const number = z.number().finite();
@@ -24,7 +28,8 @@ const category = z.enum(["engine", "wheel", "frame", "fuel", "electronics", "dri
 const materials = z.object({ metal: amount, rubber: amount, wiring: amount });
 const partialMaterials = materials.partial();
 const tuneUp = z.object({ haul: count, wrench: count, build: count, race: count });
-const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional() });
+const runConfig = z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)), salvageSlot: z.literal(true).optional(), donor: z.object({ partId: known(PART_BY_ID), condition, origin: z.string() }).optional(), club: clubCharterSchema.optional() });
+const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), inherited: z.literal(true).optional() });
 const history = z.object({ races: count, wins: count, dnfs: count, bestFinish: count.positive().nullable() });
 const vehicle = z.object({
   uid: id, vehicleId: known(VEHICLE_BY_ID), name: z.string(), parts: z.record(id, part),
@@ -44,7 +49,7 @@ const jobSpec = z.discriminatedUnion("kind", [
   ...(["clean", "repair", "restore", "strip"] as const).map((kind) => z.object({ kind: z.literal(kind), partUid: id.optional() }).passthrough()),
   z.object({ kind: z.literal("study"), knowhowId: known(KNOWHOW_BY_ID) }).passthrough(),
   z.object({ kind: z.literal("assemble"), vehicleId: known(VEHICLE_BY_ID), partUids: z.record(id, id), name: z.string() }).passthrough(),
-  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft"]).optional() }).passthrough(),
+  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), clubRound: clubRoundSchema.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft", "cut", "recce"]).optional() }).passthrough(),
 ]);
 const beat = z.object({ at: amount, text: z.string(), position: count.positive(), kind: z.enum(["start", "pass", "passed", "hold", "wear", "rival", "last_lap", "dnf", "finish", "caution", "round"]).optional() });
 const raceFields = {
@@ -68,17 +73,42 @@ const job = z.object({
 });
 const crew = z.object({
   id: known(CREW_BY_ID), morale: amount.max(100), workedInWindowMs: amount, windowStartMs: amount, jobsDone: count,
+  service: z.object({
+    workshop: z.partialRecord(z.enum(WORKSHOP_ROUTINES), count).optional(),
+    venues: z.partialRecord(z.enum(["dirt", "drag", "rally"]), z.record(known(VENUE_BY_ID), count)).optional(),
+  }).optional(),
   assignment: z.discriminatedUnion("type", [
     z.object({ type: z.literal("queue") }), z.object({ type: z.literal("rest") }),
     z.object({ type: z.literal("driver") }), z.object({ type: z.literal("spotter") }),
     z.object({ type: z.literal("habit"), template }),
   ]),
 });
+const handover = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("apprenticeship"), mentorId: known(CREW_BY_ID), routine: z.enum(WORKSHOP_ROUTINES),
+    completed: count.max(APPRENTICE_JOBS), apprenticeId: known(CREW_BY_ID).optional(),
+  }),
+  z.object({
+    type: z.literal("track_notes"), mentorId: known(CREW_BY_ID),
+    venueId: known(VENUE_BY_ID).refine((venue) => venue !== "backyard"), discipline: z.enum(["dirt", "drag", "rally"]),
+  }),
+]);
 const meta = z.object({
+  seasonLog: z.array(z.object({
+    season: count.positive(), endedBy: z.enum(["scrap", "team"]), teamName: z.string().nullable(),
+    organization: z.enum(TEAM_ORGANIZATION_IDS).optional(),
+    discipline: z.enum(["dirt", "drag", "rally"]), durationMs: amount, builds: count, hauls: count,
+    featureWins: z.record(known(VENUE_BY_ID), amount),
+    setup: runConfig,
+  })).max(100).optional(),
   codex: z.object({ parts: z.record(known(PART_BY_ID), count), places: z.record(known(PLACE_BY_ID), count) }),
   knowhow: z.record(known(KNOWHOW_BY_ID), count), habitMemory: z.record(template, count), lastTopHabit: template.nullable(),
   records: z.record(known(VENUE_BY_ID), amount),
-  hallOfFame: z.array(z.object({ season: count.positive(), vehicleId: known(VEHICLE_BY_ID), name: z.string(), history, parts: z.array(z.object({ slot: id, partId: known(PART_BY_ID), condition, origin: z.string() })) })),
+  hallOfFame: z.array(z.object({
+    season: count.positive(), vehicleId: known(VEHICLE_BY_ID), name: z.string(), history,
+    parts: z.array(z.object({ slot: id, partId: known(PART_BY_ID), condition, origin: z.string() })),
+    retirement: z.object({ kind: z.enum(["dismantle", "exchange"]), vehicleUid: id, seasonMs: amount }).optional(),
+  })),
   rivals: z.record(known(RIVAL_BY_ID), z.object({ wins: count, losses: count })),
   perks: z.record(known(PERK_BY_ID), count), perksUnlocked: z.array(known(PERK_BY_ID)),
   drivewayRule: z.enum(["strip_sell", "sell", "strip", "leave"]).optional(), tipsSeen: z.array(id), guideOff: z.boolean().optional(),
@@ -106,12 +136,16 @@ const run = z.object({
   })),
 });
 const gameSchema = z.object({
-  owner: ownerSchema.optional(), promoter: promoterSchema.optional(),
+  owner: ownerSchema.optional(), promoter: promoterSchema.optional(), club: clubSchema.optional(),
   version: z.literal(1), seed: z.string(), rng: count, uid: count, meta, run,
   scrap: z.object({ lp: amount, lifetimeLp: amount, resets: count, tuneUpPoints: count, milestonesThisEra: z.array(known(VENUE_BY_ID)), daresThisEra: count }),
   team: z.object({ tp: amount, lifetimeTp: amount, resets: count, upgrades: z.record(known(TEAM_UPGRADE_BY_ID), count) }),
-  era: z.object({ discipline: z.enum(["dirt", "drag"]), teamName: z.string(), colors: z.tuple([z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6})$/i), z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6})$/i)]), crew: z.array(crew), milestones: z.array(known(VENUE_BY_ID)), hardshipsCompleted: count, legends: z.array(known(CREW_BY_ID)), seasonIndex: count }).nullable(),
-  config: z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)) }),
+  era: z.object({
+    organization: z.enum(TEAM_ORGANIZATION_IDS).optional(),
+    handover: handover.optional(),
+    discipline: z.enum(["dirt", "drag", "rally"]), teamName: z.string(), colors: z.tuple([z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6})$/i), z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6})$/i)]), crew: z.array(crew), milestones: z.array(known(VENUE_BY_ID)), hardshipsCompleted: count, legends: z.array(known(CREW_BY_ID)), seasonIndex: count,
+  }).nullable(),
+  config: runConfig,
 });
 // Only fields actually absent from older rewrite saves are optional. Missing core data is corruption.
 const compatibleSchema = gameSchema.extend({
@@ -120,6 +154,18 @@ const compatibleSchema = gameSchema.extend({
 });
 
 function referencesValid(game: GameState): boolean {
+  const handover = game.era?.handover;
+  if (handover?.type === "track_notes" && handover.discipline !== game.era?.discipline) return false;
+  if (handover?.type === "apprenticeship" && (
+    Boolean(handover.completed) !== Boolean(handover.apprenticeId)
+      || handover.apprenticeId === handover.mentorId
+      || (handover.completed > 0 && handover.completed < APPRENTICE_JOBS
+        && !game.era?.crew.some((member) => member.id === handover.apprenticeId))
+  )) return false;
+  const seasons = game.meta.seasonLog ?? [];
+  if (seasons.some((entry, i) => entry.season > game.meta.seasonsPlayed ||
+    (i > 0 && entry.season <= seasons[i - 1].season) ||
+    Object.values(entry.featureWins).some((ms) => ms > entry.durationMs))) return false;
   const { relay, completedAt } = game.run.challenge;
   const objective = game.config.dare;
   if (relay && objective !== "homebuilt_relay") return false;
@@ -132,9 +178,15 @@ function referencesValid(game: GameState): boolean {
     }
   } else if (completedAt !== undefined) return false;
   if (!ownerReferencesValid(game) || (game.promoter && !(game.owner && game.owner.titles > 0))) return false;
+  if (!clubReferencesValid(game)) return false;
   const inventory = new Map(game.run.inventory.map((part) => [part.uid, part]));
   const free = new Set([...game.run.inventory, ...game.run.driveway].map((part) => part.uid));
+  const retired = game.meta.hallOfFame.flatMap((entry) => entry.retirement ? [entry.retirement.vehicleUid] : []);
+  if (new Set(retired).size !== retired.length || game.run.vehicles.some((car) => retired.includes(car.uid))) return false;
   const parts = [...game.run.inventory, ...game.run.driveway, ...game.run.vehicles.flatMap((vehicle) => Object.values(vehicle.parts).filter((part) => part !== undefined))];
+  const inherited = parts.filter((piece) => piece.inherited);
+  if (inherited.length > (game.config.salvageSlot ? 1 : 0) || inherited.some((piece) => !isCarryableSalvage(piece))) return false;
+  if (game.config.salvageSlot && (!salvageCarryUnlocked(game) || game.config.hardships.includes("rookie_plates") || game.config.perks.length > perkSlots(game))) return false;
   if (new Set(parts.map((part) => part.uid)).size !== parts.length || new Set(game.run.vehicles.map((vehicle) => vehicle.uid)).size !== game.run.vehicles.length) return false;
   for (const vehicle of game.run.vehicles) {
     const slots = VEHICLE_BY_ID[vehicle.vehicleId].slots;

@@ -1,6 +1,19 @@
-import { CREW_BY_ID } from "./content/team";
+import { CREW_BY_ID, type TeamOrganization } from "./content/team";
+import { recordCrewService } from "./crewLegacy";
 import { resolveFlags } from "./rules";
-import type { CrewMember, GameState } from "./types";
+import type { CrewMember, GameState, JobSpec } from "./types";
+
+export function teamOrganization(state: GameState): TeamOrganization {
+  return state.era?.organization ?? "independent";
+}
+
+export function crewTravelBlocker(state: GameState, job: string): string | null {
+  if (teamOrganization(state) !== "collective") return null;
+  const kind = job.split(":", 1)[0];
+  return kind === "haul" || kind === "race"
+    ? "Workshop Collective crew leave trips and race entries to you. Drivers and spotters can still work on your race."
+    : null;
+}
 
 export function crewEfficiency(member: CrewMember): number {
   return 0.6 + 0.4 * member.morale / 100;
@@ -20,9 +33,12 @@ export function crewBusyRacing(state: GameState, id: string): boolean {
     (job.lane === `crew:${id}` || (job.race?.crewIds ?? racingCrewIds(state)).includes(id)));
 }
 
-export function creditCrew(state: GameState, ids: string[]): void {
+export function creditCrew(state: GameState, ids: string[], spec?: JobSpec): void {
   for (const id of new Set(ids)) {
     const member = state.era?.crew.find((crew) => crew.id === id);
-    if (member && !CREW_BY_ID[id]?.noExperience) member.jobsDone += 1;
+    if (member && !CREW_BY_ID[id]?.noExperience) {
+      member.jobsDone += 1;
+      if (spec) recordCrewService(state, member, spec);
+    }
   }
 }

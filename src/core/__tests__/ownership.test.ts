@@ -99,7 +99,7 @@ describe("Owner championships", () => {
     const endurance = { type: "owner", move: { type: "start", charter: "privateer", itinerary: "endurance" } } as const;
     let game = found();
     game = finishTour(raceRound(game, "beater"), "stock");
-    expect(apply(game, endurance).error).toMatch(/Dirt Oval and Drag/);
+    expect(apply(game, endurance).error).toMatch(/two disciplines/);
     game = must(game, {
       type: "reset", layer: "team",
       choices: { teamName: "Back Bay Drag", colors: ["#000", "#fff"], discipline: "drag", perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] },

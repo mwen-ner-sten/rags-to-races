@@ -3,6 +3,7 @@
 import type { EventKind, RaceBeat } from "@/core/types";
 import { capitalize, ordinal } from "../../format";
 import { Track } from "./Track";
+import { RallyStage } from "./RallyStage";
 import { beatsSoFar, bracketStatus, bracketView, dnfProgress, lapsFor, rankAt } from "./timeline";
 
 /** What any race view needs, whether it's running live or being replayed. */
@@ -17,6 +18,7 @@ export interface RaceShown {
   durationMs: number;
   /** Team-era drag racing runs on a straight strip. */
   strip: boolean;
+  rally?: boolean;
   /** Drag elimination rounds. Undefined on ovals and on old saves, which replay as one run. */
   rounds?: number;
 }
@@ -53,10 +55,10 @@ export function RaceScreen({ race, ms, compact = false, transitionMs = 0, lines 
         </span>
         <span className="muted">
           {race.venueLabel} · {capitalize(race.event)}
-          {showLap && ` · lap ${lap}/${laps}`}
+          {showLap && ` · ${race.rally ? "stage" : "lap"} ${lap}/${laps}`}
         </span>
       </div>
-      <Track
+      {race.rally ? <RallyStage progress={Math.min(progress, dnfAt ?? 1)} label={`${race.venueLabel} · ${status}`} /> : <Track
         venueId={race.venueId}
         shape={race.strip ? "strip" : "oval"}
         vehicleId={race.vehicleId}
@@ -69,7 +71,7 @@ export function RaceScreen({ race, ms, compact = false, transitionMs = 0, lines 
         compact={compact}
         transitionMs={transitionMs}
         label={`${race.venueLabel} ${race.event}: ${status}`}
-      />
+      />}
       {compact ? (
         latest && <p className="race-line">{latest.text}</p>
       ) : (

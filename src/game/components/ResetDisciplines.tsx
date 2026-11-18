@@ -1,6 +1,6 @@
 "use client";
 
-import { DISCIPLINES } from "@/core/content/events";
+import { DISCIPLINES, disciplineBlocker } from "@/core/content/events";
 import type { DisciplineId, GameState } from "@/core/types";
 
 interface ResetDisciplinesProps {
@@ -13,10 +13,11 @@ interface ResetDisciplinesProps {
 export function ResetDisciplines({ game, chosen, onChoose }: ResetDisciplinesProps) {
   return (
     <div className="disciplines">
-      {(Object.keys(DISCIPLINES) as DisciplineId[]).map((id) => (
+      {(["dirt", "drag", "rally"] as const).map((id) => (
         <label key={id} className={`card choice ${chosen === id ? "on" : ""}`}>
-          <input type="radio" name="discipline" checked={chosen === id} onChange={() => onChoose(id)} />
+          <input type="radio" name="discipline" disabled={!!disciplineBlocker(game, id)} checked={chosen === id} onChange={() => onChoose(id)} />
           <strong>{DISCIPLINES[id].name}</strong>
+          {disciplineBlocker(game, id) && <p className="why">{disciplineBlocker(game, id)}</p>}
           <p className="blurb">{DISCIPLINES[id].blurb}</p>
           <ul className="plain reset-rules">
             {DISCIPLINES[id].rules.map((rule) => (

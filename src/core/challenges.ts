@@ -1,17 +1,14 @@
 import { findChallengePerk, isSeasonChallenge, SEASON_CHALLENGES } from "./content/modifiers";
-import { PLACES } from "./content/places";
 import { getVenue, venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { logSeason } from "./journal";
 import { perkUnlocked, refreshPerkUnlocks } from "./perks";
+import { isHauledPart } from "./salvageCarry";
 import type { GameState, Vehicle } from "./types";
 
-const HAUL_ORIGINS = new Set(PLACES.map((place) => place.name));
-
 export function haulOriginsOn(vehicle: Vehicle): string[] {
-  // The sedan shell comes from the Auction counter, never from an auction haul.
   return [...new Set(Object.values(vehicle.parts).flatMap((part) =>
-    part && part.partId !== "beater_shell" && HAUL_ORIGINS.has(part.origin) ? [part.origin] : [],
+    part && !part.inherited && isHauledPart(part) ? [part.origin] : [],
   ))];
 }
 

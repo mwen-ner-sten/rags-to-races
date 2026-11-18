@@ -78,7 +78,7 @@ export const SEASON_CHALLENGES = {
   },
   parts_with_a_past: {
     name: "Parts With a Past",
-    text: "Win the Fair Feature with at least three different haul locations represented on your car. Purchased and traded parts don't count.",
+    text: "Win the Fair Feature with fitted parts hauled from at least three different locations this Season. Your first clear unlocks salvage carryover at Scrap Reset.",
     mastery: "Haul speed at Curbside, the Yards and Marisol's Junkyard",
   },
   hand_me_down: {

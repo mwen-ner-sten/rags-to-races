@@ -54,11 +54,12 @@ function Rival({ game, rivalId }: { game: GameState; rivalId: string }) {
 
 /** The character line, what counts here, and the Feature rival, shown on each open venue. */
 export function VenueInfo({ game, venue }: { game: GameState; venue: VenueDef }) {
-  const bracket = DISCIPLINES[game.era?.discipline ?? "dirt"].format === "bracket";
+  const format = DISCIPLINES[game.era?.discipline ?? "dirt"].format;
   return (
     <div className="venue-info">
-      {bracket ? <p className="venue-character">A drag strip rewards power, tyre grip and low weight.</p> : <p className="venue-character">{venue.character}</p>}
-      {!bracket && <Demand demand={venue.demand} />}
+      {format === "bracket" && <p className="venue-character">A drag strip rewards power, tyre grip and low weight.</p>}
+      {format === "stages" && <p className="venue-character">Power wins time on fast lanes, handling in switchbacks, tyre grip on gravel and reliability on broken roads.</p>}
+      {format === "oval" && <><p className="venue-character">{venue.character}</p><Demand demand={venue.demand} /></>}
       <Rival game={game} rivalId={venue.rival} />
     </div>
   );

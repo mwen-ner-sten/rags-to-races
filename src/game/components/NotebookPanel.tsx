@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { SeasonLog } from "./SeasonLog";
 import { useState, type KeyboardEvent } from "react";
 import { RIVALS, venueName } from "@/core/content/events";
 import { KNOWHOW } from "@/core/content/knowhow";
@@ -162,7 +163,7 @@ function Rivals({ game }: { game: GameState }) {
 function HallOfFame({ game }: { game: GameState }) {
   const [filter, setFilter] = useState("");
   const [limit, setLimit] = useState(12);
-  if (!game.meta.hallOfFame.length) return <p className="empty">Every vehicle you finish ends up here when a Season ends.</p>;
+  if (!game.meta.hallOfFame.length) return <p className="empty">Vehicles appear here after retirement or at the end of a Season.</p>;
   const query = filter.trim().toLowerCase();
   const entries = [...game.meta.hallOfFame].reverse().filter((entry) =>
     `${entry.name} ${getVehicle(entry.vehicleId).name} Season ${entry.season}`.toLowerCase().includes(query)
@@ -180,6 +181,7 @@ function HallOfFame({ game }: { game: GameState }) {
             <strong>{entry.name}</strong> · Season {entry.season} · {getVehicle(entry.vehicleId).name}
           </summary>
           <p>{entry.history.wins} wins from {entry.history.races} races · {entry.history.dnfs} DNF</p>
+          {entry.retirement && <p>{entry.retirement.kind === "exchange" ? "Traded at the mower exchange" : "Dismantled for parts"} · {seasonClock(entry.retirement.seasonMs)}</p>}
           <ul className="plain">{entry.parts.map((part) => <li key={part.slot}>
             <strong>{getPart(part.partId).name}</strong> · {conditionName(part.condition)} · {part.origin}
           </li>)}</ul>
@@ -220,7 +222,7 @@ function Journal({ game }: { game: GameState }) {
   </>;
 }
 
-const SECTIONS = ["Journal", "Know-how", "Habits", "Codex", "Rivals", "Hall of Fame"] as const;
+const SECTIONS = ["Journal", "Know-how", "Habits", "Codex", "Rivals", "Hall of Fame", "Seasons"] as const;
 
 export function NotebookPanel() {
   const game = useGame((s) => s.game);
@@ -252,6 +254,7 @@ export function NotebookPanel() {
       {tab === "Codex" && <Codex game={game} />}
       {tab === "Rivals" && <Rivals game={game} />}
       {tab === "Hall of Fame" && <HallOfFame game={game} />}
+      {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} />}
       </div>
     </section>
   );

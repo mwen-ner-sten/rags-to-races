@@ -24,7 +24,7 @@ const finish = z.object({
 const tour = z.object({
   id,
   charter,
-  discipline: z.enum(["dirt", "drag"]),
+  discipline: z.enum(["dirt", "drag", "rally"]),
   rounds: z.array(finish.nullable()).max(5),
   status: z.enum(["active", "champion", "finished", "retired"]),
   sponsor: z.enum(SPONSOR_IDS).optional(),
@@ -42,6 +42,7 @@ export const ownerSchema = z.object({
   charterTitles: z.object({ privateer: count, club: count, works: count, county_to_state: count.default(0) }),
   records: z.object({
     dirt: z.partialRecord(charter, z.object({ points: count.max(48), titles: count })),
+    rally: z.partialRecord(charter, z.object({ points: count.max(48), titles: count })).default({}),
     drag: z.partialRecord(charter, z.object({ points: count.max(48), titles: count })),
   }).optional(),
 }).refine((value) => {
@@ -54,7 +55,7 @@ export const ownerSchema = z.object({
   const records = ownerRecords(value);
   return OWNER_CHARTERS.every((charterId) =>
     tours.filter((result) => result.charter === charterId && result.status === "champion").length <= value.charterTitles[charterId]
-    && (records.dirt[charterId]?.titles ?? 0) + (records.drag[charterId]?.titles ?? 0) <= value.charterTitles[charterId],
+    && (records.dirt[charterId]?.titles ?? 0) + (records.drag[charterId]?.titles ?? 0) + (records.rally[charterId]?.titles ?? 0) <= value.charterTitles[charterId],
   );
 }, "Invalid championship history");
 

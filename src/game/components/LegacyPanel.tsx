@@ -4,7 +4,7 @@ import { useState } from "react";
 import { challengeVehicleFit } from "@/core/challenges";
 import { VENUES, venueName } from "@/core/content/events";
 import { SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge } from "@/core/content/modifiers";
-import { LAYERS, scrapAward } from "@/core/layers";
+import { LAYERS, perkSlots, scrapAward } from "@/core/layers";
 import type { GameState } from "@/core/types";
 import { duration, num, pct } from "../format";
 import { useGame } from "../store";
@@ -44,6 +44,7 @@ export function LegacyPanel() {
           <dd className="num">{game.scrap.resets}</dd>
         </div>
       </dl>
+      {game.config.salvageSlot && <p className="hint">Salvage carryover took one perk slot this Season. {perkSlots(game)} slots are available for perks.</p>}
       <SeasonChallenges game={game} />
       <h3 className="label">Milestones this Season</h3>
       <ul className="milestones">

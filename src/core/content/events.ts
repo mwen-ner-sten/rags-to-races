@@ -1,4 +1,4 @@
-import type { DisciplineId, EventKind } from "../types";
+import type { DisciplineId, EventKind, GameState } from "../types";
 
 export interface EventDef {
   /** Score at which the field's middle runner sits. Opponents spread around it. */
@@ -211,7 +211,7 @@ export interface DisciplineDef {
   name: string;
   blurb: string;
   /** "oval": a field of six over laps. "bracket": head-to-head elimination rounds. */
-  format: "oval" | "bracket";
+  format: "oval" | "bracket" | "stages";
   /** `traction` is the grip of the drive tyres alone (Drag has no use for cornering). */
   weights: { power: number; handling: number; reliability: number; weight: number; traction: number };
   fieldScale: number;
@@ -227,7 +227,7 @@ export interface DisciplineDef {
   venueNames: Record<string, string>;
   /** What the rules change, in plain words, for the Founding screen. */
   rules: readonly string[];
-  secondCall: { a: { id: "pit" | "launch_hard"; name: string; text: string }; b: { id: "stay" | "launch_soft"; name: string; text: string } };
+  secondCall: { a: { id: "pit" | "launch_hard" | "cut"; name: string; text: string }; b: { id: "stay" | "launch_soft" | "recce"; name: string; text: string } };
   /** Mastery: permanent, applies while racing any discipline. */
   mastery: { channel: string; perLevel: number; cap: number; text: string };
 }
@@ -243,6 +243,26 @@ export const CALL2 = {
 } as const;
 
 export const DISCIPLINES: Record<DisciplineId, DisciplineDef> = {
+  rally: {
+    id: "rally",
+    name: "Stage Rally",
+    blurb: "Run against the clock on loose gravel and farm lanes. Every split counts toward the result.",
+    format: "stages",
+    weights: { power: 0.24, handling: 0.40, reliability: 0.30, weight: 0.014, traction: 0.23 },
+    fieldScale: 1, wearMult: 1.15, wheelWearMult: 1.3, dnfMult: 0.9, durationMult: 1.25,
+    engineBlowSteps: 0, cautionChance: { sprint: 0, heat: 0, feature: 0 },
+    venueNames: { backyard: "Orchard Test", dirt: "Quarry Road", county_fair: "County Forest", regional: "Ridgeway Rally", state: "State Forest Stages" },
+    rules: [
+      "Cars start separately. Lowest total time over two, three or four stages wins.",
+      "Loose sections reward tyre grip. Technical sections reward handling. A long straight can recover lost time.",
+      "With a driver, cut corners for speed and risk a time penalty, or read pace notes for consistent splits.",
+    ],
+    secondCall: {
+      a: { id: "cut", name: "Cut corners", text: "Gain pace on every stage. Each cut has a chance to draw a time penalty." },
+      b: { id: "recce", name: "Read pace notes", text: "Average a little more speed and reduce split-time variation." },
+    },
+    mastery: { channel: "practice", perLevel: 0.06, cap: 0.36, text: "Earn 6% more practice per level on every course" },
+  },
   dirt: {
     id: "dirt",
     name: "Dirt Oval",
@@ -298,4 +318,11 @@ export const DISCIPLINES: Record<DisciplineId, DisciplineDef> = {
 
 export function venueName(venueId: string, discipline: DisciplineId): string {
   return DISCIPLINES[discipline].venueNames[venueId] ?? getVenue(venueId).name;
+}
+
+export function disciplineBlocker(state: GameState, discipline: DisciplineId): string | null {
+  if (discipline !== "rally" || state.meta.totalTeamResets > 0) return null;
+  const records = state.meta.challengeRecords;
+  if (records.hand_me_down?.completions || records.parts_with_a_past?.completions) return null;
+  return "Complete Hand-Me-Down Horsepower or Parts With a Past to enter Rally on first founding, or return after founding any team.";
 }

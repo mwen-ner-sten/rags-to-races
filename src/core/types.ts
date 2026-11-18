@@ -13,6 +13,7 @@
  */
 
 import type { OwnerState } from "./ownership";
+import type { ClubAdmission, ClubCharter, ClubState } from "./club";
 import type { PromoterState } from "./promoter";
 
 export type Scope = "run" | "scrap" | "era" | "config";
@@ -32,7 +33,7 @@ export type PartCategory =
 export type Condition = 0 | 1 | 2 | 3 | 4;
 
 export type SkillId = "haul" | "wrench" | "build" | "race";
-export type DisciplineId = "dirt" | "drag";
+export type DisciplineId = "dirt" | "drag" | "rally";
 export type EventKind = "sprint" | "heat" | "feature";
 export type RaceCall = "push" | "nurse";
 export type TuneSetting = "balanced" | "power" | "reliable";
@@ -49,6 +50,8 @@ export interface PartInstance {
   /** Where it was found, for the Hall of Fame history. */
   origin: string;
   protected?: boolean;
+  /** This physical part has already crossed one Scrap Reset. */
+  inherited?: true;
 }
 
 export interface VehicleHistory {
@@ -79,7 +82,7 @@ export type JobSpec =
   | { kind: "strip"; partUid?: string }
   | { kind: "study"; knowhowId: string }
   | { kind: "assemble"; vehicleId: string; partUids: Record<string, string>; name: string }
-  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; tourRound?: string; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" };
+  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; tourRound?: string; clubRound?: { token: string; admission: ClubAdmission }; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
 
 export type LaneId = string; // "hands" | "bench:0" | "habit:1" | "crew:<id>"
 
@@ -196,6 +199,7 @@ export interface HallOfFameEntry {
   name: string;
   history: VehicleHistory;
   parts: { slot: string; partId: string; condition: Condition; origin: string }[];
+  retirement?: { kind: "dismantle" | "exchange"; vehicleUid: string; seasonMs: number };
 }
 
 export type SeasonChallengeId = "homebuilt_relay" | "parts_with_a_past" | "hand_me_down";
@@ -213,6 +217,7 @@ export interface SeasonChallengeProgress {
 }
 
 export interface MetaState {
+  seasonLog?: SeasonResult[];
   /** Handled-count per part id and haul-count per place id. */
   codex: { parts: Record<string, number>; places: Record<string, number> };
   /** Seasons in which each know-how id was learned/opened. */
@@ -263,6 +268,7 @@ export interface TeamLayerState {
 }
 
 export interface CrewMember {
+  service?: import("./crewLegacy").CrewService;
   id: string; // roster id
   assignment: { type: "queue" } | { type: "habit"; template: JobTemplate } | { type: "driver" } | { type: "spotter" } | { type: "rest" };
   morale: number; // 0..100
@@ -272,6 +278,8 @@ export interface CrewMember {
 }
 
 export interface EraState {
+  organization?: import("./content/team").TeamOrganization;
+  handover?: import("./crewLegacy").CrewHandover;
   discipline: DisciplineId;
   teamName: string;
   colors: [string, string];
@@ -325,13 +333,31 @@ export interface RunState {
 }
 
 export interface RunConfig {
+  donor?: Pick<PartInstance, "partId" | "condition" | "origin">;
   perks: string[]; // equipped this Season
   tuneUp: Record<SkillId, number>;
   dare: string | null;
   hardships: string[];
+  /** The crate carrying a part takes one perk slot for this Season. */
+  salvageSlot?: true;
+  club?: ClubCharter;
+}
+
+export interface SeasonResult {
+  organization?: import("./content/team").TeamOrganization;
+  season: number;
+  endedBy: "scrap" | "team";
+  teamName: string | null;
+  discipline: DisciplineId;
+  setup: RunConfig;
+  durationMs: number;
+  featureWins: Record<string, number>;
+  builds: number;
+  hauls: number;
 }
 
 export interface GameState {
+  club?: ClubState;
   owner?: OwnerState;
   promoter?: PromoterState;
   version: 1;

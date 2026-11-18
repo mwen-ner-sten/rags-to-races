@@ -2,6 +2,7 @@
 
 import { BRACKET_SPREAD, DISCIPLINES, RIVAL_BY_ID, VENUES, getVenue } from "@/core/content/events";
 import { LAPS } from "@/core/raceBeats";
+import { rallyRoute } from "@/core/rally";
 import { cautionChance, dnfChance, purseFactor, raceDurationMs, winChance } from "@/core/race";
 import type { EventKind, GameState, JobSpec, Vehicle } from "@/core/types";
 import { capitalize, duration, num, pct } from "../../format";
@@ -66,7 +67,8 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
   const bracket = strip && DISCIPLINES[game.era?.discipline ?? "dirt"].format === "bracket";
   const factor = purseFactor(game, spec.venueId, spec.event);
   const note = purseNote(factor);
-  const showYellow = !!spec.call2 && !!game.era && !bracket;
+  const stages = game.era?.discipline === "rally" ? rallyRoute(spec.venueId, spec.event) : undefined;
+  const showYellow = !!spec.call2 && game.era?.discipline === "dirt";
   const p = winChance(game, vehicle, spec.venueId, spec.event, spec.call, spec.call2);
   return (
     <article className={`event-card ${status.kind}`}>
@@ -88,7 +90,7 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
         <div>
           <dt>Race</dt>
           <dd className="num">
-            {runLabel(spec.event, bracket)} · {duration(raceDurationMs(game, spec))}
+            {stages ? `${stages.length} timed stages` : runLabel(spec.event, bracket)} · {duration(raceDurationMs(game, spec))}
           </dd>
         </div>
         {dyno && !locked && (
@@ -100,6 +102,7 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
       </dl>
       {note && <p className="why event-purse">{note}</p>}
       <p className="event-stakes muted">{stakes(game, spec.venueId, spec.event, bracket)}</p>
+      {stages && <p className="small">{stages.map(capitalize).join(" → ")}</p>}
       {showYellow && <YellowLine game={game} event={spec.event} />}
       <div className="event-action">
         {status.kind === "ready" && (

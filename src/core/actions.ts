@@ -5,6 +5,7 @@
  */
 import { applyOwner, type OwnerMove } from "./ownership";
 import { applyPromoter, type PromoterMove } from "./promoter";
+import { applyClub, type ClubMove } from "./club";
 import { channel } from "./channels";
 import { getPart } from "./content/parts";
 import { PERK_BY_ID } from "./content/modifiers";
@@ -19,17 +20,21 @@ import { crewCap, performReset, type LayerId, type ScrapChoices, type TeamChoice
 import { nextUid } from "./rng";
 import { TIP_BY_ID } from "./content/tips";
 import { resolveFlags } from "./rules";
+import { retireVehicle, type RetirementMove } from "./retirement";
 import { perkUnlocked } from "./perks";
-import { crewBusyRacing } from "./crew";
+import { crewBusyRacing, crewTravelBlocker } from "./crew";
+import { releaseApprentice } from "./crewLegacy";
 import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, MaterialId, TuneSetting } from "./types";
 
 export type Action =
   | { type: "owner"; move: OwnerMove }
   | { type: "promoter"; move: PromoterMove }
+  | { type: "club"; move: ClubMove }
   | { type: "advance"; ms: number; away?: boolean }
   | { type: "enqueue"; spec: JobSpec }
   | { type: "batchClean"; partUids: string[] }
   | { type: "serviceInstalled"; vehicleUid: string; slot: string }
+  | { type: "retireVehicle"; vehicleUid: string; move: RetirementMove }
   | { type: "cancelQueued"; index: number }
   | { type: "prioritizeQueued"; index: number }
   | { type: "cancelJob"; jobId: string }
@@ -78,12 +83,17 @@ function applyMut(s: GameState, action: Action): string | null {
       return applyOwner(s, action.move);
     case "promoter":
       return applyPromoter(s, action.move);
+    case "club":
+      return applyClub(s, action.move);
     case "advance":
       if (!(action.ms > 0)) return null;
       advance(s, action.ms, action.away ?? false);
       return null;
+    case "retireVehicle":
+      return retireVehicle(s, action.vehicleUid, action.move);
     case "enqueue":
       if (action.spec.kind === "race" && action.spec.tourRound !== undefined) return "Enter touring rounds from the Owner calendar";
+      if (action.spec.kind === "race" && action.spec.clubRound !== undefined) return "Enter club rounds from the Club calendar";
       return enqueue(s, action.spec);
     case "batchClean": {
       if (action.partUids.length < 2 || action.partUids.length > 3 || new Set(action.partUids).size !== action.partUids.length) return "Choose two or three different parts";
@@ -288,6 +298,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!s.era) return "No team";
       if (crewBusyRacing(s, action.crewId)) return "They're on the track. Wait for the race to finish";
       for (const job of s.run.jobs.filter((j) => j.lane === `crew:${action.crewId}`)) dropJob(s, job.id);
+      releaseApprentice(s, action.crewId);
       s.era.crew = s.era.crew.filter((c) => c.id !== action.crewId);
       return null;
     }
@@ -297,6 +308,8 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!member) return "Not on your crew";
       if (crewBusyRacing(s, member.id)) return "They're on the track. Wait for the race to finish";
       const a = action.assignment;
+      const travel = a.type === "habit" ? crewTravelBlocker(s, a.template) : null;
+      if (travel) return travel;
       if (a.type === "habit" && !s.run.habitsKnown.includes(templateBase(a.template))) return "That isn't a Habit yet";
       if (a.type === "habit" && a.template === "race") return "Pick a race setup for Race Day";
       if (a.type === "driver" && !CREW_BY_ID[member.id]?.driverPerf) return `${CREW_BY_ID[member.id]?.name} isn't a driver`;
