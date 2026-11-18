@@ -1,4 +1,4 @@
-import { createGame } from "../../src/core";
+import { createGame, must } from "../../src/core";
 import { getVehicle } from "../../src/core/content/vehicles";
 import type { GameState, Vehicle } from "../../src/core/types";
 
@@ -50,4 +50,31 @@ export function swapMeetGame(): GameState {
 
 export function saveText(game: unknown, savedAt = Date.now()): string {
   return Buffer.from(JSON.stringify({ savedAt, game }), "utf8").toString("base64");
+}
+
+export function pendingOwnerFinal(): GameState {
+  const game = teamRacer("away-career-regression");
+  game.run.vehicles = racer("kart", "go_kart").run.vehicles;
+  game.era!.milestones.push("state");
+  game.run.venuesOpen.push("dirt");
+  game.run.ladder.dirt = ["sprint", "heat", "feature"];
+  const entry = must(game, { type: "owner", move: { type: "found", charter: "club" } });
+  entry.owner!.tour.rounds = Array.from({ length: 4 }, (_, round) => ({
+    raceId: `past-round-${round}`, vehicleUid: "fixture-vehicle", carName: "Regression racer", position: 1, dnf: false,
+  }));
+  return must(entry, { type: "owner", move: { type: "enter", vehicleUid: "fixture-vehicle", call: "nurse" } });
+}
+
+export function pendingCircuitFinal(): GameState {
+  let game = must(pendingOwnerFinal(), { type: "advance", ms: 60 * 60_000 });
+  const mower = racer("mower", "riding_mower").run.vehicles[0];
+  mower.uid = "mower-guest";
+  for (const part of Object.values(mower.parts)) if (part) part.uid = `mower-${part.uid}`;
+  game.run.vehicles.push(mower);
+  game = must(game, { type: "promoter", move: { type: "publish", charter: "homecoming", stewardship: "pro", vehicleUid: mower.uid } });
+  for (let round = 0; round < 2; round++) {
+    game = must(game, { type: "promoter", move: { type: "book", call: "nurse" } });
+    game = must(game, { type: "advance", ms: 60 * 60_000 });
+  }
+  return must(game, { type: "promoter", move: { type: "book", call: "nurse" } });
 }

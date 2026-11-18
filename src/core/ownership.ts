@@ -268,7 +268,7 @@ export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: Race
     dnf: result.dnf,
   };
   const venue = venueName(stop.venueId, tour.discipline);
-  pushFeed(state, "race", `${venue} scored ${finishPoints(finish)} championship points for ${finish.carName}.`);
+  pushFeed(state, "race", `${venue} scored ${finishPoints(finish)} championship points for ${finish.carName}.`, { key: `championship-round:${finish.raceId}` });
   completeRound(state, finish);
 }
 
@@ -287,10 +287,10 @@ function completeRound(state: GameState, finish: OwnerFinish | null): void {
     state.team.tp += charter.teamPoints;
     state.team.lifetimeTp += charter.teamPoints;
     if (!ownerCharterBlocker(state, "county_to_state")) {
-      addJournal(state, "county_to_state_invite", "The County-to-State Cup invites your team. Pack the kart and a Street Stock.");
+      addJournal(state, "county_to_state_invite", "The County-to-State Cup invites your team. Pack the kart and a Street Stock.", true, "championship-unlock:county_to_state");
     }
   }
   logSeason(state, `finished:${tour.id}`, score.champion
     ? `Won the ${charter.name} with ${score.points} points. The title pays ${charter.purse} Scrap Bucks and ${charter.teamPoints} Team Points.`
-    : `Finished the ${charter.name} with ${score.points} points from ${score.cars} scoring cars.`);
+    : `Finished the ${charter.name} with ${score.points} points from ${score.cars} scoring cars.`, `championship-result:${tour.id}`);
 }

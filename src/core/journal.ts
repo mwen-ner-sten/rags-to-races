@@ -2,20 +2,20 @@ import { pushFeed } from "./feed";
 import type { GameState } from "./types";
 
 /** Adds a story line the first time ever that `key` happens. Returns true when it was new. */
-export function addJournal(state: GameState, key: string, text: string, announce = true): boolean {
+export function addJournal(state: GameState, key: string, text: string, announce = true, feedKey?: string): boolean {
   if (state.meta.journalSeen.includes(key)) return false;
   state.meta.journalSeen.push(key);
   state.meta.journal.push({ id: key, season: state.meta.seasonsPlayed + 1, seasonMs: state.run.seasonMs, text });
   if (state.meta.journal.length > 400) state.meta.journal.splice(0, state.meta.journal.length - 400);
-  if (announce) pushFeed(state, "story", text);
+  if (announce) pushFeed(state, "story", text, feedKey ? { key: feedKey } : undefined);
   return true;
 }
 
 /** Adds a line every time (Season log, e.g. Feature wins). */
-export function logSeason(state: GameState, key: string, text: string): void {
+export function logSeason(state: GameState, key: string, text: string, feedKey?: string): void {
   state.meta.journal.push({ id: `${key}:${state.meta.seasonsPlayed + 1}:${state.run.seasonMs}`, season: state.meta.seasonsPlayed + 1, seasonMs: state.run.seasonMs, text });
   if (state.meta.journal.length > 400) state.meta.journal.splice(0, state.meta.journal.length - 400);
-  pushFeed(state, "story", text);
+  pushFeed(state, "story", text, feedKey ? { key: feedKey } : undefined);
 }
 
 export const STORY = {

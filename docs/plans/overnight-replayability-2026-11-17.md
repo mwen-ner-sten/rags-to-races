@@ -27,3 +27,13 @@ The advisor reviews the current build with Sol, selects a change, and has Sol im
 3. Play through returning to a late-career save. Improve the highest-impact unresolved decision and verify desktop, mobile, offline settlement and the campaign handoff.
 
 Product preferences still open for human playtesting include how many months a career ought to last, how frequently players want to revisit their first machinery, and how severe optional challenge restrictions should become. The first overnight build uses reversible balance values.
+
+## Counted-loop playtest results
+
+Three Homebuilt Relay completions unlock Dirt Track Pass. Equipping the pass alongside Borrowed Trailer makes Marisol's Junkyard available at zero reputation. The player can haul parts, sell and strip spares, buy the welder, study welding and plans, then build and enter a kart before ever racing a mower. The normal Junkyard reputation cost applies to Borrowed Trailer on its own.
+
+The mixed-schedule garage that won Homegrown stayed in the same Season and built a Street Stock. Its Independent Tour result scored 48 points, earning the second distinct championship required for the County-to-State Cup. Through the normal queue it then finished first, fourth, first, first and third in the mixed-class cup for 43 points. The two importable saves are `privateer-champion.txt` (new cup available) and `county_to_state-champion.txt` (cup won).
+
+A two-seed first-season pacing check returned the same measurements on the original Era 1 branch and on the overnight branch before the counted-loop changes. The daily maximum of 21.4 days exceeded the 21-day target. The mixed median of 6.3 days was below the 6.5-day lower target. These early-game balance targets remain open.
+
+When a touring round or Circuit meeting settles during an absence, the return dialog now shows the result and links to the relevant report. An Owner title can open the Circuit Office from that dialog. A failed Circuit certification identifies the missed target. Reloading a settled save does not repeat the announcement.

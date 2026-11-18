@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { apply, createGame, type Action } from "@/core";
+import { awayCareer, type AwayCareerReport } from "./awayCareer";
 import { decodeSave } from "./save";
 export { isGameState } from "./save";
 import type { FeedItem, FeedKind, GameState, RaceResult } from "@/core/types";
@@ -14,7 +15,7 @@ const OFFLINE_CAP_MS = 48 * 3_600_000;
 const AWAY_THRESHOLD_MS = 5 * 60_000;
 
 export interface AwaySummary {
-  circuitMeetings: number;
+  careerReports: AwayCareerReport[];
   ms: number;
   capped: boolean;
   trips: number;
@@ -102,10 +103,11 @@ function summarize(before: GameState, after: GameState, ms: number, capped: bool
   const beforeIds = new Set(before.run.races.map((r) => r.id));
   const newRaces = after.run.races.filter((r) => !beforeIds.has(r.id));
   const sameSeason = before.meta.seasonsPlayed === after.meta.seasonsPlayed;
+  const { reports: careerReports, coveredFeedKeys } = awayCareer(before, after);
   return {
     ms,
     capped,
-    circuitMeetings: Math.max(0, (after.promoter?.meet?.results.length ?? 0) - (before.promoter?.meet?.results.length ?? 0)),
+    careerReports,
     trips: sameSeason ? after.run.stats.hauls - before.run.stats.hauls : 0,
     partsFound: Object.values(after.meta.codex.parts).reduce((a, b) => a + b, 0) - Object.values(before.meta.codex.parts).reduce((a, b) => a + b, 0),
     races: newRaces.length,
@@ -115,7 +117,7 @@ function summarize(before: GameState, after: GameState, ms: number, capped: bool
     learned: after.run.learned.filter((id) => !before.run.learned.includes(id)),
     driveway: after.run.driveway.length,
     seasonMs: after.run.seasonMs,
-    items: sameSeason ? after.run.feed.filter((f) => f.at > before.run.seasonMs).slice(-AWAY_ITEMS).reverse() : [],
+    items: sameSeason ? after.run.feed.filter((item) => item.at > before.run.seasonMs && !coveredFeedKeys.has(item.key ?? "")).slice(-AWAY_ITEMS).reverse() : [],
   };
 }
 

@@ -180,6 +180,7 @@ describe("repeatable Season challenges", () => {
     }
     expect(kitReady(withPass)).toBe(true);
     expect(withPass.run.rep).toBe(0);
+    expect(withPass.run.revealed).toEqual(expect.arrayContaining(["garage", "build", "tools", "materials"]));
     withPass = must(withPass, { type: "buyTool", toolId: "welder" });
     withPass = finishJob(withPass, { kind: "study", knowhowId: "tech:welding" });
     withPass = finishJob(withPass, { kind: "study", knowhowId: "blueprint:go_kart" });

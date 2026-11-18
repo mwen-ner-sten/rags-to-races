@@ -97,7 +97,7 @@ function Header() {
   );
 }
 
-function AwayDialog() {
+function AwayDialog({ onShow }: { onShow: (tab: TabId) => void }) {
   const away = useGame((s) => s.away);
   const close = useGame((s) => s.closeAway);
   const ref = useRef<HTMLDialogElement>(null);
@@ -105,20 +105,31 @@ function AwayDialog() {
     if (away && ref.current && !ref.current.open) ref.current.showModal();
   }, [away]);
   if (!away) return null;
-  const onClose = () => {
+  const dismiss = (destination?: TabId) => {
     ref.current?.close();
     close();
+    if (destination) onShow(destination);
   };
   return (
-    <dialog ref={ref} className="away" onClose={onClose} aria-labelledby="away-h">
+    <dialog ref={ref} className="away" onClose={close} aria-labelledby="away-h">
       <h2 id="away-h">While you were away</h2>
       <p className="muted">
         {duration(away.ms)}
         {away.capped ? " (progress stops counting after 48 hours)" : ""}
       </p>
+      {away.careerReports.map((report) => (
+        <section key={report.tab} className="section" aria-labelledby={`away-${report.tab}-h`}>
+          <h3 id={`away-${report.tab}-h`}>{report.title}</h3>
+          <p>{report.detail}</p>
+          <p>{report.next}</p>
+          <div className="actions">
+            <button className="btn" type="button" onClick={() => dismiss(report.tab)}>{report.tab === "owner" ? "Open championship report" : "Open circuit report"}</button>
+            {report.circuitOpened && <button className="btn" type="button" onClick={() => dismiss("promoter")}>Open Circuit Office</button>}
+          </div>
+        </section>
+      ))}
       <ul>
         {away.trips > 0 && <li>{away.trips} trips, {away.partsFound} parts found</li>}
-        {away.circuitMeetings > 0 && <li>{away.circuitMeetings} circuit {away.circuitMeetings === 1 ? "meeting ran" : "meetings ran"}. Results are in the Circuit Office.</li>}
         {away.races > 0 && <li>{away.races} races, {away.wins} won</li>}
         {away.cash !== 0 && <li>{away.cash > 0 ? "+" : ""}{num(away.cash)} Scrap Bucks</li>}
         {away.rep > 0 && <li>+{away.rep} Rep</li>}
@@ -130,7 +141,7 @@ function AwayDialog() {
         {away.learned.map((id) => (
           <li key={id}>Learned {getKnowhow(id).name}</li>
         ))}
-        {away.trips === 0 && away.races === 0 && away.circuitMeetings === 0 && away.learned.length === 0 && <li>Nothing much. Queue long jobs before you leave.</li>}
+        {away.trips === 0 && away.races === 0 && away.careerReports.length === 0 && away.learned.length === 0 && <li>Nothing much. Queue long jobs before you leave.</li>}
       </ul>
       {away.items.length > 0 && (
         <>
@@ -144,7 +155,7 @@ function AwayDialog() {
           </ul>
         </>
       )}
-      <button className="btn primary" onClick={onClose} autoFocus>
+      <button className="btn primary" onClick={() => dismiss()} autoFocus>
         Back to the garage
       </button>
     </dialog>
@@ -231,10 +242,15 @@ export function Game() {
   const tick = useGame((s) => s.tick);
   const save = useGame((s) => s.save);
   const [tab, setTab] = useState<TabId>("trips");
+  const bootstrapped = useRef(false);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") (window as unknown as { __rtr: typeof useGame }).__rtr = useGame;
-    load();
+    // Re-running effects in development must not consume and dismiss the away report.
+    if (!bootstrapped.current) {
+      bootstrapped.current = true;
+      load();
+    }
     const t = window.setInterval(tick, TICK_MS);
     const s = window.setInterval(save, SAVE_MS);
     const onHide = () => {
@@ -299,7 +315,7 @@ export function Game() {
         <JobsBoard />
       </div>
       <RaceReplay onFix={() => setTab("garage")} />
-      <AwayDialog />
+      <AwayDialog onShow={setTab} />
       <RaceFinished onRaceTab={active === "race"} />
       <Toast />
       <FeedToasts />

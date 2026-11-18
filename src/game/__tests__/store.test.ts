@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGame, must } from "@/core";
 import type { GameState } from "@/core/types";
-import { racer, saveText, swapMeetGame, teamRacer } from "../../../tests/fixtures/rewrite";
+import { pendingCircuitFinal, pendingOwnerFinal, racer, saveText, swapMeetGame, teamRacer } from "../../../tests/fixtures/rewrite";
 import { decodeGameState } from "../save";
 import { isGameState, useGame } from "../store";
 
@@ -179,5 +179,32 @@ describe("save and recovery behavior", () => {
     useGame.getState().load();
     expect(useGame.getState().away).toBeNull();
     expect(useGame.getState().game).toEqual(settled);
+  });
+
+  it("keeps the last championship round private until the job settles, then reports the title and unlock once", () => {
+    const game = pendingOwnerFinal();
+    const remaining = game.run.jobs.find((job) => job.spec.kind === "race")!.remaining;
+    writeGame(game, Date.now() - remaining + 1_000);
+    useGame.getState().load();
+    expect(useGame.getState().away?.careerReports).toEqual([]);
+    expect(useGame.getState().game?.owner?.tour.status).toBe("active");
+    vi.advanceTimersByTime(60 * 60_000);
+    useGame.getState().tick();
+    const summary = useGame.getState().away;
+    expect(summary?.careerReports).toMatchObject([{ tab: "owner", title: "Won the Homegrown Cup", circuitOpened: true }]);
+    expect(summary?.items.filter((item) => item.key?.startsWith("championship"))).toEqual([]);
+    expect(useGame.getState().game?.run.feed.some((item) => item.key?.startsWith("championship-result"))).toBe(true);
+  });
+
+  it("reports only new Circuit results and names the missed field condition", () => {
+    const game = pendingCircuitFinal();
+    writeGame(game, Date.now() - 60 * 60_000);
+    useGame.getState().load();
+    expect(useGame.getState().away?.careerReports).toMatchObject([{
+      tab: "promoter", title: "Homecoming Cup", detail: expect.stringContaining("1 meeting ran"), next: expect.stringContaining("Certification missed on close finishes"),
+    }]);
+    vi.advanceTimersByTime(60 * 60_000);
+    useGame.getState().tick();
+    expect(useGame.getState().away?.careerReports).toEqual([]);
   });
 });
