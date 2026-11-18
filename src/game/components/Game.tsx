@@ -28,6 +28,7 @@ import { ServiceCounter } from "./ServiceCounter";
 import { ClubPanel } from "./ClubPanel";
 import { CountyMatchPanel } from "./CountyMatchPanel";
 import { ManufacturerPanel, WorksDrawingWorkshop } from "./ManufacturerPanel";
+import { MotorPoolPanel } from "./MotorPoolPanel";
 import { TeamPanel } from "./TeamPanel";
 import { hasUnreadTip } from "./Tips";
 import { TripsPanel } from "./TripsPanel";
@@ -286,6 +287,7 @@ export function Game() {
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
     if (t.id === "club") return !clubGate(game);
     if (t.id === "manufacturer") return !!game.manufacturer?.invites.length;
+    if (t.id === "garage" && game.motorPool?.custody) return true;
     if (t.id === "team" && (game.era || LAYERS.team.gate(game).ok)) return true;
     if (t.id === "legacy" && LAYERS.scrap.gate(game).ok) return true;
     if (t.id === "race" && game.run.vehicles.length > 0) return true;
@@ -318,7 +320,7 @@ export function Game() {
           </button>
         ))}
       </nav>
-      <Guide tab={active} onShow={showTab} />
+      {!game.meta.careerPin && <Guide tab={active} onShow={showTab} />}
       <div className="layout">
         <main className="main">
           <Notices />
@@ -330,6 +332,7 @@ export function Game() {
               <PartsPanel />
               <ServiceCounter game={game} />
               <WorksDrawingWorkshop game={game} />
+              <MotorPoolPanel game={game} />
               <BuildPanel />
             </div>
           )}
@@ -337,7 +340,7 @@ export function Game() {
             <CountyMatchPanel game={game} />
             <RacePanel key={jump?.request} initialVenue={jump?.target.tab === "race" ? jump.target.venueId : undefined} />
           </>}
-          {active === "notebook" && <NotebookPanel />}
+          {active === "notebook" && <NotebookPanel key={jump?.request} section={jump?.target.tab === "notebook" ? jump.target.section : undefined} />}
           {active === "legacy" && <LegacyPanel key={jump?.request} initialObjective={jump?.target.tab === "legacy" ? jump.target.objective : undefined} />}
           {active === "team" && <TeamPanel key={jump?.request} plannedDiscipline={jump?.target.tab === "team" && "discipline" in jump.target ? jump.target.discipline : undefined} />}
           {active === "owner" && <OwnerPanel />}

@@ -53,3 +53,35 @@ test("two reset routes can be compared in the Notebook", async ({ page }) => {
   await page.getByLabel("Season to inspect").selectOption("2");
   await expect(page.getByLabel("Compare with")).toHaveValue("3");
 });
+
+test("two proposed Team openings expose their actual garages before the player spends the season", async ({ page }) => {
+  const game=teamRacer("paper-garage");
+  game.run.featureWins.county_fair=1000;
+  game.run.seasonMs=2000;
+  await importGarage(page,game);
+  await page.getByRole("button",{name:/^Team(?: New tip)?$/}).click();
+  await page.getByRole("button",{name:"Plan a Team Reset"}).click();
+  await page.getByRole("radio",{name:/^Independent Garage/}).check();
+  await page.getByText("Compare opening garages").click();
+  await page.getByRole("button",{name:"Preview in A"}).click();
+  await page.getByRole("radio",{name:/^Workshop Collective/}).check();
+  await page.getByRole("button",{name:"Preview in B"}).click();
+  const row=page.getByRole("row",{name:/Garage Regression team/});
+  await expect(row).toContainText("Independent Garage");
+  await expect(row).toContainText("Workshop Collective");
+  await expect(page.getByRole("button",{name:"Fold the team and start over"})).toBeEnabled();
+});
+
+test("a mechanic pins their route across a page reload and lands on the open service request", async ({page}) => {
+  const game=teamRacer("workshop-pin");
+  game.run.revealed.push("bench");
+  await importGarage(page,game);
+  await page.getByRole("button",{name:/^Trips/}).first().click();
+  await page.getByText(/^Career opportunities/).first().click();
+  await page.getByLabel("Pin a project").selectOption("paid-work");
+  await page.reload();
+  await expect(page.getByLabel("Pin a project")).toHaveValue("paid-work");
+  await page.getByRole("button",{name:"Open customer repairs"}).click();
+  await expect(page.getByLabel("Open request")).toBeVisible();
+  await expect(page.locator("#service-counter")).toBeFocused();
+});

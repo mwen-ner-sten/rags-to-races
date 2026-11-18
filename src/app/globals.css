@@ -1960,7 +1960,6 @@ dialog.replay {
 
 .rally-stage { position: relative; overflow: hidden; border-radius: .45rem; }
 .rally-stage img { display: block; width: 100%; height: auto; }
-.rally-marker { position: absolute; transform: translate(-50%, -50%); width: .8rem; height: .8rem; border: 2px solid white; border-radius: 50%; background: #bd331b; box-shadow: 0 0 0 2px #442313, 0 1px 5px #000; }
 
 .organization-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .8rem; }
 .organization-choice { display: grid; align-content: start; gap: .45rem; border: 1px solid currentColor; border-radius: .5rem; overflow: hidden; padding: 0 0 .7rem; cursor: pointer; }

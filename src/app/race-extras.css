@@ -184,3 +184,10 @@
     min-width: 0;
   }
 }
+
+.rally-car, .rally-ghost { position: absolute; }
+.rally-car { width: clamp(1.4rem, 5%, 2.8rem); aspect-ratio: 4/3; background-size: contain; background-repeat: no-repeat; filter: drop-shadow(0 0 1px white) drop-shadow(0 2px 2px #19170f); }
+.rally-ghost, .ghost-swatch { width: .9rem; height: .9rem; border: 2px dashed #fff; background: #176f78; border-radius: 50%; box-shadow: 0 0 0 1px #194859; }
+.rally-ghost { transform: translate(-50%, -50%); }
+.rally-key { display: flex; align-items: center; gap: .5rem; }
+.ghost-swatch { display: inline-block; flex-shrink: 0; }

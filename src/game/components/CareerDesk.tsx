@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { PIN_NAMES, possiblePins } from "@/core/careerPin";
+import { ProjectPin } from "./ProjectPin";
 import { careerOpportunities, type CareerDestination } from "@/core/careerAdvice";
 import type { GameState } from "@/core/types";
 
@@ -11,7 +13,11 @@ export interface CareerJump {
 
 function focusId(target: CareerDestination): string {
   switch (target.tab) {
-    case "legacy": return `reset-objective-${target.objective}`;
+    case "legacy": return target.objective ? `reset-objective-${target.objective}` : "legacy-h";
+    case "trips": return "trips-h";
+    case "garage": return target.section === "service" ? "service-counter" : "build-h";
+    case "manufacturer": return "manufacturer-h";
+    case "notebook": return "nb-panel";
     case "team": return "section" in target ? "crew-h" : target.focus ? `team-${target.focus}` : `reset-discipline-${target.discipline}`;
     case "race": return `race-venue-${target.venueId}`;
     case "owner": return target.section === "round" ? "owner-round" : "owner-charters";
@@ -24,6 +30,8 @@ export function CareerFocus({ jump }: { jump: CareerJump | null }) {
     if (!jump) return;
     const destination = document.getElementById(focusId(jump.target));
     if (!destination) return;
+    const group = destination.closest("details");
+    if (group) group.open = true;
     if (destination.tabIndex < 0) destination.tabIndex = -1;
     destination.focus({ preventScroll: true });
     destination.scrollIntoView({ block: "start" });
@@ -34,10 +42,11 @@ export function CareerFocus({ jump }: { jump: CareerJump | null }) {
 export function CareerDesk({ game, active, onOpen }: { game: GameState; active: string; onOpen: (target: CareerDestination) => void }) {
   if (!["trips", "legacy", "team", "owner"].includes(active)) return null;
   const opportunities = careerOpportunities(game);
-  if (!opportunities.length) return null;
+  if (!opportunities.length && !game.meta.careerPin && !possiblePins(game).length) return null;
   return (
-    <details className="section" open={active !== "trips"}>
-      <summary>Career opportunities{active === "trips" && ` · ${opportunities[0].title}`}</summary>
+    <details className="section" open={active !== "trips" || !!game.meta.careerPin}>
+      <summary>Career opportunities{active === "trips" && (game.meta.careerPin ? " · " + PIN_NAMES[game.meta.careerPin] : opportunities[0] ? " · " + opportunities[0].title : "")}</summary>
+      <ProjectPin game={game} onOpen={onOpen} />
       {opportunities.map((item) => (
         <section key={item.id} aria-labelledby={`career-${item.id}`}>
           <h3 id={`career-${item.id}`}>{item.title}</h3>

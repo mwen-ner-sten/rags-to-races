@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createGame, must, type TeamChoices } from "../src/core";
-import { counterBlocker } from "../src/core/actions";
+import { apply, counterBlocker } from "../src/core/actions";
 import { CREW_BY_ID, type TeamOrganization } from "../src/core/content/team";
 import { getVehicle } from "../src/core/content/vehicles";
 import { crewCanApprentice, crewHandoverOffers, APPRENTICE_JOBS, HANDOVER_COST, type WorkshopRoutine } from "../src/core/crewLegacy";
@@ -44,6 +44,7 @@ class CareerPilot extends Bot {
   readonly entryProblems: Record<string, number> = {};
   handoverCost: number | undefined;
   sponsorTour: OwnerTour | undefined;
+  cancelledContract?: { feeOnWithdrawal: number; scrapStatus: string; teamStatus: string; sponsorPayout: number };
   sponsoredManualEntries = 0;
   private previousTours = new Set<string>();
 
@@ -201,6 +202,34 @@ class CareerPilot extends Bot {
     }
   }
 
+  /** A separate counterfactual from an actual signed tour. It does not alter the main branch. */
+  private checkWithdrawal(vehicleUid: string, call: RaceCall): void {
+    if (this.cancelledContract || this.state.owner?.tour.rounds.length !== 0 || this.state.run.featureWins.county_fair === undefined) return;
+    let alternate = this.state;
+    for (const member of alternate.era!.crew) {
+      if (member.assignment.type !== "queue") continue;
+      alternate = apply(alternate, { type: "assignCrew", crewId: member.id, assignment: { type: "rest" } }).state;
+    }
+    if (!alternate.run.jobs.some((job) => job.lane === "hands")) {
+      const placeId = alternate.run.placesOpen.includes("long_haul") ? "long_haul" : "curb";
+      alternate = apply(alternate, { type: "enqueue", spec: { kind: "haul", placeId } }).state;
+    }
+    const booked = apply(alternate, { type: "owner", move: { type: "enter", vehicleUid, call } });
+    if (booked.error || currentTourEntry(booked.state) !== "queued") return;
+    const cash = booked.state.run.cash;
+    const withdrawn = must(booked.state, { type: "owner", move: { type: "withdraw" } });
+    const resetChoices = { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] };
+    const scrap = must(withdrawn, { type: "reset", layer: "scrap", choices: resetChoices });
+    const team = must(withdrawn, { type: "reset", layer: "team", choices: {
+      ...resetChoices, discipline: "dirt", teamName: withdrawn.era!.teamName, colors: withdrawn.era!.colors,
+    } });
+    this.cancelledContract = {
+      feeOnWithdrawal: cash - withdrawn.run.cash,
+      scrapStatus: scrap.owner!.tour.status, teamStatus: team.owner!.tour.status,
+      sponsorPayout: (sponsorProgress(scrap.owner!.tour)?.payout ?? 0) + (sponsorProgress(team.owner!.tour)?.payout ?? 0),
+    };
+  }
+
   protected override race(present: boolean): void {
     const game = this.state;
     const notes = game.era?.handover;
@@ -260,6 +289,7 @@ class CareerPilot extends Bot {
       const pushWorthwhile = tour.sponsor === "front_row" && winChance(this.state, car, stop.venueId, stop.event, "push")
         > winChance(this.state, car, stop.venueId, stop.event, "nurse") + 0.1;
       const call: RaceCall = nominee || pushWorthwhile ? "push" : "nurse";
+      if (localSponsorship && tour.sponsor) this.checkWithdrawal(car.uid, call);
       if (this.act({ type: "owner", move: { type: "enter", vehicleUid: car.uid, call } })) {
         if (tour.sponsor) this.sponsoredManualEntries++;
         return;
@@ -286,7 +316,9 @@ for (let i = firstSeed; i < firstSeed + seeds; i++) {
       const impact = strategy === "workshop" ? pilot.milestones.habitWorking : pilot.milestones.heatRacedFirst;
       const plannedRounds = pilot.sponsorTour?.rounds.filter((finish) => finish?.planned).length ?? 0;
       const passed = state.team.resets >= 2 && impact !== undefined && pilot.milestones.sponsorSettled !== undefined
-        && (!planSponsoredEntries || plannedRounds === pilot.sponsorTour?.rounds.length);
+        && (!planSponsoredEntries || plannedRounds === pilot.sponsorTour?.rounds.length)
+        && (!localSponsorship || (pilot.cancelledContract?.scrapStatus === "retired" && pilot.cancelledContract.teamStatus === "retired"
+          && pilot.cancelledContract.feeOnWithdrawal === 0 && pilot.cancelledContract.sponsorPayout === 0));
       if (!passed) process.exitCode = 1;
       const cash = pilot.sponsorTour && tourCash(pilot.sponsorTour);
       rows.push({
@@ -295,6 +327,7 @@ for (let i = firstSeed; i < firstSeed + seeds; i++) {
         handoverCost: pilot.handoverCost, crew: state.era?.crew.map(({ id, jobsDone, service }) => ({ id, jobsDone, service })),
         lastTour: state.owner?.tour, sponsor: pilot.sponsorTour && sponsorProgress(pilot.sponsorTour), cash,
         sponsoredManualEntries: pilot.sponsoredManualEntries, plannedRounds,
+        cancelledContract: pilot.cancelledContract,
         notes: pilot.notes, entryProblems: pilot.entryProblems, currentState: {
           builds: state.run.vehicles.map((vehicle) => vehicle.vehicleId), venues: state.run.venuesOpen, wins: state.run.featureWins,
           season: state.meta.seasonsPlayed + 1, cash: state.run.cash, lastRaces: state.run.races.slice(-5).map(({ venueId, event, position }) => ({ venueId, event, position })),

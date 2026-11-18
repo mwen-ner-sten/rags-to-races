@@ -121,7 +121,7 @@ export function ManufacturerPanel() {
   const works = game?.manufacturer;
   if (!game || !works?.invites.length) return null;
   return <div className="panel">
-    <header className="section"><h2>Manufacturer</h2><p>Commission a physical article from your garage. Standard races, Club and Owner routes stay available during the deal.</p></header>
+    <header className="section"><h2 id="manufacturer-h">Manufacturer</h2><p>Commission a physical article from your garage. Standard races, Club and Owner routes stay available during the deal.</p></header>
     {works.active ? <Deal key={works.active.id} game={game} deal={works.active} /> : <section className="section" aria-labelledby="works-offers-h">
       <h3 id="works-offers-h">Works offers</h3>
       <div className="cards">{WORKS_FAMILY_IDS.filter((id) => works.invites.includes(id)).map((id) => <Offer game={game} id={id} key={id} />)}</div>

@@ -102,7 +102,7 @@ export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf
   const margin = !dnf && referenceTime ? (referenceTime - time) / referenceTime : 0;
   if (!dnf) beats.push({ at: durationMs, kind: "finish", position, text: `Time control · ${time.toFixed(1)}s across ${route.length} stages. Finished P${position}.` });
   const rival = runners.find((r) => r.driver.rival);
-  return { beats, position, margin, fieldSize, laps: route.length, rallyClock: { splitsMs, ...(reference && { previousMs: totalTime(reference.splitsMs), previousCar: reference.carName }) }, rivalFaced: !!rival, rivalOut: !!rival?.out,
+  return { beats, position, margin, fieldSize, laps: route.length, rallyClock: { splitsMs, ...(reference && { previousMs: totalTime(reference.splitsMs), previousCar: reference.carName, referenceSplitsMs: [...reference.splitsMs], referenceSeason: reference.season }) }, rivalFaced: !!rival, rivalOut: !!rival?.out,
     rivalBeaten: !!rival && !dnf && (rival.out || time < rival.time),
     places: runners.map((r) => ({ position: r.out ? fieldSize : times.indexOf(r.time) + 1, dnf: r.out })),
     winningGap: times.length >= 2 ? (times[1] - times[0]) / times[1] : null };

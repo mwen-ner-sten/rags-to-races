@@ -5,6 +5,7 @@
  */
 import { channel } from "./channels";
 import { countyChoiceBlocker } from "./counties";
+import { batonChoicesBlocker, freightBlocker, FREIGHT_COST, type BatonChoice } from "./countyBaton";
 import type { CountyRivalId } from "./countyRivals";
 import { CREW, BASE_CREW_CAP, TEAM_ORGANIZATIONS, crewLevel, type TeamOrganization } from "./content/team";
 import { crewTravelBlocker, teamOrganization } from "./crew";
@@ -29,7 +30,7 @@ import { initialConfig, initialRun, initialScrap } from "./state";
 import { archiveVehicle } from "./vehicleArchive";
 import type { DisciplineId, EraState, GameState, HomeCounty, PartInstance, RunConfig, Scope, SkillId } from "./types";
 
-import { shopFoundingReady, shopMoveReady, transferBlocker, type ShopLegacy } from "./serviceShop";
+import { sameShopLegacy, depotCharter, workshopCharterOnly, shopFoundingReady, shopMoveReady, transferBlocker, type ShopLegacy } from "./serviceShop";
 
 export type LayerId = "scrap" | "team" | "shop";
 
@@ -43,6 +44,8 @@ export interface ScrapChoices {
   hardships: string[];
   retainedPartUid?: string;
   homeCounty?: HomeCounty;
+  countyBaton?: BatonChoice;
+  countyFreight?: true;
   club?: ClubCharter;
   clubCourse?: ClubCourseId;
   clubLoan?: ClubCourseId;
@@ -96,12 +99,13 @@ export function scrapAward(state: GameState): number {
 }
 
 export function teamAward(state: GameState): number {
-  if (!state.era) return 10 + Math.floor((state.scrap.lifetimeLp + scrapAward(state)) / 20);
+  const depotCredit = depotCharter(state) ? 4 : 0;
+  if (!state.era) return depotCredit + 10 + Math.floor((state.scrap.lifetimeLp + scrapAward(state)) / 20);
   const milestones = new Set([...state.era.milestones, ...Object.keys(state.run.featureWins)]);
   let tp = 0;
   for (const venueId of milestones) tp += getVenue(venueId).tp;
   const legends = new Set([...state.era.legends, ...state.era.crew.filter((c) => crewLevel(c.jobsDone) >= 5).map((c) => c.id)]);
-  return tp + 5 * state.era.hardshipsCompleted + 10 * legends.size;
+  return depotCredit + tp + 5 * state.era.hardshipsCompleted + 10 * legends.size;
 }
 
 export function perkSlots(state: GameState): number {
@@ -171,6 +175,10 @@ export function teamResetLegacyBudget(state: GameState): number {
   return state.scrap.lp + scrapAward(state);
 }
 
+export function scrapResetLegacyBudget(state: GameState, freight = false): number {
+  return state.scrap.lp + scrapAward(state) - (freight ? FREIGHT_COST : 0);
+}
+
 function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: number, tuneUpPoints: number, teamEra: boolean, lpAvailable: number, discipline: DisciplineId): string | null {
   const plan = planPurchases(state, choices.buy ?? [], lpAvailable);
   if (typeof plan === "string") return plan;
@@ -204,7 +212,8 @@ function toConfig(choices: ScrapChoices): RunConfig {
     tuneUp: { haul: choices.tuneUp.haul ?? 0, wrench: choices.tuneUp.wrench ?? 0, build: choices.tuneUp.build ?? 0, race: choices.tuneUp.race ?? 0 },
     dare: choices.dare,
     hardships: [...choices.hardships],
-    ...(choices.retainedPartUid ? { salvageSlot: true } : {}),
+    ...(choices.retainedPartUid && !choices.countyFreight ? { salvageSlot: true } : {}),
+    ...(choices.countyFreight ? { countyFreight: true } : {}),
     ...(choices.homeCounty && choices.homeCounty !== "home" && { homeCounty: choices.homeCounty }),
     ...(choices.club && { club: choices.club }),
     ...(choices.clubCourse && { clubCourse: choices.clubCourse }),
@@ -221,21 +230,35 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
   gate: (s) => ((s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: s.era?.discipline === "rally" ? "Win or earn a regularity certificate at the County Forest Feature" : "Win the County Fair Feature" }),
   award: scrapAward,
   validate: (s, c) => {
-    if (c.shopLegacy) return "Transfer your business through a Shop Move.";
+    if (c.shopLegacy && !sameShopLegacy(c.shopLegacy, s.config.shopLegacy)) return "Transfer your business through a Shop Move.";
+    const county = c.homeCounty ?? s.config.homeCounty ?? "home";
+    const baton = batonChoicesBlocker(s, c.countyBaton, county, c.retainedPartUid, c.dare, !!c.countyFreight);
+    if (baton) return baton;
+    const budget = scrapResetLegacyBudget(s, !!c.countyFreight);
+    if (c.countyFreight) {
+      const freight = freightBlocker(s, county, c.retainedPartUid);
+      if (freight) return freight;
+      if (budget < 0) return `County freight costs ${FREIGHT_COST} Legacy Points`;
+    }
     const branchBlocked = countyChoiceBlocker(s, c.homeCounty) ?? clubChoicesBlocker(s, c.club, c.clubCourse, c.clubLoan, c.clubVisitor) ?? worksPlanBlocker(s, c.worksPlan);
     if (branchBlocked) return branchBlocked;
     if (c.retainedPartUid) {
       const blocked = salvageCarryBlocker(s, c.retainedPartUid, c.hardships);
       if (blocked) return blocked;
     }
-    return validateScrapChoices(s, c, nextSeasonPerkSlots(s, !!c.retainedPartUid), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + scrapAward(s), s.era?.discipline ?? "dirt");
+    return validateScrapChoices(s, c, nextSeasonPerkSlots(s, !!c.retainedPartUid && !c.countyFreight), nextSeasonTuneUpPoints(s), s.era !== null, budget, s.era?.discipline ?? "dirt");
   },
   apply: (s, award, choices, before) => {
-    s.scrap.lp += award;
+    s.scrap.lp += award - (choices.countyFreight ? FREIGHT_COST : 0);
     s.scrap.lifetimeLp += award;
     s.scrap.resets += 1;
     buyPerks(s, choices.buy ?? []);
     s.config = toConfig({ ...choices, homeCounty: choices.homeCounty ?? before.config.homeCounty });
+    if (choices.countyBaton === "start" && s.config.homeCounty && s.config.homeCounty !== "home") s.run.countyBaton = { leg: "qualify", from: s.config.homeCounty };
+    if (choices.countyBaton === "carry" && before.run.countyBaton?.leg === "qualify" && before.run.countyBaton.qualified) {
+      const { from, qualified } = before.run.countyBaton;
+      s.run.countyBaton = { leg: "deliver", from, qualified: { ...qualified } };
+    }
     if (choices.retainedPartUid) {
       const retained = salvageCarryCandidates(before).find(({ part }) => part.uid === choices.retainedPartUid)!.part;
       s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin, ...(retained.provenance && { provenance: { ...retained.provenance } }) };
@@ -249,13 +272,15 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
   name: "Team Reset",
   clears: ["run", "config", "scrap", "era"],
   gate: (s) => {
+    if (depotCharter(s)) return { ok: true, reason: null };
     if (!s.era) return (s.meta.stateWonEver || shopFoundingReady(s)) ? { ok: true, reason: null } : { ok: false, reason: "Win the State Invitational Feature or qualify for a Workshop Collective through the service counter" };
     return (s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: s.era?.discipline === "rally" ? "Win or certify the County Forest Feature this Season" : "Win the County Fair Feature this Season" };
   },
   award: teamAward,
   validate: (s, c) => {
-    if (c.shopLegacy) return "Transfer your business through a Shop Move.";
-    if (!s.era && !s.meta.stateWonEver && shopFoundingReady(s) && c.organization !== "collective") return "The service counter charter founds a Workshop Collective.";
+    if (c.countyBaton || c.countyFreight) return "County Baton and freight are available at Scrap Reset";
+    if (c.shopLegacy && !sameShopLegacy(c.shopLegacy, s.config.shopLegacy)) return "Transfer your business through a Shop Move.";
+    if (workshopCharterOnly(s) && c.organization !== "collective") return "The service counter charter founds a Workshop Collective.";
     if (c.organization !== undefined && !Object.hasOwn(TEAM_ORGANIZATIONS, c.organization)) return "Pick a team organization";
     if (c.retainedPartUid) return "Salvage carryover is only available on Scrap Reset";
     if (c.homeCounty !== undefined) return "Choose a home county on Scrap Reset";
@@ -322,7 +347,9 @@ export const SHOP_LAYER: LayerDef<ScrapChoices> = {
   clears: ["run", "config"],
   gate: (game) => shopMoveReady(game) ? { ok: true, reason: null } : { ok: false, reason: "Fill the three service invoices and build a Riding Mower or larger hauler." },
   award: () => 0,
-  validate: (game, choices) => transferBlocker(game, choices.shopLegacy),
+  validate: (game, choices) => choices.countyBaton || choices.countyFreight
+    ? "County Baton and freight are available at Scrap Reset"
+    : transferBlocker(game, choices.shopLegacy),
   apply: (game, _award, choices, before) => {
     const legacy = choices.shopLegacy!;
     game.config = { ...initialConfig(), shopLegacy: legacy, homeCounty: before.config.homeCounty };
@@ -438,6 +465,7 @@ export function performReset(state: GameState, layerId: LayerId, choices: ScrapC
     setup: before.config, durationMs: state.run.seasonMs, featureWins: { ...state.run.featureWins },
     regularityFeatures: before.run.regularityFeatures,
     serviceInvoices: before.run.serviceBook?.invoices,
+    depotReceipts: before.run.depotReceipts,
     builds: state.run.vehicles.length, hauls: state.run.stats.hauls,
   });
   if (log.length > 100) log.shift();

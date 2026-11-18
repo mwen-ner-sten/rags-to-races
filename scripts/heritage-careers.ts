@@ -13,7 +13,10 @@ import { decodeGameState } from "../src/game/save";
 const DAY = 86_400_000;
 class Restorer extends Bot {
   awardAt?: number;
-  constructor(state: GameState, readonly route: HeritageKind) {
+  constructor(
+    state: GameState,
+    readonly route: HeritageKind,
+  ) {
     super(state);
     this.holdAt = "scrap";
   }
@@ -31,14 +34,19 @@ class Restorer extends Bot {
     if (g.run.queue.some((q) => q.kind === "race" && q.vehicleUid === car.uid)) return;
     for (const target of p.parts) {
       const slot = getVehicle(car.vehicleId).slots.find((slot) => slot.slot === target.slot)!;
-      const ids = this.route === "special" && slot.slot === "wheel" ? slot.accepts.filter((id) => id !== target.partId) : [target.partId];
+      const ids =
+        this.route === "special" && slot.slot === "wheel"
+          ? slot.accepts.filter((id) => id !== target.partId)
+          : [target.partId];
       const fitted = car.parts[slot.slot];
       if (fitted && ids.includes(fitted.partId) && fitted.condition >= 2) continue;
       const reserved = reservedPartUids(this.state);
-      const spare = this.state.run.inventory.find((part) => ids.includes(part.partId) && part.condition >= 2 && !reserved.has(part.uid));
+      const spare = this.state.run.inventory.find(
+        (part) => ids.includes(part.partId) && part.condition >= 2 && !reserved.has(part.uid),
+      );
       if (spare) this.act({ type: "install", vehicleUid: car.uid, slot: slot.slot, partUid: spare.uid });
       else {
-        const stock = ids.find((id) => !counterBlocker(this.state,id));
+        const stock = ids.find((id) => !counterBlocker(this.state, id));
         if (stock) {
           this.act({ type: "buyPart", partId: stock });
           const newPart = this.state.run.inventory.at(-1)!;
@@ -53,7 +61,13 @@ class Restorer extends Bot {
     }
     if (!heritageFit(p, ready)) {
       const event = this.route === "exhibit" ? "sprint" : this.state.run.ladder.backyard.at(-1)!;
-      if (this.act({ type: "enqueue", spec: { kind: "race", venueId: "backyard", event, vehicleUid: car.uid, call: "nurse" } })) return;
+      if (
+        this.act({
+          type: "enqueue",
+          spec: { kind: "race", venueId: "backyard", event, vehicleUid: car.uid, call: "nurse" },
+        })
+      )
+        return;
     }
     super.race(present);
   }
@@ -63,23 +77,32 @@ const output = process.argv[3] ?? "test-results/heritage-careers";
 const seeds = Number(process.argv[2] ?? 4);
 mkdirSync(output, { recursive: true });
 const rows = [];
-for (let i=0; i<seeds; i++) {
-  const opening = new Bot(createGame("heritage-garage-"+i));
+for (let i = 0; i < seeds; i++) {
+  const opening = new Bot(createGame("heritage-garage-" + i));
   opening.holdAt = "scrap";
-  opening.run(SCHEDULES.mixed, 40*DAY);
+  opening.run(SCHEDULES.mixed, 40 * DAY);
   if (!opening.heldReset) throw Error("Could not earn original reset");
   const next = must(opening.state, opening.heldReset);
-  const archiveIndex = next.meta.hallOfFame.findIndex((e) => e.vehicleId === "push_mower" && eligibleHistory(next,e));
+  const archiveIndex = next.meta.hallOfFame.findIndex((e) => e.vehicleId === "push_mower" && eligibleHistory(next, e));
   if (archiveIndex < 0) throw Error("No eligible mower");
-  for (const route of ["exhibit","special"] as const) {
+  for (const route of ["exhibit", "special"] as const) {
     const g = must(next, { type: "heritage", move: { type: "start", archiveIndex, kind: route } });
-    const player = new Restorer(g,route);
-    player.run(SCHEDULES.mixed,40*DAY);
+    const player = new Restorer(g, route);
+    player.run(SCHEDULES.mixed, 40 * DAY);
     if (!decodeGameState(player.state)) throw Error("Invalid result");
-    const result = { seed: i, route, earnedDays: player.awardAt === undefined ? null : player.awardAt / DAY, resetDays: player.heldReset ? player.totalMs / DAY : null };
-    if (i === 0 && player.heldReset) writeFileSync(join(output,route+".txt"),Buffer.from(JSON.stringify({game:player.state,savedAt:Date.now()})).toString("base64"));
+    const result = {
+      seed: i,
+      route,
+      earnedDays: player.awardAt === undefined ? null : player.awardAt / DAY,
+      resetDays: player.heldReset ? player.totalMs / DAY : null,
+    };
+    if (i === 0 && player.heldReset)
+      writeFileSync(
+        join(output, route + ".txt"),
+        Buffer.from(JSON.stringify({ game: player.state, savedAt: Date.now() })).toString("base64"),
+      );
     rows.push(result);
-    writeFileSync(join(output,"results.json"),JSON.stringify(rows,null,2));
+    writeFileSync(join(output, "results.json"), JSON.stringify(rows, null, 2));
     console.log(result);
   }
 }

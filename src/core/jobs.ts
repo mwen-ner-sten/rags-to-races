@@ -1,4 +1,5 @@
 import { advancePromoter } from "./promoter";
+import { advanceMotorPool } from "./motorPool";
 import { clubHostingCost, clubSpecMatches } from "./club";
 import { worksSpecMatches } from "./manufacturer";
 import { countySpecMatches } from "./countyRivals";
@@ -752,6 +753,7 @@ export function advance(state: GameState, ms: number, away = false): void {
     }
   }
   if (state.promoter) advancePromoter(state, ms - left);
+  if (state.motorPool) advanceMotorPool(state, ms - left);
 }
 
 /** Re-evaluates triggers after anything changes. */

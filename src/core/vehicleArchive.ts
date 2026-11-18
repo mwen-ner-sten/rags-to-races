@@ -17,10 +17,19 @@ export function retiredVehicle(state: GameState, uid: string): HallOfFameEntry |
   return state.meta.hallOfFame.find((entry) => entry.retirement?.vehicleUid === uid);
 }
 
+export function vehicleForReplay(state: GameState, uid: string): Vehicle | HallOfFameEntry | undefined {
+  const rig = state.motorPool?.custody?.rig;
+  return state.run.vehicles.find((vehicle) => vehicle.uid === uid) ?? (rig?.uid === uid ? rig : undefined) ?? retiredVehicle(state, uid);
+}
+
 export function releaseVehicle(state: GameState, vehicle: Vehicle, kind: NonNullable<HallOfFameEntry["retirement"]>["kind"]): void {
   archiveVehicle(state, vehicle, { kind, vehicleUid: vehicle.uid, seasonMs: state.run.seasonMs });
-  state.run.vehicles = state.run.vehicles.filter((car) => car.uid !== vehicle.uid);
-  const prefix = `race:${vehicle.uid}:`;
+  detachGarageVehicle(state, vehicle.uid);
+}
+
+export function detachGarageVehicle(state: GameState, vehicleUid: string): void {
+  state.run.vehicles = state.run.vehicles.filter((car) => car.uid !== vehicleUid);
+  const prefix = `race:${vehicleUid}:`;
   state.run.habitSlots = state.run.habitSlots.map((habit) => habit?.startsWith(prefix) ? null : habit);
   for (const crew of state.era?.crew ?? []) {
     if (crew.assignment.type === "habit" && crew.assignment.template.startsWith(prefix)) crew.assignment = { type: "queue" };

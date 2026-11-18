@@ -78,7 +78,7 @@ export const SEASON_CHALLENGES = {
   },
   parts_with_a_past: {
     name: "Parts With a Past",
-    text: "Win the Fair Feature with fitted parts hauled from at least three different locations this Season. Your first clear unlocks salvage carryover at Scrap Reset.",
+    text: "Win the Fair Feature with fitted parts hauled from at least three different locations this Season. Your first clear unlocks salvage carryover. Your second unlocks County Baton once you have a county passport.",
     mastery: "Haul speed at Curbside, the Yards and Marisol's Junkyard",
   },
   hand_me_down: {

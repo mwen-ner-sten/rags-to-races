@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 
+import { depotCharter } from "@/core/serviceShop";
 import { useState } from "react";
 import { DISCIPLINES, venueName } from "@/core/content/events";
 import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
@@ -252,6 +253,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
       </section>
       <section className="section">
         <div className="actions">
+          {depotCharter(game) && <p>Both depot receipts are filed. This Season qualifies for a Workshop Collective charter and earns 4 additional Team Points at your next Team Reset.</p>}
           <button className="btn" disabled={!gate.ok} onClick={() => setPlanning(true)}>
             Plan a Team Reset
           </button>

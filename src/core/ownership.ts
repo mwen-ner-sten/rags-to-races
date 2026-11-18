@@ -358,7 +358,7 @@ export function tourGarage(state: GameState, tour: OwnerTour, call: RaceSpec["ca
   return state.run.vehicles.flatMap((car) => {
     const tier = getVehicle(car.vehicleId).tier;
     if (tier < minimum || tier > maximum || ownerClassBlocker(tour, car)) return [];
-    const ready = Number(!ownerEntryBlocker(state, tour, car.uid, call, call2));
+    const ready = Number(!ownerEntryBlocker(state, tour, car.uid, call, second));
     return [{
       car, ready, fulfillsLineup: Number(needReserve && !scoringCars.has(car.uid)),
       odds: winChance(forecast, car, stop.venueId, stop.event, call, second),

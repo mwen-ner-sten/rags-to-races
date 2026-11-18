@@ -229,9 +229,9 @@ function Journal({ game }: { game: GameState }) {
 
 const SECTIONS = ["Journal", "Know-how", "Habits", "Codex", "Rivals", "Hall of Fame", "Seasons", "Timecards"] as const;
 
-export function NotebookPanel() {
+export function NotebookPanel({ section }: { section?: "Hall of Fame" | "Timecards" }) {
   const game = useGame((s) => s.game);
-  const [tab, setTab] = useState<(typeof SECTIONS)[number]>("Journal");
+  const [tab, setTab] = useState<(typeof SECTIONS)[number]>(section ?? "Journal");
   if (!game) return null;
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;

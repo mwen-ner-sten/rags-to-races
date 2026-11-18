@@ -141,3 +141,9 @@
     margin-left: 0;
   }
 }
+
+
+.opening-comparison { margin-block: 1rem; }
+.opening-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: .75rem; }
+.opening-table th, .opening-table td { text-align: left; vertical-align: top; padding: .45rem .35rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.opening-table th { font-weight: 600; }

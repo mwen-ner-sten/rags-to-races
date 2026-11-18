@@ -34,6 +34,7 @@ function Loadout({ season, contacts }: { season: SeasonResult; contacts?: GameSt
     {visitor && <p>Visiting workshop · {getPart(visitor.part).name} from {visitor.name}, {HOME_COUNTIES[visitor.county].name}{contact && ` · earned in Season ${contact.season}`}</p>}
     {setup.worksPlan && <p>Works drawing · {WORKS_FAMILIES[setup.worksPlan].name}</p>}
     {season.regularityFeatures && <p>Certified stages · {Object.keys(season.regularityFeatures).map((id) => venueName(id, "rally")).join(", ")}</p>}
+    {!!season.depotReceipts?.length && <p>Motor Pool receipts · {season.depotReceipts.map((r) => r === "ramp" ? "Ramp depot" : "Pump station").join(", ")}</p>}
     {setup.shopLegacy && <p>Workshop transfer · {shopLegacyName(setup.shopLegacy)}</p>}
     {!!season.serviceInvoices?.length && <p>Paid work · {season.serviceInvoices.map((r) => CUSTOMERS[r.client].name).join(", ")}</p>}
     {setup.homeCounty && <p>Home county · {HOME_COUNTIES[setup.homeCounty].name}</p>}

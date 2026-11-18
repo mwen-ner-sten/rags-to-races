@@ -9,6 +9,7 @@ import { applyPromoter, type PromoterMove } from "./promoter";
 import { applyClub, type ClubMove } from "./club";
 import { applyWorks, type WorksMove } from "./manufacturer";
 import { applyCountyMatch, type CountyMatchMove } from "./countyRivals";
+import { applyMotorPool, type MotorPoolMove } from "./motorPool";
 import { channel } from "./channels";
 import { COUNTY_PARTS, HOME_COUNTIES } from "./counties";
 import { getPart } from "./content/parts";
@@ -33,7 +34,10 @@ import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, Materia
 
 import { applyShopOrder, type ShopMove } from "./serviceShop";
 
+import { possiblePins, type CareerPin } from "./careerPin";
+
 export type Action =
+  | { type: "pinCareer"; pin: CareerPin | null }
   | { type: "service"; move: ShopMove }
   | { type: "heritage"; move: HeritageMove }
   | { type: "owner"; move: OwnerMove }
@@ -41,6 +45,7 @@ export type Action =
   | { type: "club"; move: ClubMove }
   | { type: "works"; move: WorksMove }
   | { type: "countyMatch"; move: CountyMatchMove }
+  | { type: "motorPool"; move: MotorPoolMove }
   | { type: "advance"; ms: number; away?: boolean }
   | { type: "enqueue"; spec: JobSpec }
   | { type: "batchClean"; partUids: string[] }
@@ -91,6 +96,11 @@ export function apply(state: GameState, action: Action): ActionResult {
 
 function applyMut(s: GameState, action: Action): string | null {
   switch (action.type) {
+    case "pinCareer":
+      if (action.pin === null) { delete s.meta.careerPin; return null; }
+      if (!possiblePins(s).includes(action.pin)) return "Discover this career first.";
+      s.meta.careerPin = action.pin;
+      return null;
     case "service": {
       const error = applyShopOrder(s, action.move);
       if (!error) { afterChange(s); dispatch(s); }
@@ -108,6 +118,11 @@ function applyMut(s: GameState, action: Action): string | null {
       return applyWorks(s, action.move);
     case "countyMatch":
       return applyCountyMatch(s, action.move);
+    case "motorPool": {
+      const issue = applyMotorPool(s, action.move);
+      if (!issue) afterChange(s);
+      return issue;
+    }
     case "advance":
       if (!(action.ms > 0)) return null;
       advance(s, action.ms, action.away ?? false);

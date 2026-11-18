@@ -33,6 +33,26 @@ The first two seeds were rerun from empty garages on both schedules and both str
 
 Focused tests cover title gating, reserve-car selection, concurrent spending after a sign-up, pausing on withdrawal, older saves, and browser-store catch-up after 48 hours away. The store test settles five rounds, reports the title and sponsor once, persists the finish, and checks that loading again cannot pay twice.
 
+## Local sponsorship obligations
+
+These optional contracts work on the existing Independent Tour after a first championship title. Each requires a 250 Scrap Bucks stake.
+
+| Contract | Qualifying result | Cash returned at settlement |
+| --- | --- | ---: |
+| Development Seat | Name an owned Go-Kart with at most three starts when signing. That exact car must podium in the County Fair Feature. | 1,350 |
+| Owner-Driver Contingency | Podium in the Regional Heat through the player's hands lane, without driver or spotter support. The rest of the tour can use the normal crew. | 1,100 |
+
+Four seeds on each schedule produced 16 earned branches. Each first qualified Owner, won its first title and signed through normal actions. The workshop branch commissioned a genuine zero-start kart in all eight cases. That took 0.42–0.77 additional mixed days or one daily visit-day from the first title. The racing branch could sign immediately and all eight drove the Regional Heat without crew credit or aid.
+
+| Outcome | Mixed | Daily |
+| --- | --- | --- |
+| Development Seat paid | 3/4. Finishes 1st, 2nd, DNF, 1st | 4/4. Four wins |
+| Owner-Driver paid | 4/4. Four unassisted wins | 4/4. Four unassisted wins |
+
+The rookie that broke down still belonged to a title-winning team. The remaining four rounds supplied the title points, while the sponsor retained its stake. This keeps car-development risk separate from the championship result. The tour budget records race entries, winnings, title purse and sponsor settlement. New-car parts and assembly are separate garage spending.
+
+Each of the 16 signed tours was also forked through an ordinary queued race withdrawal and separately through Scrap and Team Reset. All 16 withdrawals charged zero race-entry fees. Both reset paths retired the active tour and closed the unearned sponsor payout. The focused Owner tests also show that a Beater's podium cannot satisfy the named-kart deal, and that the owner-driver can collect the contingency without winning an additional title.
+
 ## Reproduce
 
 ```powershell
@@ -40,6 +60,8 @@ npx tsx scripts/crew-careers.ts 8 mixed test-results/crew-careers-verified-mixed
 npx tsx scripts/crew-careers.ts 8 daily test-results/crew-careers-verified-daily
 npx tsx scripts/crew-careers.ts 2 mixed test-results/crew-careers-entry-plan-mixed 0 entry-plan
 npx tsx scripts/crew-careers.ts 2 daily test-results/crew-careers-entry-plan-daily 0 entry-plan
+npx tsx scripts/crew-careers.ts 4 mixed test-results/crew-careers-obligations-mixed 0 local-sponsors
+npx tsx scripts/crew-careers.ts 4 daily test-results/crew-careers-obligations-daily 0 local-sponsors
 ```
 
 Each run writes the earned founding checkpoint and per-seed results under the requested output folder. Add a fourth argument to start at a particular seed index. The focused crew regression covers two simultaneous races, an explicitly called driver, and the old save format.

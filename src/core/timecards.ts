@@ -7,6 +7,8 @@ import { pushFeed } from "./feed";
 export interface RallyClock {
   splitsMs: number[];
   previousMs?: number;
+  referenceSplitsMs?: number[];
+  referenceSeason?: number;
   previousCar?: string;
   regularity?: { matched: number; required: number; passed: boolean };
 }
@@ -24,6 +26,20 @@ export interface RallyCard extends RallyPace {
 }
 
 export const totalTime = (splitsMs: readonly number[]) => splitsMs.reduce((a, b) => a + b, 0);
+
+/** Wall-clock replay time uses equal segments. Compare the two cars at the same simulated stage time. */
+export function referencePosition(clock: RallyClock, stages: number, progress: number): number | undefined {
+  const reference = clock.referenceSplitsMs;
+  if (!reference || reference.length !== stages) return;
+  const distance = Math.max(0, Math.min(clock.splitsMs.length, progress * stages));
+  const stage = Math.floor(distance);
+  let elapsed = totalTime(clock.splitsMs.slice(0,stage)) + (clock.splitsMs[stage] ?? 0) * (distance-stage);
+  for (const [index, split] of reference.entries()) {
+    if (elapsed <= split) return (index + elapsed/split)/stages;
+    elapsed -= split;
+  }
+  return 1;
+}
 
 export function cardFor(game: GameState, venueId: string, event: EventKind, vehicleId: string, course?: ClubCourseId): RallyCard | undefined {
   return game.meta.rallyCards?.find((card) => card.venueId === venueId && card.event === event && card.vehicleId === vehicleId && card.course === course);

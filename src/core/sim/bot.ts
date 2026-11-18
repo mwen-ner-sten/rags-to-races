@@ -213,7 +213,7 @@ export class Bot {
     const useful = this.usefulPartIds();
     const byId = new Map<string, PartInstance[]>();
     for (const p of s.run.inventory) {
-      if (reserved.has(p.uid)) continue;
+      if (reserved.has(p.uid) || p.protected) continue;
       byId.set(p.partId, [...(byId.get(p.partId) ?? []), p]);
     }
     const sell: string[] = [];
@@ -226,7 +226,7 @@ export class Bot {
       sorted.slice(keep).forEach((p) => sell.push(p.uid));
     }
     const storage = Math.floor(channel(s, "storage"));
-    const junk = s.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !reserved.has(p.uid));
+    const junk = s.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !reserved.has(p.uid) && !p.protected);
     if (s.run.inventory.length - sell.length > storage * 0.8) junk.slice(0, Math.max(0, junk.length - 3)).forEach((p) => sell.push(p.uid));
     // Keep surplus that yields a short material for stripping instead of selling it.
     const short = this.shortMaterials();
@@ -359,6 +359,10 @@ export class Bot {
     }
   }
 
+  protected upgradeCandidate(part: PartInstance, _vehicle: Vehicle): boolean {
+    return !part.protected;
+  }
+
   private upgradeVehicles(): void {
     const s = this.state;
     for (const vehicle of s.run.vehicles) {
@@ -367,7 +371,7 @@ export class Bot {
         const current = vehicle.parts[slot.slot];
         const reserved = reservedPartUids(this.state);
         const best = this.state.run.inventory
-          .filter((p) => !reserved.has(p.uid) && slot.accepts.includes(p.partId) && p.condition > 0 && (slot.minCondition === undefined || p.condition >= slot.minCondition))
+          .filter((p) => !reserved.has(p.uid) && this.upgradeCandidate(p, vehicle) && slot.accepts.includes(p.partId) && p.condition > 0 && (slot.minCondition === undefined || p.condition >= slot.minCondition))
           .sort((a, b) => this.partScore(b) - this.partScore(a))[0];
         if (best && (!current || this.partScore(best) > this.partScore(current) * 1.02)) {
           this.act({ type: "install", vehicleUid: vehicle.uid, slot: slot.slot, partUid: best.uid });
@@ -447,7 +451,7 @@ export class Bot {
   }
 
   /** The haul to queue: a place that stocks a needed part when one is missing, else the best place. */
-  private haulSpec(longOk: boolean): JobSpec | null {
+  protected haulSpec(longOk: boolean): JobSpec | null {
     const s = this.state;
     const need = this.neededFind();
     if (need) {

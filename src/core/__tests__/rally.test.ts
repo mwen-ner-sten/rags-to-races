@@ -115,3 +115,12 @@ it("requires a later Season to redeem the Ridgeway regularity invitation for Sta
   stampRallyFeature(game, "regional");
   expect(game.run.venuesOpen).toContain("state");
 });
+
+it("plays both stage clocks from the frozen splits and stops the reference clock on retirement", async () => {
+  const {referencePosition}=await import("../timecards");
+  const clock={splitsMs:[1000,1000],referenceSplitsMs:[2000,500]};
+  expect(referencePosition(clock,2,.5)).toBe(.25);
+  expect(referencePosition(clock,2,1)).toBe(.5);
+  expect(referencePosition({...clock,splitsMs:[1000]},2,1)).toBe(.25);
+  expect(referencePosition({splitsMs:[1000,1000]},2,.5)).toBeUndefined();
+});

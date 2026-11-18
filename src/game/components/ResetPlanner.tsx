@@ -21,8 +21,12 @@ import { ResetDisciplines } from "./ResetDisciplines";
 import { ResetHardships } from "./ResetHardships";
 import { ResetPerks } from "./ResetPerks";
 import { ResetSalvage } from "./ResetSalvage";
-import { shopFoundingReady } from "@/core/serviceShop";
+import { workshopCharterOnly } from "@/core/serviceShop";
+import { OpeningComparison } from "./OpeningComparison";
 import { ResetHomeCounty } from "./ResetHomeCounty";
+import { freightBlocker, FREIGHT_COST, type BatonChoice } from "@/core/countyBaton";
+import { scrapResetLegacyBudget } from "@/core/layers";
+import { CountyBatonPlanner } from "./CountyBaton";
 
 const SKILLS: { id: SkillId; label: string }[] = [
   { id: "haul", label: "Haul (trip speed)" },
@@ -47,13 +51,15 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const isTeam = layer === "team";
   const [retainedPartUid, setRetainedPartUid] = useState("");
   const [county, setCounty] = useState<HomeCounty>(() => homeCounty(game));
+  const [baton, setBaton] = useState<BatonChoice | undefined>();
+  const [freight, setFreight] = useState(false);
   const [club, setClub] = useState<ClubCharter | undefined>(initialClub);
   const [clubCourse, setClubCourse] = useState<ClubCourseId | undefined>();
   const [clubLoan, setClubLoan] = useState<ClubCourseId | CountyRivalId | undefined>();
   const [worksPlan, setWorksPlan] = useState<WorksFamily | undefined>();
   const award = isTeam ? teamAward(game) : scrapAward(game);
-  const lpAvailable = isTeam ? teamResetLegacyBudget(game) : game.scrap.lp + award;
-  const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game, !!retainedPartUid);
+  const lpAvailable = isTeam ? teamResetLegacyBudget(game) : scrapResetLegacyBudget(game, freight);
+  const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game, !!retainedPartUid && !freight);
   const points = isTeam ? 5 : nextSeasonTuneUpPoints(game);
   const teamEraNext = isTeam || game.era !== null;
 
@@ -71,7 +77,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const [colorA, setColorA] = useState(game.era?.colors[0] ?? "#c8372d");
   const [colorB, setColorB] = useState(game.era?.colors[1] ?? "#f2f2ee");
   const [keepCrew, setKeepCrew] = useState<string>("");
-  const workshopCharter = !game.era && !game.meta.stateWonEver && shopFoundingReady(game);
+  const workshopCharter = workshopCharterOnly(game);
   const [organization, setOrganization] = useState<TeamOrganization>(workshopCharter ? "collective" : game.era?.organization ?? "independent");
   const [handoverKey, setHandoverKey] = useState("");
 
@@ -86,6 +92,8 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const conflict = seasonObjectiveConflict(hardships, dare, nextDiscipline);
   const choices = {
     homeCounty: isTeam ? undefined : county,
+    countyBaton: isTeam ? undefined : baton,
+    countyFreight: !isTeam && freight ? true as const : undefined,
     buy, perks: equipped, tuneUp: tune, dare, hardships, retainedPartUid: isTeam ? undefined : retainedPartUid || undefined,
     club: isTeam ? undefined : club, clubCourse: !isTeam && club ? clubCourse : undefined,
     clubLoan: !isTeam && club && clubLoan && !Object.hasOwn(COUNTY_RIVALS, clubLoan) ? clubLoan as ClubCourseId : undefined,
@@ -97,6 +105,8 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const teamChoices = { ...choices, discipline, organization, handover, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices;
   const blocker = gate.ok ? (isTeam ? TEAM_LAYER.validate(game, teamChoices) : SCRAP_LAYER.validate(game, choices)) : gate.reason;
   const activeChallenge = game.config.dare;
+  const activeBaton = game.run.countyBaton;
+  const canFreight = baton !== "carry" && !freightBlocker(game, county, retainedPartUid || undefined);
 
   const confirm = () => {
     if (dispatch({ type: "reset", layer, choices: isTeam ? teamChoices : choices })) onDone();
@@ -109,6 +119,65 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
         <span className="big num">{num(award)}</span> {isTeam ? "Team Points" : "Legacy Points"} for this {isTeam ? "team" : "Season"}
       </div>
       {isTeam && <p className="hint">{num(scrapAward(game))} Legacy Points from this Season are available to spend below. {num(lpLeft)} unspent Legacy Points will expire when the team resets.</p>}
+      {isTeam && (
+        <fieldset>
+          <legend>Your team</legend>
+          <label className="inline">
+            <span>Team name</span>
+            <input value={teamName} maxLength={40} onChange={(e) => setTeamName(e.target.value)} placeholder="Curbside Racing" />
+          </label>
+          <label className="inline">
+            <span>Colours</span>
+            <input type="color" value={colorA} onChange={(e) => setColorA(e.target.value)} aria-label="Main colour" />
+            <input type="color" value={colorB} onChange={(e) => setColorB(e.target.value)} aria-label="Second colour" />
+          </label>
+          <ResetDisciplines game={game} chosen={discipline} onChoose={setDiscipline} />
+          <fieldset id="team-organization">
+            <legend>Team organization</legend>
+            <div className="organization-options">
+            {TEAM_ORGANIZATION_IDS.map((id) => (
+              <label className="organization-choice" key={id}>
+                <Image src={`/sprites/organizations/${id}.webp`} width={880} height={495} sizes="(max-width: 600px) 90vw, 340px" alt="" />
+                <span><input type="radio" name="team-organization" disabled={workshopCharter && id !== "collective"} checked={organization === id} onChange={() => setOrganization(id)} /> <strong>{TEAM_ORGANIZATIONS[id].name}</strong></span>
+                <span>{TEAM_ORGANIZATIONS[id].description}</span>
+              </label>
+            ))}
+            </div>
+          </fieldset>
+          {handovers.length > 0 && (
+            <>
+              <label className="inline">
+                <span>Crew handover</span>
+                <select id="team-handover" value={handover ? handoverKey : ""} onChange={(event) => setHandoverKey(event.target.value)}>
+                  <option value="">No handover</option>
+                  {handovers.map((offer) => (
+                    <option key={handoverId(offer)} value={handoverId(offer)}>{handoverName(offer, discipline)}</option>
+                  ))}
+                </select>
+              </label>
+              {handover && <p className="hint">
+                Costs {HANDOVER_COST} Team Points from your balance and this reset’s award. {handover.type === "apprenticeship"
+                  ? `One new crew member must finish ${APPRENTICE_JOBS} matching jobs to teach the Habit to this team across future Seasons.`
+                  : "Open the venue as usual. These notes let you enter its Heat directly in future Seasons with this team."}
+              </p>}
+            </>
+          )}
+          {game.era && (game.team.upgrades.old_hands ?? 0) > 0 && (
+            <label className="inline">
+              <span>Keep one crew member</span>
+              <select value={keepCrew} onChange={(e) => setKeepCrew(e.target.value)}>
+                <option value="">Nobody</option>
+                {game.era.crew.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {CREW_BY_ID[c.id]?.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </fieldset>
+      )}
+
       <div className="keep-lose">
         <div>
           <h3 className="label">You keep</h3>
@@ -129,8 +198,20 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
         </div>
       </div>
 
-      {!isTeam && <ResetSalvage game={game} value={retainedPartUid} slots={nextSeasonPerkSlots(game)} rookie={hardships.includes("rookie_plates")} onChange={setRetainedPartUid} />}
+      {activeBaton && (activeBaton.leg === "qualify" || activeBaton.completedAt === undefined) && (isTeam || baton !== "carry") && <p className="why">This reset forfeits the unfinished County Baton attempt. Your earned freight permits and Parts With a Past records stay.</p>}
+      {!isTeam && <ResetSalvage game={game} value={retainedPartUid} slots={nextSeasonPerkSlots(game)} rookie={hardships.includes("rookie_plates")} freight={freight} onChange={setRetainedPartUid} />}
       {!isTeam && <ResetHomeCounty game={game} county={county} onChoose={setCounty} />}
+      {!isTeam && (canFreight || freight) && <label className="check"><input type="checkbox" checked={freight} onChange={(event) => setFreight(event.target.checked)} /> Pay {FREIGHT_COST} Legacy Points for freight and keep all perk slots</label>}
+      {!isTeam && <CountyBatonPlanner game={game} choice={baton} onChoose={(choice) => {
+        setBaton(choice);
+        if (choice) setDare(null);
+      }} onContinue={(destination, uid) => {
+        setCounty(destination);
+        setRetainedPartUid(uid);
+        setBaton("carry");
+        setDare(null);
+        setFreight(false);
+      }} />}
       {!isTeam && !clubGate(game) && <fieldset>
         <legend>Club charter (optional)</legend>
         <p className="hint">Your team and Circuit certificates carry forward. The club supplies its opening support alongside your usual perks and any retained part.</p>
@@ -236,65 +317,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
 
       {teamEraNext && <ResetHardships game={game} chosen={hardships} conflict={conflict} onChange={setHardships} />}
 
-      {isTeam && (
-        <fieldset>
-          <legend>Your team</legend>
-          <label className="inline">
-            <span>Team name</span>
-            <input value={teamName} maxLength={40} onChange={(e) => setTeamName(e.target.value)} placeholder="Curbside Racing" />
-          </label>
-          <label className="inline">
-            <span>Colours</span>
-            <input type="color" value={colorA} onChange={(e) => setColorA(e.target.value)} aria-label="Main colour" />
-            <input type="color" value={colorB} onChange={(e) => setColorB(e.target.value)} aria-label="Second colour" />
-          </label>
-          <ResetDisciplines game={game} chosen={discipline} onChoose={setDiscipline} />
-          <fieldset id="team-organization">
-            <legend>Team organization</legend>
-            <div className="organization-options">
-            {TEAM_ORGANIZATION_IDS.map((id) => (
-              <label className="organization-choice" key={id}>
-                <Image src={`/sprites/organizations/${id}.webp`} width={880} height={495} sizes="(max-width: 600px) 90vw, 340px" alt="" />
-                <span><input type="radio" name="team-organization" disabled={workshopCharter && id !== "collective"} checked={organization === id} onChange={() => setOrganization(id)} /> <strong>{TEAM_ORGANIZATIONS[id].name}</strong></span>
-                <span>{TEAM_ORGANIZATIONS[id].description}</span>
-              </label>
-            ))}
-            </div>
-          </fieldset>
-          {handovers.length > 0 && (
-            <>
-              <label className="inline">
-                <span>Crew handover</span>
-                <select id="team-handover" value={handover ? handoverKey : ""} onChange={(event) => setHandoverKey(event.target.value)}>
-                  <option value="">No handover</option>
-                  {handovers.map((offer) => (
-                    <option key={handoverId(offer)} value={handoverId(offer)}>{handoverName(offer, discipline)}</option>
-                  ))}
-                </select>
-              </label>
-              {handover && <p className="hint">
-                Costs {HANDOVER_COST} Team Points from your balance and this reset’s award. {handover.type === "apprenticeship"
-                  ? `One new crew member must finish ${APPRENTICE_JOBS} matching jobs to teach the Habit to this team across future Seasons.`
-                  : "Open the venue as usual. These notes let you enter its Heat directly in future Seasons with this team."}
-              </p>}
-            </>
-          )}
-          {game.era && (game.team.upgrades.old_hands ?? 0) > 0 && (
-            <label className="inline">
-              <span>Keep one crew member</span>
-              <select value={keepCrew} onChange={(e) => setKeepCrew(e.target.value)}>
-                <option value="">Nobody</option>
-                {game.era.crew.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {CREW_BY_ID[c.id]?.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </fieldset>
-      )}
-
+      <OpeningComparison game={game} layer={layer} choices={isTeam ? teamChoices : choices} blocker={blocker} />
       {ownerTourActive(game) && <p className="why">This reset forfeits the active Owner tour and its unearned rewards.</p>}
       {game.manufacturer?.active && !worksReport(game.manufacturer.active).homologated && !worksReport(game.manufacturer.active).failed && <p className="why">This reset retires the open works deal and files its completed trials.</p>}
       {game.club?.active && !clubScore(game.club.active).complete && <p className="why">This reset retires the active Club calendar and archives its completed rounds.</p>}

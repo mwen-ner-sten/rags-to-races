@@ -7,7 +7,7 @@ import { COUNTY_RIVALS } from "@/core/countyRivals";
 import { getPart } from "@/core/content/parts";
 import { totalTime } from "@/core/timecards";
 import type { GameState, RaceResult } from "@/core/types";
-import { retiredVehicle } from "@/core/vehicleArchive";
+import { vehicleForReplay } from "@/core/vehicleArchive";
 import { conditionName, num } from "../format";
 import { useGame } from "../store";
 import { finishText } from "./race/resultText";
@@ -18,19 +18,20 @@ const REPLAY_MS = 14_000;
 
 function shownFrom(game: GameState, race: RaceResult): RaceShown {
   const discipline = game.era?.discipline ?? "dirt";
-  const vehicle = game.run.vehicles.find((v) => v.uid === race.vehicleUid);
+  const vehicle = vehicleForReplay(game, race.vehicleUid);
   const durationMs = race.durationMs ?? getVenue(race.venueId).events[race.event].durationMs * DISCIPLINES[discipline].durationMult;
   return {
     venueId: race.venueId,
     venueLabel: `${venueName(race.venueId, discipline)}${race.course ? ` · ${CLUB_COURSES[race.course].name}` : ""}`,
     event: race.event,
-    vehicleId: vehicle?.vehicleId ?? retiredVehicle(game, race.vehicleUid)?.vehicleId ?? "push_mower",
+    vehicleId: vehicle?.vehicleId ?? "push_mower",
     fieldSize: race.fieldSize,
     beats: race.beats,
     laps: race.laps,
     durationMs: Math.max(durationMs, race.beats[race.beats.length - 1]?.at ?? 0),
     strip: discipline === "drag",
     rally: discipline === "rally",
+    clock: race.rallyClock,
     course: race.course,
     rounds: race.rounds,
   };
@@ -98,13 +99,23 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
         <div className="debrief">
           <p className="big">{finishText(race)}</p>
           {race.rallyClock && !race.dnf && <p>Stage time · {(totalTime(race.rallyClock.splitsMs) / 1000).toFixed(1)}s
-            {race.rallyClock.previousMs && <> · {race.rallyClock.previousCar}’s previous class best was {(race.rallyClock.previousMs / 1000).toFixed(1)}s</>}
+            {race.rallyClock.previousMs && <> · {race.rallyClock.previousCar}’s reference time was {(race.rallyClock.previousMs / 1000).toFixed(1)}s</>}
           </p>}
           <p>
             +{num(race.prize)} Scrap Bucks · +{race.rep} Rep
             {rival && ` · ${rival.name}: ${race.rival?.beaten ? "beaten" : "ahead of you"}`}
           </p>
           {race.caution && <p>The yellow flag came out.</p>}
+          {race.rallyClock?.referenceSplitsMs && <details>
+            <summary>Stage-by-stage comparison</summary>
+            <table className="opening-table"><thead><tr><th>Stage</th><th>Your split</th><th>Reference split</th><th>Difference</th></tr></thead>
+              <tbody>{race.rallyClock.splitsMs.map((ms,i) => {
+                const target=race.rallyClock!.referenceSplitsMs![i];
+                const delta=ms-target;
+                return <tr key={i}><th scope="row">{i+1}</th><td>{(ms/1000).toFixed(1)}s</td><td>{(target/1000).toFixed(1)}s</td><td>{(Math.abs(delta)/1000).toFixed(1)}s {delta<0?"early":delta>0?"late":"on time"}</td></tr>;
+              })}</tbody>
+            </table>
+          </details>}
           {race.rallyClock?.regularity && <p>{race.rallyClock.regularity.passed ? "Regularity certificate earned" : "Outside regularity tolerance"} · {race.rallyClock.regularity.matched}/{race.rallyClock.regularity.required} stages within 8%.</p>}
           {race.course && <p>{CLUB_COURSES[race.course].brief}</p>}
           {race.countyMeeting && <p>{COUNTY_RIVALS[race.countyMeeting.rival].name} {race.countyMeeting.rivalOut ? "retired" : race.countyMeeting.beaten ? "finished behind you" : "finished ahead of you"}.</p>}

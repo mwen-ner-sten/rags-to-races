@@ -17,6 +17,7 @@ import type { ClubAdmission, ClubCharter, ClubState } from "./club";
 import type { ClubCourseId } from "./clubTrack";
 import type { CountyContact, CountyMatchResult, CountyRivalId } from "./countyRivals";
 import type { ManufacturerState, WorksFamily } from "./manufacturer";
+import type { MotorPoolState } from "./motorPool";
 import type { PromoterState } from "./promoter";
 
 export type Scope = "run" | "scrap" | "era" | "config";
@@ -241,6 +242,7 @@ export interface SeasonChallengeProgress {
 }
 
 export interface MetaState {
+  careerPin?: import("./careerPin").CareerPin;
   serviceReferences?: import("./serviceShop").ServiceReferences;
   heritageRegister?: import("./heritage").HeritageAward[];
   rallyLicences?: Record<string, number>;
@@ -320,6 +322,7 @@ export interface EraState {
 }
 
 export interface RunState {
+  depotReceipts?: import("./motorPool").MotorRouteId[];
   serviceBook?: import("./serviceShop").ServiceBook;
   heritageSetups?: string[];
   heritageProject?: import("./heritage").HeritageProject;
@@ -386,6 +389,7 @@ export interface RunConfig {
 }
 
 export interface SeasonResult {
+  depotReceipts?: import("./motorPool").MotorRouteId[];
   serviceInvoices?: import("./serviceShop").Invoice[];
   regularityFeatures?: Record<string, number>;
   organization?: import("./content/team").TeamOrganization;
@@ -401,6 +405,7 @@ export interface SeasonResult {
 }
 
 export interface GameState {
+  motorPool?: MotorPoolState;
   countyRivals?: Partial<Record<CountyRivalId, CountyContact>>;
   manufacturer?: ManufacturerState;
   club?: ClubState;

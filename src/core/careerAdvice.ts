@@ -4,7 +4,7 @@ import { SEASON_CHALLENGES } from "./content/modifiers";
 import { TEAM_ORGANIZATIONS } from "./content/team";
 import { teamOrganization } from "./crew";
 import { crewHandoverOffers, handoverName } from "./crewLegacy";
-import { shopFoundingReady } from "./serviceShop";
+import { depotCharter, workshopCharterOnly } from "./serviceShop";
 import { LAYERS } from "./layers";
 import {
   CHARTERS, currentTourEntry, needsNewScoringCar, ownerCharterBlocker, ownerGate, queuedTourProblem, tourCalendar, tourScore,
@@ -14,7 +14,11 @@ import { venueLockReason } from "./race";
 import type { DisciplineId, GameState, SeasonChallengeId } from "./types";
 
 export type CareerDestination =
-  | { tab: "legacy"; objective: SeasonChallengeId }
+  | { tab: "legacy"; objective?: SeasonChallengeId }
+  | { tab: "garage"; section: "service" | "build" }
+  | { tab: "trips" }
+  | { tab: "manufacturer" }
+  | { tab: "notebook"; section: "Hall of Fame" | "Timecards" }
   | { tab: "team"; discipline: DisciplineId; focus?: "handover" | "organization" }
   | { tab: "team"; section: "crew" }
   | { tab: "race"; venueId: string }
@@ -48,10 +52,10 @@ function raceAction(state: GameState, desired: string): CareerAction[] {
 }
 
 function builderOpportunities(state: GameState): CareerOpportunity[] {
-  if (!state.meta.stateWonEver && shopFoundingReady(state)) return [{
+  if (workshopCharterOnly(state)) return [{
     id: "service-charter", title: "Your Workshop Collective charter",
     detail: "The customers from your old shops have backed your first team. Choose the team name, colors and discipline in Lou’s back bay.",
-    evidence: "Two business references, three current paid invoices and a working hauler.",
+    evidence: depotCharter(state) ? "Your ramp and pump-station receipts were signed this Season." : "Two business references, three current paid invoices and a working hauler.",
     actions: [{ label: "Found a Workshop Collective", destination: { tab: "team", discipline: "dirt", focus: "organization" } }],
   }];
   const foundingReady = state.meta.stateWonEver;

@@ -84,6 +84,7 @@ function Results({ game }: { game: GameState }) {
             <span>
               {venueName(r.venueId, discipline)} {capitalize(r.event)}
               {retiredVehicle(game, r.vehicleUid) && <span className="muted"> · {retiredVehicle(game, r.vehicleUid)!.name}</span>}
+              {game.motorPool?.custody?.rig.uid === r.vehicleUid && <span className="muted"> · {game.motorPool.custody.rig.name} at the depot</span>}
             </span>
             <span className="num muted">
               +{num(r.prize)} Scrap Bucks · +{r.rep} Rep

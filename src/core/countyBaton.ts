@@ -29,7 +29,7 @@ export function batonChoicesBlocker(state: GameState, choice: BatonChoice | unde
   return null;
 }
 
-export function freightEligible(state: GameState, county: HomeCounty, part: PartInstance | undefined): boolean {
+export function freightEligible(state: GameState, county: HomeCounty, part: Pick<PartInstance, "partId" | "provenance"> | undefined): boolean {
   if (county === "home" || !state.meta.countyFreight?.[county] || !part) return false;
   const origin = otherCounty(county);
   return part.partId === BATON_PART[origin] && part.provenance?.county === origin && part.provenance.placeId === HOME_COUNTIES[origin].source;

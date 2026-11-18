@@ -84,6 +84,8 @@ export function ownerReferencesValid(game: GameState): boolean {
   const entry = entries[0];
   if (!entry) return true;
   if (Boolean(entry.ownerDrive) !== ownerDrivenRound(tour) || (entry.ownerDrive && entry.call2)) return false;
+  const racing = game.run.jobs.find((job) => job.spec === entry);
+  if (entry.ownerDrive && racing && (racing.lane !== "hands" || racing.race?.crewIds?.length !== 0)) return false;
   if (entry.tourReserve !== undefined) {
     const plan = tour.entryPlan;
     if (!plan) return false;

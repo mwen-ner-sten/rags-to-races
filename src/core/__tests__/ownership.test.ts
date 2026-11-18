@@ -71,6 +71,77 @@ function finishTour(game: GameState, carUid: string): GameState {
 }
 
 describe("Owner championships", () => {
+  it("binds a Development Seat to one real kart and forfeits the unearned payment on reset", () => {
+    let game = found();
+    game = finishTour(raceRound(game, "beater"), "stock");
+    const sign = { type: "owner", move: { type: "start", charter: "privateer", sponsor: "rookie_kart", sponsorVehicleUid: "rookie" } } as const;
+    expect(apply(game, sign).error).toMatch(/at most 3 race starts/);
+    const rookie = vehicle("rookie", "go_kart", { ...KART, wheel: "wheel_sport" });
+    game.run.vehicles.push(rookie);
+    const established = vehicle("old-kart", "go_kart", KART);
+    established.history.races = 4;
+    game.run.vehicles.push(established);
+    expect(apply(game, { ...sign, move: { ...sign.move, sponsorVehicleUid: "old-kart" } }).error).toMatch(/Name a rookie/);
+    const balance = game.run.cash;
+    game = must(game, sign);
+    expect(game.run.cash).toBe(balance - 250);
+    expect(game.owner!.tour.sponsorCar).toEqual({ uid: "rookie", name: "rookie", startsAtSigning: 0 });
+
+    const other = raceRound(game, "beater");
+    expect(other.owner!.tour.rounds[0]?.position).toBeLessThanOrEqual(3);
+    expect(sponsorProgress(other.owner!.tour)?.completed).toBe(0);
+
+    game.run.lastEntered["county_fair:feature"] = game.run.seasonMs;
+    game = must(game, { type: "owner", move: { type: "enter", vehicleUid: "rookie", call: "push" } });
+    expect(currentTourEntry(game)).toBe("queued");
+    const withdrawn = must(game, { type: "owner", move: { type: "withdraw" } });
+    expect(withdrawn.run.cash).toBe(balance - 250);
+    expect(withdrawn.owner!.tour.rounds).toHaveLength(0);
+    const abandoned = must(withdrawn, {
+      type: "reset", layer: "scrap", choices: { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] },
+    });
+    expect(abandoned.owner!.tour.status).toBe("retired");
+    expect(sponsorProgress(abandoned.owner!.tour)?.payout).toBe(0);
+    expect(decodeGameState(abandoned)?.owner?.tour.sponsorCar?.uid).toBe("rookie");
+
+    const completed = must(decodeGameState(game)!, { type: "advance", ms: 25 * HOUR, away: true });
+    expect(completed.owner!.tour.rounds[0]?.vehicleUid).toBe("rookie");
+    expect(sponsorProgress(completed.owner!.tour)?.completed).toBe(Number(!completed.owner!.tour.rounds[0]?.dnf && completed.owner!.tour.rounds[0]!.position <= 3));
+  });
+
+  it("runs the Owner-Driver obligation through hands without crew credit or a second call", () => {
+    let game = found();
+    game = finishTour(raceRound(game, "beater"), "stock");
+    game.team.upgrades.crew_quarters = 1;
+    game.run.candidates.push("deshawn", "pearl", "tina");
+    for (const crewId of ["deshawn", "pearl", "tina"]) game = must(game, { type: "hire", crewId });
+    game = must(game, { type: "assignCrew", crewId: "deshawn", assignment: { type: "driver" } });
+    game = must(game, { type: "assignCrew", crewId: "pearl", assignment: { type: "spotter" } });
+    game = must(game, { type: "owner", move: { type: "start", charter: "privateer", sponsor: "owner_driver" } });
+    game = raceRound(game, "beater");
+    const driver = game.era!.crew.find((member) => member.id === "deshawn")!;
+    const credit = driver.jobsDone;
+    expect(credit).toBe(1);
+    game.run.placesOpen.push("long_haul");
+    game = must(game, { type: "enqueue", spec: { kind: "haul", placeId: "long_haul" } });
+    const entry = { type: "owner", move: { type: "enter", vehicleUid: "stock", call: "nurse" } } as const;
+    expect(apply(game, { ...entry, move: { ...entry.move, call2: "pit" } }).error).toMatch(/unassisted owner-driver/);
+    game = must(game, entry);
+    expect(currentTourEntry(game)).toBe("queued");
+    expect(game.run.queue[0]).toMatchObject({ ownerDrive: true });
+    game = must(decodeGameState(game)!, { type: "advance", ms: 14 * HOUR, away: true });
+    expect(game.owner!.tour.rounds[1]).toMatchObject({ ownerDriven: true });
+    expect(game.era!.crew.find((member) => member.id === "deshawn")?.jobsDone).toBe(credit);
+    expect(game.era!.crew.find((member) => member.id === "deshawn")?.assignment).toEqual({ type: "driver" });
+    let budgetRun = game;
+    for (let skip = 0; skip < 3; skip++) budgetRun = must(budgetRun, { type: "owner", move: { type: "skip" } });
+    expect(budgetRun.owner!.tour.status).toBe("finished");
+    expect(budgetRun.owner!.titles).toBe(1);
+    expect(sponsorProgress(budgetRun.owner!.tour)?.payout).toBe(1100);
+    game = finishTour(game, "stock");
+    expect(sponsorProgress(game.owner!.tour)).toEqual({ target: 1, completed: 1, payout: 1100 });
+    expect(game.owner!.tour.rounds.filter((round) => round?.ownerDriven)).toHaveLength(1);
+  });
   it("requires a same-charter title to plan and rechecks the reserve at the actual start", () => {
     let game = found();
     const settings = { leadUid: "stock", reserveUid: "beater", call: "nurse", cashFloor: 0 } as const;
