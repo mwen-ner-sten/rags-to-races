@@ -4,15 +4,16 @@ import { pushFeed } from "./feed";
 import { enqueue, jobBlocker } from "./jobs";
 import { addJournal, logSeason } from "./journal";
 import { nextUid } from "./rng";
-import type { DisciplineId, EventKind, GameState, JobSpec, RaceResult } from "./types";
+import type { DisciplineId, EventKind, GameState, JobSpec, RaceResult, Vehicle } from "./types";
 
-export const OWNER_CHARTERS = ["privateer", "club", "works"] as const;
+export const OWNER_CHARTERS = ["privateer", "club", "works", "county_to_state"] as const;
 export type OwnerCharter = typeof OWNER_CHARTERS[number];
 type RaceSpec = Extract<JobSpec, { kind: "race" }>;
 
 interface TourStop {
   venueId: string;
   event: EventKind;
+  vehicleId?: string;
 }
 
 interface CharterDef {
@@ -63,6 +64,18 @@ export const CHARTERS: Record<OwnerCharter, CharterDef> = {
     ],
     target: 36, minCars: 2, tier: null, purse: 3400, teamPoints: 14,
   },
+  county_to_state: {
+    name: "County-to-State Cup",
+    description: "Start with a Go-Kart and finish in Street Stock. Even three Stock wins need a scoring kart result.",
+    calendar: [
+      { venueId: "dirt", event: "heat", vehicleId: "go_kart" },
+      { venueId: "county_fair", event: "feature", vehicleId: "go_kart" },
+      { venueId: "regional", event: "heat", vehicleId: "street_stock" },
+      { venueId: "regional", event: "feature", vehicleId: "street_stock" },
+      { venueId: "state", event: "feature", vehicleId: "street_stock" },
+    ],
+    target: 37, minCars: 2, tier: null, purse: 4000, teamPoints: 16,
+  },
 };
 
 export const TOUR_POINTS = [12, 9, 7, 5, 3, 1] as const;
@@ -104,6 +117,14 @@ export function ownerGate(state: GameState): { ok: boolean; reason: string | nul
   return { ok, reason: ok ? null : "Win the State Invitational Feature with a founded team." };
 }
 
+export function ownerCharterBlocker(state: GameState, charter: OwnerCharter): string | null {
+  if (charter !== "county_to_state") return null;
+  const titles = state.owner?.charterTitles;
+  return titles?.club && (titles.privateer || titles.works)
+    ? null
+    : "Win the Homegrown Cup and either the Independent Tour or Two-Car Works Trophy.";
+}
+
 export function ownerTourActive(state: GameState): boolean {
   return state.owner?.tour.status === "active";
 }
@@ -134,15 +155,22 @@ export function tourScore(tour: OwnerTour): { points: number; cars: number; cham
   return { points, cars, champion: points >= charter.target && cars >= charter.minCars };
 }
 
-export function ownerEntryBlocker(state: GameState, tour: OwnerTour, vehicleUid: string, call: RaceSpec["call"], call2?: RaceSpec["call2"]): string | null {
+export function ownerClassBlocker(tour: OwnerTour, car: Vehicle): string | null {
   const charter = CHARTERS[tour.charter];
-  const stop = charter.calendar[tour.rounds.length];
+  const vehicleId = charter.calendar[tour.rounds.length]?.vehicleId;
+  if (vehicleId && car.vehicleId !== vehicleId) return `This round requires a ${getVehicle(vehicleId).name}.`;
+  if (charter.tier !== null && getVehicle(car.vehicleId).tier !== charter.tier) return "Only Go-Karts can enter this cup.";
+  return null;
+}
+
+export function ownerEntryBlocker(state: GameState, tour: OwnerTour, vehicleUid: string, call: RaceSpec["call"], call2?: RaceSpec["call2"]): string | null {
+  const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
   if (tour.status !== "active" || !stop) return "Start a championship first.";
   if (currentTourEntry(state)) return "This round already has an entry.";
   const car = state.run.vehicles.find((vehicle) => vehicle.uid === vehicleUid);
   if (!car) return "Choose a car.";
-  if (charter.tier !== null && getVehicle(car.vehicleId).tier !== charter.tier) return "Only Go-Karts can enter this cup.";
-  return jobBlocker(state, { kind: "race", ...stop, vehicleUid, call, call2 }, true);
+  return ownerClassBlocker(tour, car)
+    ?? jobBlocker(state, { kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid, call, call2 }, true);
 }
 
 export function applyOwner(state: GameState, move: OwnerMove): string | null {
@@ -160,6 +188,8 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
         return "Sign an Owner charter first.";
       }
       if (tour?.status === "active") return "Finish or retire from your current championship first.";
+      const blocked = ownerCharterBlocker(state, move.charter);
+      if (blocked) return blocked;
       const newTour: OwnerTour = {
         id: nextUid(state, "tour"),
         charter: move.charter,
@@ -172,7 +202,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
         if (owner.history.length > OWNER_HISTORY_LIMIT) owner.history.length = OWNER_HISTORY_LIMIT;
         owner.tour = newTour;
       } else {
-        state.owner = { tour: newTour, history: [], titles: 0, charterTitles: { privateer: 0, club: 0, works: 0 } };
+        state.owner = { tour: newTour, history: [], titles: 0, charterTitles: { privateer: 0, club: 0, works: 0, county_to_state: 0 } };
         addJournal(state, "owner_charter", "The team signs its first touring charter. Lou helps you load the trailer.");
       }
       logSeason(state, newTour.id, `Entered the ${CHARTERS[move.charter].name}.`);
@@ -185,7 +215,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
       if (blocker) return blocker;
       const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
       return enqueue(state, {
-        kind: "race", ...stop, vehicleUid: move.vehicleUid, call: move.call, call2: move.call2,
+        kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid: move.vehicleUid, call: move.call, call2: move.call2,
         tourRound: tourRoundToken(tour),
       });
     }
@@ -229,8 +259,7 @@ export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: Race
   const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
   if (!stop || stop.venueId !== result.venueId || stop.event !== result.event || spec.vehicleUid !== result.vehicleUid) return;
   const car = state.run.vehicles.find((vehicle) => vehicle.uid === result.vehicleUid);
-  const tier = CHARTERS[tour.charter].tier;
-  if (!car || (tier !== null && getVehicle(car.vehicleId).tier !== tier)) return;
+  if (!car || ownerClassBlocker(tour, car)) return;
   const finish = {
     raceId: result.id,
     vehicleUid: result.vehicleUid,
@@ -257,6 +286,9 @@ function completeRound(state: GameState, finish: OwnerFinish | null): void {
     state.run.cash += charter.purse;
     state.team.tp += charter.teamPoints;
     state.team.lifetimeTp += charter.teamPoints;
+    if (!ownerCharterBlocker(state, "county_to_state")) {
+      addJournal(state, "county_to_state_invite", "The County-to-State Cup invites your team. Pack the kart and a Street Stock.");
+    }
   }
   logSeason(state, `finished:${tour.id}`, score.champion
     ? `Won the ${charter.name} with ${score.points} points. The title pays ${charter.purse} Scrap Bucks and ${charter.teamPoints} Team Points.`

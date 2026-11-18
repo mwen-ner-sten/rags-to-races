@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { getVehicle } from "@/core/content/vehicles";
-import { CHARTERS, OWNER_CHARTERS, OWNER_HISTORY_LIMIT, tourRoundToken, tourScore } from "@/core/ownership";
+import { CHARTERS, OWNER_CHARTERS, OWNER_HISTORY_LIMIT, ownerCharterBlocker, ownerClassBlocker, tourRoundToken, tourScore } from "@/core/ownership";
 import type { GameState, JobSpec } from "@/core/types";
 
 const id = z.string().min(1);
@@ -30,7 +29,7 @@ export const ownerSchema = z.object({
   tour,
   history: z.array(tour).max(OWNER_HISTORY_LIMIT),
   titles: count,
-  charterTitles: z.object({ privateer: count, club: count, works: count }),
+  charterTitles: z.object({ privateer: count, club: count, works: count, county_to_state: count.default(0) }),
 }).refine((value) => {
   if (value.history.some((past) => past.status === "active")) return false;
   if (value.titles !== Object.values(value.charterTitles).reduce((total, titles) => total + titles, 0)) return false;
@@ -47,13 +46,13 @@ export function ownerReferencesValid(game: GameState): boolean {
   );
   const tour = game.owner?.tour;
   if (game.owner && !game.era) return false;
+  if (game.owner && [game.owner.tour, ...game.owner.history].some((past) => ownerCharterBlocker(game, past.charter))) return false;
   if (tour?.status !== "active") return entries.length === 0;
   if (tour.discipline !== game.era?.discipline || entries.length > 1) return false;
   const entry = entries[0];
   if (!entry) return true;
   const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
   const car = game.run.vehicles.find((vehicle) => vehicle.uid === entry.vehicleUid);
-  const tier = CHARTERS[tour.charter].tier;
-  return !!car && (tier === null || getVehicle(car.vehicleId).tier === tier)
+  return !!car && !ownerClassBlocker(tour, car)
     && entry.tourRound === tourRoundToken(tour) && entry.venueId === stop.venueId && entry.event === stop.event;
 }

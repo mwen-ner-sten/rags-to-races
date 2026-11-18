@@ -16,7 +16,7 @@ function guest(vehicleId: string): Vehicle {
 
 function invite(seed = "circuit-calendar"): GameState {
   const state = newGame(seed);
-  state.owner = { titles: 1, charterTitles: { privateer: 1, club: 0, works: 0 }, tour: { id: "tour1", charter: "privateer", discipline: "dirt", rounds: [], status: "champion" }, history: [] };
+  state.owner = { titles: 1, charterTitles: { privateer: 1, club: 0, works: 0, county_to_state: 0 }, tour: { id: "tour1", charter: "privateer", discipline: "dirt", rounds: [], status: "champion" }, history: [] };
   state.run.vehicles = [guest("riding_mower"), guest("go_kart"), guest("street_stock")];
   return state;
 }

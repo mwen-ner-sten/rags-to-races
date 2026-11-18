@@ -5,7 +5,7 @@ import { DISCIPLINES, getVenue, venueName } from "@/core/content/events";
 import { getVehicle } from "@/core/content/vehicles";
 import { nextEventInMs } from "@/core/jobs";
 import {
-  CHARTERS, OWNER_CHARTERS, TOUR_POINTS, currentTourEntry, finishPoints, ownerEntryBlocker, ownerGate, tourScore,
+  CHARTERS, OWNER_CHARTERS, TOUR_POINTS, currentTourEntry, finishPoints, ownerCharterBlocker, ownerClassBlocker, ownerEntryBlocker, ownerGate, tourScore,
   type OwnerTour,
 } from "@/core/ownership";
 import { winChance } from "@/core/race";
@@ -31,7 +31,7 @@ function RoundEntry({ game, tour }: { game: GameState; tour: OwnerTour }) {
   const wait = nextEventInMs(game, stop.venueId, stop.event);
   const cars = game.run.vehicles.filter((car) => {
     const tier = getVehicle(car.vehicleId).tier;
-    return tier >= venue.tiers[0] && tier <= venue.tiers[1] && (charter.tier === null || tier === charter.tier);
+    return tier >= venue.tiers[0] && tier <= venue.tiers[1] && !ownerClassBlocker(tour, car);
   });
   const selected = cars.find((car) => car.uid === carUid) ?? cars.find(
     (car) => !ownerEntryBlocker(game, tour, car.uid, call),
@@ -44,6 +44,7 @@ function RoundEntry({ game, tour }: { game: GameState; tour: OwnerTour }) {
     <section className="section" aria-labelledby="owner-round">
       <h3 id="owner-round">Round {tour.rounds.length + 1} · {name} {capitalize(stop.event)}</h3>
       <p className="sub">{venue.events[stop.event].entry} Scrap Bucks to enter. {wait > 0 ? `Next start in ${duration(wait)}.` : "Entries open."}</p>
+      {stop.vehicleId && <p className="sub">{getVehicle(stop.vehicleId).name} only.</p>}
       {tour.discipline === "dirt" && <p className="sub">{venue.character}</p>}
       {pending ? (
         <div className="actions">
@@ -118,15 +119,17 @@ export function OwnerPanel() {
           <div className="grid-list">
             {OWNER_CHARTERS.map((charterId) => {
               const charter = CHARTERS[charterId];
+              const locked = ownerCharterBlocker(game, charterId);
               return (
                 <div className="row-card" key={charterId}>
                   <div>
                     <strong>{charter.name}</strong>
                     <p className="blurb">{charter.description}</p>
                     <p className="muted">{charter.target} points to win · {num(charter.purse)} Scrap Bucks · {charter.teamPoints} Team Points</p>
+                    {locked && <p className="why">{locked}</p>}
                   </div>
-                  <button className="btn" onClick={() => dispatch({ type: "owner", move: { type: owner ? "start" : "found", charter: charterId } })}>
-                    {owner ? "Start tour" : "Sign charter"}
+                  <button className="btn" disabled={!!locked} onClick={() => dispatch({ type: "owner", move: { type: owner ? "start" : "found", charter: charterId } })}>
+                    {locked ? "Locked" : owner ? "Start tour" : "Sign charter"}
                   </button>
                 </div>
               );
@@ -163,7 +166,7 @@ function TourCalendar({ tour }: { tour: OwnerTour }) {
             : finish === null ? "Skipped" : index === tour.rounds.length && tour.status === "active" ? "Next" : "Pending";
           return (
             <li className="row-card" key={index}>
-              <strong>{index + 1}. {venueName(stop.venueId, tour.discipline)} {capitalize(stop.event)}</strong>
+              <strong>{index + 1}. {venueName(stop.venueId, tour.discipline)} {capitalize(stop.event)}{stop.vehicleId && ` · ${getVehicle(stop.vehicleId).name}`}</strong>
               <span className="muted">{result}</span>
             </li>
           );

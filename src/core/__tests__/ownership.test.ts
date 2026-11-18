@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decodeGameState } from "@/game/save";
 import { apply, must } from "../actions";
 import { createGame } from "../index";
-import { CHARTERS, currentTourEntry, ownerGate, tourRoundToken, tourScore, type OwnerTour } from "../ownership";
+import { CHARTERS, currentTourEntry, ownerCharterBlocker, ownerGate, tourRoundToken, tourScore, type OwnerTour } from "../ownership";
 import { resolveRace } from "../race";
 import type { GameState, Vehicle } from "../types";
 
@@ -14,6 +14,10 @@ const STOCK = {
 const BEATER = {
   body: "beater_shell", frame: "frame_tube", engine: "engine_v6", wheel: "wheel_sport", fuel: "fuel_tank_large",
   drivetrain: "drive_manual", electronics: "elec_ecu", exhaust: "exhaust_straight",
+};
+const KART = {
+  engine: "engine_v4", frame: "frame_kart", wheel: "wheel_dirt", fuel: "fuel_tank_large",
+  drivetrain: "drive_chain", exhaust: "exhaust_glasspack",
 };
 
 function vehicle(uid: string, vehicleId: string, parts: Record<string, string>): Vehicle {
@@ -43,6 +47,18 @@ function found(charter: "privateer" | "club" | "works" = "privateer"): GameState
   const game = team();
   game.run.featureWins.state = 0;
   return must(game, { type: "owner", move: { type: "found", charter } });
+}
+
+function raceRound(game: GameState, carUid: string): GameState {
+  const car = game.run.vehicles.find((candidate) => candidate.uid === carUid)!;
+  for (const part of Object.values(car.parts)) part!.condition = 4;
+  if (carUid === "kart") {
+    const tour = game.owner!.tour;
+    const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
+    car.parts.wheel!.partId = stop.venueId === "dirt" ? "wheel_dirt" : "wheel_sport";
+  }
+  const entered = must(game, { type: "owner", move: { type: "enter", vehicleUid: carUid, call: "nurse" } });
+  return must(entered, { type: "advance", ms: 25 * HOUR, away: true });
 }
 
 describe("Owner championships", () => {
@@ -126,5 +142,48 @@ describe("Owner championships", () => {
     expect(tourScore(tour)).toEqual({ points: 48, cars: 1, champion: false });
     tour.rounds[4] = { raceId: "race-5", vehicleUid: "second", carName: "Second", position: 6, dnf: false };
     expect(tourScore(tour)).toEqual({ points: 48, cars: 2, champion: true });
+  });
+
+  it("opens the County-to-State Cup after two different titles and still needs a scoring kart", () => {
+    let game = found("club");
+    game.run.vehicles.push(vehicle("kart", "go_kart", KART));
+    const startCup = { type: "owner", move: { type: "start", charter: "county_to_state" } } as const;
+    for (const _ of CHARTERS.club.calendar) game = raceRound(game, "kart");
+    expect(game.owner!.charterTitles.club).toBe(1);
+    expect(apply(game, startCup).error).toMatch(/Independent Tour or Two-Car Works Trophy/);
+    game = must(game, { type: "owner", move: { type: "start", charter: "club" } });
+    for (const _ of CHARTERS.club.calendar) game = raceRound(game, "kart");
+    expect(game.owner!.titles).toBe(2);
+    expect(apply(game, startCup).error).toMatch(/Independent Tour or Two-Car Works Trophy/);
+    game = must(game, { type: "owner", move: { type: "start", charter: "privateer" } });
+    for (const stop of CHARTERS.privateer.calendar) game = raceRound(game, stop.venueId === "county_fair" ? "beater" : "stock");
+    expect(game.owner!.charterTitles.privateer).toBe(1);
+    expect(game.meta.journalSeen).toContain("county_to_state_invite");
+
+    // An older three-key championship save keeps its two qualifying titles.
+    Reflect.deleteProperty(game.owner!.charterTitles, "county_to_state");
+    const restored = decodeGameState(game);
+    expect(restored?.owner?.charterTitles).toEqual({ privateer: 1, club: 2, works: 0, county_to_state: 0 });
+    expect(ownerCharterBlocker(restored!, "county_to_state")).toBeNull();
+    game = must(restored!, startCup);
+    expect(apply(game, { type: "owner", move: { type: "enter", vehicleUid: "stock", call: "nurse" } }).error).toMatch(/requires a Go-Kart/);
+    let stockOnly = must(game, { type: "owner", move: { type: "skip" } });
+    stockOnly = must(stockOnly, { type: "owner", move: { type: "skip" } });
+    for (const _ of CHARTERS.county_to_state.calendar.slice(2)) stockOnly = raceRound(stockOnly, "stock");
+    expect(tourScore(stockOnly.owner!.tour)).toEqual({ points: 36, cars: 1, champion: false });
+    expect(stockOnly.owner!.tour.status).toBe("finished");
+    expect(stockOnly.owner!.charterTitles.county_to_state).toBe(0);
+
+    for (const stop of CHARTERS.county_to_state.calendar) {
+      const wrong = stop.vehicleId === "go_kart" ? "stock" : "kart";
+      expect(apply(game, { type: "owner", move: { type: "enter", vehicleUid: wrong, call: "nurse" } }).error).toMatch(/requires a/);
+      game = raceRound(game, stop.vehicleId === "go_kart" ? "kart" : "stock");
+      const reloaded = decodeGameState(game);
+      expect(reloaded).not.toBeNull();
+      game = reloaded!;
+    }
+    expect(game.owner!.tour.status).toBe("champion");
+    expect(game.owner!.charterTitles.county_to_state).toBe(1);
+    expect(game.owner!.tour.rounds.map((result) => result?.vehicleUid)).toEqual(["kart", "kart", "stock", "stock", "stock"]);
   });
 });
