@@ -509,7 +509,7 @@ function completeJob(state: GameState, job: ActiveJob): void {
       completeAssembly(state, spec);
       break;
     case "race":
-      if (job.race) settleRace(state, spec, job.race);
+      if (job.race) settleRace(state, spec, job.race, job.paid?.cash);
       else resolveRace(state, spec);
       break;
   }

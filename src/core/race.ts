@@ -410,7 +410,7 @@ function purseShare(roll: RaceRoll): number {
 }
 
 /** Pays out a race at the flag: wear, prize, Rep, ladder and history. Mutates state. */
-export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll): RaceResult | null {
+export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, paidEntry?: number): RaceResult | null {
   const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
   if (!vehicle) return null;
   const venue = getVenue(spec.venueId);
@@ -509,7 +509,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll): Ra
     onFeatureWin(state, spec, vehicle, roll);
     recordChallengeWin(state, spec.venueId, vehicle);
   }
-  recordOwnerFinish(state, spec, result);
+  recordOwnerFinish(state, spec, result, paidEntry ?? event.entry);
   return result;
 }
 

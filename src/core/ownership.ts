@@ -1,8 +1,9 @@
-import { venueName } from "./content/events";
+import { getVenue, venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { pushFeed } from "./feed";
-import { enqueue, jobBlocker } from "./jobs";
+import { enqueue, jobBlocker, rungPending, signedUp } from "./jobs";
 import { addJournal, logSeason } from "./journal";
+import { dnfChance, effectiveScore, winChance } from "./race";
 import { nextUid } from "./rng";
 import type { DisciplineId, EventKind, GameState, JobSpec, RaceResult, Vehicle } from "./types";
 
@@ -80,6 +81,13 @@ export const CHARTERS: Record<OwnerCharter, CharterDef> = {
 
 export const TOUR_POINTS = [12, 9, 7, 5, 3, 1] as const;
 export const OWNER_HISTORY_LIMIT = 20;
+export const SPONSOR_IDS = ["reliable", "front_row"] as const;
+type SponsorId = typeof SPONSOR_IDS[number];
+
+export const TOUR_SPONSORS = {
+  reliable: { name: "Reliable Parts", term: "Score in all five rounds", stake: 150, bonus: 450 },
+  front_row: { name: "Front Row Fuel", term: "Win three rounds", stake: 450, bonus: 1100 },
+} satisfies Record<SponsorId, { name: string; term: string; stake: number; bonus: number }>;
 
 export interface OwnerFinish {
   raceId: string;
@@ -87,6 +95,8 @@ export interface OwnerFinish {
   carName: string;
   position: number;
   dnf: boolean;
+  finance?: { entry: number; prize: number };
+  setup?: { engine?: string; tires?: string; tune: Vehicle["tune"]; call: RaceSpec["call"] };
 }
 
 export interface OwnerTour {
@@ -96,6 +106,8 @@ export interface OwnerTour {
   /** One scored result or skipped round per calendar stop already resolved. */
   rounds: (OwnerFinish | null)[];
   status: "active" | "champion" | "finished" | "retired";
+  sponsor?: SponsorId;
+  itinerary?: "reverse" | "endurance";
 }
 
 export interface OwnerState {
@@ -103,10 +115,29 @@ export interface OwnerState {
   history: OwnerTour[];
   titles: number;
   charterTitles: Record<OwnerCharter, number>;
+  records?: OwnerRecords;
+}
+
+type OwnerRecords = Record<DisciplineId, Partial<Record<OwnerCharter, { points: number; titles: number }>>>;
+
+export function ownerRecords(owner: OwnerState): OwnerRecords {
+  if (owner.records) return owner.records;
+  const records: OwnerRecords = { dirt: {}, drag: {} };
+  for (const tour of [owner.tour, ...owner.history]) creditOwnerRecord(records, tour);
+  return records;
+}
+
+function creditOwnerRecord(records: OwnerRecords, tour: OwnerTour): void {
+  if (tour.status !== "champion" && tour.status !== "finished") return;
+  const previous = records[tour.discipline][tour.charter];
+  records[tour.discipline][tour.charter] = {
+    points: Math.max(previous?.points ?? 0, tourScore(tour).points),
+    titles: (previous?.titles ?? 0) + Number(tour.status === "champion"),
+  };
 }
 
 export type OwnerMove =
-  | { type: "found" | "start"; charter: OwnerCharter }
+  | { type: "found" | "start"; charter: OwnerCharter; sponsor?: SponsorId; itinerary?: OwnerTour["itinerary"] }
   | { type: "enter"; vehicleUid: string; call: RaceSpec["call"]; call2?: RaceSpec["call2"] }
   | { type: "skip" | "withdraw" | "retire" };
 
@@ -123,6 +154,58 @@ export function ownerCharterBlocker(state: GameState, charter: OwnerCharter): st
   return titles?.club && (titles.privateer || titles.works)
     ? null
     : "Win the Homegrown Cup and either the Independent Tour or Two-Car Works Trophy.";
+}
+
+export function reverseTourUnlocked(state: GameState, charter: OwnerCharter): boolean {
+  return !!(state.owner && state.era && ownerRecords(state.owner)[state.era.discipline][charter]?.titles);
+}
+
+export function enduranceTourUnlocked(state: GameState, charter: OwnerCharter): boolean {
+  if (!state.owner) return false;
+  const records = ownerRecords(state.owner);
+  return !!(records.dirt[charter]?.titles && records.drag[charter]?.titles);
+}
+
+export function tourCalendar(tour: OwnerTour): readonly TourStop[] {
+  const stops = CHARTERS[tour.charter].calendar;
+  if (tour.itinerary === "reverse") return [...stops].reverse();
+  if (tour.itinerary === "endurance") return stops.map((stop) => ({ ...stop, event: "feature" }));
+  return stops;
+}
+
+export function sponsorshipBlocker(state: GameState, sponsor: SponsorId): string | null {
+  if (!Object.hasOwn(TOUR_SPONSORS, sponsor)) return "Choose a valid sponsor.";
+  if (!state.owner?.titles) return "Win a championship to pitch sponsors.";
+  const { stake } = TOUR_SPONSORS[sponsor];
+  return state.run.cash < stake ? `The sponsor requires a ${stake} Scrap Bucks stake.` : null;
+}
+
+export function sponsorProgress(tour: OwnerTour): { completed: number; target: number; payout: number } | null {
+  if (!tour.sponsor) return null;
+  const sponsor = TOUR_SPONSORS[tour.sponsor];
+  const target = tour.sponsor === "reliable" ? CHARTERS[tour.charter].calendar.length : 3;
+  const completed = tour.rounds.filter((finish) => {
+    const score = finishPoints(finish);
+    return tour.sponsor === "reliable" ? score > 0 : score === TOUR_POINTS[0];
+  }).length;
+  const payout = completed >= target && (tour.status === "champion" || tour.status === "finished")
+    ? sponsor.stake + sponsor.bonus : 0;
+  return { completed, target, payout };
+}
+
+export function tourCash(tour: OwnerTour): { entries: number; prizes: number; stake: number; sponsor: number; title: number; net: number } | null {
+  const stake = tour.sponsor ? TOUR_SPONSORS[tour.sponsor].stake : 0;
+  const sponsor = sponsorProgress(tour)?.payout ?? 0;
+  const title = tour.status === "champion" ? CHARTERS[tour.charter].purse : 0;
+  let entries = 0;
+  let prizes = 0;
+  for (const finish of tour.rounds) {
+    if (!finish) continue;
+    if (!finish.finance) return null;
+    entries += finish.finance.entry;
+    prizes += finish.finance.prize;
+  }
+  return { entries, prizes, stake, sponsor, title, net: prizes + sponsor + title - entries - stake };
 }
 
 export function ownerTourActive(state: GameState): boolean {
@@ -142,35 +225,96 @@ export function currentTourEntry(state: GameState): "queued" | "racing" | null {
   return state.run.queue.some(matches) ? "queued" : null;
 }
 
+export function queuedTourProblem(state: GameState, tour: OwnerTour): string | null {
+  const spec = state.run.queue.find((job) => job.kind === "race" && job.tourRound === tourRoundToken(tour));
+  return spec ? jobBlocker(state, spec, true) : null;
+}
+
 export function finishPoints(finish: OwnerFinish | null): number {
   return finish && !finish.dnf ? TOUR_POINTS[finish.position - 1] ?? 0 : 0;
 }
 
+export function tourRoundStandings(tour: OwnerTour): { points: number; counts: boolean }[] {
+  const points = tour.rounds.map(finishPoints);
+  const counting = new Set(points.map((score, index) => ({ score, index }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4).map(({ index }) => index));
+  return points.map((score, index) => ({ points: score, counts: counting.has(index) }));
+}
+
 export function tourScore(tour: OwnerTour): { points: number; cars: number; champion: boolean } {
-  const scoring = tour.rounds.filter((finish): finish is OwnerFinish => finishPoints(finish) > 0)
-    .sort((a, b) => finishPoints(b) - finishPoints(a));
-  const points = scoring.slice(0, 4).reduce((sum, finish) => sum + finishPoints(finish), 0);
-  const cars = new Set(scoring.map((finish) => finish.vehicleUid)).size;
+  const points = tourRoundStandings(tour).reduce((sum, round) => sum + (round.counts ? round.points : 0), 0);
+  const cars = scoringCarIds(tour).size;
   const charter = CHARTERS[tour.charter];
   return { points, cars, champion: points >= charter.target && cars >= charter.minCars };
 }
 
+function scoringCarIds(tour: OwnerTour): Set<string> {
+  return new Set(tour.rounds.flatMap((finish) => finish && finishPoints(finish) > 0 ? [finish.vehicleUid] : []));
+}
+
+export function needsNewScoringCar(tour: OwnerTour): boolean {
+  const missing = CHARTERS[tour.charter].minCars - scoringCarIds(tour).size;
+  const remaining = tourCalendar(tour).length - tour.rounds.length;
+  return missing > 0 && remaining === missing && titleForecast(tour).status === "possible";
+}
+
+export function titleForecast(tour: OwnerTour): { maximum: number; maximumAfterSkip: number; status: "secured" | "possible" | "out" } {
+  const charter = CHARTERS[tour.charter];
+  const remaining = tourCalendar(tour).length - tour.rounds.length;
+  const banked = tour.rounds.map(finishPoints);
+  const ceiling = (wins: number) => [...banked, ...Array<number>(wins).fill(TOUR_POINTS[0])]
+    .sort((a, b) => b - a).slice(0, 4).reduce((total, points) => total + points, 0);
+  const maximum = ceiling(remaining);
+  const current = tourScore(tour);
+  const status = current.champion ? "secured"
+    : maximum < charter.target || current.cars + remaining < charter.minCars ? "out" : "possible";
+  return { maximum, maximumAfterSkip: ceiling(Math.max(0, remaining - 1)), status };
+}
+
 export function ownerClassBlocker(tour: OwnerTour, car: Vehicle): string | null {
   const charter = CHARTERS[tour.charter];
-  const vehicleId = charter.calendar[tour.rounds.length]?.vehicleId;
+  const vehicleId = tourCalendar(tour)[tour.rounds.length]?.vehicleId;
   if (vehicleId && car.vehicleId !== vehicleId) return `This round requires a ${getVehicle(vehicleId).name}.`;
   if (charter.tier !== null && getVehicle(car.vehicleId).tier !== charter.tier) return "Only Go-Karts can enter this cup.";
   return null;
 }
 
+export function tourGarage(state: GameState, tour: OwnerTour, call: RaceSpec["call"], call2?: RaceSpec["call2"]): Vehicle[] {
+  const stop = tourCalendar(tour)[tour.rounds.length];
+  if (!stop) return [];
+  const [minimum, maximum] = getVenue(stop.venueId).tiers;
+  const needReserve = needsNewScoringCar(tour);
+  const scoringCars = scoringCarIds(tour);
+  return state.run.vehicles.flatMap((car) => {
+    const tier = getVehicle(car.vehicleId).tier;
+    if (tier < minimum || tier > maximum || ownerClassBlocker(tour, car)) return [];
+    const ready = Number(!ownerEntryBlocker(state, tour, car.uid, call, call2));
+    return [{
+      car, ready, fulfillsLineup: Number(needReserve && !scoringCars.has(car.uid)),
+      odds: winChance(state, car, stop.venueId, stop.event, call, call2),
+      dnf: dnfChance(state, car, stop.venueId, stop.event, call, call2),
+      score: effectiveScore(state, car, stop.venueId, call, call2, stop.event),
+    }];
+  }).sort((a, b) => b.ready - a.ready || b.fulfillsLineup - a.fulfillsLineup || b.odds - a.odds || a.dnf - b.dnf || b.score - a.score)
+    .map(({ car }) => car);
+}
+
 export function ownerEntryBlocker(state: GameState, tour: OwnerTour, vehicleUid: string, call: RaceSpec["call"], call2?: RaceSpec["call2"]): string | null {
-  const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
+  const stop = tourCalendar(tour)[tour.rounds.length];
   if (tour.status !== "active" || !stop) return "Start a championship first.";
   if (currentTourEntry(state)) return "This round already has an entry.";
   const car = state.run.vehicles.find((vehicle) => vehicle.uid === vehicleUid);
   if (!car) return "Choose a car.";
-  return ownerClassBlocker(tour, car)
+  const eligibility = ownerClassBlocker(tour, car)
     ?? jobBlocker(state, { kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid, call, call2 }, true);
+  if (eligibility) return eligibility;
+  if (signedUp(state, stop.venueId, stop.event)) return "An ordinary entry already uses this race. Finish or withdraw it first.";
+  if (state.run.queue.some((job) => job.kind === "race" && job.vehicleUid === vehicleUid) && !rungPending(state, stop.venueId, stop.event, vehicleUid)) {
+    return "This car already has a race sign-up.";
+  }
+  return null;
 }
 
 export function applyOwner(state: GameState, move: OwnerMove): string | null {
@@ -190,14 +334,27 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
       if (tour?.status === "active") return "Finish or retire from your current championship first.";
       const blocked = ownerCharterBlocker(state, move.charter);
       if (blocked) return blocked;
+      const sponsorBlocked = move.sponsor && sponsorshipBlocker(state, move.sponsor);
+      if (sponsorBlocked) return sponsorBlocked;
+      if (move.itinerary === "reverse" && !reverseTourUnlocked(state, move.charter)) {
+        return "Win this charter in your current discipline to race it in reverse.";
+      }
+      if (move.itinerary === "endurance" && !enduranceTourUnlocked(state, move.charter)) {
+        return "Win this charter in both Dirt Oval and Drag to run the all-Feature tour.";
+      }
+      if (move.itinerary !== undefined && move.itinerary !== "reverse" && move.itinerary !== "endurance") return "Choose an available itinerary.";
       const newTour: OwnerTour = {
         id: nextUid(state, "tour"),
         charter: move.charter,
         discipline: state.era!.discipline,
         rounds: [],
         status: "active",
+        sponsor: move.sponsor,
+        itinerary: move.itinerary,
       };
+      if (move.sponsor) state.run.cash -= TOUR_SPONSORS[move.sponsor].stake;
       if (owner) {
+        owner.records ??= ownerRecords(owner);
         owner.history.unshift(owner.tour);
         if (owner.history.length > OWNER_HISTORY_LIMIT) owner.history.length = OWNER_HISTORY_LIMIT;
         owner.tour = newTour;
@@ -213,7 +370,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
       if (move.call !== "push" && move.call !== "nurse") return "Choose a race call.";
       const blocker = ownerEntryBlocker(state, tour, move.vehicleUid, move.call, move.call2);
       if (blocker) return blocker;
-      const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
+      const stop = tourCalendar(tour)[tour.rounds.length];
       return enqueue(state, {
         kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid: move.vehicleUid, call: move.call, call2: move.call2,
         tourRound: tourRoundToken(tour),
@@ -250,13 +407,13 @@ export function forfeitOwnerTour(state: GameState): void {
   logSeason(state, `retired:${tour.id}`, `Retired from the ${CHARTERS[tour.charter].name}.`);
 }
 
-export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: RaceResult): void {
+export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: RaceResult, entry: number): void {
   if (state.era && result.venueId === "state" && result.event === "feature" && result.position === 1 && !result.dnf) {
     state.meta.teamStateWon = true;
   }
   const tour = state.owner?.tour;
   if (!tour || tour.status !== "active" || spec.tourRound !== tourRoundToken(tour)) return;
-  const stop = CHARTERS[tour.charter].calendar[tour.rounds.length];
+  const stop = tourCalendar(tour)[tour.rounds.length];
   if (!stop || stop.venueId !== result.venueId || stop.event !== result.event || spec.vehicleUid !== result.vehicleUid) return;
   const car = state.run.vehicles.find((vehicle) => vehicle.uid === result.vehicleUid);
   if (!car || ownerClassBlocker(tour, car)) return;
@@ -266,6 +423,8 @@ export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: Race
     carName: car.name,
     position: result.position,
     dnf: result.dnf,
+    finance: { entry, prize: result.prize },
+    setup: { engine: car.parts.engine?.partId, tires: car.parts.wheel?.partId, tune: car.tune, call: result.call },
   };
   const venue = venueName(stop.venueId, tour.discipline);
   pushFeed(state, "race", `${venue} scored ${finishPoints(finish)} championship points for ${finish.carName}.`, { key: `championship-round:${finish.raceId}` });
@@ -280,6 +439,16 @@ function completeRound(state: GameState, finish: OwnerFinish | null): void {
   if (tour.rounds.length < charter.calendar.length) return;
   const score = tourScore(tour);
   tour.status = score.champion ? "champion" : "finished";
+  if (owner.records) creditOwnerRecord(owner.records, tour);
+  else owner.records = ownerRecords(owner);
+  const sponsorship = sponsorProgress(tour);
+  if (tour.sponsor && sponsorship) {
+    const sponsor = TOUR_SPONSORS[tour.sponsor];
+    state.run.cash += sponsorship.payout;
+    pushFeed(state, "race", sponsorship.payout
+      ? `${sponsor.name} paid ${sponsorship.payout} Scrap Bucks, including your returned stake.`
+      : `${sponsor.name}'s target was missed. Your stake was forfeited.`, { key: `championship-sponsor:${tour.id}` });
+  }
   if (score.champion) {
     owner.titles += 1;
     owner.charterTitles[tour.charter] += 1;
