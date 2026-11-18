@@ -1948,3 +1948,12 @@ dialog.replay {
 }
 
 /* ── end race track ── */
+
+.archive-filters { display: flex; flex-wrap: wrap; gap: .7rem; }
+.archive-field { display: grid; gap: .3rem; margin: .5rem 0; color: var(--ink-2); }
+.archive-field :is(input, select) { max-width: 100%; min-width: 0; padding: .45rem; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.part-study { display: flex; gap: 1rem; align-items: center; padding: .75rem; border: 1px solid var(--line); background: var(--card); }
+.part-study img { width: clamp(64px, 20vw, 144px); height: auto; flex: none; }
+.part-study h4 { margin: 0; }
+.part-study p { margin: .35rem 0 0; }
+.hof summary img { vertical-align: middle; object-fit: contain; }

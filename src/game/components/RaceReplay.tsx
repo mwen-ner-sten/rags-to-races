@@ -38,20 +38,30 @@ function prefersReducedMotion(): boolean {
 function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameState; onClose: () => void; onFix: () => void }) {
   const [t, setT] = useState(() => (prefersReducedMotion() ? 1 : 0));
 
+  const progress = useRef(t);
+  const [playing, setPlaying] = useState(() => !prefersReducedMotion());
+  const [speed, setSpeed] = useState(1);
+
+  function seek(value: number) {
+    progress.current = value;
+    setT(value);
+    setPlaying(false);
+  }
+
   useEffect(() => {
-    if (t >= 1) return;
-    const start = performance.now() - t * REPLAY_MS;
+    if (!playing) return;
+    let last = performance.now();
     let frame = 0;
     const step = (now: number) => {
-      const p = Math.min(1, (now - start) / REPLAY_MS);
-      setT(p);
-      if (p < 1) frame = requestAnimationFrame(step);
+      progress.current = Math.min(1, progress.current + (now - last) * speed / REPLAY_MS);
+      last = now;
+      setT(progress.current);
+      if (progress.current < 1) frame = requestAnimationFrame(step);
+      else setPlaying(false);
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-    // Only start once per mount; skipping sets t to 1 directly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playing, speed]);
 
   const shown = shownFrom(game, race);
   const finished = t >= 1;
@@ -64,6 +74,20 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
         Replay: {shown.venueLabel} {race.event}
       </h2>
       <RaceScreen race={shown} ms={t * shown.durationMs} lines={finished ? 0 : 3} />
+      <div className="actions replay-transport">
+        <button className="btn" onClick={() => {
+          if (finished) { progress.current = 0; setT(0); }
+          setPlaying(!playing);
+        }}>{playing ? "Pause replay" : finished ? "Replay again" : "Resume replay"}</button>
+        <label>Replay speed{" "}
+          <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
+            {[0.5, 1, 2].map((value) => <option key={value} value={value}>{value}×</option>)}
+          </select>
+        </label>
+        <label>Race progress{" "}
+          <input type="range" min="0" max="1000" value={Math.round(t * 1000)} onChange={(event) => seek(Number(event.target.value) / 1000)} />
+        </label>
+      </div>
       {finished ? (
         <div className="debrief">
           <p className="big">{finishText(race)}</p>
@@ -94,7 +118,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
           </button>
         </div>
       ) : (
-        <button className="btn" onClick={() => setT(1)}>
+        <button className="btn" onClick={() => seek(1)}>
           Skip to the flag
         </button>
       )}

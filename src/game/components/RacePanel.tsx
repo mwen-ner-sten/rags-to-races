@@ -49,14 +49,34 @@ function Ladder({ game, venueId }: { game: GameState; venueId: string }) {
 
 function Results({ game }: { game: GameState }) {
   const showReplay = useGame((s) => s.showReplay);
-  const races = [...game.run.races].reverse().slice(0, 12);
-  if (races.length === 0) return null;
+  const [venue, setVenue] = useState("");
+  const [outcome, setOutcome] = useState("");
+  const [limit, setLimit] = useState(12);
+  const all = [...game.run.races].reverse();
+  const venues = [...new Set(all.map((race) => race.venueId))];
+  const races = all.filter((race) => (!venue || race.venueId === venue) &&
+    (!outcome || (outcome === "dnf" ? race.dnf : race.position === 1 && !race.dnf)));
+  if (all.length === 0) return null;
   const discipline = game.era?.discipline ?? "dirt";
   return (
     <section className="section" aria-labelledby="results-h">
       <h2 id="results-h">Results</h2>
+      <div className="archive-filters">
+        <label className="archive-field">Results venue
+          <select value={venue} onChange={(event) => { setVenue(event.target.value); setLimit(12); }}>
+            <option value="">All venues</option>
+            {venues.map((id) => <option key={id} value={id}>{venueName(id, discipline)}</option>)}
+          </select>
+        </label>
+        <label className="archive-field">Race outcome
+          <select value={outcome} onChange={(event) => { setOutcome(event.target.value); setLimit(12); }}>
+            <option value="">All results</option><option value="win">Wins</option><option value="dnf">DNFs</option>
+          </select>
+        </label>
+      </div>
+      {!races.length && <p role="status">No matching races this season.</p>}
       <ul className={`results${races.some((r) => r.rounds !== undefined) ? " wide" : ""}`}>
-        {races.map((r) => (
+        {races.slice(0, limit).map((r) => (
           <li key={r.id} className={r.position === 1 && !r.dnf ? "win" : r.dnf ? "dnf" : ""}>
             <span className="pos num">{finishText(r)}</span>
             <span>
@@ -71,6 +91,7 @@ function Results({ game }: { game: GameState }) {
           </li>
         ))}
       </ul>
+      {races.length > limit && <button className="btn" onClick={() => setLimit(limit + 12)}>Show older races</button>}
     </section>
   );
 }
