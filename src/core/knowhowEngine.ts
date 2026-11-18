@@ -2,7 +2,7 @@ import { channel } from "./channels";
 import { KNOWHOW, PLACE_REP, getKnowhow } from "./content/knowhow";
 import { pushFeed } from "./feed";
 import { addJournal } from "./journal";
-import { resolveFlags, teamUpgrade } from "./rules";
+import { hasPerk, resolveFlags, teamUpgrade } from "./rules";
 import type { GameState } from "./types";
 
 export type KnowhowTier = "learning" | "familiar" | "second_nature";
@@ -28,6 +28,7 @@ export function studyMs(state: GameState, id: string): number {
 
 /** Rep cost to open a place this Season (0 when it opens on its own). */
 export function placeRepCost(state: GameState, id: string): number {
+  if (id === "place:junkyard" && hasPerk(state, "dirt_track_pass") && hasPerk(state, "borrowed_trailer")) return 0;
   const base = PLACE_REP[id] ?? 0;
   const tier = knowhowTier(state, id);
   if (tier === "familiar") return Math.ceil(base / 2);

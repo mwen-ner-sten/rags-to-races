@@ -38,7 +38,7 @@ export const PERKS: readonly PerkDef[] = [
   { id: "hot_shoe", name: "Hot Shoe", kind: "Risk", text: "Parts wear 20% less in races.", maxRank: 1, cost: [12], unlock: { type: "dare", dareId: "hot_lap" } },
   { id: "local_hero", name: "Local Hero", kind: "Milestone", text: "Feature wins pay double Rep.", maxRank: 1, cost: [12], unlock: { type: "dare", dareId: "clean_sweep" } },
   { id: "short_cut", name: "Short Cut", kind: "Unlock", text: "The Beater plans don't need an engine hoist.", maxRank: 1, cost: [14], unlock: { type: "dare", dareId: "kart_to_fair" } },
-  { id: "dirt_track_pass", name: "Dirt Track Pass", kind: "Unlock", text: "Start the Season with entry to the Dirt Track (Strip Night in Drag). For example, pair it with Borrowed Trailer to source parts and follow the Go-Kart route without building a Riding Mower. You still need Welding and a legal race vehicle. Rookie Plates disables the pass.", maxRank: 1, cost: [12], unlock: { type: "challenge", challengeId: "homebuilt_relay", completions: 3 } },
+  { id: "dirt_track_pass", name: "Dirt Track Pass", kind: "Unlock", text: "Start the Season with entry to the Dirt Track (Strip Night in Drag). Equip Borrowed Trailer too and you can open Marisol's Junkyard for 0 Rep, sell and strip spare parts, and build a Go-Kart before your first race. One Yard still limits where you can haul. Rookie Plates disables the pass.", maxRank: 1, cost: [12], unlock: { type: "challenge", challengeId: "homebuilt_relay", completions: 3 } },
 ];
 
 export const PERK_BY_ID: Record<string, PerkDef> = Object.fromEntries(PERKS.map((p) => [p.id, p]));

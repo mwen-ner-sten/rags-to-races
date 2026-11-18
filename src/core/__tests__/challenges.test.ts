@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { decodeGameState } from "../../game/save";
 import { channel } from "../channels";
 import { PLACES } from "../content/places";
+import { getVehicle } from "../content/vehicles";
+import { stripYield } from "../garage";
 import { apply, createGame, must } from "../index";
+import { baseDuration, jobBlocker } from "../jobs";
 import { settleRace } from "../race";
-import type { GameState, RaceRoll, Vehicle } from "../types";
+import type { GameState, JobSpec, RaceRoll, Vehicle } from "../types";
 
 const WIN: RaceRoll = {
   position: 1, fieldSize: 6, dnf: false, margin: 1, rivalBeaten: true,
@@ -32,6 +35,11 @@ function race(state: GameState, kart: Vehicle, venueId: string, seasonMs: number
 function newAttempt(state: GameState, dare: string) {
   state.run.featureWins.county_fair ??= 0;
   return must(state, { type: "reset", layer: "scrap", choices: { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare, hardships: [] } });
+}
+
+function finishJob(state: GameState, spec: JobSpec): GameState {
+  const queued = must(state, { type: "enqueue", spec });
+  return must(queued, { type: "advance", ms: Math.ceil(baseDuration(state, spec)) });
 }
 
 describe("repeatable Season challenges", () => {
@@ -132,26 +140,54 @@ describe("repeatable Season challenges", () => {
     const blocked = apply(standard, { type: "openPlace", knowhowId: "place:dirt" });
     expect(blocked.error).toBe("Own a Riding Mower");
 
-    let withPass = must(state, { type: "reset", layer: "scrap", choices });
+    const trailerOnly = must(state, { type: "reset", layer: "scrap", choices: { ...choices, buy: ["borrowed_trailer"], perks: ["borrowed_trailer"] } });
+    expect(apply(trailerOnly, { type: "openPlace", knowhowId: "place:junkyard" }).error).toBe("Needs 40 Rep");
+
+    const reset = must(state, { type: "reset", layer: "scrap", choices });
+    let withPass = decodeGameState(reset)!;
     expect(withPass.run.venuesOpen).toContain("dirt");
     expect(withPass.run.ladder.dirt).toEqual(["sprint"]);
     expect(withPass.run.vehicles).toEqual([]);
+    expect(withPass.run.inventory).toEqual([]);
+    expect(withPass.run.rep).toBe(0);
+    expect(withPass.run.cash).toBe(0);
     expect(withPass.run.available).not.toContain("blueprint:go_kart");
     expect(channel(withPass, "practice")).toBeCloseTo(1.15);
 
-    withPass.run.cash = 300;
-    withPass.run.rep = 40;
-    withPass.run.materials = { metal: 6, rubber: 2, wiring: 0 };
     withPass = must(withPass, { type: "openPlace", knowhowId: "place:junkyard" });
+    const slots = getVehicle("go_kart").slots.filter((slot) => slot.required);
+    const partUids: Record<string, string> = {};
+    const kitReady = (game: GameState) => slots.every((slot) => !!partUids[slot.slot]) && game.run.cash >= 305
+      && game.run.materials.metal >= 6 && game.run.materials.rubber >= 2;
+    for (let trips = 0; trips < 60 && !kitReady(withPass); trips += 1) {
+      withPass = finishJob(withPass, { kind: "haul", placeId: "junkyard" });
+      for (const slot of slots) {
+        const best = withPass.run.inventory.filter((part) => part.condition > 0 && slot.accepts.includes(part.partId))
+          .sort((a, b) => b.condition - a.condition)[0];
+        if (best) partUids[slot.slot] = best.uid;
+      }
+      const spares = withPass.run.inventory.filter((part) => !Object.values(partUids).includes(part.uid));
+      const sales: string[] = [];
+      for (const part of spares) {
+        const yield_ = stripYield(part);
+        if ((withPass.run.materials.rubber < 2 && yield_.rubber) || (withPass.run.materials.metal < 6 && yield_.metal)) {
+          withPass = finishJob(withPass, { kind: "strip", partUid: part.uid });
+        } else {
+          sales.push(part.uid);
+        }
+      }
+      if (sales.length) withPass = must(withPass, { type: "sell", partUids: sales });
+    }
+    expect(kitReady(withPass)).toBe(true);
+    expect(withPass.run.rep).toBe(0);
     withPass = must(withPass, { type: "buyTool", toolId: "welder" });
-    withPass = must(withPass, { type: "enqueue", spec: { kind: "study", knowhowId: "tech:welding" } });
-    withPass = must(withPass, { type: "advance", ms: 6 * 3_600_000 });
-    withPass = must(withPass, { type: "enqueue", spec: { kind: "study", knowhowId: "blueprint:go_kart" } });
-    withPass = must(withPass, { type: "advance", ms: 8 * 3_600_000 });
-    withPass.run.inventory = Object.entries(KART).map(([slot, partId]) => ({ uid: slot, partId, condition: 3, origin: JUNKYARD }));
-    withPass = must(withPass, { type: "enqueue", spec: { kind: "assemble", vehicleId: "go_kart", name: "First Kart", partUids: { engine: "engine", frame: "frame", wheel: "wheel", fuel: "fuel" } } });
-    withPass = must(withPass, { type: "advance", ms: 6 * 3_600_000 });
+    withPass = finishJob(withPass, { kind: "study", knowhowId: "tech:welding" });
+    withPass = finishJob(withPass, { kind: "study", knowhowId: "blueprint:go_kart" });
+    withPass = finishJob(withPass, { kind: "assemble", vehicleId: "go_kart", name: "First Kart", partUids });
     expect(withPass.run.vehicles.map((vehicle) => vehicle.vehicleId)).toEqual(["go_kart"]);
+    expect(withPass.run.races).toEqual([]);
+    expect(withPass.run.rep).toBe(0);
+    expect(jobBlocker(withPass, { kind: "race", venueId: "dirt", event: "sprint", call: "push", vehicleUid: withPass.run.vehicles[0].uid }, true)).toBeNull();
 
     state.meta.stateWonEver = true;
     const rookie = must(state, { type: "reset", layer: "team", choices: {
@@ -159,5 +195,13 @@ describe("repeatable Season challenges", () => {
     } });
     expect(rookie.meta.perks.dirt_track_pass).toBe(1);
     expect(rookie.run.venuesOpen).toEqual(["backyard"]);
+    expect(apply(rookie, { type: "openPlace", knowhowId: "place:junkyard" }).error).toBe("Own a Riding Mower");
+
+    const oneYard = must(state, { type: "reset", layer: "team", choices: {
+      ...choices, hardships: ["one_yard"], teamName: "One Yard team", colors: ["#000", "#fff"], discipline: "dirt",
+    } });
+    const onlyJunkyard = must(oneYard, { type: "openPlace", knowhowId: "place:junkyard" });
+    expect(onlyJunkyard.run.placesOpen).toEqual(["curb", "junkyard"]);
+    expect(apply(onlyJunkyard, { type: "openPlace", knowhowId: "place:yards" }).error).toContain("One Yard");
   });
 });

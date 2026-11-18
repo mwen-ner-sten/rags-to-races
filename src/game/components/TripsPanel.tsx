@@ -169,7 +169,9 @@ export function TripsPanel() {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
   if (!game) return null;
-  const places = PLACES.filter((p) => p.id === "curb" || game.run.revealed.includes("places") || game.run.placesOpen.includes(p.id));
+  const freeJunkyard = placeRepCost(game, "place:junkyard") === 0;
+  const places = PLACES.filter((p) => p.id === "curb" || game.run.revealed.includes("places") || game.run.placesOpen.includes(p.id)
+    || (p.id === "junkyard" && freeJunkyard));
   const visible = places.filter((p) => {
     if (game.run.placesOpen.includes(p.id) || p.id === "yards") return true;
     const def = KNOWHOW_BY_ID[`place:${p.id}`];
