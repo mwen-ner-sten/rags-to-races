@@ -98,6 +98,7 @@ export function OwnerPanel() {
   const active = tour?.status === "active";
   const replayable = !!game.era && (gate.ok || !!owner);
   const titleLabel = owner?.titles === 1 ? "title" : "titles";
+  const cupLocked = ownerCharterBlocker(game, "county_to_state");
 
   return (
     <div className="panel">
@@ -106,6 +107,7 @@ export function OwnerPanel() {
         {!owner && <p className="sub">Sign a touring charter and take your existing team, crew and garage on the road.</p>}
         {!replayable && <p className="why">{gate.reason}</p>}
         {tour && <p className="sub">{CHARTERS[tour.charter].name} · {DISCIPLINES[tour.discipline].name}</p>}
+        {active && cupLocked && <p className="sub">County-to-State Cup invitation · {cupLocked}</p>}
       </section>
       {tour && (
         <>

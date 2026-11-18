@@ -61,6 +61,14 @@ function raceRound(game: GameState, carUid: string): GameState {
   return must(entered, { type: "advance", ms: 25 * HOUR, away: true });
 }
 
+function finishTour(game: GameState, carUid: string): GameState {
+  const tour = game.owner!.tour;
+  for (let round = tour.rounds.length; round < CHARTERS[tour.charter].calendar.length; round++) {
+    game = raceRound(game, carUid);
+  }
+  return game;
+}
+
 describe("Owner championships", () => {
   it("requires a Team-era State win and preserves the cars on founding", () => {
     const game = team();
@@ -148,11 +156,11 @@ describe("Owner championships", () => {
     let game = found("club");
     game.run.vehicles.push(vehicle("kart", "go_kart", KART));
     const startCup = { type: "owner", move: { type: "start", charter: "county_to_state" } } as const;
-    for (const _ of CHARTERS.club.calendar) game = raceRound(game, "kart");
+    game = finishTour(game, "kart");
     expect(game.owner!.charterTitles.club).toBe(1);
     expect(apply(game, startCup).error).toMatch(/Independent Tour or Two-Car Works Trophy/);
     game = must(game, { type: "owner", move: { type: "start", charter: "club" } });
-    for (const _ of CHARTERS.club.calendar) game = raceRound(game, "kart");
+    game = finishTour(game, "kart");
     expect(game.owner!.titles).toBe(2);
     expect(apply(game, startCup).error).toMatch(/Independent Tour or Two-Car Works Trophy/);
     game = must(game, { type: "owner", move: { type: "start", charter: "privateer" } });
@@ -169,7 +177,7 @@ describe("Owner championships", () => {
     expect(apply(game, { type: "owner", move: { type: "enter", vehicleUid: "stock", call: "nurse" } }).error).toMatch(/requires a Go-Kart/);
     let stockOnly = must(game, { type: "owner", move: { type: "skip" } });
     stockOnly = must(stockOnly, { type: "owner", move: { type: "skip" } });
-    for (const _ of CHARTERS.county_to_state.calendar.slice(2)) stockOnly = raceRound(stockOnly, "stock");
+    stockOnly = finishTour(stockOnly, "stock");
     expect(tourScore(stockOnly.owner!.tour)).toEqual({ points: 36, cars: 1, champion: false });
     expect(stockOnly.owner!.tour.status).toBe("finished");
     expect(stockOnly.owner!.charterTitles.county_to_state).toBe(0);
