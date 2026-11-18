@@ -122,6 +122,30 @@ export function planPurchases(state: GameState, buy: string[], lpAvailable: numb
   return { ranks, lpLeft: lp };
 }
 
+export const BUILDER_LOADOUTS = {
+  salvage: { name: "Salvage runs", note: "Tow earlier and bring back bigger loads. Bench work gets no tune-up points.", perks: ["borrowed_trailer", "tow_hitch"], primary: "haul", secondary: "build" },
+  workshop: { name: "Workshop nights", note: "Repair rusted parts directly and work faster on the bench while away. Trips keep their usual speed.", perks: ["shade_tree", "night_owl"], primary: "wrench", secondary: "build" },
+  kart: { name: "Go-Kart first", note: "Open Dirt and the Junkyard before a race. Fund Welding and assembly by selling and stripping finds.", perks: ["dirt_track_pass", "borrowed_trailer"], primary: "haul", secondary: "wrench" },
+} as const;
+
+export function planBuilderLoadout(state: GameState, route: keyof typeof BUILDER_LOADOUTS, slots: number, points: number, lpAvailable: number, pending: string[]) {
+  const draft = BUILDER_LOADOUTS[route];
+  if (draft.perks.length > slots) return `Needs ${draft.perks.length} perk slots`;
+  const current = planPurchases(state, pending, lpAvailable);
+  if (typeof current === "string") return current;
+  const buy = [...pending, ...draft.perks.filter((id) => !(current.ranks[id] > 0))];
+  const purchase = planPurchases(state, buy, lpAvailable);
+  if (typeof purchase === "string") return purchase;
+  const tuneUp: Record<SkillId, number> = { haul: 0, wrench: 0, build: 0, race: 0 };
+  tuneUp[draft.secondary] = Math.floor(points / 3);
+  tuneUp[draft.primary] = points - tuneUp[draft.secondary];
+  return { buy, perks: [...draft.perks], tuneUp, lpCost: current.lpLeft - purchase.lpLeft };
+}
+
+export function teamResetLegacyBudget(state: GameState): number {
+  return state.scrap.lp + scrapAward(state);
+}
+
 function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: number, tuneUpPoints: number, teamEra: boolean, lpAvailable: number, discipline: DisciplineId): string | null {
   const plan = planPurchases(state, choices.buy ?? [], lpAvailable);
   if (typeof plan === "string") return plan;
@@ -189,11 +213,12 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
     if (c.keepCrewId && !(s.team.upgrades.old_hands ?? 0)) return "You need Old Hands to keep a crew member";
     // After a Team Reset the Scrap layer starts over: 2 base slots (+ team upgrades), 5 tune-up points.
     const slots = nextTeamPerkSlots(s);
-    return validateScrapChoices(s, c, slots, 5, true, s.scrap.lp, c.discipline);
+    return validateScrapChoices(s, c, slots, 5, true, teamResetLegacyBudget(s), c.discipline);
   },
   apply: (s, award, choices, before) => {
-    // LP is spent before the Scrap layer clears.
-    s.scrap.lp = before.scrap.lp;
+    // Bank the ending Season once so players can spend its LP before the era balance clears.
+    s.scrap.lp = teamResetLegacyBudget(before);
+    s.scrap.lifetimeLp += scrapAward(before);
     buyPerks(s, choices.buy ?? []);
     s.scrap.lp = 0;
     s.team.tp += award;

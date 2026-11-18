@@ -11,9 +11,9 @@ import { PERK_BY_ID } from "./content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADE_BY_ID } from "./content/team";
 import { TOOL_BY_ID } from "./content/tools";
 import { SHELL_PRICE, getVehicle } from "./content/vehicles";
-import { DRIVEWAY_RULES, counterPrice, fillFromDriveway, reservedPartUids, sellParts, swapOutCandidate, vehicleBusy } from "./garage";
+import { DRIVEWAY_RULES, counterPrice, fillFromDriveway, garageSpace, reservedPartUids, sellParts, swapOutCandidate, vehicleBusy } from "./garage";
 import { templateBase } from "./habits";
-import { advance, afterChange, cancelJob, dispatch, dropJob, dropOrphanSignUps, enqueue } from "./jobs";
+import { advance, afterChange, cancelJob, dispatch, dropJob, dropOrphanSignUps, enqueue, jobBlocker } from "./jobs";
 import { canOpenPlace, isLearned, learn, placeRepCost } from "./knowhowEngine";
 import { crewCap, performReset, type LayerId, type ScrapChoices, type TeamChoices } from "./layers";
 import { nextUid } from "./rng";
@@ -28,9 +28,13 @@ export type Action =
   | { type: "promoter"; move: PromoterMove }
   | { type: "advance"; ms: number; away?: boolean }
   | { type: "enqueue"; spec: JobSpec }
+  | { type: "batchClean"; partUids: string[] }
+  | { type: "serviceInstalled"; vehicleUid: string; slot: string }
   | { type: "cancelQueued"; index: number }
+  | { type: "prioritizeQueued"; index: number }
   | { type: "cancelJob"; jobId: string }
   | { type: "sell"; partUids: string[] }
+  | { type: "protectPart"; partUid: string; keep: boolean }
   | { type: "swapIn"; partUid: string }
   | { type: "setDrivewayRule"; rule: DrivewayRule }
   | { type: "openPlace"; knowhowId: string }
@@ -81,10 +85,33 @@ function applyMut(s: GameState, action: Action): string | null {
     case "enqueue":
       if (action.spec.kind === "race" && action.spec.tourRound !== undefined) return "Enter touring rounds from the Owner calendar";
       return enqueue(s, action.spec);
+    case "batchClean": {
+      if (action.partUids.length < 2 || action.partUids.length > 3 || new Set(action.partUids).size !== action.partUids.length) return "Choose two or three different parts";
+      for (const partUid of action.partUids) {
+        const issue = enqueue(s, { kind: "clean", partUid });
+        if (issue) return issue;
+      }
+      return null;
+    }
+    case "serviceInstalled": {
+      const staged = installedService(s, action.vehicleUid, action.slot);
+      if (typeof staged === "string") return staged;
+      const issue = applyMut(s, { type: "uninstall", vehicleUid: action.vehicleUid, slot: action.slot });
+      return issue ?? enqueue(s, staged);
+    }
     case "cancelQueued":
       if (action.index < 0 || action.index >= s.run.queue.length) return "Nothing there";
       s.run.queue.splice(action.index, 1);
       return null;
+    case "prioritizeQueued": {
+      if (!Number.isInteger(action.index) || action.index < 1 || action.index >= s.run.queue.length) return "Pick a queued job with a job ahead of it";
+      const job = s.run.queue[action.index];
+      if (job.kind === "race" || s.run.queue[action.index - 1].kind === "race") return "Race sign-ups keep their event order";
+      s.run.queue[action.index] = s.run.queue[action.index - 1];
+      s.run.queue[action.index - 1] = job;
+      dispatch(s);
+      return null;
+    }
     case "cancelJob": {
       const job = s.run.jobs.find((j) => j.id === action.jobId);
       if (job?.spec.kind === "race") return "You're already on the track";
@@ -99,6 +126,13 @@ function applyMut(s: GameState, action: Action): string | null {
       if (parts.some((p) => reserved.has(p.uid))) return "A part is being worked on";
       sellParts(s, parts);
       afterChange(s);
+      return null;
+    }
+    case "protectPart": {
+      const part = s.run.inventory.find((candidate) => candidate.uid === action.partUid)
+        ?? s.run.driveway.find((candidate) => candidate.uid === action.partUid);
+      if (!part) return "Pick a loose part";
+      part.protected = action.keep;
       return null;
     }
     case "swapIn": {
@@ -323,6 +357,19 @@ export function must(state: GameState, action: Action): GameState {
   const result = apply(state, action);
   if (result.error) throw new Error(`${action.type}: ${result.error}`);
   return result.state;
+}
+
+export function installedService(state: GameState, vehicleUid: string, slot: string): Extract<JobSpec, { kind: "clean" | "repair" | "restore" }> | string {
+  const part = state.run.vehicles.find((car) => car.uid === vehicleUid)?.parts[slot];
+  if (!part) return "Nothing installed";
+  if (vehicleBusy(state, vehicleUid) || state.run.queue.some((job) => job.kind === "race" && job.vehicleUid === vehicleUid)) return "Service after the signed-up race";
+  if (state.run.inventory.length >= garageSpace(state)) return "Make room in the garage before servicing it";
+  const projected = { ...state, run: { ...state.run, inventory: [...state.run.inventory, part] } };
+  const repair = { kind: "repair", partUid: part.uid } as const;
+  if (part.condition === 1 && !jobBlocker(projected, repair)) return repair;
+  const kind = part.condition <= 1 ? "clean" : part.condition === 2 ? "repair" : "restore";
+  const spec = { kind, partUid: part.uid } as const;
+  return jobBlocker(projected, spec) ?? spec;
 }
 
 export { channel };

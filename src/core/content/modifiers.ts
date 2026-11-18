@@ -39,6 +39,7 @@ export const PERKS: readonly PerkDef[] = [
   { id: "local_hero", name: "Local Hero", kind: "Milestone", text: "Feature wins pay double Rep.", maxRank: 1, cost: [12], unlock: { type: "dare", dareId: "clean_sweep" } },
   { id: "short_cut", name: "Short Cut", kind: "Unlock", text: "The Beater plans don't need an engine hoist.", maxRank: 1, cost: [14], unlock: { type: "dare", dareId: "kart_to_fair" } },
   { id: "dirt_track_pass", name: "Dirt Track Pass", kind: "Unlock", text: "Start the Season with entry to the Dirt Track (Strip Night in Drag). Equip Borrowed Trailer too and you can open Marisol's Junkyard for 0 Rep, sell and strip spare parts, and build a Go-Kart before your first race. One Yard still limits where you can haul. Rookie Plates disables the pass.", maxRank: 1, cost: [12], unlock: { type: "challenge", challengeId: "homebuilt_relay", completions: 3 } },
+  { id: "auction_bidder", name: "Auction Bidder Card", kind: "Unlock", text: "Open the Salvage Auction in Trips without Dirt Track entry or Rep. Each trip still costs 40 Scrap Bucks. For example, sell curb finds to pay for an early bid on better parts. One Yard and Rookie Plates still apply.", maxRank: 1, cost: [14], unlock: { type: "challenge", challengeId: "parts_with_a_past", completions: 3 } },
 ];
 
 export const PERK_BY_ID: Record<string, PerkDef> = Object.fromEntries(PERKS.map((p) => [p.id, p]));
@@ -79,6 +80,11 @@ export const SEASON_CHALLENGES = {
     name: "Parts With a Past",
     text: "Win the Fair Feature with at least three different haul locations represented on your car. Purchased and traded parts don't count.",
     mastery: "Haul speed at Curbside, the Yards and Marisol's Junkyard",
+  },
+  hand_me_down: {
+    name: "Hand-Me-Down Horsepower",
+    text: "Win the Dirt Track Feature (Strip Night in Drag) with a Riding Mower, then move that exact engine into a Go-Kart and win the Fair Feature. A Four-Cylinder, Lawn Mower Engine or Tiller Engine fits both builds.",
+    mastery: "Assembly speed",
   },
 } satisfies Record<SeasonChallengeId, SeasonChallengeDef>;
 

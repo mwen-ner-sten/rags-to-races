@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { DARES, PERK_BY_ID, SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
 import { CREW_BY_ID } from "@/core/content/team";
-import { LAYERS, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planPurchases, scrapAward, teamAward, type TeamChoices } from "@/core/layers";
+import { BUILDER_LOADOUTS, LAYERS, SCRAP_LAYER, TEAM_LAYER, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planBuilderLoadout, planPurchases, scrapAward, teamAward, teamResetLegacyBudget, type TeamChoices } from "@/core/layers";
 import { ownerTourActive } from "@/core/ownership";
 import type { DisciplineId, GameState, SkillId } from "@/core/types";
 import { num, pct } from "../format";
@@ -29,7 +29,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const dispatch = useGame((s) => s.dispatch);
   const isTeam = layer === "team";
   const award = isTeam ? teamAward(game) : scrapAward(game);
-  const lpAvailable = isTeam ? game.scrap.lp : game.scrap.lp + award;
+  const lpAvailable = isTeam ? teamResetLegacyBudget(game) : game.scrap.lp + award;
   const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game);
   const points = isTeam ? 5 : nextSeasonTuneUpPoints(game);
   const teamEraNext = isTeam || game.era !== null;
@@ -58,13 +58,13 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const gate = LAYERS[layer].gate(game);
   const nextDiscipline = isTeam ? discipline : game.era?.discipline ?? "dirt";
   const conflict = seasonObjectiveConflict(hardships, dare, nextDiscipline);
-  const blocker = gate.ok ? conflict : gate.reason;
+  const choices = { buy, perks: equipped, tuneUp: tune, dare, hardships };
+  const teamChoices = { ...choices, discipline, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices;
+  const blocker = gate.ok ? (isTeam ? TEAM_LAYER.validate(game, teamChoices) : SCRAP_LAYER.validate(game, choices)) : gate.reason;
   const activeChallenge = game.config.dare;
 
   const confirm = () => {
-    const base = { buy, perks: equipped, tuneUp: tune, dare, hardships };
-    const choices = isTeam ? ({ ...base, discipline, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices) : base;
-    if (dispatch({ type: "reset", layer, choices })) onDone();
+    if (dispatch({ type: "reset", layer, choices: isTeam ? teamChoices : choices })) onDone();
   };
 
   return (
@@ -73,6 +73,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
       <div className="award">
         <span className="big num">{num(award)}</span> {isTeam ? "Team Points" : "Legacy Points"} for this {isTeam ? "team" : "Season"}
       </div>
+      {isTeam && <p className="hint">{num(scrapAward(game))} Legacy Points from this Season are available to spend below. {num(lpLeft)} unspent Legacy Points will expire when the team resets.</p>}
       <div className="keep-lose">
         <div>
           <h3 className="label">You keep</h3>
@@ -92,6 +93,30 @@ export function ResetPlanner({ layer, onDone }: Props) {
           </ul>
         </div>
       </div>
+
+      <fieldset>
+        <legend>Builder loadouts</legend>
+        <p className="hint">A loadout sets equipped perks and tune-ups. Review any perk purchases before confirming the reset.</p>
+        {(Object.keys(BUILDER_LOADOUTS) as (keyof typeof BUILDER_LOADOUTS)[]).map((routeId) => {
+          const route = BUILDER_LOADOUTS[routeId];
+          const draft = planBuilderLoadout(game, routeId, slots, points, lpAvailable, buy);
+          const reason = hardships.includes("rookie_plates") ? "Rookie Plates disables perks" : typeof draft === "string" ? draft : null;
+          return (
+            <div key={routeId} className="row-card">
+              <div><strong>{route.name}</strong><p className="hint">{route.note}</p></div>
+              <div className="row-action">
+                <button className="btn small wrap" disabled={!!reason} onClick={() => {
+                  if (typeof draft === "string") return;
+                  setBuy(draft.buy);
+                  setEquip(draft.perks);
+                  setTune(draft.tuneUp);
+                }}>{typeof draft !== "string" && draft.lpCost > 0 ? `Plan · ${num(draft.lpCost)} Legacy Points` : "Use loadout"}</button>
+                {reason && <span className="why">{reason}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </fieldset>
 
       <ResetPerks
         game={game}

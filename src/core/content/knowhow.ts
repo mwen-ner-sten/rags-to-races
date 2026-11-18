@@ -51,7 +51,7 @@ export const KNOWHOW: readonly KnowhowDef[] = [
 
   { id: "place:yards", name: "Neighbourhood Yards", kind: "place", blurb: "Ask the neighbours if you can look around.", studyMs: 0, trigger: () => true, hint: "" },
   { id: "place:junkyard", name: "Marisol's Junkyard", kind: "place", blurb: "Membership card and a promise not to pet the dog.", studyMs: 0, trigger: (s) => owns(s, "riding_mower") || hasPerk(s, "borrowed_trailer"), hint: "Own a Riding Mower" },
-  { id: "place:auction", name: "Salvage Auction", kind: "place", blurb: "A bidder number with your name on it.", studyMs: 0, trigger: (s) => s.run.venuesOpen.includes("dirt"), hint: "Open the Dirt Track" },
+  { id: "place:auction", name: "Salvage Auction", kind: "place", blurb: "A bidder number with your name on it.", studyMs: 0, trigger: (s) => s.run.venuesOpen.includes("dirt") || hasPerk(s, "auction_bidder"), hint: "Open the Dirt Track" },
   { id: "place:long_haul", name: "The Long Haul", kind: "place", blurb: "The county yard lets you in if you can carry it out.", studyMs: 0, trigger: (s) => owns(s, "beater_car") || s.config.perks.includes("scavengers_map"), hint: "Finish the Beater" },
   { id: "place:dirt", name: "Dirt Track entry", kind: "place", blurb: "Your name on the sign-up sheet at the Dirt Track.", studyMs: 0, trigger: (s) => owns(s, "riding_mower"), hint: "Own a Riding Mower" },
 ];

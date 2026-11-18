@@ -24,7 +24,7 @@ const category = z.enum(["engine", "wheel", "frame", "fuel", "electronics", "dri
 const materials = z.object({ metal: amount, rubber: amount, wiring: amount });
 const partialMaterials = materials.partial();
 const tuneUp = z.object({ haul: count, wrench: count, build: count, race: count });
-const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string() });
+const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional() });
 const history = z.object({ races: count, wins: count, dnfs: count, bestFinish: count.positive().nullable() });
 const vehicle = z.object({
   uid: id, vehicleId: known(VEHICLE_BY_ID), name: z.string(), parts: z.record(id, part),
@@ -96,7 +96,7 @@ const run = z.object({
   reps: z.record(template, count), habitsKnown: z.array(template), habitSlots: z.array(template.nullable()),
   jobs: z.array(job), queue: z.array(jobSpec), idleLanes: z.array(id), practice: z.record(known(VENUE_BY_ID), amount),
   lastEntered: z.record(id, amount), featureWins: z.record(known(VENUE_BY_ID), amount), races: z.array(result),
-  challenge: z.object({ relay: z.array(z.object({ vehicleUid: id, frameUid: id })).optional(), completedAt: amount.optional() }),
+  challenge: z.object({ relay: z.array(z.object({ vehicleUid: id, frameUid: id })).optional(), handMeDownEngines: z.array(id).optional(), completedAt: amount.optional() }),
   stats: z.object({ partsSold: count, hauls: count, racesLost: z.record(known(VENUE_BY_ID), count), firstStartDone: z.boolean(), drivewayOverflows: count.optional(), dnfs: count.optional(), counterBuys: count.optional() }),
   revealed: z.array(id), candidates: z.array(known(CREW_BY_ID)), shellsBought: count,
   saleSat: z.record(known(PART_BY_ID), z.object({ n: amount, at: amount })), purseSat: z.record(id, z.object({ n: amount, at: amount })).optional(), notices: z.array(z.string()), pushOnlyRaces: z.boolean(),
@@ -123,6 +123,7 @@ function referencesValid(game: GameState): boolean {
   const { relay, completedAt } = game.run.challenge;
   const objective = game.config.dare;
   if (relay && objective !== "homebuilt_relay") return false;
+  if (game.run.challenge.handMeDownEngines && objective !== "hand_me_down") return false;
   if (isSeasonChallenge(objective)) {
     if (seasonObjectiveConflict(game.config.hardships, objective, game.era?.discipline ?? "dirt")) return false;
     if (completedAt !== undefined) {

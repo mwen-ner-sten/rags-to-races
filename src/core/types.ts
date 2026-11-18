@@ -48,6 +48,7 @@ export interface PartInstance {
   condition: Condition;
   /** Where it was found, for the Hall of Fame history. */
   origin: string;
+  protected?: boolean;
 }
 
 export interface VehicleHistory {
@@ -197,7 +198,7 @@ export interface HallOfFameEntry {
   parts: { slot: string; partId: string; condition: Condition; origin: string }[];
 }
 
-export type SeasonChallengeId = "homebuilt_relay" | "parts_with_a_past";
+export type SeasonChallengeId = "homebuilt_relay" | "parts_with_a_past" | "hand_me_down";
 
 export interface SeasonChallengeRecord {
   completions: number;
@@ -207,6 +208,7 @@ export interface SeasonChallengeRecord {
 
 export interface SeasonChallengeProgress {
   relay?: { vehicleUid: string; frameUid: string }[];
+  handMeDownEngines?: string[];
   completedAt?: number;
 }
 

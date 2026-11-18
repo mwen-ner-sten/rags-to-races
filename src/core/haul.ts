@@ -15,6 +15,16 @@ export function carryFor(state: GameState, crewId?: string): number {
   return Math.floor(channel(state, "carry")) + (crew?.carry ?? 0);
 }
 
+/** Chance per random part draw, excluding scripted opening finds. */
+export function haulOdds(placeId: string, focus?: HaulSpec["focus"]) {
+  const entries = getPlace(placeId).finds.map((find) => ({
+    item: find.partId,
+    weight: find.weight * (focus && getPart(find.partId).category === focus ? 3 : 1),
+  }));
+  const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  return entries.map((entry) => ({ ...entry, chance: entry.weight / total }));
+}
+
 /** Generates finds for a completed trip and adds them to the garage. */
 export function completeHaul(state: GameState, spec: HaulSpec, crewId?: string): PartInstance[] {
   const place = getPlace(spec.placeId);
@@ -31,11 +41,9 @@ export function completeHaul(state: GameState, spec: HaulSpec, crewId?: string):
     finds.push({ uid: nextUid(state, "p"), partId: scripted, condition: 1, origin: place.name });
     state.meta.codex.parts[scripted] = (state.meta.codex.parts[scripted] ?? 0) + 1;
   }
+  const odds = haulOdds(place.id, spec.focus);
   for (let i = finds.length; i < count; i++) {
-    const partId = pickWeighted(
-      state,
-      place.finds.map((f) => ({ item: f.partId, weight: f.weight * (spec.focus && getPart(f.partId).category === spec.focus ? 3 : 1) })),
-    );
+    const partId = pickWeighted(state, odds);
     let condition = pickWeighted(state, place.condition.map((w, c) => ({ item: c, weight: w })));
     const shift = quality + flags.conditionShift;
     const whole = Math.trunc(shift);

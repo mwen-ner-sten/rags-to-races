@@ -111,6 +111,9 @@ export function JobsBoard() {
                       <span className="muted num"> · next run in {duration(nextEventInMs(game, spec.venueId, spec.event))}</span>
                     )}
                   </span>
+                  {i > 0 && spec.kind !== "race" && game.run.queue[i - 1].kind !== "race" && (
+                    <button className="link-btn" onClick={() => dispatch({ type: "prioritizeQueued", index: i })} aria-label={`Move ${jobLabel(game, spec)} up`}>Move up</button>
+                  )}
                   <button className="link-btn" onClick={() => dispatch({ type: "cancelQueued", index: i })}>
                     Remove
                   </button>

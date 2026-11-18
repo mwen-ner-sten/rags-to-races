@@ -198,7 +198,7 @@ export function fillFromDriveway(state: GameState): void {
 /** The garage part a swap would send out to the driveway: the cheapest one not on the bench. */
 export function swapOutCandidate(state: GameState): PartInstance | null {
   const reserved = reservedPartUids(state);
-  return state.run.inventory.filter((p) => !reserved.has(p.uid)).sort((a, b) => partSellValue(state, a) - partSellValue(state, b))[0] ?? null;
+  return state.run.inventory.filter((p) => !p.protected && !reserved.has(p.uid)).sort((a, b) => partSellValue(state, a) - partSellValue(state, b))[0] ?? null;
 }
 
 function partNames(parts: PartInstance[]): string {
@@ -212,15 +212,16 @@ function clearDriveway(state: GameState): void {
   state.run.stats.drivewayOverflows = (state.run.stats.drivewayOverflows ?? 0) + 1;
   addJournal(state, "first_overflow", STORY.first_overflow);
   const rule = drivewayRule(state);
+  const reserved = reservedPartUids(state);
+  const disposable = state.run.driveway.filter((p) => !p.protected && !reserved.has(p.uid));
   if (rule === "leave") {
-    const left = state.run.driveway.splice(state.run.driveway.length - over, over);
-    overflowFeed(state, `Driveway full: left ${partNames(left)} at the curb.`, { left: left.length });
+    const left = disposable.slice(-over);
+    state.run.driveway = state.run.driveway.filter((part) => !left.includes(part));
+    if (left.length) overflowFeed(state, `Driveway full: left ${partNames(left)} at the curb.`, { left: left.length });
     return;
   }
-  const reserved = reservedPartUids(state);
   const junkFirst = (p: PartInstance) => (rule === "strip_sell" && getPart(p.partId).category === "junk" ? 0 : 1);
-  const picked = state.run.driveway
-    .filter((p) => !reserved.has(p.uid))
+  const picked = disposable
     .sort((a, b) => junkFirst(a) - junkFirst(b) || partSellValue(state, a) - partSellValue(state, b))
     .slice(0, over);
   const strip = picked.filter((p) => rule === "strip" || junkFirst(p) === 0);

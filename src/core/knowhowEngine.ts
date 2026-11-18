@@ -29,6 +29,7 @@ export function studyMs(state: GameState, id: string): number {
 /** Rep cost to open a place this Season (0 when it opens on its own). */
 export function placeRepCost(state: GameState, id: string): number {
   if (id === "place:junkyard" && hasPerk(state, "dirt_track_pass") && hasPerk(state, "borrowed_trailer")) return 0;
+  if (id === "place:auction" && hasPerk(state, "auction_bidder")) return 0;
   const base = PLACE_REP[id] ?? 0;
   const tier = knowhowTier(state, id);
   if (tier === "familiar") return Math.ceil(base / 2);

@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { installedService } from "@/core/actions";
+import { challengeVehicleFit } from "@/core/challenges";
 import { VENUES, getVenue, venueName } from "@/core/content/events";
 import { getVehicle } from "@/core/content/vehicles";
 import { reservedPartUids, vehicleBusy, vehicleStats } from "@/core/garage";
@@ -36,6 +38,7 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
   const venues = enterable(game, def.tier);
   const venueId = venues.find((v) => v.id === picked)?.id ?? venues[venues.length - 1]?.id;
   const score = rawScore(vehicle, discipline, venueId);
+  const challengeFit = venueId && game.run.challenge.completedAt === undefined ? challengeVehicleFit(game, venueId, vehicle) : null;
   const facts = [
     ["Power", stats.power],
     ["Handling", stats.handling],
@@ -85,6 +88,7 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
           </div>
         )}
         {busy && <p className="chip">Out racing</p>}
+        {challengeFit && <p className={challengeFit.ready ? "hint" : "why"}>Challenge setup · {challengeFit.text}</p>}
         <div className="slots">
           {def.slots.map((slot) => (
             <BuildSlotRow
@@ -95,8 +99,10 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
               venueId={venueId}
               free={free}
               busy={busy}
+              service={vehicle.parts[slot.slot] && vehicle.parts[slot.slot]!.condition < 4 ? installedService(game, vehicle.uid, slot.slot) : undefined}
               onInstall={(partUid) => dispatch({ type: "install", vehicleUid: vehicle.uid, slot: slot.slot, partUid })}
               onPull={() => dispatch({ type: "uninstall", vehicleUid: vehicle.uid, slot: slot.slot })}
+              onService={() => dispatch({ type: "serviceInstalled", vehicleUid: vehicle.uid, slot: slot.slot })}
             />
           ))}
         </div>

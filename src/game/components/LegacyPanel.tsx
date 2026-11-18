@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { haulOriginsOn } from "@/core/challenges";
-import { VENUES, getVenue, venueName } from "@/core/content/events";
+import { challengeVehicleFit } from "@/core/challenges";
+import { VENUES, venueName } from "@/core/content/events";
 import { SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge } from "@/core/content/modifiers";
-import { getVehicle } from "@/core/content/vehicles";
 import { LAYERS, scrapAward } from "@/core/layers";
 import type { GameState } from "@/core/types";
 import { duration, num, pct } from "../format";
@@ -78,13 +77,11 @@ function SeasonChallenges({ game }: { game: GameState }) {
   if (!current && !records.length) return null;
 
   const { challenge, vehicles } = game.run;
-  const relayCars = vehicles.filter((vehicle) => challenge.relay?.some((entry) => (
-    entry.vehicleUid === vehicle.uid && entry.frameUid === vehicle.parts.frame?.uid
-  )));
-  const [minTier, maxTier] = getVenue("county_fair").tiers;
-  const fairCars = vehicles.filter((vehicle) => {
-    const tier = getVehicle(vehicle.vehicleId).tier;
-    return tier >= minTier && tier <= maxTier;
+  const target = active === "parts_with_a_past" || challenge.relay?.length || challenge.handMeDownEngines?.length ? "county_fair" : "dirt";
+  const targetLabel = venueName(target, game.era?.discipline ?? "dirt");
+  const cars = vehicles.flatMap((vehicle) => {
+    const fit = challengeVehicleFit(game, target, vehicle);
+    return fit ? [{ vehicle, fit }] : [];
   });
   return (
     <>
@@ -95,15 +92,9 @@ function SeasonChallenges({ game }: { game: GameState }) {
           {challenge.completedAt === undefined && (
             <>
               <p className="hint">{current.text} A repeat Feature win counts.</p>
-              {active === "homebuilt_relay" && relayCars.length > 0 && (
-                <p className="hint">Qualified at the Dirt Track · {relayCars.map((vehicle) => vehicle.name).join(", ")}</p>
-              )}
-              {active === "parts_with_a_past" && fairCars.length > 0 && (
+              {cars.length > 0 && (
                 <ul className="milestones">
-                  {fairCars.map((vehicle) => {
-                    const origins = haulOriginsOn(vehicle);
-                    return <li key={vehicle.uid}><span>{vehicle.name} · {origins.length} haul locations</span><span className="muted">{origins.join(", ")}</span></li>;
-                  })}
+                  {cars.map(({ vehicle, fit }) => <li key={vehicle.uid}><span>{vehicle.name} · {targetLabel}</span><span className={fit.ready ? "muted" : "why"}>{fit.text}</span></li>)}
                 </ul>
               )}
             </>

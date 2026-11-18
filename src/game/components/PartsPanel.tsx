@@ -143,7 +143,7 @@ function PartActions({ game, part, onDriveway }: PartProps) {
       {onDriveway && (
         <button className="btn small act primary" disabled={!out} onClick={() => dispatch({ type: "swapIn", partUid: part.uid })} title="Bring it into the garage and put your cheapest part out here instead">
           <span className="act-label">Swap in</span>
-          <span className="act-detail">{out ? `sends out ${getPart(out.partId).name} (${conditionName(out.condition)})` : "everything is on the bench"}</span>
+          <span className="act-detail">{out ? `sends out ${getPart(out.partId).name} (${conditionName(out.condition)})` : "no unprotected part is free"}</span>
         </button>
       )}
       {upgrade && (
@@ -158,6 +158,7 @@ function PartActions({ game, part, onDriveway }: PartProps) {
       )}
       <ActionButton label="Strip" time={time("strip")} detail={`get ${strip}`} title="Break it down for materials. The part is gone." onClick={() => enqueue({ kind: "strip", partUid: part.uid })} />
       <ActionButton label="Sell" time="now" detail={`get ${num(sell)} Scrap Bucks`} title="Sell it to the dealer right now" onClick={() => dispatch({ type: "sell", partUids: [part.uid] })} />
+      <button className={`btn small${part.protected ? " primary" : ""}`} aria-pressed={part.protected ?? false} title="Protect this part from automatic disposal and garage swaps" onClick={() => dispatch({ type: "protectPart", partUid: part.uid, keep: !part.protected })}>Keep</button>
     </div>
   );
 }
@@ -272,8 +273,9 @@ export function PartsPanel() {
   const parts = [...game.run.inventory]
     .filter((p) => filter === "all" || getPart(p.partId).category === filter)
     .sort((a, b) => getPart(b.partId).tier - getPart(a.partId).tier || b.condition - a.condition);
-  const junk = game.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !reserved.has(p.uid));
+  const junk = game.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !p.protected && !reserved.has(p.uid));
   const junkValue = saleQuote(game, junk);
+  const washBatch = parts.filter((part) => !reserved.has(part.uid) && !jobBlocker(game, { kind: "clean", partUid: part.uid })).slice(0, 3);
   const categories = [...new Set(game.run.inventory.map((p) => getPart(p.partId).category))];
   return (
     <section className="section" aria-labelledby="parts-h">
@@ -303,6 +305,9 @@ export function PartsPanel() {
           </select>
         </label>
         {game.run.driveway.length === 0 && <RulePicker game={game} />}
+        {washBatch.length > 1 && (
+          <button className="btn small" title={washBatch.map((part) => getPart(part.partId).name).join(", ")} onClick={() => dispatch({ type: "batchClean", partUids: washBatch.map((part) => part.uid) })}>Queue cleaning for {washBatch.length} shown parts</button>
+        )}
         {junk.length > 0 && (
           <button className="btn small" onClick={() => dispatch({ type: "sell", partUids: junk.map((p) => p.uid) })}>
             Sell all junk ({junk.length}) for {num(junkValue)} Scrap Bucks

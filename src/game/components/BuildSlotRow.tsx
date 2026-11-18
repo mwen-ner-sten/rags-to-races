@@ -1,6 +1,8 @@
 "use client";
 
 import { getPart } from "@/core/content/parts";
+import type { installedService } from "@/core/actions";
+import { fittingParts, partSwapGain } from "@/core/buildPlanning";
 import type { SlotDef } from "@/core/content/vehicles";
 import { partScoreAt } from "@/core/race";
 import type { DisciplineId, PartInstance, Vehicle } from "@/core/types";
@@ -8,11 +10,6 @@ import { conditionName } from "../format";
 
 export function partOption(part: PartInstance): string {
   return `${getPart(part.partId).name} (${conditionName(part.condition)})`;
-}
-
-/** Free parts that could go in this slot right now. */
-export function fittingParts(free: readonly PartInstance[], slot: SlotDef): PartInstance[] {
-  return free.filter((p) => slot.accepts.includes(p.partId) && p.condition > 0 && (slot.minCondition === undefined || p.condition >= slot.minCondition));
 }
 
 interface BuildSlotRowProps {
@@ -23,18 +20,22 @@ interface BuildSlotRowProps {
   /** Parts in the garage that no job has claimed. */
   free: readonly PartInstance[];
   busy: boolean;
+  service?: ReturnType<typeof installedService>;
   onInstall: (partUid: string) => void;
   onPull: () => void;
+  onService: () => void;
 }
 
 /** One slot of an owned vehicle: what is in it, what it's worth at the chosen venue, and a better option if the garage has one. */
-export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, onInstall, onPull }: BuildSlotRowProps) {
+export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, service, onInstall, onPull, onService }: BuildSlotRowProps) {
   const installed = vehicle.parts[slot.slot];
   const worth = (part: PartInstance) => partScoreAt(part, discipline, venueId, slot.slot);
+  const gainFor = (part: PartInstance) => partSwapGain(vehicle, slot.slot, part, discipline, venueId);
+  const signed = (gain: number) => `${gain >= 0 ? "+" : ""}${gain.toFixed(1)}`;
   const current = installed ? worth(installed) : 0;
   const options = fittingParts(free, slot);
-  const best = options.reduce<PartInstance | null>((top, p) => (top === null || worth(p) > worth(top) ? p : top), null);
-  const gain = best ? worth(best) - current : 0;
+  const best = options.reduce<PartInstance | null>((top, p) => (top === null || gainFor(p) > gainFor(top) ? p : top), null);
+  const gain = best ? gainFor(best) : 0;
   const better = installed && best && gain >= 0.05 ? best : null;
   return (
     <div className="slot build-slot">
@@ -58,7 +59,7 @@ export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, o
               <option value="">Swap in…</option>
               {options.map((p) => (
                 <option key={p.uid} value={p.uid}>
-                  {partOption(p)} · {worth(p).toFixed(1)}
+                    {partOption(p)} · {signed(gainFor(p))} score · {p.origin}
                 </option>
               ))}
             </select>
@@ -68,6 +69,8 @@ export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, o
               Pull
             </button>
           )}
+          {service && typeof service !== "string" && <button className="btn small" onClick={onService}>Pull and {service.kind}</button>}
+          {typeof service === "string" && <span className="why">{service}</span>}
         </span>
       )}
       {!busy && better && (

@@ -6,14 +6,15 @@ import { channel } from "@/core/channels";
 import { toolStocked } from "@/core/actions";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PLACES, codexLevel } from "@/core/content/places";
+import { getPart } from "@/core/content/parts";
 import { TOOLS } from "@/core/content/tools";
 import { SHELL_PRICE } from "@/core/content/vehicles";
 import { DRIVEWAY_RULES, DRIVEWAY_SPACE, drivewayRule, garageSpace } from "@/core/garage";
-import { carryFor } from "@/core/haul";
+import { carryFor, haulOdds } from "@/core/haul";
 import { baseDuration, jobBlocker } from "@/core/jobs";
 import { canOpenPlace, knowhowTier, placeRepCost } from "@/core/knowhowEngine";
 import type { GameState, MaterialId, PartCategory } from "@/core/types";
-import { duration, num } from "../format";
+import { duration, num, pct } from "../format";
 import { placeSprite } from "../sprites";
 import { useGame } from "../store";
 import { ChannelWhy } from "./ChannelWhy";
@@ -47,6 +48,7 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
   const openBlocker = !open && def ? canOpenPlace(game, knowhowId) : null;
   const tier = def ? knowhowTier(game, knowhowId) : "learning";
   const scouting = game.run.learned.includes("tech:scouting");
+  const odds = open && scouting ? haulOdds(placeId, spec.focus).sort((a, b) => b.chance - a.chance) : [];
 
   return (
     <article className={`card place ${open ? "" : "locked"}`}>
@@ -112,6 +114,14 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
             {openBlocker && <span className="why">{openBlocker}</span>}
           </div>
         )}
+        {odds.length > 0 && (
+          <details>
+            <summary>Find odds per part drawn</summary>
+            <ul className="milestones">
+              {odds.map((entry) => <li key={entry.item}><span>{getPart(entry.item).name}</span><span className="num">{entry.chance < 0.005 ? "<1%" : pct(entry.chance)}</span></li>)}
+            </ul>
+          </details>
+        )}
       </div>
     </article>
   );
@@ -169,9 +179,8 @@ export function TripsPanel() {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
   if (!game) return null;
-  const freeJunkyard = placeRepCost(game, "place:junkyard") === 0;
   const places = PLACES.filter((p) => p.id === "curb" || game.run.revealed.includes("places") || game.run.placesOpen.includes(p.id)
-    || (p.id === "junkyard" && freeJunkyard));
+    || placeRepCost(game, `place:${p.id}`) === 0);
   const visible = places.filter((p) => {
     if (game.run.placesOpen.includes(p.id) || p.id === "yards") return true;
     const def = KNOWHOW_BY_ID[`place:${p.id}`];
