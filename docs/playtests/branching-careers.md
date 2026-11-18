@@ -37,3 +37,15 @@ Eight other blank garages reached their first racing reset and each rebuilt the 
 On the initial twelve-seed Rally comparison, two regularity seasons timed out at sixty simulated days. Players can now declare either the all-time class record or the most recent classified pace. A slower setup can post its own reference without erasing the record. Replaying those seeds made all 24 County Forest certificates in 2.4–9.8 simulated days. Eighteen certificates were earned in fourth place or lower.
 
 Production build `e4cf93e` passed 70 Playwright checks across desktop and mobile, including a browser-driven rebuild, museum donation, reload and register lookup.
+
+## Choosing a different opening
+
+After the first curb trip the guide offers the workshop route. The counter can register the Small Engine for the Orchard grounds crew, or the player can keep it for their first car. A founder can keep three named checkpoints on this browser. Opening one resumes its stored Season clock. A Shop Move, Scrap Reset or Team Reset can also preview two legal opening garages using the same reset action used to start the next Season.
+
+The [96-reset trial](longitudinal-careers.md) followed eight accounts across three disciplines, both organizations and county changes. Every account won an Owner tour. The [County Baton trial](county-baton.md) followed individual part IDs across garages. One champion gave up a 150-Scrap sponsor stake to carry a safeguarded River Tire to Quarry County and won the delivery Feature with it installed.
+
+The Roadbook Special became a second goal for an earned Rally graduate. Its first armed run with the car named Night Mail finished fourth and met all four time controls. An equal-seed regression showed that an early arrival can be delayed by the tripmeter while a slow stage stays slow. The resulting certificate can open a Scrap Reset.
+
+## Foreground and offline assembly
+
+Two isolated Chromium sessions used the same earned garage and the same three queued Riding Mowers on revision `40ea9f6`. The foreground game ran from 06:59:42 to 09:18:15 UTC on November 18, 2026, for 138.54 real minutes. A second browser context then loaded the original save with its original timestamp. Both produced Meadow 1, Meadow 2 and Meadow 3 with all nine installed component IDs in the same vehicles. This trial covers serial assembly and the offline catch-up path. Human preference and long-term pacing still need player feedback.

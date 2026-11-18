@@ -43,7 +43,7 @@ export function CheckpointShelf() {
         if (current.raw !== reviewed.raw || !current.checkpoint)
           setMessage("The saved garage changed. Review it again.");
         else {
-          const error = store.importSave(current.checkpoint.text, { backupLive: true });
+          const error = store.importSave(current.checkpoint.text);
           setMessage(error ?? "Opened " + current.checkpoint.label + ". The checkpoint is still saved.");
         }
       } else {

@@ -8,17 +8,20 @@ import { DARE_BY_ID, isSeasonChallenge, PERK_BY_ID, SEASON_CHALLENGES } from "@/
 import { getPart } from "@/core/content/parts";
 import { getPlace } from "@/core/content/places";
 import { TEAM_ORGANIZATIONS } from "@/core/content/team";
+import { TOOL_BY_ID } from "@/core/content/tools";
 import { HOME_COUNTIES, homeCounty } from "@/core/counties";
 import { garageSpace } from "@/core/garage";
 import { carryFor } from "@/core/haul";
 import { baseDuration } from "@/core/jobs";
-import type { ScrapChoices, TeamChoices } from "@/core/layers";
+import type { LayerId, ScrapChoices, TeamChoices } from "@/core/layers";
+import { customerLeads, shopLegacyName } from "@/core/serviceShop";
 import type { GameState } from "@/core/types";
 import { conditionName, duration } from "../format";
 
-function opening(game: GameState) {
+function opening(game: GameState, layer: LayerId) {
   const { run, config, era } = game;
   const goal = config.dare;
+  const transfer = config.shopLegacy;
   return {
     Garage: era ? era.teamName + " · " + TEAM_ORGANIZATIONS[era.organization ?? "independent"].name : "Home garage",
     Location: HOME_COUNTIES[homeCounty(game)].name,
@@ -27,6 +30,14 @@ function opening(game: GameState) {
       ? (isSeasonChallenge(goal) ? SEASON_CHALLENGES[goal] : DARE_BY_ID[goal]).name
       : "Open Season",
     "Equipped perks": config.perks.map((p) => PERK_BY_ID[p].name).join(", ") || "None",
+    ...(layer === "shop" && {
+      "Transferred tool": transfer?.type === "tool"
+        ? `${TOOL_BY_ID[transfer.tool].name} · level ${run.tools[transfer.tool]}`
+        : "None",
+      "Returning customer lead": transfer?.type === "client"
+        ? `${shopLegacyName(transfer)} · focus on ${customerLeads(game)} finds before Scouting`
+        : "None",
+    }),
     "Opening stock":
       [
         ...run.vehicles.map((v) => v.name),
@@ -49,19 +60,20 @@ export function OpeningComparison({
   blocker,
 }: {
   game: GameState;
-  layer: "scrap" | "team";
+  layer: LayerId;
   choices: ScrapChoices | TeamChoices;
   blocker: string | null;
 }) {
   const [sketches, setSketches] = useState<[Snapshot | null, Snapshot | null]>([null, null]);
   const [error, setError] = useState("");
   const record = (slot: 0 | 1) => {
+    if (blocker) return;
     const result = apply(game, { type: "reset", layer, choices });
     if (result.error) {
       setError(result.error);
       return;
     }
-    const details = opening(result.state);
+    const details = opening(result.state, layer);
     setSketches((prev) => (slot === 0 ? [details, prev[1]] : [prev[0], details]));
     setError("");
   };

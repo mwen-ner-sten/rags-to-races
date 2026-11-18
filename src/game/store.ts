@@ -72,7 +72,7 @@ interface Store {
   tick: () => void;
   save: () => void;
   reset: () => boolean;
-  importSave: (text: string, options?: { backupLive: boolean }) => string | null;
+  importSave: (text: string) => string | null;
   exportSave: () => string;
   exportBackup: () => string;
   clearError: () => void;
@@ -97,6 +97,14 @@ function backupRaw(raw: string | null): boolean {
   } catch {
     return false;
   }
+}
+
+/** A manual replacement can happen between autosaves, immediately after a purchase or result. */
+function backupCurrentGarage(game: GameState | null): boolean {
+  const raw = window.localStorage.getItem(SAVE_KEY);
+  if (!game || (raw && !decodeSave(raw))) return backupRaw(raw);
+  window.localStorage.setItem(BACKUP_KEY, JSON.stringify({ savedAt: Date.now(), game } satisfies SaveFile));
+  return true;
 }
 
 function summarize(before: GameState, after: GameState, ms: number, capped: boolean): AwaySummary {
@@ -219,7 +227,7 @@ export const useGame = create<Store>((set, get) => ({
 
   reset: () => {
     try {
-      if (!backupRaw(window.localStorage.getItem(SAVE_KEY))) throw new Error("backup");
+      if (!backupCurrentGarage(get().game)) throw new Error("backup");
       const game = createGame();
       window.localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), game } satisfies SaveFile));
       set({ game, replay: null, finished: null, away: null, toasts: [], error: null, saveBlocked: false, lastTick: Date.now() });
@@ -246,7 +254,7 @@ export const useGame = create<Store>((set, get) => ({
     }
   },
 
-  importSave: (text, options) => {
+  importSave: (text) => {
     let file: SaveFile | null;
     try {
       file = decodeSave(fromBase64(text.trim()));
@@ -255,11 +263,7 @@ export const useGame = create<Store>((set, get) => ({
     }
     if (!file) return "That doesn't look like a Rags to Races save.";
     try {
-      const previous = window.localStorage.getItem(SAVE_KEY);
-      if (options?.backupLive && get().game) {
-        if (previous && !decodeSave(previous) && !backupRaw(previous)) return "Could not keep the original save for recovery.";
-        window.localStorage.setItem(BACKUP_KEY, JSON.stringify({ savedAt: Date.now(), game: get().game }));
-      } else if (!backupRaw(previous)) return "Couldn't back up your current save. Your current game has been kept.";
+      if (!backupCurrentGarage(get().game)) return "Couldn't back up your current save. Your current game has been kept.";
       // Persist before changing the running game, so storage failures cannot replace it in memory.
       window.localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), game: file.game } satisfies SaveFile));
     } catch {

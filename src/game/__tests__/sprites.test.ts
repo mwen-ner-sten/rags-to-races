@@ -15,4 +15,8 @@ describe("sprites", () => {
   it("every vehicle id resolves to an image that exists", () => {
     for (const vehicle of VEHICLES) expect(existsSync(publicFile(vehicleSprite(vehicle.id))), `${vehicle.id} -> ${vehicleSprite(vehicle.id)}`).toBe(true);
   });
+
+  it("uses the Roadbook Special's own garage art", () => {
+    expect(vehicleSprite("roadbook_special")).toBe("/sprites/vehicles/roadbook_special.webp");
+  });
 });

@@ -26,6 +26,7 @@ import { conditionName } from "../format";
 import { useGame } from "../store";
 import { ResetCommitments } from "./ResetCommitments";
 import { CheckpointShelf } from "./CheckpointShelf";
+import { OpeningComparison } from "./OpeningComparison";
 
 function Transfer({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
@@ -41,6 +42,8 @@ function Transfer({ game }: { game: GameState }) {
     ...CUSTOMER_IDS.map((client): ShopLegacy => ({ type: "client", client })),
   ];
   const legacy = options.find((option) => shopLegacyName(option) === choice);
+  const choices = { ...initialConfig(), shopLegacy: legacy };
+  const blocker = SHOP_LAYER.validate(game, choices);
   const baton = game.run.countyBaton;
   const abandonsBaton = baton && (baton.leg === "qualify" || baton.completedAt === undefined);
   const guardedBaton = baton?.qualified && locateBatonPart(game, baton.qualified.uid).part;
@@ -71,6 +74,7 @@ function Transfer({ game }: { game: GameState }) {
           ))}
         </select>
       </label>
+      <OpeningComparison game={game} layer="shop" choices={choices} blocker={blocker} />
       {legacy && (
         <>
           <p>
@@ -89,9 +93,9 @@ function Transfer({ game }: { game: GameState }) {
           </label>
           <button
             className="btn primary"
-            disabled={!confirmed}
+            disabled={!confirmed || !!blocker}
             onClick={() => {
-              if (dispatch({ type: "reset", layer: "shop", choices: { ...initialConfig(), shopLegacy: legacy } })) {
+              if (dispatch({ type: "reset", layer: "shop", choices })) {
                 setChoice("");
                 setConfirmed(false);
               }

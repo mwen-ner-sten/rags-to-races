@@ -280,6 +280,17 @@ describe("save and recovery behavior", () => {
     expect(Buffer.from(useGame.getState().exportBackup(), "base64").toString("utf8")).toBe(previous);
   });
 
+  it.each(["import", "start over"] as const)("backs up the latest unsaved action on %s", (replacement) => {
+    writeGame(racer());
+    const store = useGame.getState();
+    store.load();
+    expect(store.dispatch({ type: "setGuide", on: false })).toBe(true);
+    expect(JSON.parse(storage.getItem(KEY)!).game.meta.guideOff).toBeFalsy();
+    if (replacement === "import") expect(store.importSave(saveText(swapMeetGame()))).toBeNull();
+    else expect(store.reset()).toBe(true);
+    expect(JSON.parse(storage.getItem(BACKUP)!).game.meta.guideOff).toBe(true);
+  });
+
   it("keeps a valid previous game as an exportable backup after an import", () => {
     writeGame(racer());
     useGame.getState().load();
