@@ -27,11 +27,22 @@ export function blueprintPlan(state: GameState, vehicle: VehicleDef, picks: Reco
   const free = state.run.inventory.filter((part) => !reserved.has(part.uid));
   const used = new Set<string>();
   const chosen: Record<string, string> = {};
-  const slots = vehicle.slots.map((slot) => {
-    const options = fittingParts(free, slot).filter((part) => !used.has(part.uid));
-    const fixed = options.find((part) => part.uid === picks[slot.slot]);
-    const choice = fixed ?? (picks[slot.slot] !== "" ? options.reduce<PartInstance | undefined>((best, part) =>
-      !best || partScoreAt(part, discipline, undefined, slot.slot) > partScoreAt(best, discipline, undefined, slot.slot) ? part : best, undefined) : undefined);
+  const compatible = vehicle.slots.map((slot) => ({ slot, parts: fittingParts(free, slot) }));
+
+  // Protect manual picks in every socket before assigning any defaults.
+  for (const { slot, parts } of compatible) {
+    const uid = picks[slot.slot];
+    if (uid && !used.has(uid) && parts.some((part) => part.uid === uid)) {
+      chosen[slot.slot] = uid;
+      used.add(uid);
+    }
+  }
+  const explicit = new Set(used);
+  const slots = compatible.map(({ slot, parts }) => {
+    const options = parts.filter((part) => !explicit.has(part.uid) || chosen[slot.slot] === part.uid);
+    const choice = chosen[slot.slot] || picks[slot.slot] === "" ? undefined : options.filter((part) => !used.has(part.uid))
+      .reduce<PartInstance | undefined>((best, part) =>
+        !best || partScoreAt(part, discipline, undefined, slot.slot) > partScoreAt(best, discipline, undefined, slot.slot) ? part : best, undefined);
     if (choice) {
       chosen[slot.slot] = choice.uid;
       used.add(choice.uid);

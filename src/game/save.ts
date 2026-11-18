@@ -22,7 +22,7 @@ import { DISCIPLINES, RIVAL_BY_ID, VENUE_BY_ID } from "@/core/content/events";
 import { upgradeSave } from "@/core/state";
 import { perkSlots } from "@/core/layers";
 import { countyChoiceBlocker, countyPlaceBlocker } from "@/core/counties";
-import { BATON_PART, batonUnlocked, freightEligible, otherCounty } from "@/core/countyBaton";
+import { BATON_PART, batonPartTag, batonUnlocked, freightEligible, otherCounty } from "@/core/countyBaton";
 import { RACE_NIGHT_STARTS } from "@/core/raceNight";
 import { isCarryableSalvage, salvageCarryUnlocked } from "@/core/salvageCarry";
 import type { GameState, JobSpec } from "@/core/types";
@@ -51,7 +51,7 @@ const countyBaton = z.discriminatedUnion("leg", [
   z.object({ leg: z.literal("qualify"), from: neighborCounty, qualified: batonProof.optional() }),
   z.object({ leg: z.literal("deliver"), from: neighborCounty, qualified: batonProof, completedAt: amount.optional() }),
 ]);
-const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), referral: client.optional(), inherited: z.literal(true).optional(), provenance: partProvenanceSchema.optional() });
+const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), batonGuard: z.literal(true).optional(), referral: client.optional(), inherited: z.literal(true).optional(), provenance: partProvenanceSchema.optional() });
 const history = z.object({ races: count, wins: count, dnfs: count, bestFinish: count.positive().nullable() });
 const vehicle = z.object({
   uid: id, vehicleId: known(VEHICLE_BY_ID), name: z.string(), parts: z.record(id, part),
@@ -71,7 +71,7 @@ const jobSpec = z.discriminatedUnion("kind", [
   ...(["clean", "repair", "restore", "strip"] as const).map((kind) => z.object({ kind: z.literal(kind), partUid: id.optional() }).passthrough()),
   z.object({ kind: z.literal("study"), knowhowId: known(KNOWHOW_BY_ID) }).passthrough(),
   z.object({ kind: z.literal("assemble"), vehicleId: known(VEHICLE_BY_ID), partUids: z.record(id, id), name: z.string() }).passthrough(),
-  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), tourReserve: count.optional(), ownerDrive: z.literal(true).optional(), regularity: z.literal(true).optional(), useLastPace: z.literal(true).optional(), clubRound: clubRoundSchema.optional(), worksRound: id.optional(), countyMatch: countyRivalSchema.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft", "cut", "recce"]).optional() }).passthrough(),
+  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), tourReserve: count.optional(), ownerDrive: z.literal(true).optional(), regularity: z.literal(true).optional(), useLastPace: z.literal(true).optional(), holdMarks: z.literal(true).optional(), clubRound: clubRoundSchema.optional(), worksRound: id.optional(), countyMatch: countyRivalSchema.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft", "cut", "recce"]).optional() }).passthrough(),
 ]);
 const beat = z.object({ at: amount, text: z.string(), position: count.positive(), kind: z.enum(["start", "pass", "passed", "hold", "wear", "rival", "last_lap", "dnf", "finish", "caution", "round"]).optional() });
 const raceFields = {
@@ -126,7 +126,7 @@ const meta = z.object({
   rallyCards: z.array(z.object({ venueId: known(VENUE_BY_ID), event, vehicleId: known(VEHICLE_BY_ID), course: clubCourseSchema.optional(),
     lastRun: z.object({ carName: z.string(), season: count.positive(), splitsMs: z.array(count.positive()).min(2).max(4) }).optional(),
     carName: z.string(), season: count.positive(), splitsMs: z.array(count.positive()).min(2).max(4) })
-    .refine((card) => (!card.lastRun || card.lastRun.splitsMs.length === card.splitsMs.length) && card.splitsMs.length === ({ sprint: 2, heat: 3, feature: 4 }[card.event]))).max(225).optional(),
+    .refine((card) => (!card.lastRun || card.lastRun.splitsMs.length === card.splitsMs.length) && card.splitsMs.length === ({ sprint: 2, heat: 3, feature: 4 }[card.event]))).max(Object.keys(VEHICLE_BY_ID).length * Object.keys(VENUE_BY_ID).length * 3 * 3).optional(),
   seasonLog: z.array(z.object({
     season: count.positive(), endedBy: z.enum(["scrap", "team", "shop"]), serviceInvoices: invoices.optional(), depotReceipts: depotReceipts.optional(), teamName: z.string().nullable(),
     organization: z.enum(TEAM_ORGANIZATION_IDS).optional(),
@@ -244,6 +244,7 @@ function referencesValid(game: GameState): boolean {
   if (new Set(retired).size !== retired.length || game.run.vehicles.some((car) => retired.includes(car.uid))) return false;
   const parts = [...game.run.inventory, ...game.run.driveway, ...game.run.vehicles.flatMap((vehicle) => Object.values(vehicle.parts).filter((part) => part !== undefined))];
   if (parts.some((part) => part.provenance && part.provenance.season > game.meta.seasonsPlayed + 1)) return false;
+  if (parts.some((part) => part.batonGuard && (part.uid !== baton?.qualified?.uid || !batonPartTag(game, part)))) return false;
   const inherited = parts.filter((piece) => piece.inherited);
   if (inherited.length > (game.config.salvageSlot || game.config.countyFreight ? 1 : 0) || inherited.some((piece) => !isCarryableSalvage(piece))) return false;
   if (baton?.leg === "deliver" && (inherited.some((part) => part.uid !== baton.qualified.uid || part.partId !== BATON_PART[baton.from]
@@ -257,15 +258,18 @@ function referencesValid(game: GameState): boolean {
     const slots = VEHICLE_BY_ID[vehicle.vehicleId].slots;
     if (Object.entries(vehicle.parts).some(([slot, part]) => !part || !slots.some((def) => def.slot === slot && def.accepts.includes(part.partId)))) return false;
   }
+  const assemblyUids = new Set<string>();
   const specValid = (spec: JobSpec) => {
     if (spec.kind === "clean" || spec.kind === "repair" || spec.kind === "restore" || spec.kind === "strip") return !!spec.partUid && (spec.kind === "strip" ? free.has(spec.partUid) : inventory.has(spec.partUid));
     if (spec.kind === "race") return game.run.vehicles.some((vehicle) => vehicle.uid === spec.vehicleUid);
     if (spec.kind === "assemble") {
       const slots = VEHICLE_BY_ID[spec.vehicleId].slots;
       const offered = Object.values(spec.partUids);
-      return new Set(offered).size === offered.length && Object.entries(spec.partUids).every(([slot, uid]) => {
+      if (new Set(offered).size !== offered.length || offered.some((uid) => assemblyUids.has(uid))) return false;
+      for (const uid of offered) assemblyUids.add(uid);
+      return Object.entries(spec.partUids).every(([slot, uid]) => {
         const part = inventory.get(uid);
-        return part && slots.some((def) => def.slot === slot && def.accepts.includes(part.partId));
+        return part && part.condition > 0 && slots.some((def) => def.slot === slot && part.condition >= (def.minCondition ?? 1) && def.accepts.includes(part.partId));
       })
         && slots.every((slot) => !slot.required || !!spec.partUids[slot.slot]);
     }

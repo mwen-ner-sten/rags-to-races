@@ -25,6 +25,7 @@ export function retirementPlan(state: GameState, vehicleUid: string, move: Retir
     return "Finish or remove this mower's race sign-ups first";
   }
   const parts = Object.values(vehicle.parts).filter((part) => part !== undefined);
+  if (parts.some((part) => part.batonGuard && (move.kind === "exchange" || move.keepUid !== part.uid))) return "Pull or keep the safeguarded County Baton part before retiring this mower.";
   const room = garageSpace(state) - state.run.inventory.length;
   if (move.kind === "exchange") {
     if (getVehicle(vehicle.vehicleId).slots.some((slot) => slot.required && !vehicle.parts[slot.slot])) return "Fit every required part before exchanging the mower";

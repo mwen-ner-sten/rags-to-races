@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
-import { cardFor, totalTime } from "@/core/timecards";
+import { cardFor, totalTime, tripmeterAvailable } from "@/core/timecards";
 
 import { BRACKET_SPREAD, DISCIPLINES, RIVAL_BY_ID, VENUES, getVenue } from "@/core/content/events";
+import { batonRaceSetup } from "@/core/countyBaton";
 import { LAPS } from "@/core/raceBeats";
 import { rallyRoute } from "@/core/rally";
 import { WORKS_FAMILIES, WORKS_FAMILY_IDS, worksFit } from "@/core/manufacturer";
@@ -64,10 +65,11 @@ function YellowLine({ game, event }: { game: GameState; event: EventKind }) {
 export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameState; vehicle: Vehicle; spec: RaceSpec; strip: boolean }) {
   const dispatch = useGame((s) => s.dispatch);
   const [mode, setMode] = useState<"race" | "regularity">("race");
+  const [holdMarks, setHoldMarks] = useState(false);
   const [useLastPace, setUseLastPace] = useState(false);
   const card = game.era?.discipline === "rally" && cardFor(game, entry.venueId, entry.event, vehicle.vehicleId);
   const reference = card && (useLastPace && card.lastRun ? card.lastRun : card);
-  const spec: RaceSpec = mode === "regularity" && reference ? { ...entry, regularity: true, ...(useLastPace && card && card.lastRun && { useLastPace: true as const }) } : entry;
+  const spec: RaceSpec = mode === "regularity" && reference ? { ...entry, regularity: true, ...(holdMarks && tripmeterAvailable(vehicle) && { holdMarks: true as const }), ...(useLastPace && card && card.lastRun && { useLastPace: true as const }) } : entry;
   const def = getVenue(spec.venueId).events[spec.event];
   const status = eventStatus(game, spec);
   const dyno = (game.team.upgrades.dyno ?? 0) > 0;
@@ -81,11 +83,12 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
   const makers = spec.venueId === "county_fair" && spec.event === "feature" && !spec.regularity && ["go_kart", "beater_car"].includes(vehicle.vehicleId)
     ? WORKS_FAMILY_IDS.filter((id) => !game.manufacturer?.invites.includes(id)) : [];
   const watched = makers.filter((id) => worksFit(vehicle, id) >= 2);
+  const baton = spec.event === "feature" && batonRaceSetup(game, spec.venueId, vehicle, spec.regularity);
   return (
     <article className={`event-card ${status.kind}`}>
       <header className="event-head">
         <h4>{capitalize(spec.event)}</h4>
-        {!locked && <span className={`odds ${oddsBand(p)}`}>{oddsLabel(p, dyno)}</span>}
+        {!locked && <span className={`odds ${oddsBand(p)}`}>{spec.regularity ? "Time control" : oddsLabel(p, dyno)}</span>}
       </header>
       <dl className="event-facts">
         <div>
@@ -113,6 +116,7 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
       </dl>
       {note && <p className="why event-purse">{note}</p>}
       <p className="event-stakes muted">{stakes(game, spec.venueId, spec.event, bracket)}</p>
+      {baton && <p className={baton.ready ? "hint" : "why"}>County Baton · {baton.text}</p>}
       {!locked && makers.length > 0 && <p className="muted">{watched.length > 0
         ? `A podium invites this build to ${watched.map((id) => WORKS_FAMILIES[id].name).join(" and ")}.`
         : "Two parts from the same engineering family can draw a manufacturer's invitation with a podium."}</p>}
@@ -127,6 +131,10 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
         <p className="num">{reference.splitsMs.map((ms) => `${(ms / 1000).toFixed(1)}s`).join(" · ")}</p>
         {spec.event === "feature" && <p>A stamped Feature earns half its usual Legacy Points and can open the next venue. A County Forest certificate qualifies for a reset.</p>}
         <label><input type="checkbox" checked={!!spec.regularity} disabled={status.kind !== "ready"} onChange={(e) => setMode(e.target.checked ? "regularity" : "race")} /> Enter for regularity</label>
+        {spec.regularity && vehicle.vehicleId === "roadbook_special" && <label>
+          <input type="checkbox" checked={!!spec.holdMarks} disabled={status.kind !== "ready" || !tripmeterAvailable(vehicle)} onChange={(e) => setHoldMarks(e.target.checked)} /> Use the tripmeter to hold the target pace
+          <span className="hint">{tripmeterAvailable(vehicle) ? "Lift on fast stages to arrive within 1% of the reference. Slow stages still cost time." : "Bring the car’s electronics to Worn or better."}</span>
+        </label>}
       </details>}
       {showYellow && <YellowLine game={game} event={spec.event} />}
       <div className="event-action">

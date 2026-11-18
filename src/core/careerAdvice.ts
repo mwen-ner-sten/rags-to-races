@@ -14,15 +14,16 @@ import { venueLockReason } from "./race";
 import type { DisciplineId, GameState, SeasonChallengeId } from "./types";
 
 export type CareerDestination =
-  | { tab: "legacy"; objective?: SeasonChallengeId }
-  | { tab: "garage"; section: "service" | "build" }
+  | { tab: "legacy"; objective?: SeasonChallengeId; section?: "baton" }
+  | { tab: "garage"; section: "service" | "build" | "service-delivery" | "motor-pickup" | "motor-pool" | "parts" }
   | { tab: "trips" }
-  | { tab: "manufacturer" }
-  | { tab: "notebook"; section: "Hall of Fame" | "Timecards" }
+  | { tab: "manufacturer"; section?: "deal" }
+  | { tab: "notebook"; section: "Hall of Fame"; heritage?: true; vehicleUid?: string }
+  | { tab: "notebook"; section: "Timecards" }
   | { tab: "team"; discipline: DisciplineId; focus?: "handover" | "organization" }
   | { tab: "team"; section: "crew" }
   | { tab: "race"; venueId: string }
-  | { tab: "owner"; section: "round" | "charters" }
+  | { tab: "owner"; section: "round" | "charters" | "calendar" }
   | { tab: "promoter" };
 
 interface CareerAction {

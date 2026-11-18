@@ -163,7 +163,7 @@ function Rivals({ game }: { game: GameState }) {
   );
 }
 
-function HallOfFame({ game }: { game: GameState }) {
+function HallOfFame({ game, vehicleUid }: { game: GameState; vehicleUid?: string }) {
   const [filter, setFilter] = useState("");
   const [limit, setLimit] = useState(12);
   if (!game.meta.hallOfFame.length) return <p className="empty">Vehicles appear here after retirement or at the end of a Season.</p>;
@@ -172,7 +172,7 @@ function HallOfFame({ game }: { game: GameState }) {
     `${entry.name} ${getVehicle(entry.vehicleId).name} Season ${entry.season}`.toLowerCase().includes(query)
   );
   return <>
-    <HeritageDesk game={game} />
+    <HeritageDesk game={game} vehicleUid={vehicleUid} />
     <label className="archive-field">Find a retired vehicle
       <input type="search" value={filter} onChange={(event) => { setFilter(event.target.value); setLimit(12); }} placeholder="Name, model or season" />
     </label>
@@ -229,7 +229,7 @@ function Journal({ game }: { game: GameState }) {
 
 const SECTIONS = ["Journal", "Know-how", "Habits", "Codex", "Rivals", "Hall of Fame", "Seasons", "Timecards"] as const;
 
-export function NotebookPanel({ section }: { section?: "Hall of Fame" | "Timecards" }) {
+export function NotebookPanel({ section, vehicleUid }: { section?: "Hall of Fame" | "Timecards"; vehicleUid?: string }) {
   const game = useGame((s) => s.game);
   const [tab, setTab] = useState<(typeof SECTIONS)[number]>(section ?? "Journal");
   if (!game) return null;
@@ -259,7 +259,7 @@ export function NotebookPanel({ section }: { section?: "Hall of Fame" | "Timecar
       {tab === "Habits" && <Habits game={game} />}
       {tab === "Codex" && <Codex game={game} />}
       {tab === "Rivals" && <Rivals game={game} />}
-      {tab === "Hall of Fame" && <HallOfFame game={game} />}
+      {tab === "Hall of Fame" && <HallOfFame game={game} vehicleUid={vehicleUid} />}
       {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} contacts={game.countyRivals} />}
       {tab === "Timecards" && <RallyCards cards={game.meta.rallyCards ?? []} />}
       </div>

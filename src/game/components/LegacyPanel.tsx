@@ -109,7 +109,7 @@ function SeasonChallenges({ game }: { game: GameState }) {
         </>
       )}
       {records.length > 0 && (
-        <ul className="milestones">
+        <ul className="milestones challenge-records">
           {records.map((id) => {
             const record = game.meta.challengeRecords[id]!;
             const challenge = SEASON_CHALLENGES[id];

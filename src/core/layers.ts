@@ -262,7 +262,9 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
     if (choices.retainedPartUid) {
       const retained = salvageCarryCandidates(before).find(({ part }) => part.uid === choices.retainedPartUid)!.part;
       s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin, ...(retained.provenance && { provenance: { ...retained.provenance } }) };
-      s.run.inventory.push({ ...retained, inherited: true });
+      const carried = { ...retained, inherited: true as const };
+      if (choices.countyBaton !== "carry") delete carried.batonGuard;
+      s.run.inventory.push(carried);
     }
   },
 };

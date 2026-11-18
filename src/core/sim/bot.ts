@@ -322,7 +322,7 @@ export class Bot {
       }
       if (p.condition <= 1 && (p.condition === 1 || this.state.run.vehicles.some((v) => getVehicle(v.vehicleId).slots.some((sl) => sl.accepts.includes(p.partId))))) tryJob({ kind: "clean", partUid: p.uid });
       else if (p.condition === 2 && REPAIR_TECHNIQUE[def.category]) tryJob({ kind: "repair", partUid: p.uid });
-      else if (p.condition === 0 && !this.surplus.has(p.uid)) tryJob({ kind: "strip", partUid: p.uid });
+      else if (p.condition === 0 && !this.surplus.has(p.uid) && !p.protected) tryJob({ kind: "strip", partUid: p.uid });
     }
     // Restore installed parts by swapping them out when Tuning is known (only when idle bench).
     if (busy < benches && s.run.learned.includes("tech:tuning")) {
@@ -345,7 +345,7 @@ export class Bot {
       let ok = true;
       for (const slot of def.slots) {
         const best = s.run.inventory
-          .filter((p) => !reserved.has(p.uid) && !used.has(p.uid) && slot.accepts.includes(p.partId) && p.condition > 0 && (slot.minCondition === undefined || p.condition >= slot.minCondition))
+          .filter((p) => !reserved.has(p.uid) && !used.has(p.uid) && this.partForVehicle(p, def.id) && slot.accepts.includes(p.partId) && p.condition > 0 && (slot.minCondition === undefined || p.condition >= slot.minCondition))
           .sort((a, b) => this.partScore(b) - this.partScore(a))[0];
         if (!best) {
           if (slot.required) ok = false;
@@ -359,7 +359,8 @@ export class Bot {
     }
   }
 
-  protected upgradeCandidate(part: PartInstance, _vehicle: Vehicle): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Scenario policies can reserve parts for a particular model.
+  protected partForVehicle(part: PartInstance, vehicleId: string): boolean {
     return !part.protected;
   }
 
@@ -371,7 +372,7 @@ export class Bot {
         const current = vehicle.parts[slot.slot];
         const reserved = reservedPartUids(this.state);
         const best = this.state.run.inventory
-          .filter((p) => !reserved.has(p.uid) && this.upgradeCandidate(p, vehicle) && slot.accepts.includes(p.partId) && p.condition > 0 && (slot.minCondition === undefined || p.condition >= slot.minCondition))
+          .filter((p) => !reserved.has(p.uid) && this.partForVehicle(p, vehicle.vehicleId) && slot.accepts.includes(p.partId) && p.condition > 0 && (slot.minCondition === undefined || p.condition >= slot.minCondition))
           .sort((a, b) => this.partScore(b) - this.partScore(a))[0];
         if (best && (!current || this.partScore(best) > this.partScore(current) * 1.02)) {
           this.act({ type: "install", vehicleUid: vehicle.uid, slot: slot.slot, partUid: best.uid });

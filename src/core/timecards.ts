@@ -41,6 +41,10 @@ export function referencePosition(clock: RallyClock, stages: number, progress: n
   return 1;
 }
 
+export function tripmeterAvailable(vehicle: Vehicle): boolean {
+  return vehicle.vehicleId === "roadbook_special" && (vehicle.parts.electronics?.condition ?? 0) >= 2;
+}
+
 export function cardFor(game: GameState, venueId: string, event: EventKind, vehicleId: string, course?: ClubCourseId): RallyCard | undefined {
   return game.meta.rallyCards?.find((card) => card.venueId === venueId && card.event === event && card.vehicleId === vehicleId && card.course === course);
 }
@@ -94,6 +98,7 @@ export function rallyReferencesValid(game: GameState): boolean {
   if (Object.keys(game.run.regularityFeatures ?? {}).some((venue) => game.era?.discipline !== "rally" || !game.meta.rallyLicences?.[venue])) return false;
   for (const spec of [...game.run.queue, ...game.run.jobs.map((job) => job.spec)]) {
     if (spec.kind !== "race") continue;
+    if (spec.holdMarks && (!spec.regularity || !game.run.vehicles.some((car) => car.uid === spec.vehicleUid && car.vehicleId === "roadbook_special"))) return false;
     if (spec.useLastPace && !spec.regularity) return false;
     if (!spec.regularity) continue;
     const car = game.run.vehicles.find((vehicle) => vehicle.uid === spec.vehicleUid);

@@ -14,6 +14,7 @@ import { decodeGameState } from "../src/game/save";
 
 const output = process.argv[3] ?? "test-results/service-careers";
 const trials = Number(process.argv[2] ?? 8);
+const retainCheckpoints = process.argv[4] === "checkpoints";
 const hours = (ms: number) => Math.round(ms / 360_000) / 10;
 mkdirSync(output, { recursive: true });
 function visit(game: GameState): Action {
@@ -130,6 +131,8 @@ for (let i = 0; i < trials; i++) {
         join(output, "charter-ready.txt"),
         Buffer.from(JSON.stringify({ game: third, savedAt: Date.now() })).toString("base64"),
       );
+    if (retainCheckpoints && route === "tool")
+      writeFileSync(join(output, `service-charter-${i}.json`), JSON.stringify({ game: third, savedAt: Date.now() }));
     const team = must(third, {
       type: "reset",
       layer: "team",

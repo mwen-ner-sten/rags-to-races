@@ -114,7 +114,7 @@ export interface HardshipDef {
 }
 
 export const HARDSHIPS: readonly HardshipDef[] = [
-  { id: "hand_tools", name: "Hand Tools Only", rule: "No Habits and no crew automation.", reward: "Bench speed, up to +30%", mastery: { channel: "bench_speed", cap: 0.3 }, conflicts: [] },
+  { id: "hand_tools", name: "Hand Tools Only", rule: "No Habits or automatic crew jobs. Drivers and spotters can support races you enter yourself.", reward: "Bench speed, up to +30%", mastery: { channel: "bench_speed", cap: 0.3 }, conflicts: [] },
   { id: "one_yard", name: "One Yard", rule: "Besides the curb, you may open only one place to haul from.", reward: "Find quality, up to +1 condition step", mastery: { channel: "find_quality", cap: 1 }, conflicts: [{ id: "parts_with_a_past", why: "Parts With a Past needs three different haul locations" }] },
   { id: "rookie_plates", name: "Rookie Plates", rule: "No perks this Season.", reward: "+1 perk slot once, then Legacy gain up to +50%", mastery: { channel: "legacy_gain", cap: 0.5 }, conflicts: [] },
   { id: "rust_everything", name: "Rust Everything", rule: "Every part you find is one condition step worse.", reward: "Part wear, up to −30%", mastery: { channel: "wear", cap: 0.3 }, conflicts: [] },

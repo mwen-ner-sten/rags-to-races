@@ -8,6 +8,7 @@ import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
 import { CREW_BY_ID, TEAM_ORGANIZATIONS, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
 import { crewBusyRacing, crewTravelBlocker, teamOrganization } from "@/core/crew";
+import { resolveFlags } from "@/core/rules";
 import { APPRENTICE_JOBS, HANDOVER_TRACK_STARTS, crewCanApprentice, handoverName } from "@/core/crewLegacy";
 import { habitName } from "@/core/habits";
 import type { CrewMember, DisciplineId, GameState } from "@/core/types";
@@ -27,6 +28,7 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
   if (!def) return null;
   const level = crewLevel(member.jobsDone);
   const racing = crewBusyRacing(game, member.id);
+  const handTools = resolveFlags(game).habitsDisabled;
   const discipline = game.era?.discipline ?? "dirt";
   const recordedWork = Object.entries(member.service?.workshop ?? {});
   const recordedStarts = Object.entries(member.service?.venues?.[discipline] ?? {}).filter(([venue]) => venue !== "backyard");
@@ -61,8 +63,8 @@ function CrewCard({ game, member }: { game: GameState; member: CrewMember }) {
         <label className="inline">
           <span>Doing</span>
           <select value={assignmentValue(member.assignment)} disabled={racing} onChange={(e) => onChange(e.target.value)}>
-            <option value="queue">Jobs from the queue</option>
-            {habitOptions(game).filter((template) => !crewTravelBlocker(game, template)).map((t) => (
+            <option value="queue" disabled={handTools && member.assignment.type !== "queue"}>{handTools ? "Queue paused for Hand Tools Only" : "Jobs from the queue"}</option>
+            {!handTools && habitOptions(game).filter((template) => !crewTravelBlocker(game, template)).map((t) => (
               <option key={t} value={`habit:${t}`}>
                 Habit: {habitLabel(game, t)}
               </option>
@@ -152,6 +154,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
   }
   const era = game.era;
   const cap = crewCap(game);
+  const handTools = resolveFlags(game).habitsDisabled;
   const organization = TEAM_ORGANIZATIONS[teamOrganization(game)];
   return (
     <div className="panel">
@@ -190,9 +193,11 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
             ? "The notes qualify you for the Heat whenever this venue opens."
             : era.handover.completed >= APPRENTICE_JOBS
               ? "Graduated. This Habit stays with the team across Scrap Resets when Habits are enabled."
-              : `${era.handover.completed}/${APPRENTICE_JOBS} jobs. ${era.handover.apprenticeId
-                ? `${CREW_BY_ID[era.handover.apprenticeId].name} is the apprentice.`
-                : "Put an eligible recruit on Jobs from the queue. Their first matching job starts the apprenticeship."}`}
+              : `${era.handover.completed}/${APPRENTICE_JOBS} jobs. ${handTools
+                ? "Hand Tools Only pauses the apprenticeship this Season."
+                : era.handover.apprenticeId
+                  ? `${CREW_BY_ID[era.handover.apprenticeId].name} is the apprentice.`
+                  : "Put an eligible recruit on Jobs from the queue. Their first matching job starts the apprenticeship."}`}
           </p>
         )}
         <div className="cards">
@@ -210,7 +215,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
                   <div key={id} className="row-card">
                     <div>
                       <strong>{def.name}</strong> <span className="chip">{def.role}</span>
-                      {era.handover?.type === "apprenticeship" && crewCanApprentice(game, id, era.handover.routine) && <p className="sub">Can apprentice with this team.</p>}
+                      {!handTools && era.handover?.type === "apprenticeship" && crewCanApprentice(game, id, era.handover.routine) && <p className="sub">Can apprentice with this team.</p>}
                       <p className="blurb">
                         {def.strength} <span className="muted">{def.quirk}</span>
                       </p>

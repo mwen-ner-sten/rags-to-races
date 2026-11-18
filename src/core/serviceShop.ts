@@ -109,13 +109,25 @@ export function shopLegacyName(choice: ShopLegacy) {
 export function serviceCandidates(game: GameState, client: CustomerId) {
   const request = CUSTOMERS[client];
   return game.run.inventory.filter(
-    (p) => getPart(p.partId).category === request.category && p.condition < request.threshold && !p.inherited,
+    (p) => getPart(p.partId).category === request.category && p.condition < request.threshold && !p.inherited && !p.batonGuard,
   );
 }
 
 export function recordService(game: GameState, part: PartInstance) {
   const order = game.run.serviceBook?.ticket;
   if (order?.partUid === part.uid) order.worked = true;
+}
+
+export function serviceDelivery(game: GameState) {
+  const ticket = game.run.serviceBook?.ticket;
+  if (!ticket) return "Choose a repair contract first.";
+  const part = game.run.inventory.find((p) => p.uid === ticket.partUid);
+  const client = CUSTOMERS[ticket.client];
+  if (!part || getPart(part.partId).category !== client.category || !ticket.worked || part.condition < client.threshold)
+    return "Service and return the registered part in the requested condition.";
+  if (part.batonGuard) return "Release County Baton protection first.";
+  if (reservedPartUids(game).has(part.uid)) return "Finish the booked bench work first.";
+  return { ticket, part, client };
 }
 
 export function applyShopOrder(game: GameState, move: ShopMove): string | null {
@@ -135,11 +147,9 @@ export function applyShopOrder(game: GameState, move: ShopMove): string | null {
     delete book.ticket;
     return null;
   }
-  const part = game.run.inventory.find((p) => p.uid === ticket.partUid);
-  const client = CUSTOMERS[ticket.client];
-  if (!part || getPart(part.partId).category !== client.category || !ticket.worked || part.condition < client.threshold)
-    return "Service and return the registered part in the requested condition.";
-  if (reservedPartUids(game).has(part.uid)) return "Finish the booked bench work first.";
+  const delivery = serviceDelivery(game);
+  if (typeof delivery === "string") return delivery;
+  const { part, client } = delivery;
   game.run.inventory = game.run.inventory.filter((p) => p.uid !== part.uid);
   const invoice = {
     client: ticket.client,

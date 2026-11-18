@@ -56,8 +56,8 @@ export function challengeVehicleFit(state: GameState, venueId: string, vehicle: 
 }
 
 /** A challenge can be completed on a repeat Feature win, once per Season. */
-export function recordChallengeWin(state: GameState, venueId: string, vehicle: Vehicle): void {
-  recordBatonWin(state, venueId, vehicle);
+export function recordChallengeWin(state: GameState, venueId: string, vehicle: Vehicle, regularity = false): void {
+  if (!regularity) recordBatonWin(state, venueId, vehicle);
   const id = state.config.dare;
   const progress = state.run.challenge;
   if (!isSeasonChallenge(id) || progress.completedAt !== undefined) return;

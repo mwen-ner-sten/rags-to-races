@@ -72,7 +72,7 @@ interface Store {
   tick: () => void;
   save: () => void;
   reset: () => boolean;
-  importSave: (text: string) => string | null;
+  importSave: (text: string, options?: { backupLive: boolean }) => string | null;
   exportSave: () => string;
   exportBackup: () => string;
   clearError: () => void;
@@ -201,6 +201,7 @@ export const useGame = create<Store>((set, get) => ({
       const ms = Math.min(dt, OFFLINE_CAP_MS);
       const result = apply(game, { type: "advance", ms, away: true });
       set({ game: result.state, away: summarize(game, result.state, ms, dt > OFFLINE_CAP_MS) });
+      get().save();
       return;
     }
     get().dispatch({ type: "advance", ms: dt });
@@ -245,7 +246,7 @@ export const useGame = create<Store>((set, get) => ({
     }
   },
 
-  importSave: (text) => {
+  importSave: (text, options) => {
     let file: SaveFile | null;
     try {
       file = decodeSave(fromBase64(text.trim()));
@@ -254,7 +255,11 @@ export const useGame = create<Store>((set, get) => ({
     }
     if (!file) return "That doesn't look like a Rags to Races save.";
     try {
-      if (!backupRaw(window.localStorage.getItem(SAVE_KEY))) return "Couldn't back up your current save. Your current game has been kept.";
+      const previous = window.localStorage.getItem(SAVE_KEY);
+      if (options?.backupLive && get().game) {
+        if (previous && !decodeSave(previous) && !backupRaw(previous)) return "Could not keep the original save for recovery.";
+        window.localStorage.setItem(BACKUP_KEY, JSON.stringify({ savedAt: Date.now(), game: get().game }));
+      } else if (!backupRaw(previous)) return "Couldn't back up your current save. Your current game has been kept.";
       // Persist before changing the running game, so storage failures cannot replace it in memory.
       window.localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), game: file.game } satisfies SaveFile));
     } catch {

@@ -12,7 +12,8 @@ import { applyCountyMatch, type CountyMatchMove } from "./countyRivals";
 import { applyMotorPool, type MotorPoolMove } from "./motorPool";
 import { channel } from "./channels";
 import { COUNTY_PARTS, HOME_COUNTIES } from "./counties";
-import { getPart } from "./content/parts";
+import { BATON_RELEASE_REQUIRED, changeBatonGuard } from "./countyBaton";
+import { CONDITION_NAMES, getPart } from "./content/parts";
 import { PERK_BY_ID } from "./content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADE_BY_ID } from "./content/team";
 import { TOOL_BY_ID } from "./content/tools";
@@ -57,6 +58,7 @@ export type Action =
   | { type: "cancelJob"; jobId: string }
   | { type: "sell"; partUids: string[] }
   | { type: "protectPart"; partUid: string; keep: boolean }
+  | { type: "guardBaton"; partUid: string; keep: boolean }
   | { type: "swapIn"; partUid: string }
   | { type: "setDrivewayRule"; rule: DrivewayRule }
   | { type: "openPlace"; knowhowId: string }
@@ -179,11 +181,14 @@ function applyMut(s: GameState, action: Action): string | null {
       const uids = new Set(action.partUids);
       const parts = [...s.run.inventory, ...s.run.driveway].filter((p) => uids.has(p.uid));
       if (parts.length === 0) return "Nothing to sell";
+      if (parts.some((p) => p.batonGuard)) return BATON_RELEASE_REQUIRED;
       if (parts.some((p) => reserved.has(p.uid))) return "A part is being worked on";
       sellParts(s, parts);
       afterChange(s);
       return null;
     }
+    case "guardBaton":
+      return changeBatonGuard(s, action.partUid, action.keep);
     case "protectPart": {
       const part = s.run.inventory.find((candidate) => candidate.uid === action.partUid)
         ?? s.run.driveway.find((candidate) => candidate.uid === action.partUid);
@@ -259,7 +264,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!part) return "No such part";
       if (reservedPartUids(s).has(part.uid)) return "That part is being worked on";
       if (!slot.accepts.includes(part.partId)) return `${getPart(part.partId).name} doesn't fit`;
-      if (slot.minCondition !== undefined && part.condition < slot.minCondition) return "It must be at least Good";
+      if (slot.minCondition !== undefined && part.condition < slot.minCondition) return "It must be at least " + CONDITION_NAMES[slot.minCondition];
       const old = vehicle.parts[action.slot];
       vehicle.parts[action.slot] = part;
       s.run.inventory = s.run.inventory.filter((p) => p.uid !== part.uid);
@@ -442,6 +447,7 @@ export function swapMeetBlocker(s: GameState, partUids: string[], partId: string
   const reserved = reservedPartUids(s);
   const parts = s.run.inventory.filter((p) => partUids.includes(p.uid));
   if (parts.length !== 3 || parts.some((p) => reserved.has(p.uid))) return "Pick 3 free parts";
+  if (parts.some((p) => p.batonGuard)) return BATON_RELEASE_REQUIRED;
   if ((s.meta.codex.parts[partId] ?? 0) < 1) return "Pick a part you've seen before";
   const maxTier = Math.max(...parts.map((p) => getPart(p.partId).tier));
   if (getPart(partId).tier > maxTier) return "Trade at least one part of that tier";

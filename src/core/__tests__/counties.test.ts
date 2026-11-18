@@ -95,7 +95,7 @@ describe("Scrap home counties", () => {
     expect(partOriginLabel(local)).toBe("Curbside · Quarry County");
     quarry.run.rep = 20;
     expect(apply(quarry, { type: "openPlace", knowhowId: "place:junkyard" }).error).toBe("Unavailable in Quarry County");
-    expect(apply(quarry, { type: "openPlace", knowhowId: "place:quarry_breakers" }).error).toBe("Own a Riding Mower");
+    expect(apply(quarry, { type: "openPlace", knowhowId: "place:quarry_breakers" }).error).toBe("Own a Riding Mower or Service Runabout");
     quarry.config.perks.push("borrowed_trailer");
     quarry.meta.perks.borrowed_trailer = 1;
     quarry = must(quarry, { type: "openPlace", knowhowId: "place:quarry_breakers" });

@@ -3,17 +3,20 @@
 import { getPart } from "@/core/content/parts";
 import type { installedService } from "@/core/actions";
 import { fittingParts, partSwapGain } from "@/core/buildPlanning";
+import { batonPartTag } from "@/core/countyBaton";
 import { partOriginLabel } from "@/core/provenance";
 import type { SlotDef } from "@/core/content/vehicles";
 import { partScoreAt } from "@/core/race";
-import type { DisciplineId, PartInstance, Vehicle } from "@/core/types";
+import type { DisciplineId, GameState, PartInstance, Vehicle } from "@/core/types";
 import { conditionName } from "../format";
+import { BatonGuardControls } from "./CountyBaton";
 
-export function partOption(part: PartInstance): string {
-  return `${getPart(part.partId).name} (${conditionName(part.condition)})`;
+export function partOption(part: PartInstance, batonTag?: string): string {
+  return `${getPart(part.partId).name} (${conditionName(part.condition)})${batonTag ? ` · ${batonTag}` : ""}`;
 }
 
 interface BuildSlotRowProps {
+  game: GameState;
   vehicle: Vehicle;
   slot: SlotDef;
   discipline: DisciplineId;
@@ -28,8 +31,9 @@ interface BuildSlotRowProps {
 }
 
 /** One slot of an owned vehicle: what is in it, what it's worth at the chosen venue, and a better option if the garage has one. */
-export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, service, onInstall, onPull, onService }: BuildSlotRowProps) {
+export function BuildSlotRow({ game, vehicle, slot, discipline, venueId, free, busy, service, onInstall, onPull, onService }: BuildSlotRowProps) {
   const installed = vehicle.parts[slot.slot];
+  const batonTag = installed && batonPartTag(game, installed);
   const worth = (part: PartInstance) => partScoreAt(part, discipline, venueId, slot.slot);
   const gainFor = (part: PartInstance) => partSwapGain(vehicle, slot.slot, part, discipline, venueId);
   const signed = (gain: number) => `${gain >= 0 ? "+" : ""}${gain.toFixed(1)}`;
@@ -40,12 +44,13 @@ export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, s
   const better = installed && best && gain >= 0.05 ? best : null;
   return (
     <div className="slot build-slot">
-      <span className="slot-name">{slot.slot}</span>
+      <span className="slot-name">{slot.label ?? slot.slot}</span>
       <span className="slot-part">
         {installed ? (
           <>
             {getPart(installed.partId).name} <span className={`cond c${installed.condition}`}>{conditionName(installed.condition)}</span>{" "}
             <span className="num muted build-worth">{current.toFixed(1)}</span>{installed.provenance && <span className="muted"> · {partOriginLabel(installed)}</span>}
+            {batonTag && <span className="chip">{batonTag}</span>}
           </>
         ) : (
           <span className="why">Empty{slot.required ? ". It can't race" : ""}</span>
@@ -56,11 +61,11 @@ export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, s
       ) : (
         <span className="slot-actions">
           {options.length > 0 && (
-            <select aria-label={`Swap ${slot.slot}`} value="" onChange={(e) => e.target.value && onInstall(e.target.value)}>
+            <select aria-label={`Swap ${slot.label ?? slot.slot}`} value="" onChange={(e) => e.target.value && onInstall(e.target.value)}>
               <option value="">Swap in…</option>
               {options.map((p) => (
                 <option key={p.uid} value={p.uid}>
-                    {partOption(p)} · {signed(gainFor(p))} score · {partOriginLabel(p)}
+                    {partOption(p, batonPartTag(game, p))} · {signed(gainFor(p))} score · {partOriginLabel(p)}
                 </option>
               ))}
             </select>
@@ -74,6 +79,7 @@ export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, s
           {typeof service === "string" && <span className="why">{service}</span>}
         </span>
       )}
+      {installed && batonTag && <BatonGuardControls game={game} part={installed} />}
       {!busy && better && (
         <span className="build-better">
           <span>

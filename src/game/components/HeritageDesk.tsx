@@ -17,9 +17,9 @@ export function HeritageOffer({ game, entry }: { game: GameState; entry: HallOfF
   </div>;
 }
 
-export function HeritageDesk({ game }: { game: GameState }) {
+export function HeritageDesk({ game, vehicleUid }: { game: GameState; vehicleUid?: string }) {
   const dispatch = useGame((s) => s.dispatch);
-  const [uid, setUid] = useState("");
+  const [uid, setUid] = useState(vehicleUid ?? "");
   const [confirm, setConfirm] = useState("");
   const project = game.run.heritageProject;
   const awards = game.meta.heritageRegister ?? [];
@@ -28,8 +28,8 @@ export function HeritageDesk({ game }: { game: GameState }) {
   const car = candidates.find((v) => v.uid === uid) ?? candidates[0];
   const exhibit = project?.kind === "exhibit";
   const issue = project && car && (exhibit ? exhibitBlocker(game, project, car) : heritageFit(project, car));
-  return <section className="section" aria-label="Heritage register">
-    <h3>Heritage register</h3>
+  return <section className="section" aria-labelledby="heritage-register-h">
+    <h3 id="heritage-register-h">Heritage register</h3>
     {project && <>
       <p><strong>{project.originalName}</strong> · Season {project.oldSeason} · {getVehicle(project.model).name}</p>
       {project.completed ? <p>{project.completed} entered the register this Season.</p> : <>

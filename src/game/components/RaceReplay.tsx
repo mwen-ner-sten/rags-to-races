@@ -5,6 +5,7 @@ import { DISCIPLINES, RIVAL_BY_ID, getVenue, venueName } from "@/core/content/ev
 import { CLUB_COURSES } from "@/core/clubTrack";
 import { COUNTY_RIVALS } from "@/core/countyRivals";
 import { getPart } from "@/core/content/parts";
+import { getVehicle } from "@/core/content/vehicles";
 import { totalTime } from "@/core/timecards";
 import type { GameState, RaceResult } from "@/core/types";
 import { vehicleForReplay } from "@/core/vehicleArchive";
@@ -71,6 +72,8 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
   }, [playing, speed]);
 
   const shown = shownFrom(game, race);
+  const slots = getVehicle(shown.vehicleId).slots;
+  const slotName = (slot: string) => slots.find((def) => def.slot === slot)?.label?.toLowerCase() ?? slot.replace("_", " ");
   const finished = t >= 1;
   const weakPart = race.weakestPart;
   const rival = race.rival ? RIVAL_BY_ID[race.rival.id] : null;
@@ -121,10 +124,10 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
           {race.countyMeeting && <p>{COUNTY_RIVALS[race.countyMeeting.rival].name} {race.countyMeeting.rivalOut ? "retired" : race.countyMeeting.beaten ? "finished behind you" : "finished ahead of you"}.</p>}
           {race.rivalOut && rival && <p>{rival.name}’s car quit before the flag.</p>}
           {!race.dnf && race.position > 1 && <p className="muted">You were {Math.abs(race.margin * 100).toFixed(1)}% off the car ahead.</p>}
-          {race.wear.length > 0 && <p>Wear: {race.wear.map((w) => `${w.slot} ${conditionName(w.from)} → ${conditionName(w.to)}`).join(", ")}</p>}
+          {race.wear.length > 0 && <p>Wear: {race.wear.map((w) => `${slotName(w.slot)} ${conditionName(w.from)} → ${conditionName(w.to)}`).join(", ")}</p>}
           {race.weakestSlot && (
             <p className="tip">
-              Weakest link at race entry: the {race.weakestSlot}{weakPart ? `, a ${conditionName(weakPart.condition)} ${getPart(weakPart.partId).name}` : ""}.{" "}
+              Weakest link at race entry: the {slotName(race.weakestSlot)}{weakPart ? `, a ${conditionName(weakPart.condition)} ${getPart(weakPart.partId).name}` : ""}.{" "}
               <button
                 className="link-btn"
                 onClick={() => {

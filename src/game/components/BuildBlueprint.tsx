@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { blueprintPlan, haulSourcesForSlot } from "@/core/buildPlanning";
+import { batonPartTag } from "@/core/countyBaton";
 import { getPart } from "@/core/content/parts";
 import type { VehicleDef } from "@/core/content/vehicles";
 import { jobBlocker } from "@/core/jobs";
@@ -32,22 +33,22 @@ export function Blueprint({ game, def }: { game: GameState; def: VehicleDef }) {
         {game.run.cash < def.cash && <p className="why">Still needed · {num(def.cash - game.run.cash)} Scrap Bucks</p>}
         <div className="slots">
           {plan.slots.map(({ slot, options, fixable }) => {
-            const sources = slot.required && options.length === 0 ? haulSourcesForSlot(game, slot) : [];
+            const sources = slot.required && !plan.chosen[slot.slot] ? haulSourcesForSlot(game, slot) : [];
             return (
               <label key={slot.slot} className="slot">
                 <span className="slot-name">
-                  {slot.slot}
+                  {slot.label ?? slot.slot}
                   {!slot.required && <span className="muted"> (optional)</span>}
                 </span>
                 <select value={plan.chosen[slot.slot] ?? ""} onChange={(e) => setPicks({ ...picks, [slot.slot]: e.target.value })}>
                   <option value="">{options.length ? "None" : `Needs ${slot.accepts.map((id) => getPart(id).name).join(" or ")}`}</option>
                   {options.map((p) => (
                     <option key={p.uid} value={p.uid}>
-                      {partOption(p)}
+                      {partOption(p, batonPartTag(game, p))}
                     </option>
                   ))}
                 </select>
-                {options.length === 0 && fixable.length > 0 && <span className="why">On hand but needs bench work · {fixable.map(partOption).join(", ")}</span>}
+                {options.length === 0 && fixable.length > 0 && <span className="why">On hand but needs bench work · {fixable.map((part) => partOption(part, batonPartTag(game, part))).join(", ")}</span>}
                 {sources.length > 0 && <span className="hint">Per random find: {sources.map(({ place, chance }) => `${place.name} ${pct(chance)}`).join(" · ")}</span>}
               </label>
             );

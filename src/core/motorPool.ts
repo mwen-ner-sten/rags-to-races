@@ -61,11 +61,15 @@ export function motorPoolVisible(game: GameState): boolean {
 }
 
 export function motorModel(vehicle: Vehicle): boolean {
-  return vehicle.vehicleId === "riding_mower" || vehicle.vehicleId === "beater_car";
+  return vehicle.vehicleId === "riding_mower" || vehicle.vehicleId === "service_runabout" || vehicle.vehicleId === "beater_car";
+}
+
+export function motorWearSlot(rig: Vehicle, route: MotorRouteId): string {
+  return route === "ramp" && rig.vehicleId === "service_runabout" ? "rear_wheel" : MOTOR_ROUTES[route].wear;
 }
 
 export function motorOwnStock(part: PartInstance): boolean {
-  return !part.inherited && !TEMPORARY_ORIGINS.has(part.origin);
+  return !part.inherited && !part.batonGuard && !TEMPORARY_ORIGINS.has(part.origin);
 }
 
 function roadworthy(rig: Vehicle): boolean {
@@ -77,12 +81,13 @@ export function motorLodgeBlocker(game: GameState, vehicleUid: string): string |
   if (game.motorPool?.custody) return "The depot already holds a rig.";
   if (game.motorPool?.lastLodgedSeason === game.meta.seasonsPlayed + 1) return "The depot takes one rig per Season.";
   const rig = game.run.vehicles.find(({ uid }) => uid === vehicleUid);
-  if (!rig || !motorModel(rig) || !roadworthy(rig)) return "Choose a roadworthy Riding Mower or Beater.";
+  if (!rig || !motorModel(rig) || !roadworthy(rig)) return "Choose a roadworthy Riding Mower, Service Runabout, or Beater.";
   if (vehicleBusy(game, vehicleUid) || game.run.raceNight?.vehicleUid === vehicleUid
     || game.run.queue.some((spec) => spec.kind === "race" && spec.vehicleUid === vehicleUid)) return "Clear this rig’s race bookings before lodging it.";
   if (game.owner?.tour.status === "active" && game.owner.tour.rounds.some((result) => result?.vehicleUid === vehicleUid)) return "Finish this rig’s active Owner tour first.";
   if (game.manufacturer?.active?.vehicleUid === vehicleUid) return "File the rig’s works deal before lodging it.";
   if (game.promoter?.meet?.guest.uid === vehicleUid) return "Close the Circuit calendar using this guest first.";
+  if (Object.values(rig.parts).some((part) => part?.batonGuard)) return "Pull the safeguarded County Baton part before lodging the rig.";
   if (Object.values(rig.parts).some((part) => part && !motorOwnStock(part))) return "Remove inherited, drawing, or loaned parts first. Only wholly owned stock can cross through the depot.";
   return null;
 }
@@ -113,7 +118,8 @@ export function motorBookBlocker(game: GameState, route: MotorRouteId, tenderUid
   if (pool.ledger.season === game.meta.seasonsPlayed + 1 && pool.ledger.booked.includes(route)) return "This route has a booking this Season.";
   if (!roadworthy(rig)) return "Fit usable equipment to every required slot.";
   const definition = MOTOR_ROUTES[route];
-  if ((rig.parts[definition.wear]?.condition ?? 0) < 2) return `Fit a Worn or better ${definition.wear} to the rig for this route.`;
+  const wearSlot = motorWearSlot(rig, route);
+  if ((rig.parts[wearSlot]?.condition ?? 0) < 2) return `Fit a Worn or better ${wearSlot.replace("_", " ")} to the rig for this route.`;
   if (!motorTenderCandidates(game, route).some(({ uid }) => uid === tenderUid)) return `Provide an unreserved loose ${definition.tender} in Worn or better condition.`;
   if (game.run.cash < definition.cost) return `The depot route costs ${definition.cost} Scrap Bucks.`;
   return null;
@@ -208,7 +214,7 @@ export function advanceMotorPool(game: GameState, elapsed: number): void {
     job.remaining -= elapsed;
     return;
   }
-  const slot = MOTOR_ROUTES[job.route].wear;
+  const slot = motorWearSlot(pool.custody.rig, job.route);
   const part = pool.custody.rig.parts[slot]!;
   part.condition = Math.max(0, part.condition - 1) as Condition;
   if (!pool.custody.completed.includes(job.route)) pool.custody.completed.push(job.route);

@@ -5,6 +5,7 @@ import type { CareerDestination } from "@/core/careerAdvice";
 import { LAYERS } from "@/core/layers";
 import { venueName } from "@/core/content/events";
 import { getKnowhow } from "@/core/content/knowhow";
+import { motorPoolVisible } from "@/core/motorPool";
 import { capitalize, duration, num, ordinal, seasonClock } from "../format";
 import { useGame } from "../store";
 import { BuildPanel } from "./BuildPanel";
@@ -108,7 +109,7 @@ function Header() {
   );
 }
 
-function AwayDialog({ onShow }: { onShow: (tab: TabId) => void }) {
+function AwayDialog({ onShow }: { onShow: (target: CareerDestination) => void }) {
   const away = useGame((s) => s.away);
   const close = useGame((s) => s.closeAway);
   const ref = useRef<HTMLDialogElement>(null);
@@ -116,11 +117,22 @@ function AwayDialog({ onShow }: { onShow: (tab: TabId) => void }) {
     if (away && ref.current && !ref.current.open) ref.current.showModal();
   }, [away]);
   if (!away) return null;
-  const dismiss = (destination?: TabId) => {
+  const dismiss = (destination?: CareerDestination) => {
     ref.current?.close();
     close();
     if (destination) onShow(destination);
   };
+  const reportCard = (report: (typeof away.careerReports)[number]) => (
+    <section key={report.id} className="section" aria-labelledby={`away-${report.id}-h`}>
+      <h3 id={`away-${report.id}-h`}>{report.title}</h3>
+      <p>{report.detail}</p>
+      <p>{report.next}</p>
+      <div className="actions">
+        <button className="btn" type="button" onClick={() => dismiss(report.destination)}>{report.action}</button>
+        {report.circuitOpened && <button className="btn" type="button" onClick={() => dismiss({ tab: "promoter" })}>Open Circuit Office</button>}
+      </div>
+    </section>
+  );
   return (
     <dialog ref={ref} className="away" onClose={close} aria-labelledby="away-h">
       <h2 id="away-h">While you were away</h2>
@@ -128,17 +140,13 @@ function AwayDialog({ onShow }: { onShow: (tab: TabId) => void }) {
         {duration(away.ms)}
         {away.capped ? " (progress stops counting after 48 hours)" : ""}
       </p>
-      {away.careerReports.map((report) => (
-        <section key={report.tab} className="section" aria-labelledby={`away-${report.tab}-h`}>
-          <h3 id={`away-${report.tab}-h`}>{report.title}</h3>
-          <p>{report.detail}</p>
-          <p>{report.next}</p>
-          <div className="actions">
-            <button className="btn" type="button" onClick={() => dismiss(report.tab)}>{report.tab === "owner" ? "Open championship report" : "Open circuit report"}</button>
-            {report.circuitOpened && <button className="btn" type="button" onClick={() => dismiss("promoter")}>Open Circuit Office</button>}
-          </div>
-        </section>
-      ))}
+      {away.careerReports.slice(0, 2).map(reportCard)}
+      {away.careerReports.length > 2 && (
+        <details className="section">
+          <summary>More career updates ({away.careerReports.length - 2})</summary>
+          {away.careerReports.slice(2).map(reportCard)}
+        </details>
+      )}
       <ul>
         {away.trips > 0 && <li>{away.trips} trips, {away.partsFound} parts found</li>}
         {away.races > 0 && <li>{away.races} races, {away.wins} won</li>}
@@ -152,11 +160,11 @@ function AwayDialog({ onShow }: { onShow: (tab: TabId) => void }) {
         {away.learned.map((id) => (
           <li key={id}>Learned {getKnowhow(id).name}</li>
         ))}
-        {away.trips === 0 && away.races === 0 && away.careerReports.length === 0 && away.learned.length === 0 && <li>Nothing much. Queue long jobs before you leave.</li>}
+        {away.trips === 0 && away.races === 0 && away.careerReports.length === 0 && away.learned.length === 0 && away.items.length === 0 && <li>Nothing much. Queue long jobs before you leave.</li>}
       </ul>
       {away.items.length > 0 && (
-        <>
-          <h3 className="label">What happened</h3>
+        <details open={away.careerReports.length === 0}>
+          <summary>What happened</summary>
           <ul className="away-items">
             {away.items.map((item) => (
               <li key={item.id}>
@@ -164,7 +172,7 @@ function AwayDialog({ onShow }: { onShow: (tab: TabId) => void }) {
               </li>
             ))}
           </ul>
-        </>
+        </details>
       )}
       <button className="btn primary" onClick={() => dismiss()} autoFocus>
         Back to the garage
@@ -287,9 +295,9 @@ export function Game() {
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
     if (t.id === "club") return !clubGate(game);
     if (t.id === "manufacturer") return !!game.manufacturer?.invites.length;
-    if (t.id === "garage" && game.motorPool?.custody) return true;
+    if (t.id === "garage" && motorPoolVisible(game)) return true;
     if (t.id === "team" && (game.era || LAYERS.team.gate(game).ok)) return true;
-    if (t.id === "legacy" && LAYERS.scrap.gate(game).ok) return true;
+    if (t.id === "legacy" && (game.run.countyBaton || LAYERS.scrap.gate(game).ok)) return true;
     if (t.id === "race" && game.run.vehicles.length > 0) return true;
     return !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0);
   });
@@ -329,10 +337,15 @@ export function Game() {
           {active === "trips" && <TripsPanel />}
           {active === "garage" && (
             <div className="panel">
+              {motorPoolVisible(game) && <div className="actions">
+                <button className="btn small" type="button" onClick={() => showCareerTarget({
+                  tab: "garage", section: game.motorPool?.claim ? "motor-pickup" : "motor-pool",
+                })}>{game.motorPool?.claim ? "Open depot pickup" : game.motorPool?.job ? "Check depot delivery" : "Open County Motor Pool"}</button>
+              </div>}
               <PartsPanel />
               <ServiceCounter game={game} />
               <WorksDrawingWorkshop game={game} />
-              <MotorPoolPanel game={game} />
+              <MotorPoolPanel game={game} onManageParts={() => showCareerTarget({ tab: "garage", section: "parts" })} />
               <BuildPanel />
             </div>
           )}
@@ -340,7 +353,7 @@ export function Game() {
             <CountyMatchPanel game={game} />
             <RacePanel key={jump?.request} initialVenue={jump?.target.tab === "race" ? jump.target.venueId : undefined} />
           </>}
-          {active === "notebook" && <NotebookPanel key={jump?.request} section={jump?.target.tab === "notebook" ? jump.target.section : undefined} />}
+          {active === "notebook" && <NotebookPanel key={jump?.request} section={jump?.target.tab === "notebook" ? jump.target.section : undefined} vehicleUid={jump?.target.tab === "notebook" && "vehicleUid" in jump.target ? jump.target.vehicleUid : undefined} />}
           {active === "legacy" && <LegacyPanel key={jump?.request} initialObjective={jump?.target.tab === "legacy" ? jump.target.objective : undefined} />}
           {active === "team" && <TeamPanel key={jump?.request} plannedDiscipline={jump?.target.tab === "team" && "discipline" in jump.target ? jump.target.discipline : undefined} />}
           {active === "owner" && <OwnerPanel />}
@@ -352,7 +365,7 @@ export function Game() {
         <JobsBoard />
       </div>
       <RaceReplay onFix={() => showTab("garage")} />
-      <AwayDialog onShow={showTab} />
+      <AwayDialog onShow={showCareerTarget} />
       <RaceFinished onRaceTab={active === "race"} />
       <Toast />
       <FeedToasts />

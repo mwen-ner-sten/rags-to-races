@@ -1,5 +1,6 @@
 import { hasPerk } from "../rules";
 import type { GameState } from "../types";
+import { hasYardTowRig } from "./vehicles";
 
 export interface FindEntry {
   partId: string;
@@ -107,7 +108,7 @@ export const PLACES: readonly PlaceDef[] = [
       { partId: "frame_tube", weight: 2 },
       { partId: "wheel_at", weight: 2 },
     ],
-    requires: (state) => (ownsVehicle(state, "riding_mower") || hasPerk(state, "borrowed_trailer") ? null : "Needs a Riding Mower to tow the trailer"),
+    requires: (state) => (hasYardTowRig(state) || hasPerk(state, "borrowed_trailer") ? null : "Needs a Riding Mower or Service Runabout to tow the trailer"),
     habitAt: 15,
   },
   {
@@ -148,7 +149,7 @@ export const PLACES: readonly PlaceDef[] = [
       { partId: "wheel_sport", weight: 2 }, { partId: "exhaust_glasspack", weight: 4 },
       { partId: "junk_misc", weight: 10 },
     ],
-    requires: (state) => (ownsVehicle(state, "riding_mower") || hasPerk(state, "borrowed_trailer") ? null : "Needs a Riding Mower to tow the trailer"),
+    requires: (state) => (hasYardTowRig(state) || hasPerk(state, "borrowed_trailer") ? null : "Needs a Riding Mower or Service Runabout to tow the trailer"),
     habitAt: 15,
   },
   {

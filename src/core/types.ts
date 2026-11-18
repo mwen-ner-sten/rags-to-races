@@ -55,6 +55,7 @@ export interface PartInstance {
   origin: string;
   provenance?: PartProvenance;
   protected?: boolean;
+  batonGuard?: true;
   referral?: import("./serviceShop").CustomerId;
   /** This physical part has already crossed one Scrap Reset. */
   inherited?: true;
@@ -101,7 +102,7 @@ export type JobSpec =
   | { kind: "strip"; partUid?: string }
   | { kind: "study"; knowhowId: string }
   | { kind: "assemble"; vehicleId: string; partUids: Record<string, string>; name: string }
-  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; useLastPace?: true; tourRound?: string; tourReserve?: number; ownerDrive?: true; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; countyMatch?: CountyRivalId; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
+  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; useLastPace?: true; holdMarks?: true; tourRound?: string; tourReserve?: number; ownerDrive?: true; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; countyMatch?: CountyRivalId; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
 
 export type LaneId = string; // "hands" | "bench:0" | "habit:1" | "crew:<id>"
 

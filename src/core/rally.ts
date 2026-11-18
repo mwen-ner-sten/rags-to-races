@@ -86,14 +86,18 @@ export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf
     const notes = spec.call2 === "recce";
     const penalty = cut && rand(state) < CUT_CHANCE ? nominal * CUT_COST : 0;
     const pace = base * modifiers[surface] * (notes ? 1.015 : cut ? 1.06 : 1) * (1 + (notes ? 0.035 : 0.085) * randNormal(state));
-    const split = nominal * field / Math.max(0.1, pace) + penalty;
+    const flatOut = nominal * field / Math.max(0.1, pace) + penalty;
+    // A tripmeter lets the driver lift before a control. It can never recover time already lost.
+    const target = spec.holdMarks && reference ? reference.splitsMs[index] / 1000 : 0;
+    const split = Math.max(flatOut, target * 0.99);
+    const lifted = split - flatOut;
     time += split;
     splitsMs.push(Math.max(1, Math.round(split * 1000)));
     previousTime += (reference?.splitsMs[index] ?? 0) / 1000;
     const delta = time - previousTime;
     const ghost = reference ? ` ${Math.abs(delta).toFixed(1)}s ${delta > 0 ? "behind" : "ahead of"} ${reference.carName}’s card.` : "";
     const position = 1 + runners.filter((r) => !r.out && r.time < time).length;
-    beats.push({ at, position, kind: "hold", text: `Stage ${index + 1}, ${surface} · ${split.toFixed(1)}s${penalty ? " including a corner-cut penalty" : ""}. Overall P${position}.${ghost}` });
+    beats.push({ at, position, kind: "hold", text: `Stage ${index + 1}, ${surface} · ${split.toFixed(1)}s${penalty ? " including a corner-cut penalty" : ""}.${lifted > 0.05 ? " Lifted for " + lifted.toFixed(1) + "s at the time control." : ""} Overall P${position}.${ghost}` });
   }
   const finishers = runners.filter((r) => !r.out);
   const times = [...finishers.map((r) => r.time), ...(dnf ? [] : [time])].sort((a, b) => a - b);

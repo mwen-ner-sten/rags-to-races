@@ -6,7 +6,7 @@ import { countySpecMatches } from "./countyRivals";
 import { channel } from "./channels";
 import { countyPlaceBlocker } from "./counties";
 import { customerLeads, recordService } from "./serviceShop";
-import { cardFor } from "./timecards";
+import { cardFor, tripmeterAvailable } from "./timecards";
 import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
@@ -106,8 +106,11 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       if (!hasMaterials(state, benchCost(part, "restore"))) return "Not enough materials";
       return null;
     }
-    case "strip":
-      return findAnyPart(state, spec.partUid) ? null : "Pick a part";
+    case "strip": {
+      const part = findAnyPart(state, spec.partUid);
+      if (!part) return "Pick a part";
+      return part.batonGuard ? "Release County Baton protection first." : null;
+    }
     case "study": {
       const def = getKnowhow(spec.knowhowId);
       if (def.kind === "place") return "Places are opened with Rep";
@@ -119,15 +122,18 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "assemble": {
       const def = getVehicle(spec.vehicleId);
       if (def.blueprint && !isLearned(state, def.blueprint)) return "You haven't drawn up these plans";
+      const offered = Object.entries(spec.partUids);
+      if (new Set(offered.map(([, uid]) => uid)).size !== offered.length) return "Choose a different physical part for each slot";
+      if (offered.some(([key]) => !def.slots.some(({ slot }) => slot === key))) return "Choose parts for slots on this build";
       for (const slot of def.slots) {
         const uid = spec.partUids[slot.slot];
         const part = findPart(state, uid);
         if (!part) {
-          if (slot.required) return `Missing ${slot.slot}`;
+          if (slot.required || uid !== undefined) return `Missing ${slot.label ?? slot.slot}`;
           continue;
         }
         if (!slot.accepts.includes(part.partId)) return `${getPart(part.partId).name} doesn't fit the ${slot.slot} slot`;
-        if (slot.minCondition !== undefined && part.condition < slot.minCondition) return `The ${slot.slot} must be at least Good`;
+        if (slot.minCondition !== undefined && part.condition < slot.minCondition) return `The ${slot.slot} must be at least ${CONDITION_NAMES[slot.minCondition]}`;
         if (part.condition === 0) return `${getPart(part.partId).name} is scrap; clean or replace it`;
       }
       if (state.run.cash < def.cash) return `Needs ${def.cash} Scrap Bucks`;
@@ -149,6 +155,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       const missing = getVehicle(vehicle.vehicleId).slots.find((sl) => sl.required && !vehicle.parts[sl.slot]);
       if (missing) return `The ${missing.slot} is out on the bench`;
       if (Object.values(vehicle.parts).some((p) => p && p.condition === 0)) return "A part is scrap. Fix it before racing";
+      if (spec.holdMarks && (!spec.regularity || !tripmeterAvailable(vehicle))) return "Use a Roadbook Special with Worn or better electronics in a regularity entry.";
       if (spec.useLastPace && !spec.regularity) return "Choose a regularity entry to use a declared pace.";
       if (spec.regularity && (state.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || spec.worksRound || !cardFor(state, spec.venueId, spec.event, vehicle.vehicleId))) {
         return "Set a class time on this standard Rally course before entering regularity.";
@@ -347,7 +354,8 @@ function laneBusy(state: GameState, lane: LaneId): boolean {
 }
 
 function activeCrew(state: GameState): CrewMember[] {
-  if (!state.era || resolveFlags(state).crewDisabled) return [];
+  const flags = resolveFlags(state);
+  if (!state.era || flags.crewDisabled || flags.habitsDisabled) return [];
   return state.era.crew;
 }
 

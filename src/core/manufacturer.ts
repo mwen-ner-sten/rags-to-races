@@ -255,5 +255,6 @@ export function recordWorksRace(state: GameState, spec: RaceSpec, result: RaceRe
   const maker = WORKS_FAMILIES[deal.family];
   state.run.cash += maker.grant;
   if (!works.drawings.includes(deal.family)) works.drawings.push(deal.family);
-  logSeason(state, `works:honors:${deal.id}`, `${maker.name} homologated ${deal.article}. Its drawing is available in a future Scrap Reset.`);
+  const key = `works:honors:${deal.id}`;
+  logSeason(state, key, `${maker.name} homologated ${deal.article}. Its drawing is available in a future Scrap Reset.`, key);
 }

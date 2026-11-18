@@ -15,6 +15,7 @@ const PART_SPRITE: Record<string, string> = { junk_misc: "misc_junk", junk_seat:
 
 /** Vehicles whose image file has a different name. */
 const VEHICLE_SPRITE: Record<string, string> = {
+  roadbook_special: "rally_car",
   street_stock: "stock_car",
 };
 

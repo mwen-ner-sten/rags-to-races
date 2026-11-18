@@ -196,7 +196,7 @@ describe("repeatable Season challenges", () => {
     } });
     expect(rookie.meta.perks.dirt_track_pass).toBe(1);
     expect(rookie.run.venuesOpen).toEqual(["backyard"]);
-    expect(apply(rookie, { type: "openPlace", knowhowId: "place:junkyard" }).error).toBe("Own a Riding Mower");
+    expect(apply(rookie, { type: "openPlace", knowhowId: "place:junkyard" }).error).toBe("Own a Riding Mower or Service Runabout");
 
     const oneYard = must(state, { type: "reset", layer: "team", choices: {
       ...choices, hardships: ["one_yard"], teamName: "One Yard team", colors: ["#000", "#fff"], discipline: "dirt",

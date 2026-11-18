@@ -10,7 +10,7 @@ import { COUNTY_RIVALS, recordCountyMatch, type CountyRivalId } from "./countyRi
 import { BRACKET_SPREAD, CALL2, DISCIPLINES, OPPONENT_SPREAD, PRIZE_SHARE, RIVAL_BY_ID, getVenue, venueName, type DisciplineDef, type VenueDemand } from "./content/events";
 import { CONDITION_STAT, getPart } from "./content/parts";
 import { CREW_BY_ID, crewLevel } from "./content/team";
-import { getVehicle } from "./content/vehicles";
+import { getVehicle, isWheelSlot } from "./content/vehicles";
 import { vehicleStats } from "./garage";
 import { pushFeed } from "./feed";
 import { STORY, addJournal, logSeason, tell } from "./journal";
@@ -231,7 +231,7 @@ interface WearInput {
 function rollWear(state: GameState, vehicle: Vehicle, input: WearInput): Record<string, number> {
   const wearSteps: Record<string, number> = {};
   for (const slot of Object.keys(vehicle.parts)) {
-    const chance = 0.08 * input.mult * (slot === "wheel" ? input.wheelMult : 1);
+    const chance = 0.08 * input.mult * (isWheelSlot(slot) ? input.wheelMult : 1);
     let steps = rand(state) < chance ? 1 : 0;
     if (input.dnf && slot === input.weak) steps += 1;
     if (input.dnf && slot === "engine") steps += input.engineBlowSteps;
@@ -569,7 +569,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
 
   if (spec.event === "feature" && won) {
     onFeatureWin(state, spec, vehicle, roll);
-    recordChallengeWin(state, spec.venueId, vehicle);
+    recordChallengeWin(state, spec.venueId, vehicle, spec.regularity);
   }
   recordOwnerFinish(state, spec, result, paidEntry ?? event.entry, spec.ownerDrive === true && roll.crewIds?.length === 0);
   if (spec.clubRound) recordClubRace(state, spec, result);
@@ -669,7 +669,7 @@ export function partScoreAt(part: { partId: string; condition: Condition }, disc
   const rules = DISCIPLINES[discipline];
   const w = rules.weights;
   const d = venueId && rules.format === "oval" ? getVenue(venueId).demand : NEUTRAL;
-  const traction = slot === "wheel" ? def.handling * m * w.traction : 0;
+  const traction = isWheelSlot(slot) ? def.handling * m * w.traction : 0;
   return def.power * m * w.power * d.power + def.handling * m * w.handling * d.handling + def.reliability * m * w.reliability * d.reliability + traction - def.weight * w.weight;
 }
 

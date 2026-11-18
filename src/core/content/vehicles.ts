@@ -1,7 +1,8 @@
-import type { Condition, MaterialId } from "../types";
+import type { Condition, GameState, MaterialId } from "../types";
 
 export interface SlotDef {
   slot: string;
+  label?: string;
   required: boolean;
   accepts: string[];
   /** Minimum condition the part must be in to be installed. */
@@ -134,6 +135,48 @@ export const VEHICLES: readonly VehicleDef[] = [
     habitSlot: false,
     blueprint: "blueprint:street_stock",
   },
+  {
+    id: "service_runabout",
+    name: "Service Runabout",
+    tier: 1,
+    blurb: "A depot-built hauler that carries 12 parts per trip and tows at the junkyard. Two independent axles keep it planted, but its heavy body suits service roads better than the race grid.",
+    slots: [
+      { slot: "engine", required: true, accepts: ["engine_tiller", "engine_lawn", "engine_small"] },
+      { slot: "wheel", label: "Front wheel", required: true, accepts: ["wheel_basic", "wheel_busted", "wheel_knobby", "wheel_river", "wheel_kart"] },
+      { slot: "rear_wheel", label: "Rear wheel", required: true, accepts: ["wheel_basic", "wheel_busted", "wheel_knobby", "wheel_river", "wheel_kart"] },
+      { slot: "frame", required: true, accepts: ["frame_kart"] },
+      { slot: "fuel", required: true, accepts: ["fuel_gas_can", "fuel_tank_small"] },
+    ],
+    base: { power: 3, handling: 2, reliability: 6, weight: 160 },
+    cash: 30,
+    materials: { metal: 3, rubber: 1 },
+    assembleMs: 2 * HOUR,
+    carry: 12,
+    habitSlot: false,
+    blueprint: "blueprint:service_runabout",
+  },
+  {
+    id: "roadbook_special",
+    name: "Roadbook Special",
+    tier: 3,
+    blurb: "A light rally sedan with a calibrated tripmeter. Lift to a known stage pace on regularity runs.",
+    slots: [
+      { slot: "body", required: true, accepts: ["beater_shell"], minCondition: 3 },
+      { slot: "engine", required: true, accepts: ["engine_v4", "engine_twin", "engine_quarry", "engine_turbo4"] },
+      { slot: "wheel", required: true, accepts: ["wheel_dirt", "wheel_knobby", "wheel_at", "wheel_river"] },
+      { slot: "frame", required: true, accepts: ["frame_steel", "frame_tube"] },
+      { slot: "fuel", required: true, accepts: ["fuel_tank_small", "fuel_tank_large"] },
+      { slot: "electronics", required: true, accepts: ["elec_basic", "elec_ecu"], minCondition: 2 },
+      { slot: "drivetrain", required: false, accepts: ["drive_manual", "drive_auto"] },
+    ],
+    base: { power: 18, handling: 24, reliability: 18, weight: 255 },
+    cash: 360,
+    materials: { metal: 12, rubber: 6, wiring: 8 },
+    assembleMs: 7 * HOUR,
+    carry: 0,
+    habitSlot: false,
+    blueprint: "blueprint:roadbook_special",
+  },
 ];
 
 export const VEHICLE_BY_ID: Record<string, VehicleDef> = Object.fromEntries(VEHICLES.map((v) => [v.id, v]));
@@ -142,6 +185,14 @@ export function getVehicle(id: string): VehicleDef {
   const def = VEHICLE_BY_ID[id];
   if (!def) throw new Error(`Unknown vehicle ${id}`);
   return def;
+}
+
+export function isWheelSlot(slot: string): boolean {
+  return slot === "wheel" || slot === "rear_wheel";
+}
+
+export function hasYardTowRig(state: GameState): boolean {
+  return state.run.vehicles.some(({ vehicleId }) => vehicleId === "riding_mower" || vehicleId === "service_runabout");
 }
 
 /** Price of a sedan shell at the Salvage Auction. */

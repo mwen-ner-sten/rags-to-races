@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
-import { MOTOR_ROUTES, MOTOR_ROUTE_IDS, motorDuration, motorModel, motorOrigin, motorOwnStock } from "@/core/motorPool";
+import { MOTOR_ROUTES, MOTOR_ROUTE_IDS, motorDuration, motorModel, motorOrigin, motorOwnStock, motorWearSlot } from "@/core/motorPool";
 import type { GameState, PartInstance, Vehicle } from "@/core/types";
 
 const route = z.enum(MOTOR_ROUTE_IDS);
@@ -52,5 +52,5 @@ export function motorPoolReferencesValid(game: GameState): boolean {
   if (!pool.job) return true;
   const { tender, route, duration, remaining } = pool.job;
   return motorOwnStock(tender) && tender.condition >= 2 && getPart(tender.partId).category === MOTOR_ROUTES[route].tender
-    && remaining <= duration && duration === motorDuration(rig, route) && (rig.parts[MOTOR_ROUTES[route].wear]?.condition ?? 0) >= 2;
+    && remaining <= duration && duration === motorDuration(rig, route) && (rig.parts[motorWearSlot(rig, route)]?.condition ?? 0) >= 2;
 }

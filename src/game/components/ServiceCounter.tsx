@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getPart } from "@/core/content/parts";
+import { locateBatonPart } from "@/core/countyBaton";
 import { TOOL_BY_ID } from "@/core/content/tools";
 import { reservedPartUids } from "@/core/garage";
 import { jobBlocker } from "@/core/jobs";
@@ -12,6 +13,7 @@ import {
   TRANSFER_TOOLS,
   shopFoundingReady,
   serviceCandidates,
+  serviceDelivery,
   shopLegacyName,
   type CustomerId,
   type ShopLegacy,
@@ -20,6 +22,8 @@ import { initialConfig } from "@/core/state";
 import type { GameState } from "@/core/types";
 import { conditionName } from "../format";
 import { useGame } from "../store";
+import { ResetCommitments } from "./ResetCommitments";
+import { CheckpointShelf } from "./CheckpointShelf";
 
 function Transfer({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
@@ -35,6 +39,9 @@ function Transfer({ game }: { game: GameState }) {
     ...CUSTOMER_IDS.map((client): ShopLegacy => ({ type: "client", client })),
   ];
   const legacy = options.find((option) => shopLegacyName(option) === choice);
+  const baton = game.run.countyBaton;
+  const abandonsBaton = baton && (baton.leg === "qualify" || baton.completedAt === undefined);
+  const guardedBaton = baton?.qualified && locateBatonPart(game, baton.qualified.uid).part;
   return (
     <section>
       <h4>Move the shop</h4>
@@ -43,9 +50,7 @@ function Transfer({ game }: { game: GameState }) {
         points and records carry over. This move clears your loadout, loose stock and active event entries, and pays
         zero of the {scrapAward(game)} Legacy Points available through racing.
       </p>
-      {game.run.countyBaton && (game.run.countyBaton.leg === "qualify" || game.run.countyBaton.completedAt === undefined) && (
-        <p className="why">A Shop Move forfeits your unfinished County Baton attempt. Earned freight permits and Parts With a Past records stay.</p>
-      )}
+      <CheckpointShelf />
       <label>
         Take one thing with you{" "}
         <select
@@ -73,9 +78,12 @@ function Transfer({ game }: { game: GameState }) {
                 CUSTOMERS[legacy.client].category +
                 " finds. Your first trip can focus on this category before you learn Scouting."}
           </p>
+          <ResetCommitments game={game} />
+          {abandonsBaton && <p className="why">This move ends the unfinished County Baton attempt. Earned freight permits and Parts With a Past records stay.</p>}
+          {guardedBaton?.batonGuard && <p className="why">The safeguarded {getPart(guardedBaton.partId).name} will be scrapped.</p>}
           <label>
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> Close this
-            garage and begin the next Season.
+            garage and begin the next Season.{guardedBaton?.batonGuard && " I’m ready to scrap the safeguarded part."}
           </label>
           <button
             className="btn primary"
@@ -194,11 +202,13 @@ export function ServiceCounter({ game }: { game: GameState }) {
               )}
               <button
                 className="btn small"
-                disabled={!part || busy || !ticket.worked || part.condition < request.threshold}
+                id="service-delivery"
+                disabled={typeof serviceDelivery(game) === "string"}
                 onClick={() => dispatch({ type: "service", move: { type: "deliver" } })}
               >
                 Deliver part and collect payment
               </button>
+              {part?.batonGuard && <p className="why">Release County Baton protection in the Garage to deliver this part.</p>}
               <button className="link-btn" onClick={() => dispatch({ type: "service", move: { type: "release" } })}>
                 Release request
               </button>

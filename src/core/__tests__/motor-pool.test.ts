@@ -130,6 +130,9 @@ describe("County Motor Pool", () => {
     game = move(game, { type: "lodge", vehicleUid: original.uid });
     game = move(game, { type: "book", route: "ramp", tenderUid: wheel.uid });
     const booking = game.motorPool!.job;
+    game = must(game, { type: "cancelJob", jobId: booking!.part.uid });
+    expect(game.motorPool?.job).toEqual(booking);
+    expect(game.run.inventory).not.toContainEqual(wheel);
     const choices = layer === "shop" ? shopChoices : layer === "team" ? teamChoices : initialConfig();
     game = must(game, { type: "reset", layer, choices });
     expect(game.motorPool?.job).toEqual(booking);
@@ -191,5 +194,24 @@ describe("County Motor Pool", () => {
     while (game.run.inventory.length < garageSpace(game)) loose(game, "wheel_basic");
     expect(apply(game, { type: "motorPool", move: { type: "claim" } }).error).toMatch(/Free a garage slot/);
     expect(game.motorPool?.claim).toBeDefined();
+  });
+
+  it("holds the same return through a reset when its owner had no space to collect it", () => {
+    let game = ready();
+    game.run.featureWins.county_fair = 0;
+    const tender = loose(game, "wheel_basic");
+    game = move(game, { type: "lodge", vehicleUid: game.run.vehicles[0].uid });
+    game = move(game, { type: "book", route: "ramp", tenderUid: tender.uid });
+    game = must(game, { type: "advance", ms: HOUR });
+    const claim = game.motorPool?.claim;
+    while (game.run.inventory.length < garageSpace(game)) loose(game, "wheel_basic");
+    expect(apply(game, { type: "motorPool", move: { type: "claim" } }).error).toMatch(/Free a garage slot/);
+    game = must(game, { type: "reset", layer: "team", choices: teamChoices });
+    expect(parsed(game)?.motorPool?.claim).toEqual(claim);
+    expect(game.run.depotReceipts).toBeUndefined();
+    game = move(game, { type: "claim" });
+    expect(game.run.inventory.filter(({ uid }) => uid === claim?.part.uid)).toHaveLength(1);
+    expect(game.run.inventory.some(({ uid }) => uid === tender.uid)).toBe(false);
+    expect(game.run.depotReceipts).toEqual(["ramp"]);
   });
 });

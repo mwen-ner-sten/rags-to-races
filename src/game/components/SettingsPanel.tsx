@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CheckpointShelf } from "./CheckpointShelf";
 import { useGame } from "../store";
 
 export function SettingsPanel() {
@@ -74,8 +75,9 @@ export function SettingsPanel() {
           Show tips again
         </button>
       </div>
+      <CheckpointShelf />
       <h3 className="label">Start over</h3>
-      <p className="sub">Wipes this browser’s save, including your Notebook. This can’t be undone.</p>
+      <p className="sub">Starts a fresh game and Notebook. Your garage checkpoints stay saved. Export browser backup keeps your previous browser save until another backup replaces it.</p>
       {confirmWipe ? (
         <div className="actions">
           <button
@@ -87,7 +89,7 @@ export function SettingsPanel() {
               }
             }}
           >
-            Yes, wipe everything
+            Yes, start a new game
           </button>
           <button className="btn" onClick={() => setConfirmWipe(false)}>
             Keep my game

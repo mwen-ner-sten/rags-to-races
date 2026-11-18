@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGame, must } from "@/core";
 import type { GameState } from "@/core/types";
 import { pendingCircuitFinal, pendingOwnerFinal, racer, saveText, swapMeetGame, teamRacer } from "../../../tests/fixtures/rewrite";
+import { HOUR, pendingBaton, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../../../tests/fixtures/workshopAway";
 import { decodeGameState } from "../save";
 import { isGameState, useGame } from "../store";
 
@@ -32,6 +33,100 @@ afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 function writeGame(game: GameState, savedAt = Date.now()): void {
   storage.setItem(KEY, JSON.stringify({ game, savedAt }));
 }
+
+function returnAfter(game: GameState, elapsed: number) {
+  expect(decodeGameState(JSON.parse(JSON.stringify(game)))).not.toBeNull();
+  writeGame(game, Date.now() - elapsed);
+  useGame.getState().load();
+  return useGame.getState();
+}
+
+describe("workshop and branch catch-up", () => {
+  it("prioritizes newly arrived stock and an actionable invoice, preserving both through reload until collected", () => {
+    const pending = pendingDepotAndRepair();
+    const arrival = pending.motorPool!.job!;
+    const first = returnAfter(pending, arrival.remaining - 1);
+    expect(first.away?.careerReports.map(({ id }) => id)).toEqual(["service-delivery"]);
+    expect(first.game?.motorPool?.job?.remaining).toBe(1);
+    expect(first.game?.run.cash).toBe(pending.run.cash);
+
+    const returned = returnAfter(pending, 2 * HOUR);
+    expect(returned.away?.careerReports).toMatchObject([
+      { id: "motor-pickup", destination: { tab: "garage", section: "motor-pickup" }, detail: expect.stringContaining("Ramp depot") },
+      { id: "service-delivery", destination: { tab: "garage", section: "service-delivery" }, next: expect.stringContaining("24 Scrap Bucks") },
+    ]);
+    expect(returned.game?.run.cash).toBe(pending.run.cash);
+    expect(returned.game?.motorPool?.claim?.part.uid).toBe(arrival.part.uid);
+    expect(returned.game?.run.inventory.map(({ uid }) => uid)).not.toContain(arrival.part.uid);
+
+    useGame.getState().load();
+    expect(useGame.getState().away).toBeNull();
+    vi.advanceTimersByTime(HOUR);
+    useGame.getState().load();
+    expect(useGame.getState().away?.careerReports).toEqual([]);
+    expect(useGame.getState().dispatch({ type: "motorPool", move: { type: "claim" } })).toBe(true);
+    expect(useGame.getState().dispatch({ type: "service", move: { type: "deliver" } })).toBe(true);
+    expect(useGame.getState().game?.run.inventory.filter(({ uid }) => uid === arrival.part.uid)).toHaveLength(1);
+    expect(useGame.getState().game?.run.cash).toBe(pending.run.cash + 24);
+    expect(useGame.getState().dispatch({ type: "motorPool", move: { type: "claim" } })).toBe(false);
+    expect(useGame.getState().dispatch({ type: "service", move: { type: "deliver" } })).toBe(false);
+  });
+
+  it("settles one Works proof, grants the drawing once and hides the duplicate homologation feed item", () => {
+    const pending = pendingWorksFinal();
+    const returned = returnAfter(pending, 2 * HOUR);
+    expect(returned.away?.careerReports).toMatchObject([{
+      id: "works-proof", title: "Works article homologated", destination: { tab: "manufacturer", section: "deal" },
+    }]);
+    expect(returned.game?.manufacturer?.drawings).toEqual(["redwheel"]);
+    expect(returned.game?.manufacturer?.active?.attempts).toHaveLength(2);
+    expect(returned.game?.run.feed.some(({ key }) => key?.startsWith("works:honors"))).toBe(true);
+    expect(returned.away?.items.some(({ key }) => key?.startsWith("works:honors"))).toBe(false);
+    useGame.getState().load();
+    expect(useGame.getState().away).toBeNull();
+    expect(useGame.getState().game?.run.cash).toBe(returned.game?.run.cash);
+  });
+
+  it("persists hidden-tab workshop catch-up before an immediate reload", () => {
+    const pending = pendingDepotAndRepair();
+    expect(returnAfter(pending, 0).away).toBeNull();
+    vi.advanceTimersByTime(2 * HOUR);
+    useGame.getState().tick();
+    const returned = useGame.getState();
+    expect(returned.away?.careerReports.map(({ id }) => id)).toEqual(["motor-pickup", "service-delivery"]);
+    useGame.getState().load();
+    expect(useGame.getState().away).toBeNull();
+    expect(useGame.getState().game?.motorPool?.claim).toEqual(returned.game?.motorPool?.claim);
+    expect(useGame.getState().game?.run.serviceBook?.ticket?.worked).toBe(true);
+  });
+
+  it.each(["exhibit", "special"] as const)("reports the offline %s milestone and selects the Heritage Register", (kind) => {
+    const returned = returnAfter(pendingHeritage(kind), 2 * HOUR);
+    expect(returned.away?.careerReports).toMatchObject([{
+      id: `heritage-${kind}`, detail: expect.stringContaining("Meadow II"), destination: {
+        tab: "notebook", section: "Hall of Fame", heritage: true, ...(kind === "exhibit" && { vehicleUid: "museum-mower" }),
+      },
+    }]);
+    expect(returned.away?.items.some(({ key }) => key?.startsWith("heritage:"))).toBe(false);
+    expect(returned.game?.meta.heritageRegister?.length ?? 0).toBe(kind === "exhibit" ? 0 : 1);
+    useGame.getState().load();
+    expect(useGame.getState().away).toBeNull();
+  });
+
+  it.each(["qualify", "deliver"] as const)("reports the County Baton %s leg from a settled Feature and retains its progress", (leg) => {
+    const pending = pendingBaton(leg);
+    const returned = returnAfter(pending, 2 * HOUR);
+    expect(returned.away?.careerReports).toMatchObject([{
+      id: leg === "qualify" ? "baton-qualified" : "baton-delivered", destination: { tab: "legacy", section: "baton" },
+    }]);
+    expect(returned.away?.items.some(({ key }) => key?.startsWith("county-baton-"))).toBe(false);
+    expect(returned.game?.meta.countyFreight?.quarry ?? 0).toBe(leg === "deliver" ? 1 : 0);
+    vi.advanceTimersByTime(HOUR);
+    useGame.getState().load();
+    expect(useGame.getState().away?.careerReports).toEqual([]);
+    expect(useGame.getState().game?.run.countyBaton).toEqual(returned.game?.run.countyBaton);
+  });
+});
 
 it("plays an earned five-round entry plan while away and reports the settlement once", () => {
   let game = must(pendingOwnerFinal(), { type: "advance", ms: 60 * 60_000 });

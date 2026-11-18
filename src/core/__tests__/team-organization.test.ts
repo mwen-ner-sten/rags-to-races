@@ -4,6 +4,7 @@ import { CREW_BY_ID, type TeamOrganization } from "../content/team";
 import { racingCrewIds, teamOrganization } from "../crew";
 import { apply, createGame, must, type TeamChoices } from "../index";
 import type { GameState, JobSpec } from "../types";
+import { racer } from "../../../tests/fixtures/rewrite";
 
 const tuneUp = { haul: 0, wrench: 0, build: 0, race: 0 };
 const scrapChoices = { perks: [], tuneUp, dare: null, hardships: [] };
@@ -35,6 +36,23 @@ function enqueue(state: GameState, spec: JobSpec): GameState {
 }
 
 describe("Team organization", () => {
+  it("pauses automatic crew jobs in Hand Tools Only while retaining manual race support", () => {
+    let state = found(builder(), "independent");
+    state = must(state, { type: "hire", crewId: "deshawn" });
+    state = must(state, { type: "assignCrew", crewId: "deshawn", assignment: { type: "driver" } });
+    state.run.featureWins.county_fair = 0;
+    state = must(state, { type: "reset", layer: "scrap", choices: { ...scrapChoices, hardships: ["hand_tools"] } });
+    state = must(state, { type: "hire", crewId: "rosa" });
+    state = enqueue(enqueue(state, { kind: "haul", placeId: "curb" }), { kind: "haul", placeId: "curb" });
+    expect(state.run.jobs.map((job) => job.lane)).toEqual(["hands"]);
+    expect(state.run.queue).toHaveLength(1);
+    state.run.vehicles = racer("manual-crew-support").run.vehicles;
+    state = enqueue(state, { kind: "race", venueId: "backyard", event: "sprint", vehicleUid: "fixture-vehicle", call: "nurse" });
+    state = must(state, { type: "advance", ms: 60 * 60_000, away: true });
+    expect(state.run.races).toHaveLength(1);
+    expect(state.era?.crew.find((member) => member.id === "rosa")?.jobsDone).toBe(0);
+    expect(state.era?.crew.find((member) => member.id === "deshawn")?.service?.venues?.dirt?.backyard).toBe(1);
+  });
   it("makes a mechanic available at the first Collective founding with a normal crew cap", () => {
     const start = builder();
     const independent = found(start, "independent");
