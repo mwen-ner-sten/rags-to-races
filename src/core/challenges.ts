@@ -1,6 +1,7 @@
-import { isSeasonChallenge, SEASON_CHALLENGES } from "./content/modifiers";
+import { findChallengePerk, isSeasonChallenge, SEASON_CHALLENGES } from "./content/modifiers";
 import { PLACES } from "./content/places";
 import { logSeason } from "./journal";
+import { perkUnlocked, refreshPerkUnlocks } from "./perks";
 import type { GameState, Vehicle } from "./types";
 
 const HAUL_ORIGINS = new Set(PLACES.map((place) => place.name));
@@ -44,5 +45,8 @@ export function recordChallengeWin(state: GameState, venueId: string, vehicle: V
     bestVehicleName: best ? vehicle.name : prev.bestVehicleName,
   };
   progress.completedAt = at;
-  logSeason(state, `challenge:${id}`, `${SEASON_CHALLENGES[id].name} completed with ${vehicle.name}.${best ? " Personal best!" : ""}`);
+  const perk = findChallengePerk(id);
+  const newPerk = perk && !state.meta.perksUnlocked.includes(perk.id) && perkUnlocked(state, perk);
+  if (newPerk) refreshPerkUnlocks(state);
+  logSeason(state, `challenge:${id}`, `${SEASON_CHALLENGES[id].name} completed with ${vehicle.name}.${best ? " Personal best!" : ""}${newPerk ? ` ${perk.name} is now on the perk shelf.` : ""}`);
 }

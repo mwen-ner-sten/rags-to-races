@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { haulOriginsOn } from "@/core/challenges";
 import { VENUES, getVenue, venueName } from "@/core/content/events";
-import { SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, isSeasonChallenge } from "@/core/content/modifiers";
+import { SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge } from "@/core/content/modifiers";
 import { getVehicle } from "@/core/content/vehicles";
 import { LAYERS, scrapAward } from "@/core/layers";
 import type { GameState } from "@/core/types";
@@ -115,11 +115,13 @@ function SeasonChallenges({ game }: { game: GameState }) {
           {records.map((id) => {
             const record = game.meta.challengeRecords[id]!;
             const challenge = SEASON_CHALLENGES[id];
+            const perk = findChallengePerk(id);
             return (
               <li key={id}>
                 <span>{challenge.name} · {record.completions}×</span>
                 <span className="num">+{pct(challengeMastery(record.completions))} {challenge.mastery.toLowerCase()}</span>
                 <span className="muted">Best {duration(record.bestSeasonMs)} with {record.bestVehicleName}</span>
+                {perk?.unlock.type === "challenge" && record.completions >= perk.unlock.completions && <span className="muted">Unlocked {perk.name}</span>}
               </li>
             );
           })}

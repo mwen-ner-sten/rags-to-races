@@ -15,7 +15,8 @@ export interface PerkDef {
   /** LP cost per rank (index = rank − 1). */
   cost: number[];
   /** How the perk becomes buyable. */
-  unlock: { type: "lp" } | { type: "dare"; dareId: string } | { type: "milestone"; venueId: string };
+  unlock: { type: "lp" } | { type: "dare"; dareId: string } | { type: "milestone"; venueId: string }
+    | { type: "challenge"; challengeId: SeasonChallengeId; completions: number };
 }
 
 export const PERKS: readonly PerkDef[] = [
@@ -37,6 +38,7 @@ export const PERKS: readonly PerkDef[] = [
   { id: "hot_shoe", name: "Hot Shoe", kind: "Risk", text: "Parts wear 20% less in races.", maxRank: 1, cost: [12], unlock: { type: "dare", dareId: "hot_lap" } },
   { id: "local_hero", name: "Local Hero", kind: "Milestone", text: "Feature wins pay double Rep.", maxRank: 1, cost: [12], unlock: { type: "dare", dareId: "clean_sweep" } },
   { id: "short_cut", name: "Short Cut", kind: "Unlock", text: "The Beater plans don't need an engine hoist.", maxRank: 1, cost: [14], unlock: { type: "dare", dareId: "kart_to_fair" } },
+  { id: "dirt_track_pass", name: "Dirt Track Pass", kind: "Unlock", text: "Start the Season with entry to the Dirt Track (Strip Night in Drag). For example, pair it with Borrowed Trailer to source parts and follow the Go-Kart route without building a Riding Mower. You still need Welding and a legal race vehicle. Rookie Plates disables the pass.", maxRank: 1, cost: [12], unlock: { type: "challenge", challengeId: "homebuilt_relay", completions: 3 } },
 ];
 
 export const PERK_BY_ID: Record<string, PerkDef> = Object.fromEntries(PERKS.map((p) => [p.id, p]));
@@ -81,6 +83,10 @@ export const SEASON_CHALLENGES = {
 } satisfies Record<SeasonChallengeId, SeasonChallengeDef>;
 
 export const SEASON_CHALLENGE_IDS = Object.keys(SEASON_CHALLENGES) as SeasonChallengeId[];
+
+export function findChallengePerk(id: SeasonChallengeId) {
+  return PERKS.find((perk) => perk.unlock.type === "challenge" && perk.unlock.challengeId === id);
+}
 
 export function isSeasonChallenge(id: string | null): id is SeasonChallengeId {
   return id !== null && Object.hasOwn(SEASON_CHALLENGES, id);

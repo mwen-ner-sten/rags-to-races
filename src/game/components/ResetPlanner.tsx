@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DARES, PERK_BY_ID, SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
+import { DARES, PERK_BY_ID, SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
 import { CREW_BY_ID } from "@/core/content/team";
 import { LAYERS, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planPurchases, scrapAward, teamAward, type TeamChoices } from "@/core/layers";
 import { ownerTourActive } from "@/core/ownership";
@@ -142,6 +142,7 @@ export function ResetPlanner({ layer, onDone }: Props) {
         {SEASON_CHALLENGE_IDS.map((id) => {
           const challenge = SEASON_CHALLENGES[id];
           const done = game.meta.challengeRecords[id]?.completions ?? 0;
+          const perk = findChallengePerk(id);
           const unavailable = seasonObjectiveConflict(hardships, id, nextDiscipline);
           return (
             <label key={id} className="check">
@@ -149,6 +150,9 @@ export function ResetPlanner({ layer, onDone }: Props) {
               <span>
                 <strong>{challenge.name}</strong>. {challenge.text} {challenge.mastery} increases by 5% per completion, up to 15%.
                 {done > 0 && <span className="muted"> Completed {done}× · +{pct(challengeMastery(done))}.</span>}
+                {perk?.unlock.type === "challenge" && (
+                  <span> {done < perk.unlock.completions ? `Complete it ${perk.unlock.completions} times to unlock ${perk.name}.` : `${perk.name} is unlocked.`}</span>
+                )}
                 {unavailable && <span className="why"> {unavailable}</span>}
               </span>
             </label>

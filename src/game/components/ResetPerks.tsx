@@ -1,7 +1,7 @@
 "use client";
 
 import { venueName } from "@/core/content/events";
-import { DARE_BY_ID, PERKS, type PerkDef } from "@/core/content/modifiers";
+import { DARE_BY_ID, PERKS, SEASON_CHALLENGES, type PerkDef } from "@/core/content/modifiers";
 import { perkUnlocked } from "@/core/perks";
 import type { DisciplineId, GameState } from "@/core/types";
 import { num } from "../format";
@@ -13,6 +13,7 @@ export function unlockHow(perk: PerkDef, discipline: DisciplineId): string {
     return dare ? `Complete the dare ${dare.name}: ${dare.text}` : "Complete its dare";
   }
   if (perk.unlock.type === "milestone") return `Win the ${venueName(perk.unlock.venueId, discipline)} Feature`;
+  if (perk.unlock.type === "challenge") return `Complete ${SEASON_CHALLENGES[perk.unlock.challengeId].name} ${perk.unlock.completions} times.`;
   return "Spend Legacy Points";
 }
 

@@ -112,4 +112,52 @@ describe("repeatable Season challenges", () => {
     expect(channel(state, "haul_speed", { placeId: "auction" })).toBe(1);
     expect(state.meta.daresCompleted).toEqual([]);
   });
+
+  it("opens a Go-Kart-first route after three Relay clears and respects Rookie Plates", () => {
+    let state = createGame("dirt-track-pass");
+    for (let clear = 1; clear <= 3; clear += 1) {
+      state = newAttempt(state, "homebuilt_relay");
+      const kart = addKart(state, `Relay Kart ${clear}`);
+      race(state, kart, "dirt", 1);
+      kart.parts.wheel!.partId = "wheel_kart";
+      race(state, kart, "county_fair", 2);
+      expect(state.meta.perksUnlocked.includes("dirt_track_pass")).toBe(clear === 3);
+    }
+    const restored = decodeGameState(state);
+    expect(restored?.meta.perksUnlocked).toContain("dirt_track_pass");
+
+    const perks = ["dirt_track_pass", "borrowed_trailer"];
+    const choices = { buy: perks, perks, tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] };
+    const standard = must(state, { type: "reset", layer: "scrap", choices: { ...choices, buy: [], perks: [] } });
+    const blocked = apply(standard, { type: "openPlace", knowhowId: "place:dirt" });
+    expect(blocked.error).toBe("Own a Riding Mower");
+
+    let withPass = must(state, { type: "reset", layer: "scrap", choices });
+    expect(withPass.run.venuesOpen).toContain("dirt");
+    expect(withPass.run.ladder.dirt).toEqual(["sprint"]);
+    expect(withPass.run.vehicles).toEqual([]);
+    expect(withPass.run.available).not.toContain("blueprint:go_kart");
+    expect(channel(withPass, "practice")).toBeCloseTo(1.15);
+
+    withPass.run.cash = 300;
+    withPass.run.rep = 40;
+    withPass.run.materials = { metal: 6, rubber: 2, wiring: 0 };
+    withPass = must(withPass, { type: "openPlace", knowhowId: "place:junkyard" });
+    withPass = must(withPass, { type: "buyTool", toolId: "welder" });
+    withPass = must(withPass, { type: "enqueue", spec: { kind: "study", knowhowId: "tech:welding" } });
+    withPass = must(withPass, { type: "advance", ms: 6 * 3_600_000 });
+    withPass = must(withPass, { type: "enqueue", spec: { kind: "study", knowhowId: "blueprint:go_kart" } });
+    withPass = must(withPass, { type: "advance", ms: 8 * 3_600_000 });
+    withPass.run.inventory = Object.entries(KART).map(([slot, partId]) => ({ uid: slot, partId, condition: 3, origin: JUNKYARD }));
+    withPass = must(withPass, { type: "enqueue", spec: { kind: "assemble", vehicleId: "go_kart", name: "First Kart", partUids: { engine: "engine", frame: "frame", wheel: "wheel", fuel: "fuel" } } });
+    withPass = must(withPass, { type: "advance", ms: 6 * 3_600_000 });
+    expect(withPass.run.vehicles.map((vehicle) => vehicle.vehicleId)).toEqual(["go_kart"]);
+
+    state.meta.stateWonEver = true;
+    const rookie = must(state, { type: "reset", layer: "team", choices: {
+      ...choices, hardships: ["rookie_plates"], teamName: "Rookie team", colors: ["#000", "#fff"], discipline: "dirt",
+    } });
+    expect(rookie.meta.perks.dirt_track_pass).toBe(1);
+    expect(rookie.run.venuesOpen).toEqual(["backyard"]);
+  });
 });

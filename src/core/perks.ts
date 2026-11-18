@@ -5,6 +5,7 @@ import type { GameState } from "./types";
 export function perkUnlocked(state: GameState, perk: PerkDef): boolean {
   if (perk.unlock.type === "lp" || (state.meta.perks[perk.id] ?? 0) > 0 || state.meta.perksUnlocked.includes(perk.id)) return true;
   if (perk.unlock.type === "dare") return state.meta.daresCompleted.includes(perk.unlock.dareId);
+  if (perk.unlock.type === "challenge") return (state.meta.challengeRecords[perk.unlock.challengeId]?.completions ?? 0) >= perk.unlock.completions;
   const venue = perk.unlock.venueId;
   return state.run.featureWins[venue] !== undefined || state.meta.records[venue] !== undefined
     || state.meta.milestonesEver.includes(venue) || state.scrap.milestonesThisEra.includes(venue)

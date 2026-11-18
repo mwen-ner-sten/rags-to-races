@@ -215,6 +215,7 @@ function applyMut(s: GameState, action: Action): string | null {
       const perk = PERK_BY_ID[action.perkId];
       if (!perk) return "Unknown perk";
       if (!perkUnlocked(s, perk)) {
+        if (perk.unlock.type === "challenge") return "Complete its Season challenge to unlock this perk";
         return perk.unlock.type === "dare" ? "Complete its dare first" : "Win that Feature first";
       }
       const rank = s.meta.perks[perk.id] ?? 0;

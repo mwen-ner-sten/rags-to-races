@@ -15,6 +15,7 @@ import { learn } from "./knowhowEngine";
 import { allDaresCompleted, perkUnlocked, refreshPerkUnlocks } from "./perks";
 import { forfeitOwnerTour } from "./ownership";
 import { nextUid } from "./rng";
+import { hasPerk } from "./rules";
 import { initialConfig, initialRun, initialScrap } from "./state";
 import type { DisciplineId, EraState, GameState, PartInstance, RunConfig, Scope, SkillId } from "./types";
 
@@ -272,6 +273,7 @@ function commitSeason(state: GameState): void {
 /** Sets up a fresh Season from the config and long-lived scopes. */
 export function startSeason(state: GameState): void {
   const { run, config, meta } = state;
+  if (hasPerk(state, "dirt_track_pass")) learn(state, "place:dirt");
   if (config.perks.includes("scavengers_map") && !config.hardships.includes("rookie_plates")) learn(state, "place:long_haul");
   if (config.perks.includes("kid_brother") && meta.lastTopHabit && !config.hardships.includes("rookie_plates") && !config.hardships.includes("hand_tools")) {
     run.habitsKnown.push(templateBase(meta.lastTopHabit));

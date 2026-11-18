@@ -18,10 +18,12 @@ With the earned garage, the same mower won all three Homecoming meetings under b
 
 The importable snapshots in this worktree are under `test-results/overnight/`. Use Settings → Save text → Import save in a separate browser profile if you want to keep playing your current garage.
 
-## Overnight rounds (Central time, November 18)
+## Three consecutive development rounds
 
-- **1 a.m.** Play the new routes and find the easiest dominant strategy or least interesting reset. Have Sol propose alternatives, implement the strongest one and verify it.
-- **3 a.m.** Trace both new eras over repeated seasons. Prioritize a new decision or a viable alternate route where runs converge. Check rewards and earned automation against active and daily schedules.
-- **5 a.m.** Test the long campaign, reloads, offline returns and phone layout. Fix the highest-impact gap, then leave a morning report and playable saves.
+The advisor reviews the current build with Sol, selects a change, and has Sol implement it. Each round ends with a focused gameplay check and a commit. That commit starts the following round immediately. The final round also runs the full suite and production build.
+
+1. Give experienced builders another reason to play a mastered challenge.
+2. Follow the first round’s choices into an Owner campaign. Find and fix a strategy that makes a different build or charter pointless.
+3. Play through returning to a late-career save. Improve the highest-impact unresolved decision and verify desktop, mobile, offline settlement and the campaign handoff.
 
 Product preferences still open for human playtesting include how many months a career ought to last, how frequently players want to revisit their first machinery, and how severe optional challenge restrictions should become. The first overnight build uses reversible balance values.
