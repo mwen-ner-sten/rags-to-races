@@ -4,9 +4,10 @@
  * the only reset function; adding a layer is adding an entry here.
  */
 import { channel } from "./channels";
+import { countyChoiceBlocker } from "./counties";
 import { CREW, BASE_CREW_CAP, TEAM_ORGANIZATIONS, crewLevel, type TeamOrganization } from "./content/team";
 import { crewTravelBlocker, teamOrganization } from "./crew";
-import { acceptHandover, applyCrewHandover, crewHandoverOffers, handoverId, HANDOVER_COST, type CrewHandoverChoice } from "./crewLegacy";
+import { acceptHandover, APPRENTICE_JOBS, applyCrewHandover, crewCanApprentice, crewHandoverOffers, handoverId, HANDOVER_COST, type CrewHandoverChoice } from "./crewLegacy";
 import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, isSeasonChallenge, seasonObjectiveConflict } from "./content/modifiers";
 import { VENUES, getVenue } from "./content/events";
 import { getVehicle } from "./content/vehicles";
@@ -25,7 +26,7 @@ import { hasPerk } from "./rules";
 import { salvageCarryBlocker, salvageCarryCandidates } from "./salvageCarry";
 import { initialConfig, initialRun, initialScrap } from "./state";
 import { archiveVehicle } from "./vehicleArchive";
-import type { DisciplineId, EraState, GameState, PartInstance, RunConfig, Scope, SkillId } from "./types";
+import type { DisciplineId, EraState, GameState, HomeCounty, PartInstance, RunConfig, Scope, SkillId } from "./types";
 
 export type LayerId = "scrap" | "team";
 
@@ -37,6 +38,7 @@ export interface ScrapChoices {
   dare: string | null;
   hardships: string[];
   retainedPartUid?: string;
+  homeCounty?: HomeCounty;
   club?: ClubCharter;
   clubCourse?: ClubCourseId;
   clubLoan?: ClubCourseId;
@@ -143,7 +145,7 @@ export function planPurchases(state: GameState, buy: string[], lpAvailable: numb
 export const BUILDER_LOADOUTS = {
   salvage: { name: "Salvage runs", note: "Tow earlier and bring back bigger loads. Bench work gets no tune-up points.", perks: ["borrowed_trailer", "tow_hitch"], primary: "haul", secondary: "build" },
   workshop: { name: "Workshop nights", note: "Repair rusted parts directly and work faster on the bench while away. Trips keep their usual speed.", perks: ["shade_tree", "night_owl"], primary: "wrench", secondary: "build" },
-  kart: { name: "Go-Kart first", note: "Open Dirt and the Junkyard before a race. Fund Welding and assembly by selling and stripping finds.", perks: ["dirt_track_pass", "borrowed_trailer"], primary: "haul", secondary: "wrench" },
+  kart: { name: "Go-Kart first", note: "Open Dirt and the trailer yard before a race. Fund trip fees, Welding and assembly by selling and stripping finds.", perks: ["dirt_track_pass", "borrowed_trailer"], primary: "haul", secondary: "wrench" },
 } as const;
 
 export function planBuilderLoadout(state: GameState, route: keyof typeof BUILDER_LOADOUTS, slots: number, points: number, lpAvailable: number, pending: string[]) {
@@ -198,6 +200,7 @@ function toConfig(choices: ScrapChoices): RunConfig {
     dare: choices.dare,
     hardships: [...choices.hardships],
     ...(choices.retainedPartUid ? { salvageSlot: true } : {}),
+    ...(choices.homeCounty && choices.homeCounty !== "home" && { homeCounty: choices.homeCounty }),
     ...(choices.club && { club: choices.club }),
     ...(choices.clubCourse && { clubCourse: choices.clubCourse }),
     ...(choices.clubLoan && { clubLoan: choices.clubLoan }),
@@ -209,10 +212,10 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
   id: "scrap",
   name: "Scrap Reset",
   clears: ["run", "config"],
-  gate: (s) => ((s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature" }),
+  gate: (s) => ((s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: s.era?.discipline === "rally" ? "Win or earn a regularity certificate at the County Forest Feature" : "Win the County Fair Feature" }),
   award: scrapAward,
   validate: (s, c) => {
-    const branchBlocked = clubChoicesBlocker(s, c.club, c.clubCourse, c.clubLoan) ?? worksPlanBlocker(s, c.worksPlan);
+    const branchBlocked = countyChoiceBlocker(s, c.homeCounty) ?? clubChoicesBlocker(s, c.club, c.clubCourse, c.clubLoan) ?? worksPlanBlocker(s, c.worksPlan);
     if (branchBlocked) return branchBlocked;
     if (c.retainedPartUid) {
       const blocked = salvageCarryBlocker(s, c.retainedPartUid, c.hardships);
@@ -225,10 +228,10 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
     s.scrap.lifetimeLp += award;
     s.scrap.resets += 1;
     buyPerks(s, choices.buy ?? []);
-    s.config = toConfig(choices);
+    s.config = toConfig({ ...choices, homeCounty: choices.homeCounty ?? before.config.homeCounty });
     if (choices.retainedPartUid) {
       const retained = salvageCarryCandidates(before).find(({ part }) => part.uid === choices.retainedPartUid)!.part;
-      s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin };
+      s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin, ...(retained.provenance && { provenance: retained.provenance }) };
       s.run.inventory.push({ ...retained, inherited: true });
     }
   },
@@ -240,12 +243,13 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
   clears: ["run", "config", "scrap", "era"],
   gate: (s) => {
     if (!s.era) return s.meta.stateWonEver ? { ok: true, reason: null } : { ok: false, reason: "Win the State Invitational Feature" };
-    return (s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature this Season" };
+    return (s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: s.era?.discipline === "rally" ? "Win or certify the County Forest Feature this Season" : "Win the County Fair Feature this Season" };
   },
   award: teamAward,
   validate: (s, c) => {
     if (c.organization !== undefined && !Object.hasOwn(TEAM_ORGANIZATIONS, c.organization)) return "Pick a team organization";
     if (c.retainedPartUid) return "Salvage carryover is only available on Scrap Reset";
+    if (c.homeCounty !== undefined) return "Choose a home county on Scrap Reset";
     if (c.club !== undefined || c.clubCourse !== undefined || c.clubLoan !== undefined) return "Found a club on Scrap Reset to keep your team.";
     if (c.worksPlan !== undefined) return "Select your works drawing on Scrap Reset.";
     if (c.discipline !== "dirt" && c.discipline !== "drag" && c.discipline !== "rally") return "Pick a discipline";
@@ -291,7 +295,7 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
       seasonIndex: 0,
     };
     s.era = era;
-    s.config = toConfig(choices);
+    s.config = toConfig({ ...choices, homeCounty: before.config.homeCounty });
     addJournal(s, "founding", STORY.founding);
   },
 };
@@ -370,13 +374,21 @@ export function startSeason(state: GameState): void {
   }
   if (state.era && !config.hardships.includes("solo")) {
     const hired = new Set(state.era.crew.map((c) => c.id));
-    const pool = CREW.filter((c) => !hired.has(c.id));
+    const handover = state.era.handover;
+    const training = handover?.type === "apprenticeship" && handover.completed < APPRENTICE_JOBS ? handover : undefined;
+    const pool = CREW.filter((c) => !hired.has(c.id) && c.id !== training?.mentorId);
     const start = (state.era.seasonIndex * 3 + meta.totalTeamResets) % Math.max(1, pool.length);
     const rotated = [...pool.slice(start), ...pool.slice(0, start)];
     const candidates = rotated.slice(0, 3);
-    if (teamOrganization(state) === "collective" && candidates.every((candidate) => candidate.role !== "wrench")) {
-      const mechanic = rotated.find((candidate) => candidate.role === "wrench");
+    const availableMechanic = (candidate: typeof CREW[number]) => candidate.role === "wrench"
+      && (!training || crewCanApprentice(state, candidate.id, training.routine));
+    if (teamOrganization(state) === "collective" && !candidates.some(availableMechanic)) {
+      const mechanic = rotated.find(availableMechanic) ?? rotated.find((candidate) => candidate.role === "wrench");
       if (mechanic) candidates[2] = mechanic;
+    }
+    if (training && ![...state.era.crew, ...candidates].some((member) => crewCanApprentice(state, member.id, training.routine))) {
+      const successor = rotated.find((candidate) => crewCanApprentice(state, candidate.id, training.routine));
+      if (successor) candidates[0] = successor;
     }
     run.candidates = candidates.map(({ id }) => id);
   }

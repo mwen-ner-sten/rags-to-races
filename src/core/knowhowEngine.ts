@@ -1,4 +1,5 @@
 import { channel } from "./channels";
+import { countyPlaceBlocker } from "./counties";
 import { KNOWHOW, PLACE_REP, getKnowhow } from "./content/knowhow";
 import { pushFeed } from "./feed";
 import { addJournal } from "./journal";
@@ -28,7 +29,7 @@ export function studyMs(state: GameState, id: string): number {
 
 /** Rep cost to open a place this Season (0 when it opens on its own). */
 export function placeRepCost(state: GameState, id: string): number {
-  if (id === "place:junkyard" && hasPerk(state, "dirt_track_pass") && hasPerk(state, "borrowed_trailer")) return 0;
+  if ((id === "place:junkyard" || id === "place:quarry_breakers") && hasPerk(state, "dirt_track_pass") && hasPerk(state, "borrowed_trailer")) return 0;
   if (id === "place:auction" && hasPerk(state, "auction_bidder")) return 0;
   const base = PLACE_REP[id] ?? 0;
   const tier = knowhowTier(state, id);
@@ -48,6 +49,8 @@ export function haulPlacesOpened(state: GameState): number {
 export function canOpenPlace(state: GameState, id: string): string | null {
   const def = getKnowhow(id);
   if (def.kind !== "place") return "That isn't a place";
+  const county = countyPlaceBlocker(state, id.slice("place:".length));
+  if (county) return county;
   if (isLearned(state, id)) return "Already open";
   if (!def.trigger(state)) return def.hint;
   const flags = resolveFlags(state);
@@ -93,6 +96,7 @@ export function refreshKnowhow(state: GameState): void {
     if (!def.trigger(state)) continue;
     const tier = knowhowTier(state, def.id);
     if (def.kind === "place") {
+      if (countyPlaceBlocker(state, def.id.slice("place:".length))) continue;
       if (tier !== "second_nature") continue;
       if (def.id !== "place:dirt" && flags.placeLimit !== null && haulPlacesOpened(state) >= flags.placeLimit) continue;
       if (state.run.rep >= (PLACE_REP[def.id] ?? 0)) learn(state, def.id);

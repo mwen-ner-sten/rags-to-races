@@ -2,6 +2,7 @@ import { advancePromoter } from "./promoter";
 import { clubHostingCost, clubSpecMatches } from "./club";
 import { worksSpecMatches } from "./manufacturer";
 import { channel } from "./channels";
+import { countyPlaceBlocker } from "./counties";
 import { cardFor } from "./timecards";
 import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
@@ -21,8 +22,9 @@ import { nextRaceNightSpec } from "./raceNight";
 import { refreshReveals } from "./reveal";
 import { nextUid } from "./rng";
 import { hasPerk, resolveFlags } from "./rules";
-import { creditCrew, crewBusyRacing, crewEfficiency, crewTravelBlocker, racingCrewIds, teamOrganization } from "./crew";
+import { assignedRacingCrewIds, creditCrew, crewBusyRacing, crewEfficiency, crewTravelBlocker, racingCrewIds, teamOrganization } from "./crew";
 import { applyCrewHandover, crewCanApprentice } from "./crewLegacy";
+import { queueTourPlan } from "./ownership";
 import type { ActiveJob, Condition, CrewMember, EventKind, GameState, JobSpec, LaneId, MaterialId, PartInstance } from "./types";
 
 const MIN = 60_000;
@@ -63,6 +65,8 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "haul": {
       const place = PLACE_BY_ID[spec.placeId];
       if (!place) return "Unknown place";
+      const county = countyPlaceBlocker(state, spec.placeId);
+      if (county) return county;
       if (!state.run.placesOpen.includes(spec.placeId)) return "That place isn't open to you yet";
       const req = place.requires?.(state);
       if (req) return req;
@@ -141,18 +145,25 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       const missing = getVehicle(vehicle.vehicleId).slots.find((sl) => sl.required && !vehicle.parts[sl.slot]);
       if (missing) return `The ${missing.slot} is out on the bench`;
       if (Object.values(vehicle.parts).some((p) => p && p.condition === 0)) return "A part is scrap. Fix it before racing";
-      if (spec.regularity && (state.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || !cardFor(state, spec.venueId, spec.event, vehicle.vehicleId))) {
+      if (spec.useLastPace && !spec.regularity) return "Choose a regularity entry to use a declared pace.";
+      if (spec.regularity && (state.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || spec.worksRound || !cardFor(state, spec.venueId, spec.event, vehicle.vehicleId))) {
         return "Set a class time on this standard Rally course before entering regularity.";
       }
       if (spec.call2) {
-        const driver = state.era?.crew.some((c) => c.assignment.type === "driver");
+        const available = signUp ? assignedRacingCrewIds(state) : racingCrewIds(state);
+        const driver = state.era?.crew.some((c) => c.assignment.type === "driver" && available.includes(c.id));
         const calls = DISCIPLINES[resolveFlags(state).discipline].secondCall;
-        if (!driver) return "Only a driver can make that call";
+        if (!driver) return !signUp && state.era?.crew.some((c) => c.assignment.type === "driver" && crewBusyRacing(state, c.id))
+          ? "The driver is on track. This race will wait for them."
+          : "Only a driver can make that call";
         if (spec.call2 !== calls.a.id && spec.call2 !== calls.b.id) return "That call isn't part of this discipline";
       }
       const wait = nextEventInMs(state, spec.venueId, spec.event);
       if (wait > 0 && !signUp) return `Next ${spec.event} in ${formatWait(wait)}`;
       const entry = venue.events[spec.event].entry + clubHostingCost(state, spec);
+      if (spec.tourReserve !== undefined && state.run.cash - entry < spec.tourReserve) {
+        return `The ${entry} Scrap Bucks entry would leave less than your ${spec.tourReserve} Scrap Bucks reserve.`;
+      }
       if (state.run.cash < entry) return `Entry is ${entry} Scrap Bucks`;
       return null;
     }
@@ -698,6 +709,7 @@ function updateCrew(state: GameState, dt: number): void {
 export function advance(state: GameState, ms: number, away = false): void {
   let left = ms;
   dispatch(state);
+  queueTourPlan(state);
   const hasCrew = (state.era?.crew.length ?? 0) > 0;
   let guard = 0;
   while (left > 0 && guard++ < 500_000) {
@@ -728,6 +740,7 @@ export function advance(state: GameState, ms: number, away = false): void {
       for (const job of done) completeJob(state, job);
       afterChange(state);
       dispatch(state);
+      queueTourPlan(state);
     } else if (gate <= dt) {
       dispatch(state);
     }

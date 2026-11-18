@@ -7,7 +7,7 @@ export function archiveVehicle(state: GameState, vehicle: Vehicle, retirement?: 
     vehicleId: vehicle.vehicleId,
     name: vehicle.name,
     history: { ...vehicle.history },
-    parts: Object.entries(vehicle.parts).flatMap(([slot, part]) => part ? [{ slot, partId: part.partId, condition: part.condition, origin: part.origin }] : []),
+    parts: Object.entries(vehicle.parts).flatMap(([slot, part]) => part ? [{ slot, partId: part.partId, condition: part.condition, origin: part.origin, ...(part.provenance && { provenance: { ...part.provenance } }) }] : []),
     ...(retirement ? { retirement } : {}),
   });
   if (archive.length > 200) archive.splice(0, archive.length - 200);
@@ -15,4 +15,14 @@ export function archiveVehicle(state: GameState, vehicle: Vehicle, retirement?: 
 
 export function retiredVehicle(state: GameState, uid: string): HallOfFameEntry | undefined {
   return state.meta.hallOfFame.find((entry) => entry.retirement?.vehicleUid === uid);
+}
+
+export function releaseVehicle(state: GameState, vehicle: Vehicle, kind: NonNullable<HallOfFameEntry["retirement"]>["kind"]): void {
+  archiveVehicle(state, vehicle, { kind, vehicleUid: vehicle.uid, seasonMs: state.run.seasonMs });
+  state.run.vehicles = state.run.vehicles.filter((car) => car.uid !== vehicle.uid);
+  const prefix = `race:${vehicle.uid}:`;
+  state.run.habitSlots = state.run.habitSlots.map((habit) => habit?.startsWith(prefix) ? null : habit);
+  for (const crew of state.era?.crew ?? []) {
+    if (crew.assignment.type === "habit" && crew.assignment.template.startsWith(prefix)) crew.assignment = { type: "queue" };
+  }
 }

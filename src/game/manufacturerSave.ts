@@ -50,19 +50,20 @@ export function manufacturerReferencesValid(state: GameState): boolean {
   if (works.usedDrawingSeason && (works.usedDrawingSeason > season || (works.usedDrawingSeason === season && !plan))) return false;
   if (products.length && (!plan || works.usedDrawingSeason !== season || products.length > 1 || products.some((part) => part!.inherited
     || part!.partId !== WORKS_FAMILIES[plan].drawing.output || part!.origin !== `${WORKS_FAMILIES[plan].name} drawing`))) return false;
-  if (entries.length > 1 || entries.some((spec) => !worksSpecMatches(state, spec))) return false;
+  if (entries.length > 1 || entries.some((spec) => !worksSpecMatches(state, spec, undefined, false))) return false;
   const deals = works.active ? [works.active, ...works.history] : works.history;
   if (new Set(deals.map(({ id }) => id)).size !== deals.length || deals.some((entry) => entry.season > season || !works.invites.includes(entry.family) || !validAttempts(entry))) return false;
-  if (works.active) {
-    const report = worksReport(works.active);
-    if (works.active.season !== season || (report.homologated && !works.drawings.includes(works.active.family))) return false;
+  const { active } = works;
+  if (active) {
+    const report = worksReport(active);
+    if (active.season !== season || (report.homologated && !works.drawings.includes(active.family))) return false;
     const job = state.run.jobs.find(({ spec }) => spec.kind === "race" && spec.worksRound);
-    if (job && (!job.race || !report.next || job.paid?.cash !== trialEntry(report.next))) return false;
-    if (works.active.attempts.some((attempt) => {
+    if (job?.spec.kind === "race" && (!worksSpecMatches(state, job.spec) || !job.race || !report.next || job.paid?.cash !== trialEntry(report.next))) return false;
+    if (!active.attempts.every((attempt) => {
       const result = state.run.races.find(({ id }) => id === attempt.raceId);
-      if (!result) return false; // The recent race list can drop older trials.
-      const test = WORKS_FAMILIES[works.active!.family].tests[attempt.step];
-      return result.vehicleUid === works.active!.vehicleUid && result.event === test.event && result.venueId === test.venue && result.call === test.call
+      if (!result) return true; // The recent race list can drop older trials.
+      const test = WORKS_FAMILIES[active.family].tests[attempt.step];
+      return result.vehicleUid === active.vehicleUid && result.event === test.event && result.venueId === test.venue && result.call === test.call
         && result.position === attempt.position && result.dnf === attempt.dnf && result.wear.reduce((n, wear) => n + wear.from - wear.to, 0) === attempt.wear;
     })) return false;
   }

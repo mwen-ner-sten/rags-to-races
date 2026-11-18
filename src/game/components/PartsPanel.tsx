@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { CONDITION_STAT, getPart } from "@/core/content/parts";
+import { partOriginLabel } from "@/core/provenance";
 import { type BenchKind, DRIVEWAY_RULES, DRIVEWAY_SPACE, benchCost, conditionAfter, drivewayRule, garageSpace, partSellValue, reservedPartUids, saleQuote, stripYield, swapOutCandidate } from "@/core/garage";
 import { baseDuration, jobBlocker, jobRate } from "@/core/jobs";
 import type { Condition, DrivewayRule, GameState, JobSpec, MaterialId, PartInstance } from "@/core/types";
@@ -177,7 +178,7 @@ function PartRow({ game, part, reserved, onDriveway, strongAt }: PartProps & { r
         <div className="part-meta muted">
           <span>{capitalize(def.category)}</span>
           <span>Tier {def.tier}</span>
-          <span>from {part.origin}</span>
+          <span>from {partOriginLabel(part)}</span>
           {part.inherited && <span>Carried from last Season</span>}
         </div>
         <PartStats part={part} />

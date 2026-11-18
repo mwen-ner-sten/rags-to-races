@@ -1,5 +1,6 @@
 """Render transparent garage inventory art. Run with Blender --background --python this_file."""
 import math
+import sys
 from pathlib import Path
 
 import bpy
@@ -9,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "public" / "sprites" / "garage"
 OUTPUT.mkdir(parents=True, exist_ok=True)
 TAU = math.tau
+SELECTED = set(sys.argv[sys.argv.index("--")+1:]) if "--" in sys.argv else set()
 
 def material(name, color, metallic=0.0, roughness=0.45):
     mat = bpy.data.materials.new(name)
@@ -54,9 +56,9 @@ def rod(start, end, radius, mat, vertices=24):
     return finish(obj, mat, min(.028, radius*.12))
 
 def wheel(kind):
-    widths = {"kart": .85, "knobby": .39, "dirt": .67, "at": .75, "slick": .97, "groove": .73}
+    widths = {"river": .43, "kart": .85, "knobby": .39, "dirt": .67, "at": .75, "slick": .97, "groove": .73}
     width = widths[kind]
-    rim = {"kart": red, "knobby": yellow, "dirt": cream, "at": dark, "slick": metal, "groove": brass}[kind]
+    rim = {"river": blue, "kart": red, "knobby": yellow, "dirt": cream, "at": dark, "slick": metal, "groove": brass}[kind]
     rod((0,-width/2,0),(0,width/2,0),1,rubber,64)
     for sign in (-1,1):
         face = sign * width/2
@@ -67,7 +69,7 @@ def wheel(kind):
             a = TAU*j/6
             x,z = .37*math.cos(a),.37*math.sin(a)
             rod((x,face+sign*.07,z),(x,face+sign*.08,z),.087,dark,14)
-    rows = {"kart":0,"slick":0,"knobby":2,"dirt":3,"at":4,"groove":5}[kind]
+    rows = {"river": 3, "kart":0,"slick":0,"knobby":2,"dirt":3,"at":4,"groove":5}[kind]
     for row in range(rows):
         count = 15 if kind in ("dirt","knobby") else 23
         for j in range(count):
@@ -78,8 +80,8 @@ def wheel(kind):
             obj.rotation_euler.z=.18*(-1)**row
 
 def engine(kind):
-    cylinders = {"tiller":1,"twin":2,"turbo4":4,"six":6}[kind]
-    enamel = {"tiller":yellow,"twin":red,"turbo4":blue,"six":cream}[kind]
+    cylinders = {"quarry":4,"tiller":1,"twin":2,"turbo4":4,"six":6}[kind]
+    enamel = {"quarry":yellow,"tiller":yellow,"twin":red,"turbo4":blue,"six":cream}[kind]
     length = .45*cylinders+.40
     box((0,0,.38),(length, .89,.76),dark,.11)
     box((0,0,-.03),(length+.09,.92,.22),metal)
@@ -90,6 +92,18 @@ def engine(kind):
         box((x,0,1.04),(.39,.74,.15),enamel)
         rod((x,-.15,1.1),(x,-.15,1.25),.067,cream)
         rod((x,-.47,.50),(x,-.66,.24),.086,brass)
+    if kind=="quarry":
+        # Pump flange, cam cover and the rails that carried it on its original skid.
+        box((0,0,1.12),(length,.69,.21),yellow,.07)
+        for y in (-.58,.58):
+            box((0,y,-.18),(length+.50,.16,.15),dark)
+        rod((.45,-.40,.43),(.45,-.85,.43),.31,yellow)
+        rod((.45,-.85,.43),(.45,-.90,.43),.38,metal)
+        rod((.45,-.90,.43),(.45,-.92,.43),.19,dark)
+        for j in range(6):
+            a=TAU*j/6
+            x,z=.45+.29*math.cos(a),.43+.29*math.sin(a)
+            rod((x,-.91,z),(x,-.94,z),.038,dark,6)
     if kind=="turbo4":
         rod((.48,-.66,.4),(.48,-1.02,.4),.30,metal)
         rod((.48,-1.02,.4),(.48,-1.04,.4),.16,dark)
@@ -223,6 +237,8 @@ def stage():
         light.data.energy,light.data.color,light.data.shape,light.data.size=power,color,"DISK",size
 
 def render(name, build, *args):
+    if SELECTED and name not in SELECTED:
+        return
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
     build(*args)
@@ -232,8 +248,8 @@ def render(name, build, *args):
     bpy.ops.render.render(write_still=True)
 
 for prefix, kinds, builder in [
-    ("wheel", ["kart","knobby","dirt","at","slick","groove"],wheel),
-    ("engine", ["tiller","twin","turbo4","six"],engine),
+    ("wheel", ["river","kart","knobby","dirt","at","slick","groove"],wheel),
+    ("engine", ["quarry","tiller","twin","turbo4","six"],engine),
     ("frame", ["wagon","tube","cage"],frame),
     ("drive", ["auto","race"],gearbox),
 ]:

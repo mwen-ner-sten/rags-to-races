@@ -2,7 +2,7 @@ import { vehicleStats } from "./garage";
 import { rand, randNormal } from "./rng";
 import type { EventKind, GameState, JobSpec, RaceBeat, Vehicle } from "./types";
 import type { Opponent } from "./race";
-import { totalTime, type RallyCard } from "./timecards";
+import { totalTime, type RallyPace } from "./timecards";
 import type { CourseSurface } from "./clubTrack";
 
 const SURFACES = ["fast lane", "switchbacks", "loose gravel", "broken road"] as const;
@@ -60,7 +60,7 @@ export function rallyWinForecast(car: Vehicle, venue: string, event: EventKind, 
 }
 
 /** Every competitor has a separate clock. Classification uses the sum of the actual timed sections. */
-export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf: boolean, base: number, field: number, rivals: readonly Opponent[], durationMs: number, stages?: readonly CourseSurface[], reference?: RallyCard) {
+export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf: boolean, base: number, field: number, rivals: readonly Opponent[], durationMs: number, stages?: readonly CourseSurface[], reference?: RallyPace) {
   const route = rallyRoute(spec.venueId, spec.event, stages);
   const modifiers = surfaceModifiers(car);
   const runners = rivals.map((driver) => ({ driver, time: 0, out: driver.out > 0 && rand(state) < driver.out }));

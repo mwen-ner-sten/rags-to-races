@@ -5,6 +5,8 @@ import { DISCIPLINES, VENUES, venueName } from "@/core/content/events";
 import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, SEASON_CHALLENGES, isSeasonChallenge } from "@/core/content/modifiers";
 import type { SeasonResult } from "@/core/types";
 import { getPart } from "@/core/content/parts";
+import { HOME_COUNTIES } from "@/core/counties";
+import { partOriginLabel } from "@/core/provenance";
 import { TEAM_ORGANIZATIONS } from "@/core/content/team";
 import { CLUB_CHARTERS } from "@/core/club";
 import { CLUB_COURSES } from "@/core/clubTrack";
@@ -25,7 +27,8 @@ function Loadout({ season }: { season: SeasonResult }) {
     {setup.clubCourse && <p>Course · {CLUB_COURSES[setup.clubCourse].name}</p>}
     {setup.clubLoan && <p>Track workshop loan · {getPart(CLUB_COURSES[setup.clubLoan].loanPart).name}</p>}
     {season.regularityFeatures && <p>Certified stages · {Object.keys(season.regularityFeatures).map((id) => venueName(id, "rally")).join(", ")}</p>}
-    {setup.donor && <p>Donor · {conditionName(setup.donor.condition)} {getPart(setup.donor.partId).name} from {setup.donor.origin}</p>}
+    {setup.homeCounty && <p>Home county · {HOME_COUNTIES[setup.homeCounty].name}</p>}
+    {setup.donor && <p>Donor · {conditionName(setup.donor.condition)} {getPart(setup.donor.partId).name} from {partOriginLabel(setup.donor)}</p>}
     {objective && <p>Objective · {objective.name}</p>}
     {hardships.length > 0 && <p>Hardships · {hardships.join(", ")}</p>}
     {perks.length > 0 && <p>Equipped perks · {perks.join(", ")}</p>}

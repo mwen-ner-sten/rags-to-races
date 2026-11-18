@@ -35,7 +35,7 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
   const busy = vehicleBusy(game, vehicle.uid);
   const reserved = reservedPartUids(game);
   const free = game.run.inventory.filter((p) => !reserved.has(p.uid));
-  const tuning = game.run.learned.includes("tech:tuning");
+  const tuning = game.run.learned.includes("tech:tuning") || game.run.heritageSetups?.includes(vehicle.vehicleId);
   const discipline = game.era?.discipline ?? "dirt";
   const venues = enterable(game, def.tier);
   const venueId = venues.find((v) => v.id === picked)?.id ?? venues[venues.length - 1]?.id;

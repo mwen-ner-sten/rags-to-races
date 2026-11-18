@@ -38,7 +38,7 @@ export const VEHICLES: readonly VehicleDef[] = [
     blurb: "A push mower with a death wish. It goes forward. Sometimes.",
     slots: [
       { slot: "engine", required: true, accepts: ["engine_small", "engine_lawn", "engine_tiller"] },
-      { slot: "wheel", required: true, accepts: ["wheel_busted", "wheel_basic", "wheel_knobby"] },
+      { slot: "wheel", required: true, accepts: ["wheel_busted", "wheel_basic", "wheel_knobby", "wheel_river"] },
     ],
     base: { power: 4, handling: 3, reliability: 4, weight: 40 },
     cash: 0,
@@ -54,8 +54,8 @@ export const VEHICLES: readonly VehicleDef[] = [
     tier: 1,
     blurb: "You sit down on this one. Luxury. It tows a trailer, too.",
     slots: [
-      { slot: "engine", required: true, accepts: ["engine_lawn", "engine_small", "engine_tiller", "engine_v4"] },
-      { slot: "wheel", required: true, accepts: ["wheel_basic", "wheel_busted", "wheel_knobby", "wheel_kart"] },
+      { slot: "engine", required: true, accepts: ["engine_lawn", "engine_small", "engine_tiller", "engine_v4", "engine_quarry"] },
+      { slot: "wheel", required: true, accepts: ["wheel_basic", "wheel_busted", "wheel_knobby", "wheel_kart", "wheel_river"] },
       { slot: "frame", required: true, accepts: ["frame_mower", "frame_scrap", "frame_wagon", "frame_kart"] },
       { slot: "exhaust", required: false, accepts: ["exhaust_rusted", "exhaust_glasspack", "exhaust_straight"] },
     ],
@@ -73,8 +73,8 @@ export const VEHICLES: readonly VehicleDef[] = [
     tier: 2,
     blurb: "A welded kart chassis with an engine that's honestly too big for it.",
     slots: [
-      { slot: "engine", required: true, accepts: ["engine_v4", "engine_lawn", "engine_twin", "engine_tiller"] },
-      { slot: "wheel", required: true, accepts: ["wheel_kart", "wheel_basic", "wheel_dirt", "wheel_knobby", "wheel_sport"] },
+      { slot: "engine", required: true, accepts: ["engine_v4", "engine_lawn", "engine_twin", "engine_tiller", "engine_quarry"] },
+      { slot: "wheel", required: true, accepts: ["wheel_kart", "wheel_basic", "wheel_dirt", "wheel_knobby", "wheel_sport", "wheel_river"] },
       { slot: "frame", required: true, accepts: ["frame_kart"] },
       { slot: "fuel", required: true, accepts: ["fuel_tank_small", "fuel_gas_can", "fuel_tank_large"] },
       { slot: "drivetrain", required: false, accepts: ["drive_chain"] },
@@ -95,8 +95,8 @@ export const VEHICLES: readonly VehicleDef[] = [
     blurb: "Four wheels, an engine that mostly starts, and a trunk. You're racing now.",
     slots: [
       { slot: "body", required: true, accepts: ["beater_shell"], minCondition: 3 },
-      { slot: "engine", required: true, accepts: ["engine_v6", "engine_v4", "engine_turbo4", "engine_twin"] },
-      { slot: "wheel", required: true, accepts: ["wheel_sport", "wheel_kart", "wheel_at", "wheel_dirt"] },
+      { slot: "engine", required: true, accepts: ["engine_v6", "engine_v4", "engine_turbo4", "engine_twin", "engine_quarry"] },
+      { slot: "wheel", required: true, accepts: ["wheel_sport", "wheel_kart", "wheel_at", "wheel_dirt", "wheel_river"] },
       { slot: "frame", required: true, accepts: ["frame_steel", "frame_tube"] },
       { slot: "fuel", required: true, accepts: ["fuel_tank_large", "fuel_tank_small"] },
       { slot: "drivetrain", required: true, accepts: ["drive_manual", "drive_chain", "drive_auto"] },

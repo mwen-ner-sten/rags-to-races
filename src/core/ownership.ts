@@ -1,7 +1,7 @@
 import { getVenue, venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { pushFeed } from "./feed";
-import { enqueue, jobBlocker, rungPending, signedUp } from "./jobs";
+import { enqueue, jobBlocker, QUEUE_LIMIT, rungPending, signedUp } from "./jobs";
 import { addJournal, logSeason } from "./journal";
 import { dnfChance, effectiveScore, winChance } from "./race";
 import { nextUid } from "./rng";
@@ -108,6 +108,18 @@ export interface OwnerTour {
   status: "active" | "champion" | "finished" | "retired";
   sponsor?: SponsorId;
   itinerary?: "reverse" | "endurance";
+  entryPlan?: EntryPlan;
+}
+
+interface EntryPlanSettings {
+  leadUid: string;
+  reserveUid?: string;
+  call: RaceSpec["call"];
+  cashFloor: number;
+}
+
+interface EntryPlan extends EntryPlanSettings {
+  enabled: boolean;
 }
 
 export interface OwnerState {
@@ -139,7 +151,8 @@ function creditOwnerRecord(records: OwnerRecords, tour: OwnerTour): void {
 export type OwnerMove =
   | { type: "found" | "start"; charter: OwnerCharter; sponsor?: SponsorId; itinerary?: OwnerTour["itinerary"] }
   | { type: "enter"; vehicleUid: string; call: RaceSpec["call"]; call2?: RaceSpec["call2"] }
-  | { type: "skip" | "withdraw" | "retire" };
+  | { type: "plan_entries"; settings: EntryPlanSettings }
+  | { type: "skip" | "withdraw" | "retire" | "pause_plan" };
 
 export function ownerGate(state: GameState): { ok: boolean; reason: string | null } {
   const ok = Boolean(state.era && (
@@ -317,6 +330,48 @@ export function ownerEntryBlocker(state: GameState, tour: OwnerTour, vehicleUid:
   return null;
 }
 
+function plannedEntry(state: GameState, tour: OwnerTour): { spec: RaceSpec | null; reason: string | null } {
+  const plan = tour.entryPlan;
+  if (!plan?.enabled || tour.status !== "active" || currentTourEntry(state)) return { spec: null, reason: null };
+  if (state.run.queue.length >= QUEUE_LIMIT) return { spec: null, reason: "The queue is full. Waiting for a free slot." };
+  const stop = tourCalendar(tour)[tour.rounds.length];
+  if (!stop) return { spec: null, reason: null };
+  const entry = getVenue(stop.venueId).events[stop.event].entry;
+  if (state.run.cash - entry < plan.cashFloor) {
+    return { spec: null, reason: `The ${entry} Scrap Bucks entry would leave less than your ${plan.cashFloor} Scrap Bucks reserve.` };
+  }
+  const reasons: string[] = [];
+  for (const vehicleUid of [plan.leadUid, plan.reserveUid]) {
+    if (!vehicleUid) continue;
+    const reason = ownerEntryBlocker(state, tour, vehicleUid, plan.call);
+    if (!reason) return {
+      spec: { kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid, call: plan.call, tourRound: tourRoundToken(tour), tourReserve: plan.cashFloor },
+      reason: null,
+    };
+    const car = state.run.vehicles.find((candidate) => candidate.uid === vehicleUid);
+    reasons.push(car ? `${car.name}: ${reason}` : "One planned car is no longer available.");
+  }
+  return { spec: null, reason: reasons.join(" ") };
+}
+
+export function entryPlanStatus(state: GameState, tour: OwnerTour): string | null {
+  return queuedTourProblem(state, tour) ?? plannedEntry(state, tour).reason;
+}
+
+export function queueTourPlan(state: GameState): void {
+  const tour = state.owner?.tour;
+  if (!tour?.entryPlan?.enabled) return;
+  const { spec } = plannedEntry(state, tour);
+  if (spec) enqueue(state, spec);
+}
+
+export function pauseTourPlanOnCancellation(state: GameState, spec: JobSpec): void {
+  const tour = state.owner?.tour;
+  if (tour?.entryPlan && spec.kind === "race" && spec.tourReserve !== undefined && spec.tourRound === tourRoundToken(tour)) {
+    tour.entryPlan.enabled = false;
+  }
+}
+
 export function applyOwner(state: GameState, move: OwnerMove): string | null {
   const owner = state.owner;
   const tour = owner?.tour;
@@ -376,6 +431,27 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
         tourRound: tourRoundToken(tour),
       });
     }
+    case "plan_entries": {
+      if (!tour || tour.status !== "active") return "Start a championship first.";
+      if (!reverseTourUnlocked(state, tour.charter)) return "Win this charter in your current discipline before saving an entry plan.";
+      const { leadUid, reserveUid, call, cashFloor } = move.settings;
+      if (!Number.isSafeInteger(cashFloor) || cashFloor < 0) return "Choose a nonnegative, whole Scrap Bucks reserve.";
+      if (call !== "push" && call !== "nurse") return "Choose a race call.";
+      if (!state.run.vehicles.some((car) => car.uid === leadUid)) return "Choose a lead car from the garage.";
+      if (reserveUid === leadUid || (reserveUid && !state.run.vehicles.some((car) => car.uid === reserveUid))) {
+        return "Choose a different reserve car from the garage.";
+      }
+      tour.entryPlan = { leadUid, reserveUid, call, cashFloor, enabled: true };
+      queueTourPlan(state);
+      return null;
+    }
+    case "pause_plan": {
+      if (!tour || tour.status !== "active" || !tour.entryPlan) return "There is no entry plan to pause.";
+      tour.entryPlan.enabled = false;
+      const token = tourRoundToken(tour);
+      state.run.queue = state.run.queue.filter((job) => job.kind !== "race" || job.tourRound !== token || job.tourReserve === undefined);
+      return null;
+    }
     case "skip":
       if (!tour || tour.status !== "active") return "There is no round to skip.";
       if (currentTourEntry(state)) return "Withdraw your entry before skipping.";
@@ -384,6 +460,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
       return null;
     case "withdraw":
       if (!tour || currentTourEntry(state) !== "queued") return "Only a queued entry can be withdrawn.";
+      if (tour.entryPlan) tour.entryPlan.enabled = false;
       removeQueuedEntry(state, tour);
       return null;
     case "retire":
@@ -404,6 +481,7 @@ export function forfeitOwnerTour(state: GameState): void {
   if (!tour || tour.status !== "active") return;
   removeQueuedEntry(state, tour);
   tour.status = "retired";
+  if (tour.entryPlan) tour.entryPlan.enabled = false;
   logSeason(state, `retired:${tour.id}`, `Retired from the ${CHARTERS[tour.charter].name}.`);
 }
 
@@ -439,6 +517,7 @@ function completeRound(state: GameState, finish: OwnerFinish | null): void {
   if (tour.rounds.length < charter.calendar.length) return;
   const score = tourScore(tour);
   tour.status = score.champion ? "champion" : "finished";
+  if (tour.entryPlan) tour.entryPlan.enabled = false;
   if (owner.records) creditOwnerRecord(owner.records, tour);
   else owner.records = ownerRecords(owner);
   const sponsorship = sponsorProgress(tour);

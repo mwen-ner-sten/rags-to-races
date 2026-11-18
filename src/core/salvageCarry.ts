@@ -1,18 +1,13 @@
 import { getPart } from "./content/parts";
-import { PLACES } from "./content/places";
+import { getPlace } from "./content/places";
 import { reservedPartUids, vehicleBusy } from "./garage";
+import { hauledSource } from "./provenance";
 import type { GameState, PartInstance } from "./types";
-
-const HAUL_ORIGINS = new Set(PLACES.map((place) => place.name));
-
-export function isHauledPart(part: PartInstance): boolean {
-  // Sedan shells bought at the Auction counter have the same label as haul finds.
-  return part.partId !== "beater_shell" && HAUL_ORIGINS.has(part.origin);
-}
 
 export function isCarryableSalvage(part: PartInstance): boolean {
   const def = getPart(part.partId);
-  return isHauledPart(part) && def.tier <= 2 && def.category !== "junk";
+  const source = hauledSource(part);
+  return !!source && part.origin === getPlace(source).name && def.tier <= 2 && def.category !== "junk";
 }
 
 export function salvageCarryUnlocked(state: GameState): boolean {

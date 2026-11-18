@@ -19,8 +19,8 @@ export function crewEfficiency(member: CrewMember): number {
   return 0.6 + 0.4 * member.morale / 100;
 }
 
-/** People whose assigned race roles contribute when the green flag drops. */
-export function racingCrewIds(state: GameState): string[] {
+/** The assigned roles, including crew already on track. Used for older in-flight saves. */
+export function assignedRacingCrewIds(state: GameState): string[] {
   if (!state.era || resolveFlags(state).crewDisabled) return [];
   return state.era.crew.filter((member) => {
     const def = CREW_BY_ID[member.id];
@@ -28,9 +28,14 @@ export function racingCrewIds(state: GameState): string[] {
   }).map((member) => member.id);
 }
 
+/** People who can contribute when the next green flag drops. */
+export function racingCrewIds(state: GameState): string[] {
+  return assignedRacingCrewIds(state).filter((id) => !crewBusyRacing(state, id));
+}
+
 export function crewBusyRacing(state: GameState, id: string): boolean {
   return state.run.jobs.some((job) => job.spec.kind === "race" &&
-    (job.lane === `crew:${id}` || (job.race?.crewIds ?? racingCrewIds(state)).includes(id)));
+    (job.lane === `crew:${id}` || (job.race?.crewIds ?? assignedRacingCrewIds(state)).includes(id)));
 }
 
 export function creditCrew(state: GameState, ids: string[], spec?: JobSpec): void {

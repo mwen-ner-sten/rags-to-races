@@ -4,7 +4,7 @@ import { garageSpace, stripYield, vehicleBusy } from "./garage";
 import { afterChange, dispatch } from "./jobs";
 import { logSeason } from "./journal";
 import { nextUid } from "./rng";
-import { archiveVehicle } from "./vehicleArchive";
+import { releaseVehicle } from "./vehicleArchive";
 import type { GameState, MaterialId, PartInstance, Vehicle } from "./types";
 
 export const MOWER_EXCHANGE = { cash: 12, parts: ["engine_tiller", "wheel_knobby"], condition: 2 } as const;
@@ -51,8 +51,7 @@ export function retireVehicle(state: GameState, vehicleUid: string, move: Retire
   const plan = retirementPlan(state, vehicleUid, move);
   if (typeof plan === "string") return plan;
   const { vehicle, retained, materials, cash } = plan;
-  archiveVehicle(state, vehicle, { kind: move.kind, vehicleUid, seasonMs: state.run.seasonMs });
-  state.run.vehicles = state.run.vehicles.filter((car) => car.uid !== vehicleUid);
+  releaseVehicle(state, vehicle, move.kind);
   state.run.cash -= cash;
   for (const material of ["metal", "rubber", "wiring"] as const) state.run.materials[material] += materials[material] ?? 0;
   if (retained) state.run.inventory.push(retained);
@@ -63,11 +62,6 @@ export function retireVehicle(state: GameState, vehicleUid: string, move: Retire
     }
   }
 
-  const templatePrefix = `race:${vehicleUid}:`;
-  state.run.habitSlots = state.run.habitSlots.map((habit) => habit?.startsWith(templatePrefix) ? null : habit);
-  for (const member of state.era?.crew ?? []) {
-    if (member.assignment.type === "habit" && member.assignment.template.startsWith(templatePrefix)) member.assignment = { type: "queue" };
-  }
   logSeason(state, "mower-retired", retained ? `${vehicle.name} retired. Kept its ${getPart(retained.partId).name}.` : `${vehicle.name} retired at the mower exchange. The replacement kit is in the garage.`);
   afterChange(state);
   dispatch(state);

@@ -1,6 +1,7 @@
 "use client";
 
 import { getPart } from "@/core/content/parts";
+import { partOriginLabel } from "@/core/provenance";
 import { salvageCarryCandidates, salvageCarryUnlocked } from "@/core/salvageCarry";
 import type { GameState } from "@/core/types";
 import { conditionName } from "../format";
@@ -19,7 +20,7 @@ export function ResetSalvage({ game, value, slots, rookie, onChange }: { game: G
           <option value="">None · keep all {slots} perk slots</option>
           {value && !candidates.some(({ part }) => part.uid === value) && <option value={value}>Selected part unavailable</option>}
           {candidates.map(({ part, location }) => (
-            <option key={part.uid} value={part.uid} disabled={rookie}>{getPart(part.partId).name} · {conditionName(part.condition)} · {location}</option>
+            <option key={part.uid} value={part.uid} disabled={rookie}>{getPart(part.partId).name} · {conditionName(part.condition)} · {location}{part.provenance && ` · ${partOriginLabel(part)}`}</option>
           ))}
         </select>
       </label>

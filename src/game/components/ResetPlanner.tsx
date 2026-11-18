@@ -7,16 +7,20 @@ import { CREW_BY_ID, TEAM_ORGANIZATION_IDS, TEAM_ORGANIZATIONS, type TeamOrganiz
 import { APPRENTICE_JOBS, HANDOVER_COST, crewHandoverOffers, handoverId, handoverName } from "@/core/crewLegacy";
 import { BUILDER_LOADOUTS, LAYERS, SCRAP_LAYER, TEAM_LAYER, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planBuilderLoadout, planPurchases, scrapAward, teamAward, teamResetLegacyBudget, type TeamChoices } from "@/core/layers";
 import { ownerTourActive } from "@/core/ownership";
+import { homeCounty } from "@/core/counties";
 import { CLUB_CHARTERS, clubGate, clubScore, type ClubCharter } from "@/core/club";
 import type { ClubCourseId } from "@/core/clubTrack";
+import { worksReport, type WorksFamily } from "@/core/manufacturer";
 import { ClubTrackOptions } from "./ClubTrackOptions";
-import type { DisciplineId, GameState, SeasonChallengeId, SkillId } from "@/core/types";
+import { WorksDrawingPicker } from "./ManufacturerPanel";
+import type { DisciplineId, GameState, HomeCounty, SeasonChallengeId, SkillId } from "@/core/types";
 import { num, pct } from "../format";
 import { useGame } from "../store";
 import { ResetDisciplines } from "./ResetDisciplines";
 import { ResetHardships } from "./ResetHardships";
 import { ResetPerks } from "./ResetPerks";
 import { ResetSalvage } from "./ResetSalvage";
+import { ResetHomeCounty } from "./ResetHomeCounty";
 
 const SKILLS: { id: SkillId; label: string }[] = [
   { id: "haul", label: "Haul (trip speed)" },
@@ -40,9 +44,11 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const dispatch = useGame((s) => s.dispatch);
   const isTeam = layer === "team";
   const [retainedPartUid, setRetainedPartUid] = useState("");
+  const [county, setCounty] = useState<HomeCounty>(() => homeCounty(game));
   const [club, setClub] = useState<ClubCharter | undefined>(initialClub);
   const [clubCourse, setClubCourse] = useState<ClubCourseId | undefined>();
   const [clubLoan, setClubLoan] = useState<ClubCourseId | undefined>();
+  const [worksPlan, setWorksPlan] = useState<WorksFamily | undefined>();
   const award = isTeam ? teamAward(game) : scrapAward(game);
   const lpAvailable = isTeam ? teamResetLegacyBudget(game) : game.scrap.lp + award;
   const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game, !!retainedPartUid);
@@ -76,8 +82,10 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const nextDiscipline = isTeam ? discipline : game.era?.discipline ?? "dirt";
   const conflict = seasonObjectiveConflict(hardships, dare, nextDiscipline);
   const choices = {
+    homeCounty: isTeam ? undefined : county,
     buy, perks: equipped, tuneUp: tune, dare, hardships, retainedPartUid: isTeam ? undefined : retainedPartUid || undefined,
     club: isTeam ? undefined : club, clubCourse: !isTeam && club ? clubCourse : undefined, clubLoan: !isTeam && club ? clubLoan : undefined,
+    worksPlan: isTeam ? undefined : worksPlan,
   };
   const handovers = isTeam ? crewHandoverOffers(game, discipline) : [];
   const handover = handovers.find((offer) => handoverId(offer) === handoverKey);
@@ -117,6 +125,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
       </div>
 
       {!isTeam && <ResetSalvage game={game} value={retainedPartUid} slots={nextSeasonPerkSlots(game)} rookie={hardships.includes("rookie_plates")} onChange={setRetainedPartUid} />}
+      {!isTeam && <ResetHomeCounty game={game} county={county} onChoose={setCounty} />}
       {!isTeam && !clubGate(game) && <fieldset>
         <legend>Club charter (optional)</legend>
         <p className="hint">Your team and Circuit certificates carry forward. The club supplies its opening support alongside your usual perks and any retained part.</p>
@@ -127,6 +136,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
         </label>)}
       </fieldset>}
       {!isTeam && club && <ClubTrackOptions game={game} course={clubCourse} loan={clubLoan} onCourse={setClubCourse} onLoan={setClubLoan} />}
+      {!isTeam && <WorksDrawingPicker game={game} value={worksPlan} onChange={setWorksPlan} />}
 
       <fieldset>
         <legend>Builder loadouts</legend>
@@ -281,6 +291,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
       )}
 
       {ownerTourActive(game) && <p className="why">This reset forfeits the active Owner tour and its unearned rewards.</p>}
+      {game.manufacturer?.active && !worksReport(game.manufacturer.active).homologated && !worksReport(game.manufacturer.active).failed && <p className="why">This reset retires the open works deal and files its completed trials.</p>}
       {game.club?.active && !clubScore(game.club.active).complete && <p className="why">This reset retires the active Club calendar and archives its completed rounds.</p>}
       {isSeasonChallenge(activeChallenge) && game.run.challenge.completedAt === undefined && (
         <p className="why">This reset ends your current {SEASON_CHALLENGES[activeChallenge].name} attempt. You can select it again for the next Season.</p>

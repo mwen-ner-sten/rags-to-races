@@ -1,6 +1,6 @@
 /**
  * Pacing goals for Era 1, checked against the sim bot. Exits non-zero when a goal fails.
- *   npx tsx scripts/pacing-check.ts [seeds=6]
+ *   npx tsx scripts/pacing-check.ts [seeds=6] [--race-night]
  *
  * Goals (docs/design/era-1-and-team.md §5.6):
  * - Daily (1×5 min): Season 1 finishes within 21 days on every seed, and stays slow (median ≥ 12 days).
@@ -14,6 +14,7 @@ import { Bot, SCHEDULES, type RunPolicy } from "../src/core/sim/bot";
 
 const DAY = 24 * 3_600_000;
 const seeds = Number(process.argv[2] ?? "6");
+const raceNights = process.argv.includes("--race-night");
 
 interface Season1 {
   days: number | null;
@@ -22,7 +23,7 @@ interface Season1 {
 }
 
 function season1(schedule: string, policy: RunPolicy, seed: number, maxDays: number): Season1 {
-  const bot = new Bot(createGame(`pace-${seed}`), policy);
+  const bot = new Bot(createGame(`pace-${seed}`), policy, "dirt", raceNights);
   const done = () => bot.seasonLog.length > 0;
   for (let d = 1; d <= maxDays && !done(); d++) bot.run(SCHEDULES[schedule], d * DAY);
   const first = bot.seasonLog[0];

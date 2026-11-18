@@ -6,11 +6,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createGame, must, type TeamChoices } from "../src/core";
 import { CREW_BY_ID, type TeamOrganization } from "../src/core/content/team";
-import { crewHandoverOffers, APPRENTICE_JOBS, HANDOVER_COST, type WorkshopRoutine } from "../src/core/crewLegacy";
+import { crewCanApprentice, crewHandoverOffers, APPRENTICE_JOBS, HANDOVER_COST, type WorkshopRoutine } from "../src/core/crewLegacy";
 import { LAYERS, crewCap, nextSeasonPerkSlots, nextSeasonTuneUpPoints, nextTeamPerkSlots, scrapAward, teamAward, teamResetLegacyBudget } from "../src/core/layers";
 import { currentTourEntry, ownerGate, ownerTourActive, sponsorProgress, sponsorshipBlocker, tourCalendar, tourCash, tourGarage, tourScore, type OwnerTour } from "../src/core/ownership";
 import { jobBlocker } from "../src/core/jobs";
-import { Bot, SCHEDULES, type Schedule } from "../src/core/sim/bot";
+import { winChance } from "../src/core/race";
+import { Bot, SCHEDULES } from "../src/core/sim/bot";
+import { teamCheckpoint } from "../src/core/sim/teamCheckpoint";
 import type { GameState, JobSpec, RaceCall } from "../src/core/types";
 import { decodeGameState } from "../src/game/save";
 
@@ -30,15 +32,6 @@ if (!schedule || !Number.isInteger(seeds) || seeds < 1 || !Number.isInteger(firs
   throw new Error("Choose a supported schedule and valid seed range.");
 }
 mkdirSync(output, { recursive: true });
-
-function foundingCheckpoint(seed: string, visitSchedule: Schedule): { state: GameState; choices: TeamChoices; elapsed: number } {
-  const bot = new Bot(createGame(seed), "push");
-  bot.holdAt = "team";
-  bot.run(visitSchedule, 140 * DAY);
-  const reset = bot.heldReset;
-  if (!reset || !("discipline" in reset.choices)) throw new Error(`No earned Team founding in 140 days for ${seed}.`);
-  return { state: bot.state, choices: reset.choices, elapsed: bot.totalMs };
-}
 
 class CareerPilot extends Bot {
   readonly milestones: Record<string, number> = {};
@@ -72,10 +65,13 @@ class CareerPilot extends Bot {
     if (handover?.type === "apprenticeship" && handover.completed >= APPRENTICE_JOBS) {
       this.markStage("handoverImpact");
       if (game.run.habitsKnown.includes(handover.routine)) this.markStage("habitAvailable");
+      if (game.run.jobs.some((job) => job.looping && job.spec.kind === handover.routine && job.lane.startsWith("crew:"))) this.markStage("habitWorking");
     }
     if (handover?.type === "track_notes" && game.run.ladder[handover.venueId]?.includes("heat")) {
       this.markStage("handoverImpact");
-      if (!game.run.races.some((race) => race.venueId === handover.venueId && race.event === "sprint")) this.markStage("sprintWaived");
+      const first = game.run.races.find((race) => race.venueId === handover.venueId);
+      if (!first) this.markStage("sprintWaived");
+      if (first?.event === "heat") this.markStage("heatRacedFirst");
     }
     if (ownerGate(game).ok) this.markStage("touringLicence");
     if (game.owner?.titles) this.markStage("firstTitle");
@@ -84,21 +80,33 @@ class CareerPilot extends Bot {
       this.previousTours.add(tour.id);
       const score = tourScore(tour);
       this.notes.push(`Tour ${tour.charter} ${tour.status} at ${score.points} pt, ${score.cars} cars.`);
-      if (tour.sponsor) this.sponsorTour = tour;
+      if (tour.sponsor) {
+        this.sponsorTour = tour;
+        this.markStage("sponsorSettled");
+        if (sponsorProgress(tour)?.payout) this.markStage("sponsorPaid");
+      }
     }
     if (!this.shouldStop()) super.decide(present);
   }
 
   protected override manageCrew(): void {
     const game = this.state;
+    const handover = game.era?.handover;
+    const training = handover?.type === "apprenticeship" && handover.completed < APPRENTICE_JOBS ? handover : undefined;
+    const prepared = (id: string) => !!training && crewCanApprentice(game, id, training.routine);
     const order = this.strategy === "workshop" ? ["wrench", "driver", "spotter", "hauler"] : ["driver", "spotter", "hauler", "wrench"];
     while (this.state.era!.crew.length < crewCap(this.state)) {
-      const candidates = [...this.state.run.candidates].sort((a, b) => order.indexOf(CREW_BY_ID[a].role) - order.indexOf(CREW_BY_ID[b].role));
+      const candidates = [...this.state.run.candidates].sort((a, b) =>
+        Number(prepared(b)) - Number(prepared(a)) || order.indexOf(CREW_BY_ID[a].role) - order.indexOf(CREW_BY_ID[b].role),
+      );
       if (!candidates.length || !this.act({ type: "hire", crewId: candidates[0] })) break;
     }
+    const apprentice = this.state.era!.crew.find((member) => prepared(member.id));
     for (const member of this.state.era!.crew) {
       const role = CREW_BY_ID[member.id].role;
-      if (role === "driver" || role === "spotter") {
+      if (member.id === apprentice?.id && member.morale >= 25) {
+        if (member.assignment.type !== "queue") this.act({ type: "assignCrew", crewId: member.id, assignment: { type: "queue" } });
+      } else if (role === "driver" || role === "spotter") {
         if (member.assignment.type !== role) this.act({ type: "assignCrew", crewId: member.id, assignment: { type: role } });
       } else if (member.assignment.type === "queue" && member.morale < 25) {
         this.act({ type: "assignCrew", crewId: member.id, assignment: { type: "rest" } });
@@ -106,7 +114,6 @@ class CareerPilot extends Bot {
         this.act({ type: "assignCrew", crewId: member.id, assignment: { type: "queue" } });
       }
     }
-    const handover = game.era?.handover;
     if (handover?.type === "apprenticeship" && handover.completed >= APPRENTICE_JOBS && this.state.run.habitsKnown.includes(handover.routine)) {
       const mechanic = this.state.era!.crew.find((member) => CREW_BY_ID[member.id].role === "wrench" && !CREW_BY_ID[member.id].refuses.includes(handover.routine));
       if (mechanic && mechanic.assignment.type === "queue" && this.act({ type: "assignCrew", crewId: mechanic.id, assignment: { type: "habit", template: handover.routine } })) {
@@ -164,6 +171,16 @@ class CareerPilot extends Bot {
 
   protected override race(present: boolean): void {
     const game = this.state;
+    const notes = game.era?.handover;
+    if (notes?.type === "track_notes" && this.milestones.heatRacedFirst === undefined
+      && game.run.ladder[notes.venueId]?.includes("heat") && !game.run.races.some((race) => race.venueId === notes.venueId)) {
+      const booked = [...game.run.queue, ...game.run.jobs.map((job) => job.spec)].some((job) => job.kind === "race" && job.venueId === notes.venueId);
+      if (booked) return;
+      for (const vehicle of [...game.run.vehicles].reverse()) {
+        const spec = { kind: "race", vehicleUid: vehicle.uid, venueId: notes.venueId, event: "heat", call: "nurse" } as const;
+        if (!jobBlocker(game, spec, true) && this.act({ type: "enqueue", spec })) return;
+      }
+    }
     if (!ownerGate(game).ok || this.milestones.handoverImpact === undefined) {
       super.race(present);
       return;
@@ -187,10 +204,11 @@ class CareerPilot extends Bot {
     if (!tour || currentTourEntry(this.state)) return;
     const stop = tourCalendar(tour)[tour.rounds.length];
     if (!stop) return;
-    // Reliability-backed entries finish with a conservative pace; the winner contract
-    // will still select the best legal car available for the current venue.
-    const call: RaceCall = "nurse";
-    for (const car of tourGarage(this.state, tour, call)) {
+    // A win sponsor only pushes when the extra gamble makes an appreciable difference.
+    for (const car of tourGarage(this.state, tour, "nurse")) {
+      const pushWorthwhile = tour.sponsor === "front_row" && winChance(this.state, car, stop.venueId, stop.event, "push")
+        > winChance(this.state, car, stop.venueId, stop.event, "nurse") + 0.1;
+      const call: RaceCall = pushWorthwhile ? "push" : "nurse";
       if (this.act({ type: "owner", move: { type: "enter", vehicleUid: car.uid, call } })) return;
     }
     const key = `${stop.venueId}:${stop.event}`;
@@ -202,7 +220,7 @@ const rows = [];
 for (let i = firstSeed; i < firstSeed + seeds; i++) {
   const seed = `crew-career-${i}`;
   try {
-    const entry = foundingCheckpoint(seed, schedule);
+    const entry = teamCheckpoint(createGame(seed), schedule, 240 * DAY);
     writeFileSync(join(output, `${seed}-founding.json`), JSON.stringify(entry));
     for (const strategy of Object.keys(strategies) as Strategy[]) {
       const organization: TeamOrganization = strategies[strategy].organization;

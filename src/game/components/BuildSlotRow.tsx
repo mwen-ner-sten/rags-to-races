@@ -3,6 +3,7 @@
 import { getPart } from "@/core/content/parts";
 import type { installedService } from "@/core/actions";
 import { fittingParts, partSwapGain } from "@/core/buildPlanning";
+import { partOriginLabel } from "@/core/provenance";
 import type { SlotDef } from "@/core/content/vehicles";
 import { partScoreAt } from "@/core/race";
 import type { DisciplineId, PartInstance, Vehicle } from "@/core/types";
@@ -44,7 +45,7 @@ export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, s
         {installed ? (
           <>
             {getPart(installed.partId).name} <span className={`cond c${installed.condition}`}>{conditionName(installed.condition)}</span>{" "}
-            <span className="num muted build-worth">{current.toFixed(1)}</span>
+            <span className="num muted build-worth">{current.toFixed(1)}</span>{installed.provenance && <span className="muted"> · {partOriginLabel(installed)}</span>}
           </>
         ) : (
           <span className="why">Empty{slot.required ? ". It can't race" : ""}</span>
@@ -59,7 +60,7 @@ export function BuildSlotRow({ vehicle, slot, discipline, venueId, free, busy, s
               <option value="">Swap in…</option>
               {options.map((p) => (
                 <option key={p.uid} value={p.uid}>
-                    {partOption(p)} · {signed(gainFor(p))} score · {p.origin}
+                    {partOption(p)} · {signed(gainFor(p))} score · {partOriginLabel(p)}
                 </option>
               ))}
             </select>

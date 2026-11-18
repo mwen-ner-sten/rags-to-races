@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createGame, must } from "../src/core";
 import type { TeamChoices } from "../src/core/layers";
 import { Bot, SCHEDULES } from "../src/core/sim/bot";
-import type { GameState } from "../src/core/types";
+import { teamCheckpoint } from "../src/core/sim/teamCheckpoint";
 import { decodeGameState } from "../src/game/save";
 
 const DAY = 86_400_000;
@@ -15,15 +15,6 @@ const directory = process.argv[3] ?? "test-results/career-forks";
 const schedule = SCHEDULES[process.argv[4] ?? "mixed"];
 if (!schedule || !Number.isInteger(seeds) || seeds < 1) throw new Error("Choose a positive seed count and a supported schedule.");
 mkdirSync(directory, { recursive: true });
-
-function teamCheckpoint(game: GameState) {
-  const bot = new Bot(game, "push");
-  bot.holdAt = "team";
-  bot.run(SCHEDULES.mixed, 150 * DAY);
-  const reset = bot.heldReset;
-  if (!reset || !("discipline" in reset.choices)) throw new Error(`Team founding unavailable for ${game.seed}`);
-  return { state: bot.state, choices: reset.choices, elapsed: bot.totalMs };
-}
 
 const rows = [];
 for (let i = 0; i < seeds; i++) {
@@ -45,7 +36,7 @@ for (let i = 0; i < seeds; i++) {
       bot.run(schedule, 40 * DAY);
       if (!decodeGameState(bot.state)) throw new Error(`Invalid ${discipline} ${organization} finish on ${seed}`);
       rows.push({ seed, discipline, organization, foundingDays: first.elapsed / DAY, returnDays: experienced.elapsed / DAY,
-        firstBuildDay: bot.log[`s${start.meta.seasonsPlayed + 1}:build:push_mower`] / DAY || null,
+        firstBuildDay: bot.log[`s${start.meta.seasonsPlayed + 1}:build:push_mower`] === undefined ? null : bot.log[`s${start.meta.seasonsPlayed + 1}:build:push_mower`] / DAY,
         fairDay: bot.heldReset ? bot.state.run.featureWins.county_fair / DAY : null, hauls: bot.state.run.stats.hauls,
         cash: bot.state.run.cash, crew: bot.state.era?.crew.map((member) => member.id) ?? [],
         finishes: bot.state.run.races.length, errors: bot.errors });

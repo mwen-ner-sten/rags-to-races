@@ -18,6 +18,7 @@ export function RallyCards({ cards }: { cards: readonly RallyCard[] }) {
       <details>
         <summary><strong>{(totalTime(card.splitsMs) / 1000).toFixed(1)}s</strong> · {capitalize(card.event)} · {getVehicle(card.vehicleId).name}{card.course && ` · ${CLUB_COURSES[card.course].name}`}</summary>
         <p>{card.carName} · Season {card.season}</p>
+        {card.lastRun && <p>Last classified run · {card.lastRun.carName} · {(totalTime(card.lastRun.splitsMs) / 1000).toFixed(1)}s · Season {card.lastRun.season}</p>}
         <ol>{card.splitsMs.map((ms, i) => <li key={i}>Stage {i + 1} · {(ms / 1000).toFixed(1)}s</li>)}</ol>
       </details>
     </li>)}</ul>

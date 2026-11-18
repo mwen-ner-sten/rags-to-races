@@ -51,9 +51,18 @@ export interface PartInstance {
   condition: Condition;
   /** Where it was found, for the Hall of Fame history. */
   origin: string;
+  provenance?: PartProvenance;
   protected?: boolean;
   /** This physical part has already crossed one Scrap Reset. */
   inherited?: true;
+}
+
+export type HomeCounty = "home" | "river" | "quarry";
+
+export interface PartProvenance {
+  county: HomeCounty;
+  placeId: string;
+  season: number;
 }
 
 export interface VehicleHistory {
@@ -84,7 +93,7 @@ export type JobSpec =
   | { kind: "strip"; partUid?: string }
   | { kind: "study"; knowhowId: string }
   | { kind: "assemble"; vehicleId: string; partUids: Record<string, string>; name: string }
-  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; tourRound?: string; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
+  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; useLastPace?: true; tourRound?: string; tourReserve?: number; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
 
 export type LaneId = string; // "hands" | "bench:0" | "habit:1" | "crew:<id>"
 
@@ -118,6 +127,7 @@ export interface RaceBeat {
 
 /** Everything about a race decided at the green flag. */
 export interface RaceRoll {
+  heritageEntry?: string;
   rallyClock?: import("./timecards").RallyClock;
   course?: ClubCourseId;
   /** Crew committed at race entry, including any crew member running the job. Older saves omit this. */
@@ -204,8 +214,8 @@ export interface HallOfFameEntry {
   vehicleId: string;
   name: string;
   history: VehicleHistory;
-  parts: { slot: string; partId: string; condition: Condition; origin: string }[];
-  retirement?: { kind: "dismantle" | "exchange"; vehicleUid: string; seasonMs: number };
+  parts: ({ slot: string } & Pick<PartInstance, "partId" | "condition" | "origin" | "provenance">)[];
+  retirement?: { kind: "dismantle" | "exchange" | "exhibit"; vehicleUid: string; seasonMs: number };
 }
 
 export type SeasonChallengeId = "homebuilt_relay" | "parts_with_a_past" | "hand_me_down";
@@ -223,6 +233,7 @@ export interface SeasonChallengeProgress {
 }
 
 export interface MetaState {
+  heritageRegister?: import("./heritage").HeritageAward[];
   rallyLicences?: Record<string, number>;
   rallyCards?: import("./timecards").RallyCard[];
   seasonLog?: SeasonResult[];
@@ -299,6 +310,8 @@ export interface EraState {
 }
 
 export interface RunState {
+  heritageSetups?: string[];
+  heritageProject?: import("./heritage").HeritageProject;
   regularityFeatures?: Record<string, number>;
   seasonMs: number;
   cash: number;
@@ -343,7 +356,8 @@ export interface RunState {
 }
 
 export interface RunConfig {
-  donor?: Pick<PartInstance, "partId" | "condition" | "origin">;
+  donor?: Pick<PartInstance, "partId" | "condition" | "origin" | "provenance">;
+  homeCounty?: HomeCounty;
   perks: string[]; // equipped this Season
   tuneUp: Record<SkillId, number>;
   dare: string | null;

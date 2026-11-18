@@ -4,6 +4,7 @@ import { APPRENTICE_JOBS, HANDOVER_COST, crewHandoverOffers, type CrewHandoverCh
 import { apply, createGame, must, type TeamChoices } from "../index";
 import { teamAward } from "../layers";
 import type { GameState } from "../types";
+import { racer, teamRacer } from "../../../tests/fixtures/rewrite";
 
 const MINUTE = 60_000;
 const choices = { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] };
@@ -55,6 +56,38 @@ function restart(game: GameState, handover?: CrewHandoverChoice): GameState {
 }
 
 describe("Crew handovers", () => {
+  it("credits only the crew physically available for concurrent races, and waits for a called driver", () => {
+    let game = teamRacer("crew-overlap");
+    const mower = racer("dirt-mower", "riding_mower").run.vehicles[0];
+    mower.uid = "dirt-mower";
+    for (const part of Object.values(mower.parts)) part!.uid += "-dirt";
+    game.run.vehicles.push(mower);
+    game.run.venuesOpen.push("dirt");
+    game.run.ladder.dirt = ["sprint", "heat", "feature"];
+    game.team.upgrades.crew_quarters = 1;
+    game.run.candidates.push("tina");
+    game = must(game, { type: "hire", crewId: "tina" });
+    game = must(game, { type: "enqueue", spec: { kind: "race", venueId: "dirt", event: "feature", vehicleUid: mower.uid, call: "nurse" } });
+    expect(game.run.jobs[0].race?.crewIds).toEqual(["deshawn", "pearl"]);
+    const oldRace = structuredClone(game);
+    delete oldRace.run.jobs[0].race!.crewIds;
+    expect(decodeGameState(oldRace)?.run.jobs[0].race?.crewIds).toEqual(["deshawn", "pearl"]);
+
+    const entry = { kind: "race", venueId: "backyard", event: "sprint", vehicleUid: "fixture-vehicle", call: "nurse" } as const;
+    let parallel = must(game, { type: "enqueue", spec: entry });
+    expect(parallel.run.jobs[1].race?.crewIds).toEqual(["tina"]);
+    parallel = must(parallel, { type: "advance", ms: 20 * MINUTE, away: true });
+    expect(parallel.era?.crew[0].service?.venues?.dirt).toEqual({ dirt: 1 });
+    expect(parallel.era?.crew[1].service?.venues?.dirt).toEqual({ dirt: 1 });
+    expect(parallel.era?.crew[2].jobsDone).toBe(1);
+
+    let waiting = must(game, { type: "enqueue", spec: { ...entry, call2: "pit" } });
+    expect(waiting.run.jobs).toHaveLength(1);
+    expect(waiting.run.queue).toHaveLength(1);
+    waiting = must(waiting, { type: "advance", ms: 20 * MINUTE, away: true });
+    expect(waiting.era?.crew[0].service?.venues?.dirt).toEqual({ dirt: 1, backyard: 1 });
+    expect(waiting.run.races).toHaveLength(2);
+  });
   it("offers both handovers from completed jobs and credited starts, on the same old team", () => {
     const game = decodeGameState(veterans())!;
     expect(crewHandoverOffers(game, "dirt")).toEqual([workshop, track]);
@@ -74,6 +107,7 @@ describe("Crew handovers", () => {
     let game = restart(old, workshop);
     expect(game.team.tp).toBe(balance - HANDOVER_COST);
     expect(game.era?.crew).toEqual([]);
+    expect(game.run.candidates).not.toContain("rosa");
     expect(game.run.habitsKnown).not.toContain("clean");
     game = cleanPart(game, "player");
     expect(game.era?.handover).toMatchObject({ completed: 0 });

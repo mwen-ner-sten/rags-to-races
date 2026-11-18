@@ -5,6 +5,7 @@ import { cardFor, totalTime } from "@/core/timecards";
 import { BRACKET_SPREAD, DISCIPLINES, RIVAL_BY_ID, VENUES, getVenue } from "@/core/content/events";
 import { LAPS } from "@/core/raceBeats";
 import { rallyRoute } from "@/core/rally";
+import { WORKS_FAMILIES, WORKS_FAMILY_IDS, worksFit } from "@/core/manufacturer";
 import { cautionChance, dnfChance, purseFactor, raceDurationMs, winChance } from "@/core/race";
 import type { EventKind, GameState, JobSpec, Vehicle } from "@/core/types";
 import { capitalize, duration, num, pct } from "../../format";
@@ -63,8 +64,10 @@ function YellowLine({ game, event }: { game: GameState; event: EventKind }) {
 export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameState; vehicle: Vehicle; spec: RaceSpec; strip: boolean }) {
   const dispatch = useGame((s) => s.dispatch);
   const [mode, setMode] = useState<"race" | "regularity">("race");
-  const reference = game.era?.discipline === "rally" && cardFor(game, entry.venueId, entry.event, vehicle.vehicleId);
-  const spec: RaceSpec = mode === "regularity" && reference ? { ...entry, regularity: true } : entry;
+  const [useLastPace, setUseLastPace] = useState(false);
+  const card = game.era?.discipline === "rally" && cardFor(game, entry.venueId, entry.event, vehicle.vehicleId);
+  const reference = card && (useLastPace && card.lastRun ? card.lastRun : card);
+  const spec: RaceSpec = mode === "regularity" && reference ? { ...entry, regularity: true, ...(useLastPace && card && card.lastRun && { useLastPace: true as const }) } : entry;
   const def = getVenue(spec.venueId).events[spec.event];
   const status = eventStatus(game, spec);
   const dyno = (game.team.upgrades.dyno ?? 0) > 0;
@@ -75,6 +78,9 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
   const stages = game.era?.discipline === "rally" ? rallyRoute(spec.venueId, spec.event) : undefined;
   const showYellow = !!spec.call2 && game.era?.discipline === "dirt";
   const p = winChance(game, vehicle, spec.venueId, spec.event, spec.call, spec.call2);
+  const makers = spec.venueId === "county_fair" && spec.event === "feature" && !spec.regularity && ["go_kart", "beater_car"].includes(vehicle.vehicleId)
+    ? WORKS_FAMILY_IDS.filter((id) => !game.manufacturer?.invites.includes(id)) : [];
+  const watched = makers.filter((id) => worksFit(vehicle, id) >= 2);
   return (
     <article className={`event-card ${status.kind}`}>
       <header className="event-head">
@@ -107,9 +113,16 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
       </dl>
       {note && <p className="why event-purse">{note}</p>}
       <p className="event-stakes muted">{stakes(game, spec.venueId, spec.event, bracket)}</p>
+      {!locked && makers.length > 0 && <p className="muted">{watched.length > 0
+        ? `A podium invites this build to ${watched.map((id) => WORKS_FAMILIES[id].name).join(" and ")}.`
+        : "Two parts from the same engineering family can draw a manufacturer's invitation with a podium."}</p>}
       {stages && <p className="small">{stages.map(capitalize).join(" → ")}</p>}
       {reference && <details>
         <summary>Class timecard · {(totalTime(reference.splitsMs) / 1000).toFixed(1)}s</summary>
+        {card && card.lastRun && <label>Target splits <select value={useLastPace ? "last" : "record"} onChange={(e) => setUseLastPace(e.target.value === "last")}>
+          <option value="record">Class record</option>
+          <option value="last">Last classified race</option>
+        </select></label>}
         <p>{reference.carName}, Season {reference.season}. Match each split within 8% to qualify by time. A regularity entry gives up the cash purse.</p>
         <p className="num">{reference.splitsMs.map((ms) => `${(ms / 1000).toFixed(1)}s`).join(" · ")}</p>
         {spec.event === "feature" && <p>A stamped Feature earns half its usual Legacy Points and can open the next venue. A County Forest certificate qualifies for a reset.</p>}

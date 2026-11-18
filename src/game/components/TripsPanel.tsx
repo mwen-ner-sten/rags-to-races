@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { channel } from "@/core/channels";
+import { countyPlaceBlocker, homeCounty, HOME_COUNTIES } from "@/core/counties";
 import { toolStocked } from "@/core/actions";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PLACES, codexLevel } from "@/core/content/places";
@@ -179,10 +180,11 @@ export function TripsPanel() {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
   if (!game) return null;
-  const places = PLACES.filter((p) => p.id === "curb" || game.run.revealed.includes("places") || game.run.placesOpen.includes(p.id)
-    || placeRepCost(game, `place:${p.id}`) === 0);
+  const county = HOME_COUNTIES[homeCounty(game)];
+  const places = PLACES.filter((p) => !countyPlaceBlocker(game, p.id) && (p.id === "curb" || p.id === county.source || game.run.revealed.includes("places") || game.run.placesOpen.includes(p.id)
+    || placeRepCost(game, `place:${p.id}`) === 0));
   const visible = places.filter((p) => {
-    if (game.run.placesOpen.includes(p.id) || p.id === "yards") return true;
+    if (game.run.placesOpen.includes(p.id) || p.id === "yards" || p.id === county.source) return true;
     const def = KNOWHOW_BY_ID[`place:${p.id}`];
     return def ? def.trigger(game) : false;
   });
@@ -191,6 +193,7 @@ export function TripsPanel() {
     <div className="panel">
       <section className="section" aria-labelledby="trips-h">
         <h2 id="trips-h">Trips</h2>
+        {game.config.homeCounty && <p className="hint">Home county · {county.name}</p>}
         <Tips ids={["places"]} />
         <p className="sub">Each trip takes you away for a while and brings home what you can carry ({num(channel(game, "carry"))} parts).</p>
         <div className="cards">

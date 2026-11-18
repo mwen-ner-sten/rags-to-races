@@ -3,13 +3,19 @@ import { getVenue, venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { logSeason } from "./journal";
 import { perkUnlocked, refreshPerkUnlocks } from "./perks";
-import { isHauledPart } from "./salvageCarry";
+import { hauledSource, partOriginLabel } from "./provenance";
+import { getPlace } from "./content/places";
 import type { GameState, Vehicle } from "./types";
 
-export function haulOriginsOn(vehicle: Vehicle): string[] {
-  return [...new Set(Object.values(vehicle.parts).flatMap((part) =>
-    part && !part.inherited && isHauledPart(part) ? [part.origin] : [],
-  ))];
+export function haulOriginsOn(vehicle: Vehicle, season?: number): string[] {
+  const origins = new Map<string, string>();
+  for (const part of Object.values(vehicle.parts)) {
+    if (!part || part.inherited) continue;
+    const place = hauledSource(part, season);
+    if (!place) continue;
+    origins.set(place, partOriginLabel({ origin: getPlace(place).name, provenance: part.provenance }));
+  }
+  return [...origins.values()];
 }
 
 /** Reports only challenge setup, separately from normal event entry requirements. */
@@ -44,7 +50,7 @@ export function challengeVehicleFit(state: GameState, venueId: string, vehicle: 
   const [minTier, maxTier] = getVenue("county_fair").tiers;
   const tier = getVehicle(vehicle.vehicleId).tier;
   if (tier < minTier || tier > maxTier) return null;
-  const origins = haulOriginsOn(vehicle);
+  const origins = haulOriginsOn(vehicle, state.meta.seasonsPlayed + 1);
   return { ready: origins.length >= 3, text: `${origins.length} haul ${origins.length === 1 ? "location" : "locations"}${origins.length ? ` · ${origins.join(", ")}` : ""}` };
 }
 

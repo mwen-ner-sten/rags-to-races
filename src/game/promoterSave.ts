@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { partProvenanceSchema } from "./provenanceSave";
 import { PART_BY_ID } from "@/core/content/parts";
 import { VEHICLE_BY_ID } from "@/core/content/vehicles";
 import { PROMOTER_CHARTERS, PROMOTER_ROUTES, PROMOTER_VISITORS, STEWARDSHIP, promoterSchedule, promoterTargets, type PromoterCharter, type PromoterRoute, type PromoterVisitor, type Stewardship } from "@/core/promoter";
@@ -24,6 +25,7 @@ const guest = z.object({
     partId: id.refine((value) => Object.hasOwn(PART_BY_ID, value)),
     condition,
     origin: z.string(),
+    provenance: partProvenanceSchema.optional(),
   })),
   history: z.object({ races: count, wins: count, dnfs: count, bestFinish: count.positive().nullable() }),
   builtAtSeasonMs: time,

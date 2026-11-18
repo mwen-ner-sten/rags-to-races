@@ -1,6 +1,6 @@
 import type { GameState, MetaState, RunConfig, RunState, ScrapLayerState, TeamLayerState } from "./types";
 import { refreshPerkUnlocks } from "./perks";
-import { racingCrewIds } from "./crew";
+import { assignedRacingCrewIds } from "./crew";
 
 export function initialMeta(): MetaState {
   return {
@@ -105,7 +105,7 @@ export function upgradeSave(game: GameState): GameState {
   next.meta.tipsSeen ??= [...next.run.revealed];
   for (const job of next.run.jobs) {
     if (!job.race) continue;
-    job.race.crewIds ??= [...new Set([...racingCrewIds(next), ...(job.lane.startsWith("crew:") ? [job.lane.slice(5)] : [])])];
+    job.race.crewIds ??= [...new Set([...assignedRacingCrewIds(next), ...(job.lane.startsWith("crew:") ? [job.lane.slice(5)] : [])])];
     const spec = job.spec;
     const vehicle = spec.kind === "race" ? next.run.vehicles.find((v) => v.uid === spec.vehicleUid) : undefined;
     const part = job.race.weakestSlot ? vehicle?.parts[job.race.weakestSlot] : undefined;

@@ -7,7 +7,7 @@ import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
 import { CREW_BY_ID, TEAM_ORGANIZATIONS, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
 import { crewBusyRacing, crewTravelBlocker, teamOrganization } from "@/core/crew";
-import { APPRENTICE_JOBS, HANDOVER_TRACK_STARTS, handoverName } from "@/core/crewLegacy";
+import { APPRENTICE_JOBS, HANDOVER_TRACK_STARTS, crewCanApprentice, handoverName } from "@/core/crewLegacy";
 import { habitName } from "@/core/habits";
 import type { CrewMember, DisciplineId, GameState } from "@/core/types";
 import { num } from "../format";
@@ -191,7 +191,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
               ? "Graduated. This Habit stays with the team across Scrap Resets when Habits are enabled."
               : `${era.handover.completed}/${APPRENTICE_JOBS} jobs. ${era.handover.apprenticeId
                 ? `${CREW_BY_ID[era.handover.apprenticeId].name} is the apprentice.`
-                : "The first eligible crew member to complete a matching job begins training."}`}
+                : "Put an eligible recruit on Jobs from the queue. Their first matching job starts the apprenticeship."}`}
           </p>
         )}
         <div className="cards">
@@ -209,6 +209,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
                   <div key={id} className="row-card">
                     <div>
                       <strong>{def.name}</strong> <span className="chip">{def.role}</span>
+                      {era.handover?.type === "apprenticeship" && crewCanApprentice(game, id, era.handover.routine) && <p className="sub">Can apprentice with this team.</p>}
                       <p className="blurb">
                         {def.strength} <span className="muted">{def.quirk}</span>
                       </p>

@@ -6,7 +6,7 @@ import { logSeason } from "./journal";
 import { nextUid } from "./rng";
 import type { EventKind, GameState, JobSpec, PartInstance, RaceCall, RaceResult, Vehicle } from "./types";
 
-interface WorksTest {
+export interface WorksTest {
   venue: string;
   event: EventKind;
   call: RaceCall;
@@ -92,7 +92,7 @@ function worksClass(vehicle: Vehicle): boolean {
 }
 
 function eligibleArticle(vehicle: Vehicle, family: WorksFamily): boolean {
-  return worksClass(vehicle) && !!vehicle.parts.engine && worksFit(vehicle, family) >= 3;
+  return vehicle.vehicleId === "go_kart" && !!vehicle.parts.engine && worksFit(vehicle, family) >= 3;
 }
 
 export function trialEntry(trial: WorksTest): number {
@@ -126,13 +126,14 @@ export function worksEntryStatus(state: GameState): "queued" | "racing" | null {
   return state.run.queue.some(matches) ? "queued" : null;
 }
 
-export function worksSpecMatches(state: GameState, spec: RaceSpec, car?: Vehicle): boolean {
+export function worksSpecMatches(state: GameState, spec: RaceSpec, car?: Vehicle, checkFittedArticle = true): boolean {
   const deal = state.manufacturer?.active;
   if (!deal || spec.worksRound !== worksToken(deal) || spec.tourRound || spec.clubRound || spec.regularity || spec.call2) return false;
   const report = worksReport(deal);
   const vehicle = car ?? state.run.vehicles.find(({ uid }) => uid === spec.vehicleUid);
-  return Boolean(!report.failed && report.next && vehicle && vehicle.uid === deal.vehicleUid && vehicle.parts.engine?.uid === deal.engineUid
-    && eligibleArticle(vehicle, deal.family) && spec.venueId === report.next.venue && spec.event === report.next.event && spec.call === report.next.call);
+  return Boolean(!report.failed && report.next && vehicle?.vehicleId === "go_kart" && vehicle.uid === deal.vehicleUid
+    && (!checkFittedArticle || (vehicle.parts.engine?.uid === deal.engineUid && eligibleArticle(vehicle, deal.family)))
+    && spec.venueId === report.next.venue && spec.event === report.next.event && spec.call === report.next.call);
 }
 
 export function worksPlanBlocker(state: GameState, plan?: WorksFamily): string | null {
@@ -143,7 +144,7 @@ export function worksPlanBlocker(state: GameState, plan?: WorksFamily): string |
 export function worksSignBlocker(state: GameState, family: WorksFamily, vehicle?: Vehicle): string | null {
   if (!state.manufacturer?.invites.includes(family)) return "Earn this invitation with a County Fair Feature podium and two family parts.";
   if (state.manufacturer.active) return "File your current works deal before signing another.";
-  if (!vehicle || !eligibleArticle(vehicle, family)) return "Choose a Go-Kart or Beater with an engine and three fitted family parts.";
+  if (!vehicle || !eligibleArticle(vehicle, family)) return "Choose a Go-Kart with an engine and three fitted family parts.";
   if (vehicleBusy(state, vehicle.uid)) return "Wait for this car’s current race to finish.";
   if (state.run.cash < WORKS_FAMILIES[family].fee) return `Inspection costs ${WORKS_FAMILIES[family].fee} Scrap Bucks.`;
   return null;

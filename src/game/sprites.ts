@@ -1,5 +1,6 @@
 /** Maps core ids onto the existing WebP sprite set in public/sprites. */
 const GARAGE_ART = new Set([
+  "wheel_river", "engine_quarry",
   "wheel_at", "wheel_dirt", "wheel_groove", "wheel_kart", "wheel_knobby", "wheel_slick",
   "engine_six", "engine_tiller", "engine_turbo4", "engine_twin",
   "drive_auto", "drive_race",

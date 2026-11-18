@@ -10,14 +10,17 @@ export interface RallyClock {
   previousCar?: string;
   regularity?: { matched: number; required: number; passed: boolean };
 }
-export interface RallyCard {
+export interface RallyPace {
+  splitsMs: number[];
+  carName: string;
+  season: number;
+}
+export interface RallyCard extends RallyPace {
+  lastRun?: RallyPace;
   venueId: string;
   event: EventKind;
   vehicleId: string;
   course?: ClubCourseId;
-  carName: string;
-  season: number;
-  splitsMs: number[];
 }
 
 export const totalTime = (splitsMs: readonly number[]) => splitsMs.reduce((a, b) => a + b, 0);
@@ -29,13 +32,17 @@ export function cardFor(game: GameState, venueId: string, event: EventKind, vehi
 /** Only complete, faster official attempts replace a class time. Circuit exhibitions run on a separate clock. */
 export function bankRallyTime(game: GameState, car: Vehicle, venueId: string, event: EventKind, course: ClubCourseId | undefined, splitsMs: number[]) {
   const previous = cardFor(game, venueId, event, car.vehicleId, course);
-  if (previous && totalTime(previous.splitsMs) <= totalTime(splitsMs)) return;
+  if (previous && totalTime(previous.splitsMs) < totalTime(splitsMs)) {
+    previous.lastRun = { splitsMs: [...splitsMs], carName: car.name, season: game.meta.seasonsPlayed + 1 };
+    return;
+  }
+  if (previous) delete previous.lastRun;
   const record = { venueId, event, vehicleId: car.vehicleId, course, splitsMs: [...splitsMs], carName: car.name, season: game.meta.seasonsPlayed + 1 };
   if (previous) Object.assign(previous, record);
   else (game.meta.rallyCards ??= []).push(record);
 }
 
-export function judgeRegularity(splits: readonly number[], reference: RallyCard, dnf: boolean) {
+export function judgeRegularity(splits: readonly number[], reference: RallyPace, dnf: boolean) {
   const matched = splits.filter((ms, i) => Math.abs(ms - reference.splitsMs[i]) <= reference.splitsMs[i] * 0.08).length;
   const required = reference.splitsMs.length;
   return { matched, required, passed: !dnf && matched === required };
@@ -66,13 +73,15 @@ export function rallyReferencesValid(game: GameState): boolean {
   const season = game.meta.seasonsPlayed + 1;
   const cards = game.meta.rallyCards ?? [];
   const keys = cards.map((card) => [card.venueId, card.event, card.vehicleId, card.course ?? ""].join("/"));
-  if (new Set(keys).size !== keys.length || cards.some((card) => card.season > season)) return false;
+  if (new Set(keys).size !== keys.length || cards.some((card) => card.season > season || (card.lastRun && card.lastRun.season > season))) return false;
   if (Object.values(game.meta.rallyLicences ?? {}).some((first) => first > season)) return false;
   if (Object.keys(game.run.regularityFeatures ?? {}).some((venue) => game.era?.discipline !== "rally" || !game.meta.rallyLicences?.[venue])) return false;
   for (const spec of [...game.run.queue, ...game.run.jobs.map((job) => job.spec)]) {
-    if (spec.kind !== "race" || !spec.regularity) continue;
+    if (spec.kind !== "race") continue;
+    if (spec.useLastPace && !spec.regularity) return false;
+    if (!spec.regularity) continue;
     const car = game.run.vehicles.find((vehicle) => vehicle.uid === spec.vehicleUid);
-    if (!car || game.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || !cardFor(game, spec.venueId, spec.event, car.vehicleId)) return false;
+    if (!car || game.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || spec.worksRound || !cardFor(game, spec.venueId, spec.event, car.vehicleId)) return false;
   }
   return game.run.jobs.every((job) => job.spec.kind !== "race" || !job.race ||
     Boolean(job.spec.regularity) === Boolean(job.race.rallyClock?.regularity));

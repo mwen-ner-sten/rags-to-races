@@ -1,6 +1,7 @@
 import { channel } from "./channels";
 import { rallyExpectedPace, rallySplits, rallyWinForecast } from "./rally";
 import { bankRallyTime, cardFor, judgeRegularity, stampRallyFeature } from "./timecards";
+import { heritageFinish, heritageRaceEntry } from "./heritage";
 import { recordChallengeWin } from "./challenges";
 import { recordClubRace } from "./club";
 import { CLUB_COURSES, clubRaceCourse, type ClubCourseId } from "./clubTrack";
@@ -48,8 +49,10 @@ interface Crewside {
 
 function crewside(state: GameState): Crewside {
   const out: Crewside = { driverPerf: 0, dnfMult: 1, pushDnfMult: 1, nurseScoreMult: 1, secondCall: false };
-  if (!state.era || resolveFlags(state).crewDisabled) return out;
+  if (!state.era) return out;
+  const available = racingCrewIds(state);
   for (const member of state.era.crew) {
+    if (!available.includes(member.id)) continue;
     const def = CREW_BY_ID[member.id];
     if (!def) continue;
     const levelBonus = 1 + 0.1 * (crewLevel(member.jobsDone) - 1);
@@ -391,7 +394,8 @@ export function rollRace(state: GameState, spec: RaceSpec, grid?: readonly RaceG
   };
   let roll: ClassifiedRoll;
   if (discipline.format === "stages") {
-    const reference = cardFor(state, spec.venueId, spec.event, vehicle.vehicleId, course);
+    const card = cardFor(state, spec.venueId, spec.event, vehicle.vehicleId, course);
+    const reference = spec.useLastPace ? card?.lastRun ?? card : card;
     const results = rallySplits(state, spec, vehicle, dnf, ctx.base, ctx.field, grid ?? opponents(state, spec.venueId, spec.event, spec.call), ctx.durationMs, layout?.stages, reference);
     const { places, winningGap, ...finish } = results;
     if (spec.regularity && reference) {
@@ -409,6 +413,7 @@ export function rollRace(state: GameState, spec: RaceSpec, grid?: readonly RaceG
     ...roll,
     ...(course && { course }),
     weakestPart: weak && vehicle.parts[weak] ? { ...vehicle.parts[weak] } : undefined,
+    heritageEntry: heritageRaceEntry(state, vehicle, spec),
     cleanBuild: Object.values(vehicle.parts).every((p) => !p || p.condition >= 3),
     crewIds: racingCrewIds(state),
   };
@@ -513,6 +518,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
   if (state.run.races.length > 60) state.run.races.splice(0, state.run.races.length - 60);
 
   vehicle.history.races += 1;
+  heritageFinish(state, vehicle, roll.heritageEntry, position, dnf);
   if (won) vehicle.history.wins += 1;
   if (dnf) vehicle.history.dnfs += 1;
   if (!dnf) vehicle.history.bestFinish = vehicle.history.bestFinish === null ? position : Math.min(vehicle.history.bestFinish, position);

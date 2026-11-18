@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { SeasonLog } from "./SeasonLog";
 import { RallyCards } from "./RallyCards";
+import { HeritageDesk, HeritageOffer } from "./HeritageDesk";
 import { useState, type KeyboardEvent } from "react";
 import { RIVALS, venueName } from "@/core/content/events";
 import { KNOWHOW } from "@/core/content/knowhow";
@@ -14,6 +15,7 @@ import { jobBlocker } from "@/core/jobs";
 import { knowhowTier, studyMs } from "@/core/knowhowEngine";
 import type { GameState } from "@/core/types";
 import { conditionName, duration, num, seasonClock } from "../format";
+import { partOriginLabel } from "@/core/provenance";
 import { habitLabel } from "../labels";
 import { useGame } from "../store";
 import { partSprite, vehicleSprite } from "../sprites";
@@ -170,6 +172,7 @@ function HallOfFame({ game }: { game: GameState }) {
     `${entry.name} ${getVehicle(entry.vehicleId).name} Season ${entry.season}`.toLowerCase().includes(query)
   );
   return <>
+    <HeritageDesk game={game} />
     <label className="archive-field">Find a retired vehicle
       <input type="search" value={filter} onChange={(event) => { setFilter(event.target.value); setLimit(12); }} placeholder="Name, model or season" />
     </label>
@@ -182,10 +185,11 @@ function HallOfFame({ game }: { game: GameState }) {
             <strong>{entry.name}</strong> · Season {entry.season} · {getVehicle(entry.vehicleId).name}
           </summary>
           <p>{entry.history.wins} wins from {entry.history.races} races · {entry.history.dnfs} DNF</p>
-          {entry.retirement && <p>{entry.retirement.kind === "exchange" ? "Traded at the mower exchange" : "Dismantled for parts"} · {seasonClock(entry.retirement.seasonMs)}</p>}
+          {entry.retirement && <p>{{exchange:"Traded at the mower exchange", dismantle:"Dismantled for parts", exhibit:"Donated to the museum"}[entry.retirement.kind]} · {seasonClock(entry.retirement.seasonMs)}</p>}
           <ul className="plain">{entry.parts.map((part) => <li key={part.slot}>
-            <strong>{getPart(part.partId).name}</strong> · {conditionName(part.condition)} · {part.origin}
+            <strong>{getPart(part.partId).name}</strong> · {conditionName(part.condition)} · {partOriginLabel(part)}
           </li>)}</ul>
+          <HeritageOffer game={game} entry={entry} />
         </details>
       </li>)}
     </ul>

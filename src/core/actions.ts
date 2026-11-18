@@ -3,11 +3,13 @@
  * state, applies the change to the clone and returns it, so callers never see
  * a half-applied update.
  */
-import { applyOwner, type OwnerMove } from "./ownership";
+import { applyOwner, pauseTourPlanOnCancellation, type OwnerMove } from "./ownership";
+import { applyHeritage, type HeritageMove } from "./heritage";
 import { applyPromoter, type PromoterMove } from "./promoter";
 import { applyClub, type ClubMove } from "./club";
 import { applyWorks, type WorksMove } from "./manufacturer";
 import { channel } from "./channels";
+import { COUNTY_PARTS, HOME_COUNTIES } from "./counties";
 import { getPart } from "./content/parts";
 import { PERK_BY_ID } from "./content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADE_BY_ID } from "./content/team";
@@ -29,6 +31,7 @@ import { releaseApprentice } from "./crewLegacy";
 import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, MaterialId, TuneSetting } from "./types";
 
 export type Action =
+  | { type: "heritage"; move: HeritageMove }
   | { type: "owner"; move: OwnerMove }
   | { type: "promoter"; move: PromoterMove }
   | { type: "club"; move: ClubMove }
@@ -83,6 +86,8 @@ export function apply(state: GameState, action: Action): ActionResult {
 
 function applyMut(s: GameState, action: Action): string | null {
   switch (action.type) {
+    case "heritage":
+      return applyHeritage(s, action.move);
     case "owner":
       return applyOwner(s, action.move);
     case "promoter":
@@ -100,7 +105,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "raceNight":
       return applyRaceNight(s, action.move);
     case "enqueue":
-      if (action.spec.kind === "race" && action.spec.tourRound !== undefined) return "Enter touring rounds from the Owner calendar";
+      if (action.spec.kind === "race" && (action.spec.tourRound !== undefined || action.spec.tourReserve !== undefined)) return "Enter touring rounds from the Owner calendar";
       if (action.spec.kind === "race" && action.spec.clubRound !== undefined) return "Enter club rounds from the Club calendar";
       if (action.spec.kind === "race" && action.spec.worksRound !== undefined) return "Enter works trials from the Manufacturer desk";
       return enqueue(s, action.spec);
@@ -118,10 +123,12 @@ function applyMut(s: GameState, action: Action): string | null {
       const issue = applyMut(s, { type: "uninstall", vehicleUid: action.vehicleUid, slot: action.slot });
       return issue ?? enqueue(s, staged);
     }
-    case "cancelQueued":
-      if (action.index < 0 || action.index >= s.run.queue.length) return "Nothing there";
-      s.run.queue.splice(action.index, 1);
+    case "cancelQueued": {
+      if (!Number.isInteger(action.index) || action.index < 0 || action.index >= s.run.queue.length) return "Nothing there";
+      const [cancelled] = s.run.queue.splice(action.index, 1);
+      pauseTourPlanOnCancellation(s, cancelled);
       return null;
+    }
     case "prioritizeQueued": {
       if (!Number.isInteger(action.index) || action.index < 1 || action.index >= s.run.queue.length) return "Pick a queued job with a job ahead of it";
       const job = s.run.queue[action.index];
@@ -245,7 +252,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "setTune": {
       const vehicle = s.run.vehicles.find((v) => v.uid === action.vehicleUid);
       if (!vehicle) return "No such vehicle";
-      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning")) return "Learn Tuning first";
+      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning") && !s.run.heritageSetups?.includes(vehicle.vehicleId)) return "Learn Tuning or set up this model’s heritage jig.";
       vehicle.tune = action.tune;
       return null;
     }
@@ -358,6 +365,7 @@ function applyMut(s: GameState, action: Action): string | null {
 /** Why a part can't be bought at the Parts Counter (null = it can). */
 export function counterBlocker(s: GameState, partId: string): string | null {
   const def = getPart(partId);
+  if (Object.hasOwn(COUNTY_PARTS, partId)) return `Find this part in ${HOME_COUNTIES[COUNTY_PARTS[partId]].name}`;
   if (!s.run.revealed.includes("tools")) return "The parts counter isn't open to you yet";
   if (def.category === "junk" || def.category === "body") return "The counter doesn't stock that";
   if ((s.meta.codex.parts[partId] ?? 0) < 1) return "You've never seen one; the counter can't order it";
@@ -399,6 +407,7 @@ export { channel };
 /** Shared by the trade form and reducer, including part reservations. */
 export function swapMeetBlocker(s: GameState, partUids: string[], partId: string): string | null {
   if (!s.config.perks.includes("swap_meet") || !(s.meta.perks.swap_meet > 0) || s.config.hardships.includes("rookie_plates")) return "Equip Swap Meet Regular";
+  if (Object.hasOwn(COUNTY_PARTS, partId)) return `Find this part in ${HOME_COUNTIES[COUNTY_PARTS[partId]].name}`;
   if (partUids.length !== 3 || new Set(partUids).size !== 3) return "Trade exactly 3 different parts";
   const reserved = reservedPartUids(s);
   const parts = s.run.inventory.filter((p) => partUids.includes(p.uid));
