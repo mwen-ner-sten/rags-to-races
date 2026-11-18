@@ -1,3 +1,4 @@
+import { advancePromoter } from "./promoter";
 import { channel } from "./channels";
 import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
@@ -690,6 +691,7 @@ export function advance(state: GameState, ms: number, away = false): void {
       dispatch(state);
     }
   }
+  if (state.promoter) advancePromoter(state, ms - left);
 }
 
 /** Re-evaluates triggers after anything changes. */

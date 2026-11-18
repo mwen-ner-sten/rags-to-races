@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DISCIPLINES } from "@/core/content/events";
+import { ownerGate } from "@/core/ownership";
+import { DISCIPLINES, venueName } from "@/core/content/events";
 import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
@@ -158,6 +159,14 @@ export function TeamPanel() {
           </div>
         </dl>
       </section>
+      {!game.owner && (
+        <section className="section" aria-labelledby="tour-offer-h">
+          <h2 id="tour-offer-h">Touring licence</h2>
+          <p>{ownerGate(game).ok
+            ? "Your team earned its licence. Open Owner to enter a touring championship."
+            : `Win the ${venueName("state", era.discipline)} Feature with your team to earn a touring licence.`}</p>
+        </section>
+      )}
       <RulesAndMastery game={game} discipline={era.discipline} />
       <section className="section" aria-labelledby="crew-h">
         <Tips ids={["crew"]} />

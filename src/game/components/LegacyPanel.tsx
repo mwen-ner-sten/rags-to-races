@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { VENUES, venueName } from "@/core/content/events";
+import { haulOriginsOn } from "@/core/challenges";
+import { VENUES, getVenue, venueName } from "@/core/content/events";
+import { SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, isSeasonChallenge } from "@/core/content/modifiers";
+import { getVehicle } from "@/core/content/vehicles";
 import { LAYERS, scrapAward } from "@/core/layers";
-import { duration, num } from "../format";
+import type { GameState } from "@/core/types";
+import { duration, num, pct } from "../format";
 import { useGame } from "../store";
 import { ResetPlanner } from "./ResetPlanner";
 
@@ -41,6 +45,7 @@ export function LegacyPanel() {
           <dd className="num">{game.scrap.resets}</dd>
         </div>
       </dl>
+      <SeasonChallenges game={game} />
       <h3 className="label">Milestones this Season</h3>
       <ul className="milestones">
         {VENUES.map((v) => {
@@ -63,5 +68,63 @@ export function LegacyPanel() {
         {!gate.ok && <span className="why">{gate.reason}</span>}
       </div>
     </section>
+  );
+}
+
+function SeasonChallenges({ game }: { game: GameState }) {
+  const active = game.config.dare;
+  const current = isSeasonChallenge(active) ? SEASON_CHALLENGES[active] : null;
+  const records = SEASON_CHALLENGE_IDS.filter((id) => !!game.meta.challengeRecords[id]);
+  if (!current && !records.length) return null;
+
+  const { challenge, vehicles } = game.run;
+  const relayCars = vehicles.filter((vehicle) => challenge.relay?.some((entry) => (
+    entry.vehicleUid === vehicle.uid && entry.frameUid === vehicle.parts.frame?.uid
+  )));
+  const [minTier, maxTier] = getVenue("county_fair").tiers;
+  const fairCars = vehicles.filter((vehicle) => {
+    const tier = getVehicle(vehicle.vehicleId).tier;
+    return tier >= minTier && tier <= maxTier;
+  });
+  return (
+    <>
+      <h3 className="label">Season challenges</h3>
+      {current && (
+        <>
+          <p><strong>{current.name}</strong> · {challenge.completedAt === undefined ? "In progress" : `Completed in ${duration(challenge.completedAt)}`}</p>
+          {challenge.completedAt === undefined && (
+            <>
+              <p className="hint">{current.text} A repeat Feature win counts.</p>
+              {active === "homebuilt_relay" && relayCars.length > 0 && (
+                <p className="hint">Qualified at the Dirt Track · {relayCars.map((vehicle) => vehicle.name).join(", ")}</p>
+              )}
+              {active === "parts_with_a_past" && fairCars.length > 0 && (
+                <ul className="milestones">
+                  {fairCars.map((vehicle) => {
+                    const origins = haulOriginsOn(vehicle);
+                    return <li key={vehicle.uid}><span>{vehicle.name} · {origins.length} haul locations</span><span className="muted">{origins.join(", ")}</span></li>;
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </>
+      )}
+      {records.length > 0 && (
+        <ul className="milestones">
+          {records.map((id) => {
+            const record = game.meta.challengeRecords[id]!;
+            const challenge = SEASON_CHALLENGES[id];
+            return (
+              <li key={id}>
+                <span>{challenge.name} · {record.completions}×</span>
+                <span className="num">+{pct(challengeMastery(record.completions))} {challenge.mastery.toLowerCase()}</span>
+                <span className="muted">Best {duration(record.bestSeasonMs)} with {record.bestVehicleName}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
   );
 }

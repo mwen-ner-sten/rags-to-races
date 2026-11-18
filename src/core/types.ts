@@ -12,6 +12,9 @@
  *   config — choices made at the last reset, fixed for the Season
  */
 
+import type { OwnerState } from "./ownership";
+import type { PromoterState } from "./promoter";
+
 export type Scope = "run" | "scrap" | "era" | "config";
 
 export type PartCategory =
@@ -75,7 +78,7 @@ export type JobSpec =
   | { kind: "strip"; partUid?: string }
   | { kind: "study"; knowhowId: string }
   | { kind: "assemble"; vehicleId: string; partUids: Record<string, string>; name: string }
-  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" };
+  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; tourRound?: string; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" };
 
 export type LaneId = string; // "hands" | "bench:0" | "habit:1" | "crew:<id>"
 
@@ -194,6 +197,19 @@ export interface HallOfFameEntry {
   parts: { slot: string; partId: string; condition: Condition; origin: string }[];
 }
 
+export type SeasonChallengeId = "homebuilt_relay" | "parts_with_a_past";
+
+export interface SeasonChallengeRecord {
+  completions: number;
+  bestSeasonMs: number;
+  bestVehicleName: string;
+}
+
+export interface SeasonChallengeProgress {
+  relay?: { vehicleUid: string; frameUid: string }[];
+  completedAt?: number;
+}
+
 export interface MetaState {
   /** Handled-count per part id and haul-count per place id. */
   codex: { parts: Record<string, number>; places: Record<string, number> };
@@ -215,8 +231,10 @@ export interface MetaState {
   /** The player hid the first-Season guide. */
   guideOff?: boolean;
   daresCompleted: string[];
+  challengeRecords: Partial<Record<SeasonChallengeId, SeasonChallengeRecord>>;
   disciplineMastery: Record<string, number>;
   hardshipMastery: Record<string, number>;
+  teamStateWon?: boolean;
   stateWonEver: boolean;
   journalSeen: string[];
   journal: JournalEntry[];
@@ -288,6 +306,7 @@ export interface RunState {
   /** Season ms when each "venue:event" was last entered (events run on a schedule). */
   lastEntered: Record<string, number>;
   featureWins: Record<string, number>; // venue → season ms of first Feature win
+  challenge: SeasonChallengeProgress;
   races: RaceResult[];
   stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number; dnfs?: number; counterBuys?: number };
   revealed: string[];
@@ -311,6 +330,8 @@ export interface RunConfig {
 }
 
 export interface GameState {
+  owner?: OwnerState;
+  promoter?: PromoterState;
   version: 1;
   seed: string;
   rng: number;

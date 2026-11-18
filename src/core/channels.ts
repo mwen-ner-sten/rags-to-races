@@ -8,7 +8,7 @@
  */
 import { codexLevel } from "./content/places";
 import { DISCIPLINES } from "./content/events";
-import { HARDSHIP_BY_ID, masteryValue } from "./content/modifiers";
+import { HARDSHIP_BY_ID, challengeMastery, masteryValue } from "./content/modifiers";
 import { TOOL_BY_ID } from "./content/tools";
 import { VEHICLE_BY_ID } from "./content/vehicles";
 import { perkRank, teamUpgrade } from "./rules";
@@ -75,6 +75,11 @@ export const SOURCES: readonly SourceDef[] = [
   { id: "perk:tow_hitch", label: "Tow Hitch", channels: ["carry"], value: (s) => 2 * perkRank(s, "tow_hitch") },
   { id: "team:tow_rig", label: "Tow Rig", channels: ["carry"], value: (s) => 5 * teamUpgrade(s, "tow_rig") },
   { id: "tuneup:haul", label: "Tune-up: Haul", channels: ["haul_speed"], value: (s) => 0.1 * (s.config.tuneUp.haul ?? 0) },
+  { id: "mastery:parts_with_a_past", label: "Mastery: Parts With a Past", channels: ["haul_speed"], value: (s, _channel, { placeId }) => (
+    placeId === "curb" || placeId === "yards" || placeId === "junkyard"
+      ? challengeMastery(s.meta.challengeRecords.parts_with_a_past?.completions ?? 0)
+      : 0
+  ) },
   {
     id: "codex:place",
     label: "Codex: place knowledge",
@@ -101,6 +106,7 @@ export const SOURCES: readonly SourceDef[] = [
   { id: "knowhow:haggling", label: "Haggling", channels: ["sell_value"], value: (s) => (s.run.learned.includes("tech:haggling") ? 0.15 : 0) },
   { id: "tuneup:build", label: "Tune-up: Build", channels: ["build_speed"], value: (s) => 0.1 * (s.config.tuneUp.build ?? 0) },
   { id: "tuneup:race", label: "Tune-up: Race prep", channels: ["practice"], value: (s) => 0.1 * (s.config.tuneUp.race ?? 0) },
+  { id: "mastery:homebuilt_relay", label: "Mastery: Homebuilt Relay", channels: ["practice"], value: (s) => challengeMastery(s.meta.challengeRecords.homebuilt_relay?.completions ?? 0) },
   { id: "team:sponsor_board", label: "Sponsor Board", channels: ["race_payout"], value: (s) => 0.15 * teamUpgrade(s, "sponsor_board") },
   { id: "mastery:solo", label: "Mastery: Solo", channels: ["crew_cap"], value: (s) => ((s.meta.hardshipMastery.solo ?? 0) > 0 ? 1 : 0) },
   { id: "team:crew_quarters", label: "Crew Quarters", channels: ["crew_cap"], value: (s) => teamUpgrade(s, "crew_quarters") },
@@ -123,14 +129,14 @@ export const SOURCE_BY_ID: Record<string, SourceDef> = Object.fromEntries(SOURCE
 
 export const CHANNELS: readonly ChannelDef[] = [
   { id: "carry", label: "Carry (parts per trip)", kind: "add", base: 2, sources: ["vehicle:carrier", "perk:tow_hitch", "team:tow_rig"] },
-  { id: "haul_speed", label: "Trip speed", kind: "pct", base: 0, sources: ["tuneup:haul", "codex:place"] },
+  { id: "haul_speed", label: "Trip speed", kind: "pct", base: 0, sources: ["tuneup:haul", "codex:place", "mastery:parts_with_a_past"] },
   { id: "find_quality", label: "Find quality (condition steps)", kind: "add", base: 0, sources: ["codex:place", "perk:junkyard_eyes", "mastery:one_yard"] },
   { id: "bench_speed", label: "Bench speed", kind: "pct", base: 0, sources: ["tools:bench_gear", "tuneup:wrench", "mastery:hand_tools"] },
   { id: "benches", label: "Benches", kind: "add", base: 1, sources: ["tools:second_bench", "perk:second_bench", "team:second_bay"] },
   { id: "storage", label: "Garage space", kind: "add", base: 12, sources: ["tools:shelving", "team:parts_room"] },
   { id: "sell_value", label: "Sell value", kind: "pct", base: 0, sources: ["knowhow:haggling"] },
   { id: "build_speed", label: "Assembly speed", kind: "pct", base: 0, sources: ["tuneup:build", "tools:build_gear"] },
-  { id: "practice", label: "Practice gain", kind: "pct", base: 0, sources: ["tuneup:race"] },
+  { id: "practice", label: "Practice gain", kind: "pct", base: 0, sources: ["tuneup:race", "mastery:homebuilt_relay"] },
   { id: "race_payout", label: "Race prizes", kind: "pct", base: 0, sources: ["team:sponsor_board"] },
   { id: "automation", label: "Habit slots", kind: "add", base: 1, sources: ["vehicle:habit_slots"] },
   { id: "crew_cap", label: "Crew capacity", kind: "add", base: 2, sources: ["team:crew_quarters", "mastery:solo"] },

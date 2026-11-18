@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apply, counterBlocker, toolStocked } from "../actions";
 import { channel } from "../channels";
 import { DISCIPLINES, RIVALS, VENUES, getVenue } from "../content/events";
-import { DARES, HARDSHIPS, PERKS, hardshipConflict } from "../content/modifiers";
+import { DARES, HARDSHIPS, PERKS, SEASON_CHALLENGE_IDS, hardshipConflict } from "../content/modifiers";
 import { PARTS, PART_BY_ID } from "../content/parts";
 import { PLACES } from "../content/places";
 import { VEHICLES } from "../content/vehicles";
@@ -80,8 +80,8 @@ describe("content is wired up", () => {
     for (const vehicle of VEHICLES) if (vehicle.tier > 0) expect(STORY).toHaveProperty(`built_${vehicle.id}`);
   });
 
-  it("hardship conflicts point at real hardships or dares", () => {
-    const ids = new Set([...HARDSHIPS.map((h) => h.id), ...DARES.map((d) => d.id)]);
+  it("hardship conflicts point at real hardships or Season objectives", () => {
+    const ids = new Set([...HARDSHIPS.map((h) => h.id), ...DARES.map((d) => d.id), ...SEASON_CHALLENGE_IDS]);
     for (const hardship of HARDSHIPS) for (const conflict of hardship.conflicts) expect(ids.has(conflict.id)).toBe(true);
   });
 });

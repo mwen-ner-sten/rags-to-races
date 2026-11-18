@@ -1,4 +1,5 @@
 import { channel } from "./channels";
+import { recordChallengeWin } from "./challenges";
 import { BRACKET_SPREAD, CALL2, DISCIPLINES, OPPONENT_SPREAD, PRIZE_SHARE, RIVAL_BY_ID, getVenue, venueName, type DisciplineDef, type VenueDemand } from "./content/events";
 import { CONDITION_STAT, getPart } from "./content/parts";
 import { CREW_BY_ID, crewLevel } from "./content/team";
@@ -11,6 +12,7 @@ import { hasPerk, resolveFlags } from "./rules";
 import { LAPS, buildBeats, carName } from "./raceBeats";
 import { creditCrew, crewEfficiency, racingCrewIds } from "./crew";
 import { refreshPerkUnlocks } from "./perks";
+import { recordOwnerFinish } from "./ownership";
 import type { Condition, DisciplineId, EventKind, GameState, JobSpec, RaceBeat, RaceResult, RaceRoll, Vehicle } from "./types";
 
 type RaceSpec = Extract<JobSpec, { kind: "race" }>;
@@ -98,6 +100,18 @@ export interface Opponent {
   rival: boolean;
 }
 
+/** Named entrants supplied by a sanctioned oval meeting. */
+export interface RaceGridEntry extends Opponent {
+  id: string;
+}
+
+interface GridClassification {
+  entrants: { id: string; position: number; dnf: boolean }[];
+  winningGap: number | null;
+}
+
+type ClassifiedRoll = RaceRoll & { grid?: GridClassification };
+
 /**
  * Who you're up against. On an oval that's the whole field, strongest first (the rival leads a
  * Feature). In a drag bracket it's the car in the other lane each round, the rival last.
@@ -142,7 +156,7 @@ export function dnfChance(state: GameState, vehicle: Vehicle, venueId: string, e
 }
 
 /** Probability of winning (finishing, and beating everyone you have to), estimated in closed form for previews. */
-export function winChance(state: GameState, vehicle: Vehicle, venueId: string, event: EventKind, call: RaceSpec["call"], call2?: RaceSpec["call2"]): number {
+export function winChance(state: GameState, vehicle: Vehicle, venueId: string, event: EventKind, call: RaceSpec["call"], call2?: RaceSpec["call2"], grid?: readonly RaceGridEntry[]): number {
   const bracket = DISCIPLINES[resolveFlags(state).discipline].format === "bracket";
   const hard = bracket && call2 === "launch_hard";
   const base = baseScore(state, vehicle, venueId, call);
@@ -153,7 +167,7 @@ export function winChance(state: GameState, vehicle: Vehicle, venueId: string, e
     return opp.out + (1 - opp.out) * normalCdf((mine - opp.score) / sd);
   };
   let p = 1;
-  for (const opp of opponents(state, venueId, event, call)) {
+  for (const opp of grid ?? opponents(state, venueId, event, call)) {
     // A hard launch either hooks or spins each round; a spin usually loses that round, so average the outcomes, not the scores.
     p *= hard
       ? (1 - CALL2.launch_hard.spinChance) * beats(base * CALL2.launch_hard.hook, opp) + CALL2.launch_hard.spinChance * beats(base * CALL2.launch_hard.spin, opp)
@@ -210,10 +224,11 @@ interface RollContext {
   durationMs: number;
   field: number;
   base: number;
+  grid?: readonly RaceGridEntry[];
 }
 
 /** A field of six over laps. */
-function rollOval(ctx: RollContext): RaceRoll {
+function rollOval(ctx: RollContext): ClassifiedRoll {
   const { state, spec, vehicle, discipline, dnf, weak, durationMs } = ctx;
   const pCaution = cautionChance(state, spec.event);
   const caution = pCaution > 0 && rand(state) < pCaution;
@@ -236,7 +251,7 @@ function rollOval(ctx: RollContext): RaceRoll {
     }
   }
   const me = score * (1 + NOISE * randNormal(state));
-  const field = opponents(state, spec.venueId, spec.event, spec.call).map((o) => ({
+  const field = (ctx.grid ?? opponents(state, spec.venueId, spec.event, spec.call)).map((o) => ({
     ...o,
     gone: o.out > 0 && rand(state) < o.out,
     ran: o.score * (1 + NOISE * o.variation * randNormal(state)),
@@ -259,12 +274,17 @@ function rollOval(ctx: RollContext): RaceRoll {
     engineBlowSteps: discipline.engineBlowSteps,
   });
   const startPos = 2 + Math.floor(rand(state) * (fieldSize - 1));
-  const rivalId = spec.event === "feature" ? getVenue(spec.venueId).rival : undefined;
+  const rivalId = !ctx.grid && spec.event === "feature" ? getVenue(spec.venueId).rival : undefined;
   const cautionLap = caution ? Math.max(2, Math.round(laps * (0.4 + 0.3 * rand(state)))) : undefined;
   const beats = buildBeats(state, { startPos, position, fieldSize, dnf, weakSlot: weak, durationMs, laps, rivalId, rivalBeaten, rivalOut, caution: cautionLap !== undefined && cautionText ? { lap: cautionLap, text: cautionText } : undefined });
+  const finishOrder = ctx.grid ? [...running.map(({ ran }) => ran), ...(dnf ? [] : [me])].sort((a, b) => b - a) : [];
+  const grid = ctx.grid && {
+    entrants: ctx.grid.map(({ id }, index) => ({ id, position: field[index].gone ? fieldSize : finishOrder.indexOf(field[index].ran) + 1, dnf: field[index].gone })),
+    winningGap: finishOrder.length >= 2 ? (finishOrder[0] - finishOrder[1]) / Math.max(1, finishOrder[0]) : null,
+  };
   return {
     position, fieldSize, dnf, margin, rivalBeaten, rivalOut, rivalFaced: Boolean(rival), caution, weakestSlot: weak, wearSteps, laps, durationMs, beats,
-    advanced: !dnf && position <= 3,
+    advanced: !dnf && position <= 3, ...(grid ? { grid } : {}),
   };
 }
 
@@ -332,7 +352,7 @@ function rollBracket(ctx: RollContext): RaceRoll {
 }
 
 /** Rolls a race's outcome at the green flag (it's revealed live and paid out at the flag). */
-export function rollRace(state: GameState, spec: RaceSpec): RaceRoll | null {
+export function rollRace(state: GameState, spec: RaceSpec, grid?: readonly RaceGridEntry[]): ClassifiedRoll | null {
   const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
   if (!vehicle) return null;
   const flags = resolveFlags(state);
@@ -345,6 +365,7 @@ export function rollRace(state: GameState, spec: RaceSpec): RaceRoll | null {
     durationMs: event.durationMs * discipline.durationMult,
     field: event.field * discipline.fieldScale,
     base: baseScore(state, vehicle, spec.venueId, spec.call),
+    grid,
   };
   const roll = discipline.format === "bracket" ? rollBracket(ctx) : rollOval(ctx);
   return {
@@ -484,7 +505,11 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll): Ra
   }
   state.run.ladder[spec.venueId] = ladder;
 
-  if (spec.event === "feature" && won) onFeatureWin(state, spec, vehicle, roll);
+  if (spec.event === "feature" && won) {
+    onFeatureWin(state, spec, vehicle, roll);
+    recordChallengeWin(state, spec.venueId, vehicle);
+  }
+  recordOwnerFinish(state, spec, result);
   return result;
 }
 

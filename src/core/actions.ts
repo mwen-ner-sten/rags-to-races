@@ -3,6 +3,8 @@
  * state, applies the change to the clone and returns it, so callers never see
  * a half-applied update.
  */
+import { applyOwner, type OwnerMove } from "./ownership";
+import { applyPromoter, type PromoterMove } from "./promoter";
 import { channel } from "./channels";
 import { getPart } from "./content/parts";
 import { PERK_BY_ID } from "./content/modifiers";
@@ -22,6 +24,8 @@ import { crewBusyRacing } from "./crew";
 import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, MaterialId, TuneSetting } from "./types";
 
 export type Action =
+  | { type: "owner"; move: OwnerMove }
+  | { type: "promoter"; move: PromoterMove }
   | { type: "advance"; ms: number; away?: boolean }
   | { type: "enqueue"; spec: JobSpec }
   | { type: "cancelQueued"; index: number }
@@ -66,11 +70,16 @@ export function apply(state: GameState, action: Action): ActionResult {
 
 function applyMut(s: GameState, action: Action): string | null {
   switch (action.type) {
+    case "owner":
+      return applyOwner(s, action.move);
+    case "promoter":
+      return applyPromoter(s, action.move);
     case "advance":
       if (!(action.ms > 0)) return null;
       advance(s, action.ms, action.away ?? false);
       return null;
     case "enqueue":
+      if (action.spec.kind === "race" && action.spec.tourRound !== undefined) return "Enter touring rounds from the Owner calendar";
       return enqueue(s, action.spec);
     case "cancelQueued":
       if (action.index < 0 || action.index >= s.run.queue.length) return "Nothing there";

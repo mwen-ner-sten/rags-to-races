@@ -16,11 +16,15 @@ import { PartsPanel } from "./PartsPanel";
 import { RacePanel } from "./RacePanel";
 import { RaceReplay } from "./RaceReplay";
 import { SettingsPanel } from "./SettingsPanel";
+import { ownerGate } from "@/core/ownership";
+import { promoterGate } from "@/core/promoter";
+import { OwnerPanel } from "./OwnerPanel";
+import { PromoterPanel } from "./PromoterPanel";
 import { TeamPanel } from "./TeamPanel";
 import { hasUnreadTip } from "./Tips";
 import { TripsPanel } from "./TripsPanel";
 
-type TabId = "trips" | "garage" | "race" | "notebook" | "legacy" | "team" | "settings";
+type TabId = "trips" | "garage" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "settings";
 
 /** Tips that live on each tab; an unread one puts a dot on the tab. */
 const TAB_TIPS: Partial<Record<TabId, readonly string[]>> = {
@@ -38,6 +42,8 @@ const TABS: { id: TabId; label: string; reveal: string | null }[] = [
   { id: "notebook", label: "Notebook", reveal: "codex" },
   { id: "legacy", label: "Legacy", reveal: "legacy" },
   { id: "team", label: "Team", reveal: "team" },
+  { id: "owner", label: "Owner", reveal: "owner" },
+  { id: "promoter", label: "Circuit", reveal: "promoter" },
   { id: "settings", label: "Settings", reveal: null },
 ];
 
@@ -112,6 +118,7 @@ function AwayDialog() {
       </p>
       <ul>
         {away.trips > 0 && <li>{away.trips} trips, {away.partsFound} parts found</li>}
+        {away.circuitMeetings > 0 && <li>{away.circuitMeetings} circuit {away.circuitMeetings === 1 ? "meeting ran" : "meetings ran"}. Results are in the Circuit Office.</li>}
         {away.races > 0 && <li>{away.races} races, {away.wins} won</li>}
         {away.cash !== 0 && <li>{away.cash > 0 ? "+" : ""}{num(away.cash)} Scrap Bucks</li>}
         {away.rep > 0 && <li>+{away.rep} Rep</li>}
@@ -123,7 +130,7 @@ function AwayDialog() {
         {away.learned.map((id) => (
           <li key={id}>Learned {getKnowhow(id).name}</li>
         ))}
-        {away.trips === 0 && away.races === 0 && away.learned.length === 0 && <li>Nothing much. Queue long jobs before you leave.</li>}
+        {away.trips === 0 && away.races === 0 && away.circuitMeetings === 0 && away.learned.length === 0 && <li>Nothing much. Queue long jobs before you leave.</li>}
       </ul>
       {away.items.length > 0 && (
         <>
@@ -247,7 +254,11 @@ export function Game() {
 
   const era = game.era ? "shop" : "curb";
   const teamStyle = game.era ? ({ "--team-a": game.era.colors[0], "--team-b": game.era.colors[1] } as React.CSSProperties) : undefined;
-  const tabs = TABS.filter((t) => !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0));
+  const tabs = TABS.filter((t) => {
+    if (t.id === "owner") return !!game.owner || ownerGate(game).ok;
+    if (t.id === "promoter") return !!game.promoter || promoterGate(game);
+    return !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0);
+  });
   const active = tabs.some((t) => t.id === tab) ? tab : "trips";
 
   return (
@@ -281,6 +292,8 @@ export function Game() {
           {active === "notebook" && <NotebookPanel />}
           {active === "legacy" && <LegacyPanel />}
           {active === "team" && <TeamPanel />}
+          {active === "owner" && <OwnerPanel />}
+          {active === "promoter" && <PromoterPanel />}
           {active === "settings" && <SettingsPanel />}
         </main>
         <JobsBoard />

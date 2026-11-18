@@ -14,6 +14,7 @@ const OFFLINE_CAP_MS = 48 * 3_600_000;
 const AWAY_THRESHOLD_MS = 5 * 60_000;
 
 export interface AwaySummary {
+  circuitMeetings: number;
   ms: number;
   capped: boolean;
   trips: number;
@@ -104,6 +105,7 @@ function summarize(before: GameState, after: GameState, ms: number, capped: bool
   return {
     ms,
     capped,
+    circuitMeetings: Math.max(0, (after.promoter?.meet?.results.length ?? 0) - (before.promoter?.meet?.results.length ?? 0)),
     trips: sameSeason ? after.run.stats.hauls - before.run.stats.hauls : 0,
     partsFound: Object.values(after.meta.codex.parts).reduce((a, b) => a + b, 0) - Object.values(before.meta.codex.parts).reduce((a, b) => a + b, 0),
     races: newRaces.length,

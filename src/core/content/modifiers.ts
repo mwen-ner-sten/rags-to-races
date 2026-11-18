@@ -4,6 +4,7 @@
  * effects flow through channels (see ../channels.ts); their rule effects are
  * read as flags (see ../rules.ts). No modifier feeds a global multiplier.
  */
+import type { DisciplineId, SeasonChallengeId } from "../types";
 
 export interface PerkDef {
   id: string;
@@ -60,6 +61,35 @@ export const DARES: readonly DareDef[] = [
 
 export const DARE_BY_ID: Record<string, DareDef> = Object.fromEntries(DARES.map((d) => [d.id, d]));
 
+interface SeasonChallengeDef {
+  name: string;
+  text: string;
+  mastery: string;
+}
+
+export const SEASON_CHALLENGES = {
+  homebuilt_relay: {
+    name: "Homebuilt Relay",
+    text: "Win the Dirt Track Feature with a Go-Kart on Dirt Tires. Then win the County Fair Feature with the same Go-Kart and frame on Kart Slicks or Sport Tires.",
+    mastery: "Practice gain",
+  },
+  parts_with_a_past: {
+    name: "Parts With a Past",
+    text: "Win the Fair Feature with at least three different haul locations represented on your car. Purchased and traded parts don't count.",
+    mastery: "Haul speed at Curbside, the Yards and Marisol's Junkyard",
+  },
+} satisfies Record<SeasonChallengeId, SeasonChallengeDef>;
+
+export const SEASON_CHALLENGE_IDS = Object.keys(SEASON_CHALLENGES) as SeasonChallengeId[];
+
+export function isSeasonChallenge(id: string | null): id is SeasonChallengeId {
+  return id !== null && Object.hasOwn(SEASON_CHALLENGES, id);
+}
+
+export function challengeMastery(completions: number): number {
+  return 0.05 * Math.min(completions, 3);
+}
+
 export interface HardshipDef {
   id: string;
   name: string;
@@ -73,7 +103,7 @@ export interface HardshipDef {
 
 export const HARDSHIPS: readonly HardshipDef[] = [
   { id: "hand_tools", name: "Hand Tools Only", rule: "No Habits and no crew automation.", reward: "Bench speed, up to +30%", mastery: { channel: "bench_speed", cap: 0.3 }, conflicts: [] },
-  { id: "one_yard", name: "One Yard", rule: "Besides the curb, you may open only one place to haul from.", reward: "Find quality, up to +1 condition step", mastery: { channel: "find_quality", cap: 1 }, conflicts: [] },
+  { id: "one_yard", name: "One Yard", rule: "Besides the curb, you may open only one place to haul from.", reward: "Find quality, up to +1 condition step", mastery: { channel: "find_quality", cap: 1 }, conflicts: [{ id: "parts_with_a_past", why: "Parts With a Past needs three different haul locations" }] },
   { id: "rookie_plates", name: "Rookie Plates", rule: "No perks this Season.", reward: "+1 perk slot once, then Legacy gain up to +50%", mastery: { channel: "legacy_gain", cap: 0.5 }, conflicts: [] },
   { id: "rust_everything", name: "Rust Everything", rule: "Every part you find is one condition step worse.", reward: "Part wear, up to −30%", mastery: { channel: "wear", cap: 0.3 }, conflicts: [] },
   { id: "solo", name: "Solo", rule: "No crew this Season.", reward: "+1 crew member (once)", mastery: { channel: "crew_cap", cap: 1 }, conflicts: [] },
@@ -90,6 +120,11 @@ export function hardshipConflict(hardships: readonly string[], dare: string | nu
     }
   }
   return null;
+}
+
+export function seasonObjectiveConflict(hardships: readonly string[], objective: string | null, discipline: DisciplineId): string | null {
+  if (objective === "homebuilt_relay" && discipline !== "dirt") return "Homebuilt Relay is a Dirt Oval challenge";
+  return hardshipConflict(hardships, objective);
 }
 
 export function masteryValue(cap: number, completions: number): number {

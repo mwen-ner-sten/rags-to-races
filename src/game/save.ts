@@ -1,8 +1,10 @@
+import { ownerReferencesValid, ownerSchema } from "./ownerSave";
+import { promoterSchema } from "./promoterSave";
 import { z } from "zod";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PART_BY_ID } from "@/core/content/parts";
 import { PLACE_BY_ID } from "@/core/content/places";
-import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID } from "@/core/content/modifiers";
+import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, SEASON_CHALLENGE_IDS, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADE_BY_ID } from "@/core/content/team";
 import { TOOL_BY_ID } from "@/core/content/tools";
 import { VEHICLE_BY_ID } from "@/core/content/vehicles";
@@ -42,7 +44,7 @@ const jobSpec = z.discriminatedUnion("kind", [
   ...(["clean", "repair", "restore", "strip"] as const).map((kind) => z.object({ kind: z.literal(kind), partUid: id.optional() }).passthrough()),
   z.object({ kind: z.literal("study"), knowhowId: known(KNOWHOW_BY_ID) }).passthrough(),
   z.object({ kind: z.literal("assemble"), vehicleId: known(VEHICLE_BY_ID), partUids: z.record(id, id), name: z.string() }).passthrough(),
-  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, call2: z.enum(["pit", "stay", "launch_hard", "launch_soft"]).optional() }).passthrough(),
+  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft"]).optional() }).passthrough(),
 ]);
 const beat = z.object({ at: amount, text: z.string(), position: count.positive(), kind: z.enum(["start", "pass", "passed", "hold", "wear", "rival", "last_lap", "dnf", "finish", "caution", "round"]).optional() });
 const raceFields = {
@@ -81,7 +83,8 @@ const meta = z.object({
   perks: z.record(known(PERK_BY_ID), count), perksUnlocked: z.array(known(PERK_BY_ID)),
   drivewayRule: z.enum(["strip_sell", "sell", "strip", "leave"]).optional(), tipsSeen: z.array(id), guideOff: z.boolean().optional(),
   daresCompleted: z.array(known(DARE_BY_ID)), disciplineMastery: z.record(known(DISCIPLINES), count),
-  hardshipMastery: z.record(known(HARDSHIP_BY_ID), count), stateWonEver: z.boolean(),
+  challengeRecords: z.partialRecord(z.enum(SEASON_CHALLENGE_IDS), z.object({ completions: count.positive(), bestSeasonMs: amount, bestVehicleName: z.string() })),
+  hardshipMastery: z.record(known(HARDSHIP_BY_ID), count), teamStateWon: z.boolean().optional(), stateWonEver: z.boolean(),
   journalSeen: z.array(id), journal: z.array(z.object({ id, season: count.positive(), seasonMs: amount, text: z.string() })),
   seasonsPlayed: count, totalTeamResets: count, milestonesEver: z.array(known(VENUE_BY_ID)),
 });
@@ -93,6 +96,7 @@ const run = z.object({
   reps: z.record(template, count), habitsKnown: z.array(template), habitSlots: z.array(template.nullable()),
   jobs: z.array(job), queue: z.array(jobSpec), idleLanes: z.array(id), practice: z.record(known(VENUE_BY_ID), amount),
   lastEntered: z.record(id, amount), featureWins: z.record(known(VENUE_BY_ID), amount), races: z.array(result),
+  challenge: z.object({ relay: z.array(z.object({ vehicleUid: id, frameUid: id })).optional(), completedAt: amount.optional() }),
   stats: z.object({ partsSold: count, hauls: count, racesLost: z.record(known(VENUE_BY_ID), count), firstStartDone: z.boolean(), drivewayOverflows: count.optional(), dnfs: count.optional(), counterBuys: count.optional() }),
   revealed: z.array(id), candidates: z.array(known(CREW_BY_ID)), shellsBought: count,
   saleSat: z.record(known(PART_BY_ID), z.object({ n: amount, at: amount })), purseSat: z.record(id, z.object({ n: amount, at: amount })).optional(), notices: z.array(z.string()), pushOnlyRaces: z.boolean(),
@@ -102,16 +106,31 @@ const run = z.object({
   })),
 });
 const gameSchema = z.object({
+  owner: ownerSchema.optional(), promoter: promoterSchema.optional(),
   version: z.literal(1), seed: z.string(), rng: count, uid: count, meta, run,
   scrap: z.object({ lp: amount, lifetimeLp: amount, resets: count, tuneUpPoints: count, milestonesThisEra: z.array(known(VENUE_BY_ID)), daresThisEra: count }),
   team: z.object({ tp: amount, lifetimeTp: amount, resets: count, upgrades: z.record(known(TEAM_UPGRADE_BY_ID), count) }),
   era: z.object({ discipline: z.enum(["dirt", "drag"]), teamName: z.string(), colors: z.tuple([z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6})$/i), z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6})$/i)]), crew: z.array(crew), milestones: z.array(known(VENUE_BY_ID)), hardshipsCompleted: count, legends: z.array(known(CREW_BY_ID)), seasonIndex: count }).nullable(),
-  config: z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: known(DARE_BY_ID).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)) }),
+  config: z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)) }),
 });
 // Only fields actually absent from older rewrite saves are optional. Missing core data is corruption.
-const compatibleSchema = gameSchema.extend({ meta: meta.extend({ tipsSeen: meta.shape.tipsSeen.optional() }), run: run.extend({ driveway: run.shape.driveway.optional(), feed: run.shape.feed.optional() }) });
+const compatibleSchema = gameSchema.extend({
+  meta: meta.extend({ tipsSeen: meta.shape.tipsSeen.optional(), challengeRecords: meta.shape.challengeRecords.optional() }),
+  run: run.extend({ driveway: run.shape.driveway.optional(), feed: run.shape.feed.optional(), challenge: run.shape.challenge.optional() }),
+});
 
 function referencesValid(game: GameState): boolean {
+  const { relay, completedAt } = game.run.challenge;
+  const objective = game.config.dare;
+  if (relay && objective !== "homebuilt_relay") return false;
+  if (isSeasonChallenge(objective)) {
+    if (seasonObjectiveConflict(game.config.hardships, objective, game.era?.discipline ?? "dirt")) return false;
+    if (completedAt !== undefined) {
+      const record = game.meta.challengeRecords[objective];
+      if (!record || record.bestSeasonMs > completedAt || completedAt > game.run.seasonMs) return false;
+    }
+  } else if (completedAt !== undefined) return false;
+  if (!ownerReferencesValid(game) || (game.promoter && !(game.owner && game.owner.titles > 0))) return false;
   const inventory = new Map(game.run.inventory.map((part) => [part.uid, part]));
   const free = new Set([...game.run.inventory, ...game.run.driveway].map((part) => part.uid));
   const parts = [...game.run.inventory, ...game.run.driveway, ...game.run.vehicles.flatMap((vehicle) => Object.values(vehicle.parts).filter((part) => part !== undefined))];
@@ -160,8 +179,8 @@ export function decodeGameState(value: unknown): GameState | null {
   if (!parsed.success) return null;
   const game: GameState = {
     ...parsed.data,
-    meta: { ...parsed.data.meta, tipsSeen: parsed.data.meta.tipsSeen ?? [...parsed.data.run.revealed] },
-    run: { ...parsed.data.run, driveway: parsed.data.run.driveway ?? [], feed: parsed.data.run.feed ?? [] },
+    meta: { ...parsed.data.meta, tipsSeen: parsed.data.meta.tipsSeen ?? [...parsed.data.run.revealed], challengeRecords: parsed.data.meta.challengeRecords ?? {} },
+    run: { ...parsed.data.run, driveway: parsed.data.run.driveway ?? [], feed: parsed.data.run.feed ?? [], challenge: parsed.data.run.challenge ?? {} },
   };
   return referencesValid(game) ? upgradeSave(game) : null;
 }

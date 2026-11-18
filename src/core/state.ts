@@ -14,6 +14,7 @@ export function initialMeta(): MetaState {
     perks: {},
     perksUnlocked: [],
     daresCompleted: [],
+    challengeRecords: {},
     disciplineMastery: {},
     hardshipMastery: {},
     stateWonEver: false,
@@ -58,6 +59,7 @@ export function initialRun(): RunState {
     practice: {},
     lastEntered: {},
     featureWins: {},
+    challenge: {},
     races: [],
     stats: { partsSold: 0, hauls: 0, racesLost: {}, firstStartDone: false },
     revealed: ["haul"],
@@ -92,8 +94,13 @@ export function newGame(seed: string): GameState {
 /** Fills in fields added after a save was written, so older saves keep loading. */
 export function upgradeSave(game: GameState): GameState {
   const next = structuredClone(game);
+  if (next.era && (next.run.featureWins.state !== undefined || next.era.milestones.includes("state"))) {
+    next.meta.teamStateWon = true;
+  }
   next.run.driveway ??= [];
   next.run.feed ??= [];
+  next.run.challenge ??= {};
+  next.meta.challengeRecords ??= {};
   // Players from before tips existed already know the systems they've seen.
   next.meta.tipsSeen ??= [...next.run.revealed];
   for (const job of next.run.jobs) {

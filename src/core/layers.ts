@@ -5,7 +5,7 @@
  */
 import { channel } from "./channels";
 import { CREW, BASE_CREW_CAP, crewLevel } from "./content/team";
-import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, hardshipConflict } from "./content/modifiers";
+import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, isSeasonChallenge, seasonObjectiveConflict } from "./content/modifiers";
 import { VENUES, getVenue } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { syncHabitSlots, templateBase } from "./habits";
@@ -13,6 +13,7 @@ import { afterChange, dispatch } from "./jobs";
 import { STORY, addJournal } from "./journal";
 import { learn } from "./knowhowEngine";
 import { allDaresCompleted, perkUnlocked, refreshPerkUnlocks } from "./perks";
+import { forfeitOwnerTour } from "./ownership";
 import { nextUid } from "./rng";
 import { initialConfig, initialRun, initialScrap } from "./state";
 import type { DisciplineId, EraState, GameState, PartInstance, RunConfig, Scope, SkillId } from "./types";
@@ -120,7 +121,7 @@ export function planPurchases(state: GameState, buy: string[], lpAvailable: numb
   return { ranks, lpLeft: lp };
 }
 
-function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: number, tuneUpPoints: number, teamEra: boolean, lpAvailable: number): string | null {
+function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: number, tuneUpPoints: number, teamEra: boolean, lpAvailable: number, discipline: DisciplineId): string | null {
   const plan = planPurchases(state, choices.buy ?? [], lpAvailable);
   if (typeof plan === "string") return plan;
   const unique = new Set(choices.perks);
@@ -136,15 +137,15 @@ function validateScrapChoices(state: GameState, choices: ScrapChoices, slots: nu
   }
   const spent = SKILLS.reduce((sum, k) => sum + (choices.tuneUp[k] ?? 0), 0);
   if (spent > tuneUpPoints) return `Only ${tuneUpPoints} tune-up points`;
-  if (choices.dare) {
-    if (!DARE_BY_ID[choices.dare]) return "Unknown dare";
+  if (choices.dare && !isSeasonChallenge(choices.dare)) {
+    if (!Object.hasOwn(DARE_BY_ID, choices.dare)) return "Unknown Season objective";
     if (state.meta.daresCompleted.includes(choices.dare)) return "You've already done that dare";
   }
   if (choices.hardships.length > 0 && !teamEra) return "Hardships open up once you found a team";
   if (choices.hardships.length > hardshipCap(state)) return `Up to ${hardshipCap(state)} hardships`;
   for (const id of choices.hardships) if (!HARDSHIP_BY_ID[id]) return `Unknown hardship ${id}`;
   if (new Set(choices.hardships).size !== choices.hardships.length) return "A hardship is picked twice";
-  return hardshipConflict(choices.hardships, choices.dare);
+  return seasonObjectiveConflict(choices.hardships, choices.dare, discipline);
 }
 
 function toConfig(choices: ScrapChoices): RunConfig {
@@ -162,7 +163,7 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
   clears: ["run", "config"],
   gate: (s) => (s.run.featureWins.county_fair !== undefined ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature" }),
   award: scrapAward,
-  validate: (s, c) => validateScrapChoices(s, c, nextSeasonPerkSlots(s), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + scrapAward(s)),
+  validate: (s, c) => validateScrapChoices(s, c, nextSeasonPerkSlots(s), nextSeasonTuneUpPoints(s), s.era !== null, s.scrap.lp + scrapAward(s), s.era?.discipline ?? "dirt"),
   apply: (s, award, choices) => {
     s.scrap.lp += award;
     s.scrap.lifetimeLp += award;
@@ -187,7 +188,7 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
     if (c.keepCrewId && !(s.team.upgrades.old_hands ?? 0)) return "You need Old Hands to keep a crew member";
     // After a Team Reset the Scrap layer starts over: 2 base slots (+ team upgrades), 5 tune-up points.
     const slots = nextTeamPerkSlots(s);
-    return validateScrapChoices(s, c, slots, 5, true, s.scrap.lp);
+    return validateScrapChoices(s, c, slots, 5, true, s.scrap.lp, c.discipline);
   },
   apply: (s, award, choices, before) => {
     // LP is spent before the Scrap layer clears.
@@ -315,6 +316,7 @@ export function performReset(state: GameState, layerId: LayerId, choices: ScrapC
   if (invalid) return invalid;
   const before = structuredClone(state);
   const award = layer.award(state);
+  forfeitOwnerTour(state);
   commitSeason(state);
   for (const scope of layer.clears) clearScope(state, scope);
   layer.apply(state, award, choices, before);

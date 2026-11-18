@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DARES, PERK_BY_ID, hardshipConflict } from "@/core/content/modifiers";
+import { DARES, PERK_BY_ID, SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
 import { CREW_BY_ID } from "@/core/content/team";
 import { LAYERS, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planPurchases, scrapAward, teamAward, type TeamChoices } from "@/core/layers";
+import { ownerTourActive } from "@/core/ownership";
 import type { DisciplineId, GameState, SkillId } from "@/core/types";
-import { num } from "../format";
+import { num, pct } from "../format";
 import { useGame } from "../store";
 import { ResetDisciplines } from "./ResetDisciplines";
 import { ResetHardships } from "./ResetHardships";
@@ -55,8 +56,10 @@ export function ResetPlanner({ layer, onDone }: Props) {
   const spent = SKILLS.reduce((sum, s) => sum + tune[s.id], 0);
 
   const gate = LAYERS[layer].gate(game);
-  const conflict = hardshipConflict(hardships, dare);
+  const nextDiscipline = isTeam ? discipline : game.era?.discipline ?? "dirt";
+  const conflict = seasonObjectiveConflict(hardships, dare, nextDiscipline);
   const blocker = gate.ok ? conflict : gate.reason;
+  const activeChallenge = game.config.dare;
 
   const confirm = () => {
     const base = { buy, perks: equipped, tuneUp: tune, dare, hardships };
@@ -124,9 +127,9 @@ export function ResetPlanner({ layer, onDone }: Props) {
       </fieldset>
 
       <fieldset>
-        <legend>Dare for next Season (optional)</legend>
+        <legend>Objective for next Season (optional)</legend>
         <label className="check">
-          <input type="radio" name="dare" checked={dare === null} onChange={() => setDare(null)} /> No dare
+          <input type="radio" name="dare" checked={dare === null} onChange={() => setDare(null)} /> Standard Season
         </label>
         {DARES.filter((d) => !game.meta.daresCompleted.includes(d.id)).map((d) => (
           <label key={d.id} className="check">
@@ -136,6 +139,21 @@ export function ResetPlanner({ layer, onDone }: Props) {
             </span>
           </label>
         ))}
+        {SEASON_CHALLENGE_IDS.map((id) => {
+          const challenge = SEASON_CHALLENGES[id];
+          const done = game.meta.challengeRecords[id]?.completions ?? 0;
+          const unavailable = seasonObjectiveConflict(hardships, id, nextDiscipline);
+          return (
+            <label key={id} className="check">
+              <input type="radio" name="dare" checked={dare === id} disabled={dare !== id && !!unavailable} onChange={() => setDare(id)} />
+              <span>
+                <strong>{challenge.name}</strong>. {challenge.text} {challenge.mastery} increases by 5% per completion, up to 15%.
+                {done > 0 && <span className="muted"> Completed {done}× · +{pct(challengeMastery(done))}.</span>}
+                {unavailable && <span className="why"> {unavailable}</span>}
+              </span>
+            </label>
+          );
+        })}
       </fieldset>
 
       {teamEraNext && <ResetHardships game={game} chosen={hardships} conflict={conflict} onChange={setHardships} />}
@@ -169,6 +187,10 @@ export function ResetPlanner({ layer, onDone }: Props) {
         </fieldset>
       )}
 
+      {ownerTourActive(game) && <p className="why">This reset forfeits the active Owner tour and its unearned rewards.</p>}
+      {isSeasonChallenge(activeChallenge) && game.run.challenge.completedAt === undefined && (
+        <p className="why">This reset ends your current {SEASON_CHALLENGES[activeChallenge].name} attempt. You can select it again for the next Season.</p>
+      )}
       <div className="actions">
         <button className="btn primary big wrap" disabled={!!blocker} onClick={confirm}>
           {isTeam ? (game.era ? "Fold the team and start over" : "Found the team") : "End the Season: Scrap Reset"}

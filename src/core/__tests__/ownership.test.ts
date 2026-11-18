@@ -1,0 +1,130 @@
+import { describe, expect, it } from "vitest";
+import { decodeGameState } from "@/game/save";
+import { apply, must } from "../actions";
+import { createGame } from "../index";
+import { CHARTERS, currentTourEntry, ownerGate, tourRoundToken, tourScore, type OwnerTour } from "../ownership";
+import { resolveRace } from "../race";
+import type { GameState, Vehicle } from "../types";
+
+const HOUR = 3_600_000;
+const STOCK = {
+  body: "beater_shell", frame: "frame_cage", engine: "engine_v8", wheel: "wheel_slick", fuel: "fuel_cell",
+  drivetrain: "drive_race", electronics: "elec_ignition", exhaust: "exhaust_headers",
+};
+const BEATER = {
+  body: "beater_shell", frame: "frame_tube", engine: "engine_v6", wheel: "wheel_sport", fuel: "fuel_tank_large",
+  drivetrain: "drive_manual", electronics: "elec_ecu", exhaust: "exhaust_straight",
+};
+
+function vehicle(uid: string, vehicleId: string, parts: Record<string, string>): Vehicle {
+  return {
+    uid, vehicleId, name: uid, tune: "balanced", builtAtSeasonMs: 0,
+    history: { races: 0, wins: 0, dnfs: 0, bestFinish: null },
+    parts: Object.fromEntries(Object.entries(parts).map(([slot, partId]) => [
+      slot, { uid: `${uid}:${slot}`, partId, condition: 4, origin: "test garage" },
+    ])),
+  };
+}
+
+function team(): GameState {
+  const game = createGame("title-run");
+  game.era = { discipline: "dirt", teamName: "Back Bay Racing", colors: ["#121212", "#eaeaea"], crew: [], milestones: [], hardshipsCompleted: 0, legends: [], seasonIndex: 1 };
+  game.run.cash = 20_000;
+  game.run.vehicles.push(vehicle("beater", "beater_car", BEATER), vehicle("stock", "street_stock", STOCK));
+  for (const venue of ["dirt", "county_fair", "regional", "state"]) {
+    game.run.venuesOpen.push(venue);
+    game.run.ladder[venue] = ["sprint", "heat", "feature"];
+    game.run.practice[venue] = 15;
+  }
+  return game;
+}
+
+function found(charter: "privateer" | "club" | "works" = "privateer"): GameState {
+  const game = team();
+  game.run.featureWins.state = 0;
+  return must(game, { type: "owner", move: { type: "found", charter } });
+}
+
+describe("Owner championships", () => {
+  it("requires a Team-era State win and preserves the cars on founding", () => {
+    const game = team();
+    game.meta.stateWonEver = true;
+    expect(ownerGate(game).ok).toBe(false);
+    expect(apply(game, { type: "owner", move: { type: "found", charter: "privateer" } }).error).toMatch(/with a founded team/);
+    const result = resolveRace(game, { kind: "race", venueId: "state", event: "feature", vehicleUid: "stock", call: "nurse" });
+    expect(result?.position).toBe(1);
+    expect(game.meta.teamStateWon).toBe(true);
+    const promoted = must(game, { type: "owner", move: { type: "found", charter: "privateer" } });
+    expect(promoted.run.vehicles).toEqual(game.run.vehicles);
+    expect(promoted.era).toEqual(game.era);
+    expect(promoted.team).toEqual(game.team);
+  });
+
+  it("pays a title once from actual race jobs, across cooldowns and a save reload", () => {
+    let game = found();
+    for (const [index, stop] of CHARTERS.privateer.calendar.entries()) {
+      const carUid = stop.venueId === "county_fair" ? "beater" : "stock";
+      const car = game.run.vehicles.find((candidate) => candidate.uid === carUid)!;
+      for (const part of Object.values(car.parts)) part!.condition = 4;
+      if (index === 0) game.run.lastEntered["county_fair:feature"] = 0;
+      game = must(game, { type: "owner", move: { type: "enter", vehicleUid: carUid, call: "nurse" } });
+      expect(currentTourEntry(game)).toBe(index === 0 ? "queued" : "racing");
+      expect(apply(game, { type: "owner", move: { type: "enter", vehicleUid: carUid, call: "push" } }).error).toMatch(/already/);
+      expect(game.owner!.tour.rounds).toHaveLength(index);
+      const restored = decodeGameState(JSON.parse(JSON.stringify(game)));
+      expect(restored).not.toBeNull();
+      game = must(restored!, { type: "advance", ms: 15 * HOUR, away: true });
+      expect(game.owner!.tour.rounds).toHaveLength(index + 1);
+      expect(game.owner!.tour.rounds[index]?.raceId).toBe(game.run.races.at(-1)?.id);
+    }
+    expect(game.owner!.tour.status).toBe("champion");
+    expect(game.owner!.titles).toBe(1);
+    expect(game.team.tp).toBe(CHARTERS.privateer.teamPoints);
+    game = must(game, { type: "advance", ms: HOUR });
+    expect(game.team.tp).toBe(CHARTERS.privateer.teamPoints);
+    game = must(game, { type: "owner", move: { type: "start", charter: "club" } });
+    expect(game.owner!.history[0].status).toBe("champion");
+    expect(game.owner!.titles).toBe(1);
+  });
+
+  it("keeps ordinary results and invalid imports out of the rounds", () => {
+    let game = found();
+    const ordinary = { kind: "race", venueId: "county_fair", event: "feature", vehicleUid: "beater", call: "nurse" } as const;
+    const tagged = { ...ordinary, tourRound: tourRoundToken(game.owner!.tour) };
+    expect(apply(game, { type: "enqueue", spec: tagged }).error).toMatch(/Owner calendar/);
+    game = must(game, { type: "enqueue", spec: ordinary });
+    game = must(game, { type: "advance", ms: HOUR });
+    expect(game.run.races).toHaveLength(1);
+    expect(game.owner!.tour.rounds).toHaveLength(0);
+    game.run.queue.push({ ...tagged, tourRound: "stale:0" });
+    expect(decodeGameState(game)).toBeNull();
+  });
+
+  it("honors kart restrictions, withdrawal, and resets without dropping records", () => {
+    let game = found("club");
+    expect(apply(game, { type: "owner", move: { type: "enter", vehicleUid: "beater", call: "nurse" } }).error).toMatch(/Go-Karts/);
+    game = found();
+    game.run.featureWins.county_fair = 0;
+    game.run.lastEntered["county_fair:feature"] = 0;
+    game = must(game, { type: "owner", move: { type: "enter", vehicleUid: "beater", call: "nurse" } });
+    game = must(game, { type: "owner", move: { type: "withdraw" } });
+    expect(currentTourEntry(game)).toBeNull();
+    game = must(game, { type: "owner", move: { type: "skip" } });
+    expect(game.owner!.tour.rounds).toEqual([null]);
+    game = must(game, {
+      type: "reset", layer: "scrap",
+      choices: { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] },
+    });
+    expect(game.owner?.tour.status).toBe("retired");
+    expect(game.owner?.tour.rounds).toEqual([null]);
+    expect(decodeGameState(game)).not.toBeNull();
+  });
+
+  it("uses the best four finishes and requires two scoring cars in the Works Trophy", () => {
+    const wins = [1, 2, 3, 4].map((round) => ({ raceId: `race-${round}`, vehicleUid: "lead", carName: "Lead", position: 1, dnf: false }));
+    const tour: OwnerTour = { id: "test", charter: "works", discipline: "dirt", status: "active", rounds: [...wins, null] };
+    expect(tourScore(tour)).toEqual({ points: 48, cars: 1, champion: false });
+    tour.rounds[4] = { raceId: "race-5", vehicleUid: "second", carName: "Second", position: 6, dnf: false };
+    expect(tourScore(tour)).toEqual({ points: 48, cars: 2, champion: true });
+  });
+});
