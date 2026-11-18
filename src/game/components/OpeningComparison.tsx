@@ -22,6 +22,7 @@ function opening(game: GameState, layer: LayerId) {
   const { run, config, era } = game;
   const goal = config.dare;
   const transfer = config.shopLegacy;
+  const benches = channel(game, "benches");
   return {
     Garage: era ? era.teamName + " · " + TEAM_ORGANIZATIONS[era.organization ?? "independent"].name : "Home garage",
     Location: HOME_COUNTIES[homeCounty(game)].name,
@@ -45,7 +46,7 @@ function opening(game: GameState, layer: LayerId) {
       ].join(", ") || "Empty garage",
     "Open trips": run.placesOpen.map((id) => getPlace(id).name).join(", "),
     "Curbside trip": duration(baseDuration(game, { kind: "haul", placeId: "curb" })) + " · carry " + carryFor(game),
-    "Garage space": garageSpace(game) + " parts · " + channel(game, "benches") + " benches",
+    "Garage space": garageSpace(game) + " parts · " + benches + (benches === 1 ? " bench" : " benches"),
     "Starting know-how": run.learned.map((id) => getKnowhow(id).name).join(", ") || "None",
     Bank: game.scrap.lp + " Legacy Points · " + game.team.tp + " Team Points",
     Crew: (era?.crew.length ?? 0) + " retained",
@@ -66,6 +67,7 @@ export function OpeningComparison({
 }) {
   const [sketches, setSketches] = useState<[Snapshot | null, Snapshot | null]>([null, null]);
   const [error, setError] = useState("");
+  const [differencesOnly, setDifferencesOnly] = useState(false);
   const record = (slot: 0 | 1) => {
     if (blocker) return;
     const result = apply(game, { type: "reset", layer, choices });
@@ -78,6 +80,10 @@ export function OpeningComparison({
     setError("");
   };
   const first = sketches[0] ?? sketches[1];
+  const fields = first ? Object.keys(first) as (keyof Snapshot)[] : [];
+  const visibleFields = differencesOnly && sketches[0] && sketches[1]
+    ? fields.filter((key) => sketches[0]?.[key] !== sketches[1]?.[key])
+    : fields;
   return (
     <details className="opening-comparison">
       <summary>Compare opening garages</summary>
@@ -93,7 +99,14 @@ export function OpeningComparison({
         ))}
       </div>
       {(blocker || error) && <p className="why">{blocker ?? error}</p>}
-      {first && (
+      {sketches[0] && sketches[1] && (
+        <label className="check">
+          <input type="checkbox" checked={differencesOnly} onChange={(event) => setDifferencesOnly(event.target.checked)} />
+          Show differences only
+        </label>
+      )}
+      {first && !visibleFields.length && <p>These two opening garages match in every listed detail.</p>}
+      {visibleFields.length > 0 && (
         <table className="opening-table">
           <thead>
             <tr>
@@ -109,7 +122,7 @@ export function OpeningComparison({
             </tr>
           </thead>
           <tbody>
-            {(Object.keys(first) as (keyof Snapshot)[]).map((key) => (
+            {visibleFields.map((key) => (
               <tr key={key}>
                 <th scope="row">{key}</th>
                 {sketches.map((view, i) => view && <td key={i}>{view[key]}</td>)}

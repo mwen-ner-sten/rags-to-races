@@ -44,6 +44,12 @@ test("shop openings compare a tool and customer lead without moving the live gar
   await expect(page.getByRole("row", { name: /^Returning customer lead/ }).getByRole("cell")).toHaveText(["None", "Orchard grounds crew · focus on engine finds before Scouting"]);
   await expect(page.getByRole("row", { name: /^Opening stock/ }).getByRole("cell")).toHaveText(["Empty garage", "Empty garage"]);
   await expect(page.getByRole("row", { name: /^Curbside trip/ }).getByRole("cell")).toHaveCount(2);
+  await page.getByLabel("Show differences only").check();
+  await expect(page.getByRole("row", { name: /^Curbside trip/ })).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /^Transferred tool/ })).toBeVisible();
+  await a.click();
+  await expect(page.getByText("These two opening garages match in every listed detail.")).toBeVisible();
+  await page.getByLabel("Show differences only").uncheck();
   await expect(page.getByRole("button", { name: "Move the shop", exact: true })).toBeDisabled();
   await choice.selectOption("");
   await expect(b).toBeDisabled();
