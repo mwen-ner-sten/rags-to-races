@@ -4,7 +4,8 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { counterBlocker, createGame, must, type TeamChoices } from "../src/core";
+import { createGame, must, type TeamChoices } from "../src/core";
+import { counterBlocker } from "../src/core/actions";
 import { CREW_BY_ID, type TeamOrganization } from "../src/core/content/team";
 import { getVehicle } from "../src/core/content/vehicles";
 import { crewCanApprentice, crewHandoverOffers, APPRENTICE_JOBS, HANDOVER_COST, type WorkshopRoutine } from "../src/core/crewLegacy";

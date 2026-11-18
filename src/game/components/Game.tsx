@@ -328,6 +328,7 @@ export function Game() {
           {active === "garage" && (
             <div className="panel">
               <PartsPanel />
+              <ServiceCounter game={game} />
               <WorksDrawingWorkshop game={game} />
               <BuildPanel />
             </div>
