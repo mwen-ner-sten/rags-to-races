@@ -101,4 +101,25 @@ describe("Circuit Office", () => {
     meet.guest.parts.engine!.partId = "wheel_basic";
     expect(promoterSchema.safeParse(state.promoter).success).toBe(false);
   });
+
+  it("can certify Close Grid using a lower-powered build and targeted service", () => {
+    const state = invite("circuit-balance-1");
+    const mower = state.run.vehicles[0];
+    mower.tune = "reliable";
+    delete mower.parts.exhaust;
+    for (const [slot, partId] of Object.entries({ engine: "engine_small", wheel: "wheel_busted", frame: "frame_scrap" })) {
+      mower.parts[slot] = { ...mower.parts[slot]!, condition: 1, partId };
+    }
+    expect(applyPromoter(state, { type: "publish", charter: "homecoming", stewardship: "pro", vehicleUid: mower.uid })).toBeNull();
+    const meet = state.promoter!.meet!;
+    for (let round = 0; round < 3; round += 1) {
+      for (const [slot, part] of Object.entries(meet.guest.parts)) {
+        if (part?.condition === 0) expect(applyPromoter(state, { type: "service", slot })).toBeNull();
+      }
+      expect(applyPromoter(state, { type: "book", call: "nurse" })).toBeNull();
+      advancePromoter(state, 60 * 60_000);
+    }
+    expect(promoterReport(meet)).toMatchObject({ qualified: true, closeFinishes: 2 });
+    expect(meet.results[1].visitors.some((entry) => entry.position === 1)).toBe(true);
+  });
 });
