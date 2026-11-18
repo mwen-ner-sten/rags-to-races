@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { SeasonLog } from "./SeasonLog";
+import { RallyCards } from "./RallyCards";
 import { useState, type KeyboardEvent } from "react";
 import { RIVALS, venueName } from "@/core/content/events";
 import { KNOWHOW } from "@/core/content/knowhow";
@@ -222,7 +223,7 @@ function Journal({ game }: { game: GameState }) {
   </>;
 }
 
-const SECTIONS = ["Journal", "Know-how", "Habits", "Codex", "Rivals", "Hall of Fame", "Seasons"] as const;
+const SECTIONS = ["Journal", "Know-how", "Habits", "Codex", "Rivals", "Hall of Fame", "Seasons", "Timecards"] as const;
 
 export function NotebookPanel() {
   const game = useGame((s) => s.game);
@@ -232,16 +233,17 @@ export function NotebookPanel() {
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (step === 0) return;
     e.preventDefault();
-    const next = SECTIONS[(SECTIONS.indexOf(tab) + step + SECTIONS.length) % SECTIONS.length];
+    const next = sections[(sections.indexOf(tab) + step + sections.length) % sections.length];
     setTab(next);
     document.getElementById(`nb-tab-${next}`)?.focus();
   };
+  const sections = SECTIONS.filter((name) => name !== "Timecards" || game.era?.discipline === "rally" || !!game.meta.rallyCards?.length);
   return (
     <section className="section" aria-labelledby="notebook-h">
       <h2 id="notebook-h">Notebook</h2>
       <Tips ids={["codex", "knowhow"]} />
       <div className="subtabs" role="tablist" aria-label="Notebook sections" onKeyDown={onTabKey}>
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <button key={s} role="tab" id={`nb-tab-${s}`} aria-controls="nb-panel" aria-selected={tab === s} tabIndex={tab === s ? 0 : -1} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>
             {s}
           </button>
@@ -255,6 +257,7 @@ export function NotebookPanel() {
       {tab === "Rivals" && <Rivals game={game} />}
       {tab === "Hall of Fame" && <HallOfFame game={game} />}
       {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} />}
+      {tab === "Timecards" && <RallyCards cards={game.meta.rallyCards ?? []} />}
       </div>
     </section>
   );

@@ -1,6 +1,8 @@
 import { advancePromoter } from "./promoter";
 import { clubHostingCost, clubSpecMatches } from "./club";
+import { worksSpecMatches } from "./manufacturer";
 import { channel } from "./channels";
+import { cardFor } from "./timecards";
 import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
@@ -15,6 +17,7 @@ import { CONDITION_NAMES } from "./content/parts";
 import { getKnowhow } from "./content/knowhow";
 import { isLearned, learn, refreshKnowhow, studyMs } from "./knowhowEngine";
 import { raceDurationMs, resolveRace, rollRace, settleRace } from "./race";
+import { nextRaceNightSpec } from "./raceNight";
 import { refreshReveals } from "./reveal";
 import { nextUid } from "./rng";
 import { hasPerk, resolveFlags } from "./rules";
@@ -128,6 +131,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
       if (!vehicle) return "Pick a vehicle";
       if (spec.clubRound && !clubSpecMatches(state, spec, vehicle)) return "That club sign-up is no longer current";
+      if (spec.worksRound && !worksSpecMatches(state, spec, vehicle)) return "That works sign-up needs the signed engine and three family parts";
       if (vehicleBusy(state, vehicle.uid) && !signUp) return "That vehicle is already racing";
       if (!state.run.venuesOpen.includes(spec.venueId)) return "That venue isn't open to you yet";
       const venue = getVenue(spec.venueId);
@@ -137,6 +141,9 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       const missing = getVehicle(vehicle.vehicleId).slots.find((sl) => sl.required && !vehicle.parts[sl.slot]);
       if (missing) return `The ${missing.slot} is out on the bench`;
       if (Object.values(vehicle.parts).some((p) => p && p.condition === 0)) return "A part is scrap. Fix it before racing";
+      if (spec.regularity && (state.era?.discipline !== "rally" || spec.clubRound || spec.tourRound || !cardFor(state, spec.venueId, spec.event, vehicle.vehicleId))) {
+        return "Set a class time on this standard Rally course before entering regularity.";
+      }
       if (spec.call2) {
         const driver = state.era?.crew.some((c) => c.assignment.type === "driver");
         const calls = DISCIPLINES[resolveFlags(state).discipline].secondCall;
@@ -369,10 +376,28 @@ export function dispatch(state: GameState): void {
   let progressed = true;
   while (progressed) {
     progressed = false;
+    const night = state.run.raceNight;
+    if (night) {
+      const upcoming = nextRaceNightSpec(state, night);
+      if (!upcoming) {
+        delete state.run.raceNight;
+      } else if (!laneBusy(state, "hands")) {
+        const blocker = jobBlocker(state, upcoming, true);
+        if (blocker) {
+          delete state.run.raceNight;
+          pushFeed(state, "race", `Race Night ended. ${blocker}.`);
+        } else if (nextEventInMs(state, upcoming.venueId, upcoming.event) === 0 && !jobBlocker(state, upcoming)) {
+          startJob(state, "hands", upcoming, false);
+          night.startsLeft -= 1;
+          if (night.startsLeft === 0) delete state.run.raceNight;
+        }
+      }
+    }
     state.run.queue = state.run.queue.filter((q) => !(q.kind === "study" && isLearned(state, q.knowhowId)));
     // Queue → hands and benches.
     for (let i = 0; i < state.run.queue.length; i++) {
       const spec = state.run.queue[i];
+      if (state.run.raceNight && HANDS_KINDS.has(spec.kind)) continue;
       const blocker = jobBlocker(state, spec);
       if (blocker) continue;
       if (isBenchKind(spec)) {
@@ -412,7 +437,7 @@ export function dispatch(state: GameState): void {
         if (!template || laneBusy(state, lane)) return;
         if (!state.run.habitsKnown.includes(templateBase(template))) return;
         const spec = resolveTemplate(state, template);
-        if (!spec) return;
+        if (!spec || (state.run.raceNight && spec.kind === "race")) return;
         if (isBenchKind(spec) && !benchAvailable(state)) return;
         startJob(state, lane, spec, true, template);
         progressed = true;
@@ -574,6 +599,7 @@ function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "asse
 
 /** Validates and queues a job. Returns an error message or null. */
 export function enqueue(state: GameState, spec: JobSpec): string | null {
+  if (spec.kind === "race" && state.run.raceNight?.vehicleUid === spec.vehicleUid) return "This vehicle is reserved for Race Night";
   const blocker = jobBlocker(state, spec, true);
   if (blocker) return blocker;
   if (spec.kind === "race" && signedUp(state, spec.venueId, spec.event)) return "You're already signed up for that";
@@ -610,6 +636,11 @@ export function cancelJob(state: GameState, jobId: string): void {
 /** Ms until a scheduled race that's waiting (queued or a Race Day Habit) can start; Infinity if none. */
 function nextGateMs(state: GameState): number {
   let gate = Infinity;
+  const night = !laneBusy(state, "hands") ? nextRaceNightSpec(state) : null;
+  if (night) {
+    const wait = nextEventInMs(state, night.venueId, night.event);
+    if (wait > 0) gate = wait;
+  }
   const consider = (template: string | null | undefined, lane: string) => {
     if (!template || !template.startsWith("race:") || laneBusy(state, lane)) return;
     const [, , venueId, event] = template.split(":");

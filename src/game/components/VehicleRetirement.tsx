@@ -50,7 +50,7 @@ export function VehicleRetirement({ game, vehicle }: { game: GameState; vehicle:
           <p>{materials.length > 0 ? `The remaining installed parts yield ${materials.join(", ")}.` : "Any other installed parts become materials."} The chosen part keeps its wear.</p>
         </>
       ) : (
-        <p>Trade the complete mower and {MOWER_EXCHANGE.cash} Scrap Bucks for a {conditionName(MOWER_EXCHANGE.condition)} {MOWER_EXCHANGE.parts.map((partId) => getPart(partId).name).join(" and ")}. Both fit the free Push Mower plans.</p>
+        <p>Trade the complete mower and {MOWER_EXCHANGE.cash} Scrap Bucks for a {MOWER_EXCHANGE.parts.map((partId) => `${conditionName(MOWER_EXCHANGE.condition)} ${getPart(partId).name}`).join(" and ")}. Both fit the free Push Mower plans.</p>
       )}
       {typeof plan === "string" && <p className="why">{plan}</p>}
       <button className="btn wrap" disabled={typeof plan === "string"} onClick={() => dispatch({ type: "retireVehicle", vehicleUid: vehicle.uid, move })}>

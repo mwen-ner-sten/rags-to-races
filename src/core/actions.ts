@@ -6,6 +6,7 @@
 import { applyOwner, type OwnerMove } from "./ownership";
 import { applyPromoter, type PromoterMove } from "./promoter";
 import { applyClub, type ClubMove } from "./club";
+import { applyWorks, type WorksMove } from "./manufacturer";
 import { channel } from "./channels";
 import { getPart } from "./content/parts";
 import { PERK_BY_ID } from "./content/modifiers";
@@ -21,6 +22,7 @@ import { nextUid } from "./rng";
 import { TIP_BY_ID } from "./content/tips";
 import { resolveFlags } from "./rules";
 import { retireVehicle, type RetirementMove } from "./retirement";
+import { applyRaceNight, type RaceNightMove } from "./raceNight";
 import { perkUnlocked } from "./perks";
 import { crewBusyRacing, crewTravelBlocker } from "./crew";
 import { releaseApprentice } from "./crewLegacy";
@@ -30,11 +32,13 @@ export type Action =
   | { type: "owner"; move: OwnerMove }
   | { type: "promoter"; move: PromoterMove }
   | { type: "club"; move: ClubMove }
+  | { type: "works"; move: WorksMove }
   | { type: "advance"; ms: number; away?: boolean }
   | { type: "enqueue"; spec: JobSpec }
   | { type: "batchClean"; partUids: string[] }
   | { type: "serviceInstalled"; vehicleUid: string; slot: string }
   | { type: "retireVehicle"; vehicleUid: string; move: RetirementMove }
+  | { type: "raceNight"; move: RaceNightMove }
   | { type: "cancelQueued"; index: number }
   | { type: "prioritizeQueued"; index: number }
   | { type: "cancelJob"; jobId: string }
@@ -85,15 +89,20 @@ function applyMut(s: GameState, action: Action): string | null {
       return applyPromoter(s, action.move);
     case "club":
       return applyClub(s, action.move);
+    case "works":
+      return applyWorks(s, action.move);
     case "advance":
       if (!(action.ms > 0)) return null;
       advance(s, action.ms, action.away ?? false);
       return null;
     case "retireVehicle":
       return retireVehicle(s, action.vehicleUid, action.move);
+    case "raceNight":
+      return applyRaceNight(s, action.move);
     case "enqueue":
       if (action.spec.kind === "race" && action.spec.tourRound !== undefined) return "Enter touring rounds from the Owner calendar";
       if (action.spec.kind === "race" && action.spec.clubRound !== undefined) return "Enter club rounds from the Club calendar";
+      if (action.spec.kind === "race" && action.spec.worksRound !== undefined) return "Enter works trials from the Manufacturer desk";
       return enqueue(s, action.spec);
     case "batchClean": {
       if (action.partUids.length < 2 || action.partUids.length > 3 || new Set(action.partUids).size !== action.partUids.length) return "Choose two or three different parts";

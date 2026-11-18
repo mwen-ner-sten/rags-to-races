@@ -12,3 +12,17 @@ The original first-season bot ran 12 seeds each on the daily, mixed and active s
 - **Team organization.** An Independent Garage dispatched a race while the player was hauling. The Workshop Collective reserved its crew for workshop work and finished two parts in the same window the Independent Garage finished one. [Organization trial](team-organization.md)
 - **Stage Rally.** An experienced team can switch at founding. A first-time founder can qualify through Hand-Me-Down Horsepower or Parts With a Past. Gravel, broken roads, switchbacks and fast lanes reward different equipment. The sum of separate stage times determines the winner. A 600-seed comparison for each driver call checks a close six-car field against the garage forecast.
 - **Season comparisons.** The Notebook records the ending loadout and actual first Feature times. A player can put two seasons side by side after a Scrap or Team Reset. Older saves start recording at their next reset.
+
+## Careers from an earned checkpoint
+
+`scripts/career-forks.ts` started fresh garages, played through State and first team founding, and returned to a second Team Reset before forking on the same save. All 168 careers reached the County Fair Feature and decoded successfully. Each schedule/discipline figure below is the median time to the next Fair win pooled across Independent and Collective choices.
+
+| Visits | Career forks | Dirt Oval | Drag | Stage Rally |
+| --- | ---: | ---: | ---: | ---: |
+| Daily | 48 | 13.9 days | 8.4 days | 17.4 days |
+| Mixed | 72 | 2.8 days | 2.6 days | 3.3 days |
+| Active | 48 | 1.6 days | 1.6 days | 2.1 days |
+
+Those policies chase an outright win. A separate Rally trial entered the same Go-Kart on its class timecard at County Forest. It finished outside the podium, matched all four splits within 8%, earned six Legacy Points, and took a Scrap Reset. Its class best survived the reset. The Ridgeway certificate must be repeated in a later Season for a State Forest regularity invitation.
+
+The first production browser pass exposed an old-save edge: an accepted legacy garage can have a Fair time beyond the saved Season clock. Rejecting that time only after retirement made the next reload lose the reset. The archive now preserves the historical values the live save loader already accepts.

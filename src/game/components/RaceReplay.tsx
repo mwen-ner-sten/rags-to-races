@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DISCIPLINES, RIVAL_BY_ID, getVenue, venueName } from "@/core/content/events";
+import { CLUB_COURSES } from "@/core/clubTrack";
 import { getPart } from "@/core/content/parts";
+import { totalTime } from "@/core/timecards";
 import type { GameState, RaceResult } from "@/core/types";
 import { retiredVehicle } from "@/core/vehicleArchive";
 import { conditionName, num } from "../format";
@@ -19,7 +21,7 @@ function shownFrom(game: GameState, race: RaceResult): RaceShown {
   const durationMs = race.durationMs ?? getVenue(race.venueId).events[race.event].durationMs * DISCIPLINES[discipline].durationMult;
   return {
     venueId: race.venueId,
-    venueLabel: venueName(race.venueId, discipline),
+    venueLabel: `${venueName(race.venueId, discipline)}${race.course ? ` · ${CLUB_COURSES[race.course].name}` : ""}`,
     event: race.event,
     vehicleId: vehicle?.vehicleId ?? retiredVehicle(game, race.vehicleUid)?.vehicleId ?? "push_mower",
     fieldSize: race.fieldSize,
@@ -28,6 +30,7 @@ function shownFrom(game: GameState, race: RaceResult): RaceShown {
     durationMs: Math.max(durationMs, race.beats[race.beats.length - 1]?.at ?? 0),
     strip: discipline === "drag",
     rally: discipline === "rally",
+    course: race.course,
     rounds: race.rounds,
   };
 }
@@ -93,11 +96,16 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
       {finished ? (
         <div className="debrief">
           <p className="big">{finishText(race)}</p>
+          {race.rallyClock && !race.dnf && <p>Stage time · {(totalTime(race.rallyClock.splitsMs) / 1000).toFixed(1)}s
+            {race.rallyClock.previousMs && <> · {race.rallyClock.previousCar}’s previous class best was {(race.rallyClock.previousMs / 1000).toFixed(1)}s</>}
+          </p>}
           <p>
             +{num(race.prize)} Scrap Bucks · +{race.rep} Rep
             {rival && ` · ${rival.name}: ${race.rival?.beaten ? "beaten" : "ahead of you"}`}
           </p>
           {race.caution && <p>The yellow flag came out.</p>}
+          {race.rallyClock?.regularity && <p>{race.rallyClock.regularity.passed ? "Regularity certificate earned" : "Outside regularity tolerance"} · {race.rallyClock.regularity.matched}/{race.rallyClock.regularity.required} stages within 8%.</p>}
+          {race.course && <p>{CLUB_COURSES[race.course].brief}</p>}
           {race.rivalOut && rival && <p>{rival.name}’s car quit before the flag.</p>}
           {!race.dnf && race.position > 1 && <p className="muted">You were {Math.abs(race.margin * 100).toFixed(1)}% off the car ahead.</p>}
           {race.wear.length > 0 && <p>Wear: {race.wear.map((w) => `${w.slot} ${conditionName(w.from)} → ${conditionName(w.to)}`).join(", ")}</p>}

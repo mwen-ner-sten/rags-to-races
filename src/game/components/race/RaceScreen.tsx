@@ -1,6 +1,7 @@
 "use client";
 
 import type { EventKind, RaceBeat } from "@/core/types";
+import type { ClubCourseId } from "@/core/clubTrack";
 import { capitalize, ordinal } from "../../format";
 import { Track } from "./Track";
 import { RallyStage } from "./RallyStage";
@@ -19,6 +20,7 @@ export interface RaceShown {
   /** Team-era drag racing runs on a straight strip. */
   strip: boolean;
   rally?: boolean;
+  course?: ClubCourseId;
   /** Drag elimination rounds. Undefined on ovals and on old saves, which replay as one run. */
   rounds?: number;
 }
@@ -58,7 +60,7 @@ export function RaceScreen({ race, ms, compact = false, transitionMs = 0, lines 
           {showLap && ` · ${race.rally ? "stage" : "lap"} ${lap}/${laps}`}
         </span>
       </div>
-      {race.rally ? <RallyStage progress={Math.min(progress, dnfAt ?? 1)} label={`${race.venueLabel} · ${status}`} /> : <Track
+      {race.rally ? <RallyStage course={race.course} progress={Math.min(progress, dnfAt ?? 1)} label={`${race.venueLabel} · ${status}`} /> : <Track
         venueId={race.venueId}
         shape={race.strip ? "strip" : "oval"}
         vehicleId={race.vehicleId}

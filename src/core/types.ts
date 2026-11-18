@@ -14,6 +14,8 @@
 
 import type { OwnerState } from "./ownership";
 import type { ClubAdmission, ClubCharter, ClubState } from "./club";
+import type { ClubCourseId } from "./clubTrack";
+import type { ManufacturerState, WorksFamily } from "./manufacturer";
 import type { PromoterState } from "./promoter";
 
 export type Scope = "run" | "scrap" | "era" | "config";
@@ -82,7 +84,7 @@ export type JobSpec =
   | { kind: "strip"; partUid?: string }
   | { kind: "study"; knowhowId: string }
   | { kind: "assemble"; vehicleId: string; partUids: Record<string, string>; name: string }
-  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; tourRound?: string; clubRound?: { token: string; admission: ClubAdmission }; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
+  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; tourRound?: string; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
 
 export type LaneId = string; // "hands" | "bench:0" | "habit:1" | "crew:<id>"
 
@@ -116,6 +118,8 @@ export interface RaceBeat {
 
 /** Everything about a race decided at the green flag. */
 export interface RaceRoll {
+  rallyClock?: import("./timecards").RallyClock;
+  course?: ClubCourseId;
   /** Crew committed at race entry, including any crew member running the job. Older saves omit this. */
   crewIds?: string[];
   position: number;
@@ -146,6 +150,8 @@ export interface RaceRoll {
 }
 
 export interface RaceResult {
+  rallyClock?: import("./timecards").RallyClock;
+  course?: ClubCourseId;
   id: string;
   seasonMs: number;
   vehicleUid: string;
@@ -217,6 +223,8 @@ export interface SeasonChallengeProgress {
 }
 
 export interface MetaState {
+  rallyLicences?: Record<string, number>;
+  rallyCards?: import("./timecards").RallyCard[];
   seasonLog?: SeasonResult[];
   /** Handled-count per part id and haul-count per place id. */
   codex: { parts: Record<string, number>; places: Record<string, number> };
@@ -291,6 +299,7 @@ export interface EraState {
 }
 
 export interface RunState {
+  regularityFeatures?: Record<string, number>;
   seasonMs: number;
   cash: number;
   rep: number;
@@ -317,6 +326,7 @@ export interface RunState {
   lastEntered: Record<string, number>;
   featureWins: Record<string, number>; // venue → season ms of first Feature win
   challenge: SeasonChallengeProgress;
+  raceNight?: { vehicleUid: string; venueId: string; call: RaceCall; startsLeft: number; stopOnFeature: boolean };
   races: RaceResult[];
   stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number; dnfs?: number; counterBuys?: number };
   revealed: string[];
@@ -341,9 +351,13 @@ export interface RunConfig {
   /** The crate carrying a part takes one perk slot for this Season. */
   salvageSlot?: true;
   club?: ClubCharter;
+  clubCourse?: ClubCourseId;
+  clubLoan?: ClubCourseId;
+  worksPlan?: WorksFamily;
 }
 
 export interface SeasonResult {
+  regularityFeatures?: Record<string, number>;
   organization?: import("./content/team").TeamOrganization;
   season: number;
   endedBy: "scrap" | "team";
@@ -357,6 +371,7 @@ export interface SeasonResult {
 }
 
 export interface GameState {
+  manufacturer?: ManufacturerState;
   club?: ClubState;
   owner?: OwnerState;
   promoter?: PromoterState;

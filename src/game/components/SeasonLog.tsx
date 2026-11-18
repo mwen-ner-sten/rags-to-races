@@ -7,6 +7,7 @@ import type { SeasonResult } from "@/core/types";
 import { getPart } from "@/core/content/parts";
 import { TEAM_ORGANIZATIONS } from "@/core/content/team";
 import { CLUB_CHARTERS } from "@/core/club";
+import { CLUB_COURSES } from "@/core/clubTrack";
 import { conditionName, duration } from "../format";
 
 function Loadout({ season }: { season: SeasonResult }) {
@@ -21,6 +22,9 @@ function Loadout({ season }: { season: SeasonResult }) {
     <p>{season.hauls} hauls · {season.builds} vehicles at reset</p>
     {season.organization && <p>{TEAM_ORGANIZATIONS[season.organization].name}</p>}
     {setup.club && <p>Club · {CLUB_CHARTERS[setup.club].name}</p>}
+    {setup.clubCourse && <p>Course · {CLUB_COURSES[setup.clubCourse].name}</p>}
+    {setup.clubLoan && <p>Track workshop loan · {getPart(CLUB_COURSES[setup.clubLoan].loanPart).name}</p>}
+    {season.regularityFeatures && <p>Certified stages · {Object.keys(season.regularityFeatures).map((id) => venueName(id, "rally")).join(", ")}</p>}
     {setup.donor && <p>Donor · {conditionName(setup.donor.condition)} {getPart(setup.donor.partId).name} from {setup.donor.origin}</p>}
     {objective && <p>Objective · {objective.name}</p>}
     {hardships.length > 0 && <p>Hardships · {hardships.join(", ")}</p>}

@@ -1,6 +1,7 @@
 "use client";
 
 import { venueName } from "@/core/content/events";
+import { CLUB_COURSES } from "@/core/clubTrack";
 import { getVehicle } from "@/core/content/vehicles";
 import type { ActiveJob, GameState } from "@/core/types";
 import { duration } from "../../format";
@@ -17,7 +18,7 @@ export function liveRace(game: GameState, job: ActiveJob): RaceShown | null {
   const discipline = game.era?.discipline ?? "dirt";
   return {
     venueId: spec.venueId,
-    venueLabel: venueName(spec.venueId, discipline),
+    venueLabel: `${venueName(spec.venueId, discipline)}${job.race.course ? ` · ${CLUB_COURSES[job.race.course].name}` : ""}`,
     event: spec.event,
     vehicleId: vehicle ? getVehicle(vehicle.vehicleId).id : "push_mower",
     fieldSize: job.race.fieldSize,
@@ -26,6 +27,7 @@ export function liveRace(game: GameState, job: ActiveJob): RaceShown | null {
     durationMs: job.race.durationMs,
     strip: discipline === "drag",
     rally: discipline === "rally",
+    course: job.race.course,
     rounds: job.race.rounds,
   };
 }

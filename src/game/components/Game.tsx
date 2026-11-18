@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CareerDestination } from "@/core/careerAdvice";
+import { LAYERS } from "@/core/layers";
 import { venueName } from "@/core/content/events";
 import { getKnowhow } from "@/core/content/knowhow";
 import { capitalize, duration, num, ordinal, seasonClock } from "../format";
 import { useGame } from "../store";
 import { BuildPanel } from "./BuildPanel";
+import { CareerDesk, CareerFocus, type CareerJump } from "./CareerDesk";
 import { feedAge } from "./Feed";
 import { FeedToasts } from "./FeedToasts";
 import { Guide } from "./Guide";
@@ -245,6 +248,7 @@ export function Game() {
   const tick = useGame((s) => s.tick);
   const save = useGame((s) => s.save);
   const [tab, setTab] = useState<TabId>("trips");
+  const [careerJump, setCareerJump] = useState<CareerJump | null>(null);
   const bootstrapped = useRef(false);
 
   useEffect(() => {
@@ -277,16 +281,28 @@ export function Game() {
     if (t.id === "owner") return !!game.owner || ownerGate(game).ok;
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
     if (t.id === "club") return !clubGate(game);
+    if (t.id === "team" && (game.era || LAYERS.team.gate(game).ok)) return true;
+    if (t.id === "legacy" && LAYERS.scrap.gate(game).ok) return true;
+    if (t.id === "race" && game.run.vehicles.length > 0) return true;
     return !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0);
   });
   const active = tabs.some((t) => t.id === tab) ? tab : "trips";
+  const jump = careerJump?.target.tab === active ? careerJump : null;
+  const showTab = (next: TabId) => {
+    setCareerJump(null);
+    setTab(next);
+  };
+  const showCareerTarget = (target: CareerDestination) => {
+    setCareerJump((previous) => ({ target, request: (previous?.request ?? 0) + 1 }));
+    setTab(target.tab);
+  };
 
   return (
     <div className="game" data-era={era} style={teamStyle}>
       <Header />
       <nav className="tabs" aria-label="Sections">
         {tabs.map((t) => (
-          <button key={t.id} className={active === t.id ? "on" : ""} aria-current={active === t.id ? "page" : undefined} onClick={() => setTab(t.id)}>
+          <button key={t.id} className={active === t.id ? "on" : ""} aria-current={active === t.id ? "page" : undefined} onClick={() => showTab(t.id)}>
             {t.label}
             {active !== t.id && hasUnreadTip(game, TAB_TIPS[t.id] ?? []) && <span className="tab-dot" aria-label="New tip" />}
             {t.id === "garage" && game.run.driveway.length > 0 && (
@@ -297,10 +313,12 @@ export function Game() {
           </button>
         ))}
       </nav>
-      <Guide tab={active} onShow={setTab} />
+      <Guide tab={active} onShow={showTab} />
       <div className="layout">
         <main className="main">
           <Notices />
+          <CareerDesk key={active} game={game} active={active} onOpen={showCareerTarget} />
+          <CareerFocus jump={jump} />
           {active === "trips" && <TripsPanel />}
           {active === "garage" && (
             <div className="panel">
@@ -308,10 +326,10 @@ export function Game() {
               <BuildPanel />
             </div>
           )}
-          {active === "race" && <RacePanel />}
+          {active === "race" && <RacePanel key={jump?.request} initialVenue={jump?.target.tab === "race" ? jump.target.venueId : undefined} />}
           {active === "notebook" && <NotebookPanel />}
-          {active === "legacy" && <LegacyPanel />}
-          {active === "team" && <TeamPanel />}
+          {active === "legacy" && <LegacyPanel key={jump?.request} initialObjective={jump?.target.tab === "legacy" ? jump.target.objective : undefined} />}
+          {active === "team" && <TeamPanel key={jump?.request} plannedDiscipline={jump?.target.tab === "team" && "discipline" in jump.target ? jump.target.discipline : undefined} />}
           {active === "owner" && <OwnerPanel />}
           {active === "promoter" && <PromoterPanel />}
           {active === "club" && <ClubPanel />}
@@ -319,8 +337,8 @@ export function Game() {
         </main>
         <JobsBoard />
       </div>
-      <RaceReplay onFix={() => setTab("garage")} />
-      <AwayDialog onShow={setTab} />
+      <RaceReplay onFix={() => showTab("garage")} />
+      <AwayDialog onShow={showTab} />
       <RaceFinished onRaceTab={active === "race"} />
       <Toast />
       <FeedToasts />

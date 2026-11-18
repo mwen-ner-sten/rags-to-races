@@ -1,7 +1,7 @@
 "use client";
+import Image from "next/image";
 
 import { useState } from "react";
-import { ownerGate } from "@/core/ownership";
 import { DISCIPLINES, venueName } from "@/core/content/events";
 import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
 import { CREW_BY_ID, TEAM_ORGANIZATIONS, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
@@ -116,17 +116,17 @@ function RulesAndMastery({ game, discipline }: { game: GameState; discipline: Di
   );
 }
 
-export function TeamPanel() {
+export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: DisciplineId }) {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
-  const [planning, setPlanning] = useState(false);
+  const [planning, setPlanning] = useState<DisciplineId | boolean>(plannedDiscipline ?? false);
   if (!game) return null;
   const gate = LAYERS.team.gate(game);
   if (planning) {
     return (
       <section className="section" aria-labelledby="team-plan-h">
         <h2 id="team-plan-h">{game.era ? "Start a new team" : "Found your team"}</h2>
-        <ResetPlanner layer="team" onDone={() => setPlanning(false)} />
+        <ResetPlanner layer="team" initialDiscipline={typeof planning === "string" ? planning : undefined} onDone={() => setPlanning(false)} />
       </section>
     );
   }
@@ -156,6 +156,7 @@ export function TeamPanel() {
     <div className="panel">
       <section className="section" aria-labelledby="team-h">
         <h2 id="team-h">{era.teamName}</h2>
+        <Image className="team-garage-view" src={`/sprites/organizations/${teamOrganization(game)}.webp`} width={880} height={495} sizes="(max-width: 600px) 92vw, 640px" alt={organization.name} />
         <p className="sub">
           {DISCIPLINES[era.discipline].name}. {DISCIPLINES[era.discipline].blurb}
         </p>
@@ -175,14 +176,6 @@ export function TeamPanel() {
           </div>
         </dl>
       </section>
-      {!game.owner && (
-        <section className="section" aria-labelledby="tour-offer-h">
-          <h2 id="tour-offer-h">Touring licence</h2>
-          <p>{ownerGate(game).ok
-            ? "Your team earned its licence. Open Owner to enter a touring championship."
-            : `Win the ${venueName("state", era.discipline)} Feature with your team to earn a touring licence.`}</p>
-        </section>
-      )}
       <RulesAndMastery game={game} discipline={era.discipline} />
       <section className="section" aria-labelledby="crew-h">
         <Tips ids={["crew"]} />

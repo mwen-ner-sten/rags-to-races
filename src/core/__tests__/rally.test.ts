@@ -3,6 +3,8 @@ import { racer, teamRacer } from "../../../tests/fixtures/rewrite";
 import { decodeGameState } from "../../game/save";
 import { apply, must } from "../index";
 import { rollRace, settleRace, winChance } from "../race";
+import { SCRAP_LAYER, TEAM_LAYER, scrapAward } from "../layers";
+import { cardFor, judgeRegularity, stampRallyFeature } from "../timecards";
 import { rallyRoute } from "../rally";
 import type { JobSpec } from "../types";
 
@@ -62,4 +64,54 @@ it("predicts wins against a close field for three driver strategies and settles 
   }
   const roll = rollRace(game, spec)!;
   expect(settleRace(game, spec, roll)?.rival?.id).toBe("marisol");
+});
+
+it("matches an old class clock in a losing car to enter a fresh Season on a County Forest certificate", () => {
+  let game = teamRacer("county-regularity");
+  game.era!.discipline = "rally";
+  game.run.vehicles = racer("clock-kart", "go_kart").run.vehicles;
+  game.run.venuesOpen.push("county_fair");
+  game.run.ladder.county_fair = ["sprint", "heat", "feature"];
+  const car = game.run.vehicles[0];
+  const spec: Race = { kind: "race", vehicleUid: car.uid, venueId: "county_fair", event: "feature", call: "nurse", call2: "recce" };
+  expect(apply(game, { type: "enqueue", spec: { ...spec, regularity: true } }).error).toMatch(/class time/);
+  const first = rollRace(game, spec)!;
+  expect(first.dnf).toBe(false);
+  settleRace(game, spec, first);
+  const baseline = structuredClone(cardFor(game, "county_fair", "feature", "go_kart")!);
+  expect(baseline.splitsMs).toHaveLength(4);
+  expect(judgeRegularity(baseline.splitsMs.map((ms) => ms * 1.15), baseline, false).passed).toBe(false);
+  const clockEntry: Race = { ...spec, regularity: true };
+  let sealed;
+  for (let i = 0; i < 200; i++) {
+    game.seed = `county-regularity-${i}`;
+    const attempt = must(game, { type: "enqueue", spec: clockEntry });
+    if (attempt.run.jobs.some((job) => job.race?.rallyClock?.regularity?.passed && job.race.position >= 4)) { sealed = attempt; break; }
+  }
+  expect(sealed).toBeTruthy();
+  game = decodeGameState(sealed)!;
+  const raceJob = game.run.jobs.find((job) => job.spec.kind === "race")!;
+  game = must(game, { type: "advance", ms: raceJob.duration, away: true });
+  expect(game.run.races.at(-1)).toMatchObject({ prize: 0, rallyClock: { regularity: { matched: 4, passed: true } } });
+  expect(game.run.featureWins.county_fair).toBeUndefined();
+  expect(game.run.venuesOpen).toContain("regional");
+  expect(scrapAward(game)).toBe(6);
+  expect(TEAM_LAYER.gate(game).ok).toBe(true);
+  expect(SCRAP_LAYER.gate(game).ok).toBe(true);
+  const newGame = must(game, { type: "reset", layer: "scrap", choices: game.config });
+  expect(decodeGameState(newGame)?.meta.seasonLog?.at(-1)?.regularityFeatures).toHaveProperty("county_fair");
+  expect(cardFor(newGame, "county_fair", "feature", "go_kart")).toEqual(baseline);
+  expect(newGame.run.regularityFeatures).toBeUndefined();
+});
+
+it("requires a later Season to redeem the Ridgeway regularity invitation for State Forest", () => {
+  const game = teamRacer();
+  game.era!.discipline = "rally";
+  stampRallyFeature(game, "regional");
+  stampRallyFeature(game, "regional");
+  expect(game.run.venuesOpen).not.toContain("state");
+  game.meta.seasonsPlayed++;
+  game.run.regularityFeatures = {};
+  stampRallyFeature(game, "regional");
+  expect(game.run.venuesOpen).toContain("state");
 });

@@ -1,4 +1,6 @@
 "use client";
+import { useState } from "react";
+import { cardFor, totalTime } from "@/core/timecards";
 
 import { BRACKET_SPREAD, DISCIPLINES, RIVAL_BY_ID, VENUES, getVenue } from "@/core/content/events";
 import { LAPS } from "@/core/raceBeats";
@@ -58,8 +60,11 @@ function YellowLine({ game, event }: { game: GameState; event: EventKind }) {
   return <p className="muted event-yellow">Yellow flag chance: {pct(chance)}</p>;
 }
 
-export function EventCard({ game, vehicle, spec, strip }: { game: GameState; vehicle: Vehicle; spec: RaceSpec; strip: boolean }) {
+export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameState; vehicle: Vehicle; spec: RaceSpec; strip: boolean }) {
   const dispatch = useGame((s) => s.dispatch);
+  const [mode, setMode] = useState<"race" | "regularity">("race");
+  const reference = game.era?.discipline === "rally" && cardFor(game, entry.venueId, entry.event, vehicle.vehicleId);
+  const spec: RaceSpec = mode === "regularity" && reference ? { ...entry, regularity: true } : entry;
   const def = getVenue(spec.venueId).events[spec.event];
   const status = eventStatus(game, spec);
   const dyno = (game.team.upgrades.dyno ?? 0) > 0;
@@ -84,7 +89,7 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
         <div>
           <dt>Win</dt>
           <dd className="num">
-            {num(Math.round(def.prize * factor))} Scrap Bucks · {def.rep} Rep
+            {num(spec.regularity ? 0 : Math.round(def.prize * factor))} Scrap Bucks · {def.rep} Rep
           </dd>
         </div>
         <div>
@@ -103,6 +108,13 @@ export function EventCard({ game, vehicle, spec, strip }: { game: GameState; veh
       {note && <p className="why event-purse">{note}</p>}
       <p className="event-stakes muted">{stakes(game, spec.venueId, spec.event, bracket)}</p>
       {stages && <p className="small">{stages.map(capitalize).join(" → ")}</p>}
+      {reference && <details>
+        <summary>Class timecard · {(totalTime(reference.splitsMs) / 1000).toFixed(1)}s</summary>
+        <p>{reference.carName}, Season {reference.season}. Match each split within 8% to qualify by time. A regularity entry gives up the cash purse.</p>
+        <p className="num">{reference.splitsMs.map((ms) => `${(ms / 1000).toFixed(1)}s`).join(" · ")}</p>
+        {spec.event === "feature" && <p>A stamped Feature earns half its usual Legacy Points and can open the next venue. A County Forest certificate qualifies for a reset.</p>}
+        <label><input type="checkbox" checked={!!spec.regularity} disabled={status.kind !== "ready"} onChange={(e) => setMode(e.target.checked ? "regularity" : "race")} /> Enter for regularity</label>
+      </details>}
       {showYellow && <YellowLine game={game} event={spec.event} />}
       <div className="event-action">
         {status.kind === "ready" && (

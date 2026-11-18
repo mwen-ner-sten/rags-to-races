@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { CLUB_CHARTERS, clubEntryBlocker, clubEntryPrice, clubEntryStatus, clubGate, clubScore, ticketedGrant, type ClubAdmission, type ClubSeason } from "@/core/club";
+import { CLUB_COURSES } from "@/core/clubTrack";
 import { venueName } from "@/core/content/events";
+import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
 import { SCRAP_LAYER } from "@/core/layers";
+import { dnfChance, effectiveScore, winChance } from "@/core/race";
+import { rallyRoute } from "@/core/rally";
 import type { GameState, RaceCall } from "@/core/types";
-import { capitalize, ordinal } from "../format";
+import { capitalize, ordinal, pct } from "../format";
 import { useGame } from "../store";
 import { ResetPlanner } from "./ResetPlanner";
 
@@ -19,10 +23,14 @@ function MeetingEntry({ game, season }: { game: GameState; season: ClubSeason })
   const available = game.run.vehicles.filter(({ vehicleId }) => vehicleId === stop.vehicleId);
   const vehicle = available.find(({ uid }) => uid === vehicleUid) ?? available[0];
   const status = clubEntryStatus(game);
+  const course = season.course ? CLUB_COURSES[season.course] : undefined;
+  const stages = game.era?.discipline === "rally" ? rallyRoute(stop.venueId, stop.event, course?.stages) : null;
   const issue = vehicle ? clubEntryBlocker(game, vehicle.uid, admission, call) : `Build a ${getVehicle(stop.vehicleId).name} to enter.`;
   return (
     <section className="section" aria-labelledby="club-entry-heading">
       <h3 id="club-entry-heading">Next meeting · {venueName(stop.venueId, game.era?.discipline ?? "dirt")} {capitalize(stop.event)}</h3>
+      {course && <p>{course.name}. {course.brief}</p>}
+      {stages && <p>Stage surfaces · {stages.map(capitalize).join(" · ")}</p>}
       {status ? <p role="status">{status === "racing" ? "On track." : "Signed up. Waiting for its turn in the race queue."}</p> : <>
         <label className="inline" htmlFor="club-entrant">Club entry
           <select id="club-entrant" value={vehicle?.uid ?? ""} onChange={(event) => setVehicle(event.target.value)}>
@@ -32,10 +40,11 @@ function MeetingEntry({ game, season }: { game: GameState; season: ClubSeason })
         </label>
         <label className="inline" htmlFor="club-admission">Admission
           <select id="club-admission" value={admission} onChange={(event) => setAdmission(event.target.value as ClubAdmission)}>
-            <option value="ticketed">Ticketed gates · {clubEntryPrice(stop, "ticketed")} Scrap Bucks</option>
-            <option value="public">Free gates · {clubEntryPrice(stop, "public")} Scrap Bucks</option>
+            <option value="ticketed">Ticketed gates · {clubEntryPrice(stop, "ticketed", season.course)} Scrap Bucks</option>
+            <option value="public">Free gates · {clubEntryPrice(stop, "public", season.course)} Scrap Bucks</option>
           </select>
         </label>
+        {vehicle && <p className="muted">Estimated pace {effectiveScore(game, vehicle, stop.venueId, call, undefined, stop.event, season.course).toFixed(1)} · {pct(winChance(game, vehicle, stop.venueId, stop.event, call, undefined, undefined, season.course))} win odds · {pct(dnfChance(game, vehicle, stop.venueId, stop.event, call, undefined, season.course))} DNF risk</p>}
         <p>{admission === "public" ? "A finish at free gates earns 2 Rep and counts toward the club’s public requirement." : `A ticketed podium earns ${ticketedGrant(stop)} extra Scrap Bucks.`}</p>
         <label className="inline" htmlFor="club-call">Race pace
           <select id="club-call" value={call} onChange={(event) => setCall(event.target.value as RaceCall)}>
@@ -58,6 +67,7 @@ export function ClubPanel() {
   const season = game.club?.active;
   const report = season && clubScore(season);
   const definition = season && CLUB_CHARTERS[season.charter];
+  const course = season?.course ? CLUB_COURSES[season.course] : undefined;
   const gate = SCRAP_LAYER.gate(game);
   return (
     <div className="panel">
@@ -71,16 +81,20 @@ export function ClubPanel() {
             <section className="section" aria-labelledby="club-calendar-heading">
               <h3 id="club-calendar-heading">{definition.name}</h3>
               <p>{report.points}/{definition.points} points · {report.finishes}/{definition.finishes} finishes · {report.publicFinishes}/{definition.publicFinishes} free-gate finishes</p>
+              {course && <p>{course.name} · {report.coursePodiums}/{course.podiums} {course.proofCall === "push" ? "Push" : "Nurse"} podiums</p>}
               <ol className="plain">{definition.stops.map((stop, index) => {
                 const finish = season.rounds[index];
                 return <li key={`${stop.venueId}-${stop.event}`}>
                   <strong>{venueName(stop.venueId, game.era?.discipline ?? "dirt")} {capitalize(stop.event)}</strong> · {getVehicle(stop.vehicleId).name}
-                  {finish && <p>{finish.vehicle} · {finish.dnf ? "Did not finish" : ordinal(finish.position)} · {finish.admission === "public" ? "Free gates" : "Ticketed"}</p>}
+                  {finish && <p>{finish.vehicle} · {finish.dnf ? "Did not finish" : ordinal(finish.position)} · {finish.admission === "public" ? "Free gates" : "Ticketed"}{finish.call && ` · ${capitalize(finish.call)}`}</p>}
                 </li>;
               })}</ol>
               {report.complete && <p role="status">{report.certified
                 ? `Certified. The board paid ${definition.grant} Scrap Bucks and ${definition.rep} Rep into this Season.`
                 : "The calendar finished short of its targets. Your results will go into the club archive when the Season ends."}</p>}
+              {report.complete && course && <p>{report.trackCertified
+                ? `Track certified. ${getPart(course.loanPart).name} can be borrowed in future Club seasons.`
+                : `Track license pending. Certify the club with ${course.podiums} ${course.proofCall === "push" ? "Push" : "Nurse"} podiums.`}</p>}
             </section>
             {!report.complete && <MeetingEntry key={`${season.season}-${season.rounds.length}`} game={game} season={season} />}
           </>}
@@ -95,7 +109,7 @@ export function ClubPanel() {
       {!!game.club?.history.length && <section className="section" aria-labelledby="club-history-heading">
         <h3 id="club-history-heading">Club history</h3>
         <ul className="plain">{game.club.history.map((past) => (
-          <li key={past.season}>Season {past.season} · {CLUB_CHARTERS[past.charter].name} · {capitalize(past.status)} · {clubScore(past).points} points</li>
+          <li key={past.season}>Season {past.season} · {CLUB_CHARTERS[past.charter].name} · {capitalize(past.status)} · {clubScore(past).points} points{past.course && ` · ${CLUB_COURSES[past.course].name}${clubScore(past).trackCertified ? " certified" : ""}`}</li>
         ))}</ul>
       </section>}
     </div>

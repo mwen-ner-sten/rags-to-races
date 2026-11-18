@@ -22,10 +22,18 @@ test("a Rally team can inspect the stages and replay its timed run on the forest
   await expect(page.getByText(/2 timed stages/).first()).toBeVisible();
   await page.getByRole("button", { name: "Read pace notes" }).click();
   await expect(page.getByRole("button", { name: "Read pace notes" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByText(/Class timecard/).first().click();
+  await page.getByRole("checkbox", { name: "Enter for regularity" }).first().check();
+  await expect(page.getByRole("checkbox", { name: "Enter for regularity" }).first()).toBeChecked();
   await page.getByRole("button", { name: "Watch", exact: true }).first().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("img", { name: /Orchard Test/ })).toBeVisible();
   await expect.poll(() => dialog.locator(".rally-stage img").evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^Notebook/ }).click();
+  await page.getByRole("tab", { name: "Timecards" }).click();
+  await page.getByText(/Sprint · Push Mower/).click();
+  await expect(page.getByText(/Stage 2 · .*s/)).toBeVisible();
 });
 
 test("two reset routes can be compared in the Notebook", async ({ page }) => {

@@ -106,4 +106,32 @@ describe("mower retirement", () => {
     expect(decodeGameState(next)).toBeTruthy();
     expect(decodeGameState({ ...next, run: { ...next.run, vehicles: state.run.vehicles } })).toBeNull();
   });
+
+  it("allows a Dirt-stage Riding Mower to be exchanged and rebuilt without resetting venue progress", () => {
+    let state = createGame("retirement-dirt");
+    state.run.cash = 80;
+    state.run.rep = 60;
+    state.run.materials.metal = 4;
+    state.run.learned.push("blueprint:riding_mower");
+    state.run.inventory.push(piece("engine", "engine_lawn", 4), piece("wheel", "wheel_basic", 4), piece("frame", "frame_mower", 4), piece("spare-frame", "frame_wagon", 4));
+    state = finish(state, { kind: "assemble", vehicleId: "riding_mower", name: "Dirt Mower", partUids: { engine: "engine", wheel: "wheel", frame: "frame" } });
+    state = must(state, { type: "openPlace", knowhowId: "place:dirt" });
+    state = must(state, { type: "openPlace", knowhowId: "place:junkyard" });
+    const first = state.run.vehicles[0];
+    state = finish(state, { kind: "race", vehicleUid: first.uid, venueId: "dirt", event: "sprint", call: "nurse" });
+    expect(state.run.vehicles[0].history.dnfs).toBe(0);
+    const events = state.run.ladder.dirt;
+    state = must(state, { type: "retireVehicle", vehicleUid: first.uid, move: { kind: "exchange" } });
+    const junkyard: JobSpec = { kind: "haul", placeId: "junkyard" };
+    expect(jobBlocker(state, junkyard)).toContain("Needs a Riding Mower");
+    expect(state.run.habitSlots).toHaveLength(1);
+    const engine = state.run.inventory.find((part) => part.partId === "engine_tiller")!;
+    const wheel = state.run.inventory.find((part) => part.partId === "wheel_knobby")!;
+    state = finish(state, { kind: "assemble", vehicleId: "riding_mower", name: "Dirt Replacement", partUids: { engine: engine.uid, wheel: wheel.uid, frame: "spare-frame" } });
+    expect(jobBlocker(state, junkyard)).toBeNull();
+    expect(state.run.habitSlots).toHaveLength(2);
+    expect(state.run.ladder.dirt).toEqual(events);
+    expect(state.meta.seasonsPlayed).toBe(0);
+    expect(retiredVehicle(state, first.uid)?.history.races).toBe(1);
+  });
 });

@@ -2,12 +2,15 @@ import { vehicleStats } from "./garage";
 import { rand, randNormal } from "./rng";
 import type { EventKind, GameState, JobSpec, RaceBeat, Vehicle } from "./types";
 import type { Opponent } from "./race";
+import { totalTime, type RallyCard } from "./timecards";
+import type { CourseSurface } from "./clubTrack";
 
 const SURFACES = ["fast lane", "switchbacks", "loose gravel", "broken road"] as const;
 type Surface = typeof SURFACES[number];
 export const STAGE_COUNT = { sprint: 2, heat: 3, feature: 4 } as const;
 const FIRST: Record<string, number> = { backyard: 0, dirt: 2, county_fair: 1, regional: 3, state: 2 };
-export function rallyRoute(venueId: string, event: EventKind): Surface[] {
+export function rallyRoute(venueId: string, event: EventKind, stages?: readonly CourseSurface[]): Surface[] {
+  if (stages) return stages.slice(0, STAGE_COUNT[event]);
   return Array.from({ length: STAGE_COUNT[event] }, (_, index) => SURFACES[((FIRST[venueId] ?? 0) + index) % SURFACES.length]);
 }
 type RallySpec = Extract<JobSpec, { kind: "race" }>;
@@ -21,16 +24,16 @@ function surfaceModifiers(vehicle: Vehicle): Record<Surface, number> {
   return { "fast lane": factor(power), switchbacks: factor(handling), "loose gravel": factor(traction * 3), "broken road": factor(reliability) };
 }
 
-export function rallyExpectedPace(vehicle: Vehicle, venueId: string, event: EventKind, call: RallySpec["call2"]): number {
-  const route = rallyRoute(venueId, event);
+export function rallyExpectedPace(vehicle: Vehicle, venueId: string, event: EventKind, call: RallySpec["call2"], stages?: readonly CourseSurface[]): number {
+  const route = rallyRoute(venueId, event, stages);
   const modifiers = surfaceModifiers(vehicle);
   const time = route.reduce((sum, surface) => sum + 1 / modifiers[surface], 0);
   return (route.length / time) * (call === "recce" ? 1.015 : call === "cut" ? 1.027 : 1);
 }
 
 /** Integrate over the player's shared finishing time, then compare each independent rival clock. */
-export function rallyWinForecast(car: Vehicle, venue: string, event: EventKind, call: RallySpec["call2"], pace: number, field: number, opponents: readonly Opponent[], cdf: (n: number) => number): number {
-  const route = rallyRoute(venue, event);
+export function rallyWinForecast(car: Vehicle, venue: string, event: EventKind, call: RallySpec["call2"], pace: number, field: number, opponents: readonly Opponent[], cdf: (n: number) => number, stages?: readonly CourseSurface[]): number {
+  const route = rallyRoute(venue, event, stages);
   const factors = surfaceModifiers(car);
   const cut = call === "cut";
   const speed = call === "recce" ? 1.015 : cut ? 1.06 : 1;
@@ -57,13 +60,15 @@ export function rallyWinForecast(car: Vehicle, venue: string, event: EventKind, 
 }
 
 /** Every competitor has a separate clock. Classification uses the sum of the actual timed sections. */
-export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf: boolean, base: number, field: number, rivals: readonly Opponent[], durationMs: number) {
-  const route = rallyRoute(spec.venueId, spec.event);
+export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf: boolean, base: number, field: number, rivals: readonly Opponent[], durationMs: number, stages?: readonly CourseSurface[], reference?: RallyCard) {
+  const route = rallyRoute(spec.venueId, spec.event, stages);
   const modifiers = surfaceModifiers(car);
   const runners = rivals.map((driver) => ({ driver, time: 0, out: driver.out > 0 && rand(state) < driver.out }));
   const beats: RaceBeat[] = [{ at: 0, position: 1, kind: "start", text: "The marshal starts your clock. The other cars leave at intervals." }];
   const failedStage = dnf ? Math.floor(rand(state) * route.length) : -1;
   let time = 0;
+  const splitsMs: number[] = [];
+  let previousTime = 0;
   const fieldSize = runners.length + 1;
   for (const [index, surface] of route.entries()) {
     const nominal = 50 + index * 7;
@@ -83,17 +88,21 @@ export function rallySplits(state: GameState, spec: RallySpec, car: Vehicle, dnf
     const pace = base * modifiers[surface] * (notes ? 1.015 : cut ? 1.06 : 1) * (1 + (notes ? 0.035 : 0.085) * randNormal(state));
     const split = nominal * field / Math.max(0.1, pace) + penalty;
     time += split;
+    splitsMs.push(Math.max(1, Math.round(split * 1000)));
+    previousTime += (reference?.splitsMs[index] ?? 0) / 1000;
+    const delta = time - previousTime;
+    const ghost = reference ? ` ${Math.abs(delta).toFixed(1)}s ${delta > 0 ? "behind" : "ahead of"} ${reference.carName}’s card.` : "";
     const position = 1 + runners.filter((r) => !r.out && r.time < time).length;
-    beats.push({ at, position, kind: "hold", text: `Stage ${index + 1}, ${surface} · ${split.toFixed(1)}s${penalty ? " including a corner-cut penalty" : ""}. Overall P${position}.` });
+    beats.push({ at, position, kind: "hold", text: `Stage ${index + 1}, ${surface} · ${split.toFixed(1)}s${penalty ? " including a corner-cut penalty" : ""}. Overall P${position}.${ghost}` });
   }
   const finishers = runners.filter((r) => !r.out);
   const times = [...finishers.map((r) => r.time), ...(dnf ? [] : [time])].sort((a, b) => a - b);
   const position = dnf ? fieldSize : times.indexOf(time) + 1;
-  const reference = position === 1 ? times[1] : times[position - 2];
-  const margin = !dnf && reference ? (reference - time) / reference : 0;
+  const referenceTime = position === 1 ? times[1] : times[position - 2];
+  const margin = !dnf && referenceTime ? (referenceTime - time) / referenceTime : 0;
   if (!dnf) beats.push({ at: durationMs, kind: "finish", position, text: `Time control · ${time.toFixed(1)}s across ${route.length} stages. Finished P${position}.` });
   const rival = runners.find((r) => r.driver.rival);
-  return { beats, position, margin, fieldSize, laps: route.length, rivalFaced: !!rival, rivalOut: !!rival?.out,
+  return { beats, position, margin, fieldSize, laps: route.length, rallyClock: { splitsMs, ...(reference && { previousMs: totalTime(reference.splitsMs), previousCar: reference.carName }) }, rivalFaced: !!rival, rivalOut: !!rival?.out,
     rivalBeaten: !!rival && !dnf && (rival.out || time < rival.time),
     places: runners.map((r) => ({ position: r.out ? fieldSize : times.indexOf(r.time) + 1, dnf: r.out })),
     winningGap: times.length >= 2 ? (times[1] - times[0]) / times[1] : null };

@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 import { useMemo, useState } from "react";
 import { DARES, PERK_BY_ID, SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
@@ -7,7 +8,9 @@ import { APPRENTICE_JOBS, HANDOVER_COST, crewHandoverOffers, handoverId, handove
 import { BUILDER_LOADOUTS, LAYERS, SCRAP_LAYER, TEAM_LAYER, nextSeasonPerkSlots, nextTeamPerkSlots, nextSeasonTuneUpPoints, planBuilderLoadout, planPurchases, scrapAward, teamAward, teamResetLegacyBudget, type TeamChoices } from "@/core/layers";
 import { ownerTourActive } from "@/core/ownership";
 import { CLUB_CHARTERS, clubGate, clubScore, type ClubCharter } from "@/core/club";
-import type { DisciplineId, GameState, SkillId } from "@/core/types";
+import type { ClubCourseId } from "@/core/clubTrack";
+import { ClubTrackOptions } from "./ClubTrackOptions";
+import type { DisciplineId, GameState, SeasonChallengeId, SkillId } from "@/core/types";
 import { num, pct } from "../format";
 import { useGame } from "../store";
 import { ResetDisciplines } from "./ResetDisciplines";
@@ -26,16 +29,20 @@ interface Props {
   layer: "scrap" | "team";
   onDone: () => void;
   initialClub?: ClubCharter;
+  initialObjective?: SeasonChallengeId;
+  initialDiscipline?: DisciplineId;
 }
 
 const clubCharters = Object.keys(CLUB_CHARTERS) as ClubCharter[];
 
-export function ResetPlanner({ layer, onDone, initialClub }: Props) {
+export function ResetPlanner({ layer, onDone, initialClub, initialObjective, initialDiscipline }: Props) {
   const game = useGame((s) => s.game) as GameState;
   const dispatch = useGame((s) => s.dispatch);
   const isTeam = layer === "team";
   const [retainedPartUid, setRetainedPartUid] = useState("");
   const [club, setClub] = useState<ClubCharter | undefined>(initialClub);
+  const [clubCourse, setClubCourse] = useState<ClubCourseId | undefined>();
+  const [clubLoan, setClubLoan] = useState<ClubCourseId | undefined>();
   const award = isTeam ? teamAward(game) : scrapAward(game);
   const lpAvailable = isTeam ? teamResetLegacyBudget(game) : game.scrap.lp + award;
   const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game, !!retainedPartUid);
@@ -49,9 +56,9 @@ export function ResetPlanner({ layer, onDone, initialClub }: Props) {
     const total = prev.haul + prev.wrench + prev.build + prev.race;
     return total <= points ? { ...prev } : { haul: 0, wrench: 0, build: 0, race: 0 };
   });
-  const [dare, setDare] = useState<string | null>(null);
+  const [dare, setDare] = useState<string | null>(initialObjective ?? null);
   const [hardships, setHardships] = useState<string[]>([]);
-  const [discipline, setDiscipline] = useState<DisciplineId>(game.era?.discipline === "dirt" ? "drag" : "dirt");
+  const [discipline, setDiscipline] = useState<DisciplineId>(initialDiscipline ?? (game.era?.discipline === "dirt" ? "drag" : "dirt"));
   const [teamName, setTeamName] = useState(game.era?.teamName ?? "");
   const [colorA, setColorA] = useState(game.era?.colors[0] ?? "#c8372d");
   const [colorB, setColorB] = useState(game.era?.colors[1] ?? "#f2f2ee");
@@ -68,7 +75,10 @@ export function ResetPlanner({ layer, onDone, initialClub }: Props) {
   const gate = LAYERS[layer].gate(game);
   const nextDiscipline = isTeam ? discipline : game.era?.discipline ?? "dirt";
   const conflict = seasonObjectiveConflict(hardships, dare, nextDiscipline);
-  const choices = { buy, perks: equipped, tuneUp: tune, dare, hardships, retainedPartUid: isTeam ? undefined : retainedPartUid || undefined, club: isTeam ? undefined : club };
+  const choices = {
+    buy, perks: equipped, tuneUp: tune, dare, hardships, retainedPartUid: isTeam ? undefined : retainedPartUid || undefined,
+    club: isTeam ? undefined : club, clubCourse: !isTeam && club ? clubCourse : undefined, clubLoan: !isTeam && club ? clubLoan : undefined,
+  };
   const handovers = isTeam ? crewHandoverOffers(game, discipline) : [];
   const handover = handovers.find((offer) => handoverId(offer) === handoverKey);
   const teamChoices = { ...choices, discipline, organization, handover, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices;
@@ -116,6 +126,7 @@ export function ResetPlanner({ layer, onDone, initialClub }: Props) {
           <span><strong>{CLUB_CHARTERS[id].name}</strong>. {CLUB_CHARTERS[id].opening}</span>
         </label>)}
       </fieldset>}
+      {!isTeam && club && <ClubTrackOptions game={game} course={clubCourse} loan={clubLoan} onCourse={setClubCourse} onLoan={setClubLoan} />}
 
       <fieldset>
         <legend>Builder loadouts</legend>
@@ -194,7 +205,7 @@ export function ResetPlanner({ layer, onDone, initialClub }: Props) {
           const unavailable = seasonObjectiveConflict(hardships, id, nextDiscipline);
           return (
             <label key={id} className="check">
-              <input type="radio" name="dare" checked={dare === id} disabled={dare !== id && !!unavailable} onChange={() => setDare(id)} />
+              <input id={`reset-objective-${id}`} type="radio" name="dare" checked={dare === id} disabled={dare !== id && !!unavailable} onChange={() => setDare(id)} />
               <span>
                 <strong>{challenge.name}</strong>. {challenge.text} {challenge.mastery} increases by 5% per completion, up to 15%.
                 {done > 0 && <span className="muted"> Completed {done}× · +{pct(challengeMastery(done))}.</span>}
@@ -223,20 +234,23 @@ export function ResetPlanner({ layer, onDone, initialClub }: Props) {
             <input type="color" value={colorB} onChange={(e) => setColorB(e.target.value)} aria-label="Second colour" />
           </label>
           <ResetDisciplines game={game} chosen={discipline} onChoose={setDiscipline} />
-          <fieldset>
+          <fieldset id="team-organization">
             <legend>Team organization</legend>
+            <div className="organization-options">
             {TEAM_ORGANIZATION_IDS.map((id) => (
-              <label className="check" key={id}>
-                <input type="radio" name="team-organization" checked={organization === id} onChange={() => setOrganization(id)} />
-                <span><strong>{TEAM_ORGANIZATIONS[id].name}</strong>. {TEAM_ORGANIZATIONS[id].description}</span>
+              <label className="organization-choice" key={id}>
+                <Image src={`/sprites/organizations/${id}.webp`} width={880} height={495} sizes="(max-width: 600px) 90vw, 340px" alt="" />
+                <span><input type="radio" name="team-organization" checked={organization === id} onChange={() => setOrganization(id)} /> <strong>{TEAM_ORGANIZATIONS[id].name}</strong></span>
+                <span>{TEAM_ORGANIZATIONS[id].description}</span>
               </label>
             ))}
+            </div>
           </fieldset>
           {handovers.length > 0 && (
             <>
               <label className="inline">
                 <span>Crew handover</span>
-                <select value={handover ? handoverKey : ""} onChange={(event) => setHandoverKey(event.target.value)}>
+                <select id="team-handover" value={handover ? handoverKey : ""} onChange={(event) => setHandoverKey(event.target.value)}>
                   <option value="">No handover</option>
                   {handovers.map((offer) => (
                     <option key={handoverId(offer)} value={handoverId(offer)}>{handoverName(offer, discipline)}</option>

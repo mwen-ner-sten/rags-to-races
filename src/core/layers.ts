@@ -18,6 +18,8 @@ import { allDaresCompleted, perkUnlocked, refreshPerkUnlocks } from "./perks";
 import { forfeitOwnerTour } from "./ownership";
 import { disciplineBlocker } from "./content/events";
 import { archiveClubSeason, clubChoicesBlocker, startClubSeason, type ClubCharter } from "./club";
+import type { ClubCourseId } from "./clubTrack";
+import { archiveWorks, worksPlanBlocker, type WorksFamily } from "./manufacturer";
 import { nextUid } from "./rng";
 import { hasPerk } from "./rules";
 import { salvageCarryBlocker, salvageCarryCandidates } from "./salvageCarry";
@@ -36,6 +38,9 @@ export interface ScrapChoices {
   hardships: string[];
   retainedPartUid?: string;
   club?: ClubCharter;
+  clubCourse?: ClubCourseId;
+  clubLoan?: ClubCourseId;
+  worksPlan?: WorksFamily;
 }
 
 export interface TeamChoices extends ScrapChoices {
@@ -71,7 +76,10 @@ export function scrapAward(state: GameState): number {
   let total = 0;
   for (const venue of VENUES) {
     const at = state.run.featureWins[venue.id];
-    if (at === undefined) continue;
+    if (at === undefined) {
+      if (state.run.regularityFeatures?.[venue.id] !== undefined) total += Math.ceil(venue.lp / 2);
+      continue;
+    }
     let lp = venue.lp;
     const best = state.meta.records[venue.id];
     if (best !== undefined && at < best) lp *= 1.25;
@@ -191,6 +199,9 @@ function toConfig(choices: ScrapChoices): RunConfig {
     hardships: [...choices.hardships],
     ...(choices.retainedPartUid ? { salvageSlot: true } : {}),
     ...(choices.club && { club: choices.club }),
+    ...(choices.clubCourse && { clubCourse: choices.clubCourse }),
+    ...(choices.clubLoan && { clubLoan: choices.clubLoan }),
+    ...(choices.worksPlan && { worksPlan: choices.worksPlan }),
   };
 }
 
@@ -198,11 +209,11 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
   id: "scrap",
   name: "Scrap Reset",
   clears: ["run", "config"],
-  gate: (s) => (s.run.featureWins.county_fair !== undefined ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature" }),
+  gate: (s) => ((s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature" }),
   award: scrapAward,
   validate: (s, c) => {
-    const clubBlocked = clubChoicesBlocker(s, c.club);
-    if (clubBlocked) return clubBlocked;
+    const branchBlocked = clubChoicesBlocker(s, c.club, c.clubCourse, c.clubLoan) ?? worksPlanBlocker(s, c.worksPlan);
+    if (branchBlocked) return branchBlocked;
     if (c.retainedPartUid) {
       const blocked = salvageCarryBlocker(s, c.retainedPartUid, c.hardships);
       if (blocked) return blocked;
@@ -229,13 +240,14 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
   clears: ["run", "config", "scrap", "era"],
   gate: (s) => {
     if (!s.era) return s.meta.stateWonEver ? { ok: true, reason: null } : { ok: false, reason: "Win the State Invitational Feature" };
-    return s.run.featureWins.county_fair !== undefined ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature this Season" };
+    return (s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: "Win the County Fair Feature this Season" };
   },
   award: teamAward,
   validate: (s, c) => {
     if (c.organization !== undefined && !Object.hasOwn(TEAM_ORGANIZATIONS, c.organization)) return "Pick a team organization";
     if (c.retainedPartUid) return "Salvage carryover is only available on Scrap Reset";
-    if (c.club !== undefined) return "Found a club on Scrap Reset to keep your team.";
+    if (c.club !== undefined || c.clubCourse !== undefined || c.clubLoan !== undefined) return "Found a club on Scrap Reset to keep your team.";
+    if (c.worksPlan !== undefined) return "Select your works drawing on Scrap Reset.";
     if (c.discipline !== "dirt" && c.discipline !== "drag" && c.discipline !== "rally") return "Pick a discipline";
     const locked = disciplineBlocker(s, c.discipline);
     if (locked) return locked;
@@ -389,11 +401,13 @@ export function performReset(state: GameState, layerId: LayerId, choices: ScrapC
     teamName: state.era?.teamName ?? null, discipline: state.era?.discipline ?? "dirt",
     organization: state.era ? state.era.organization ?? "independent" : undefined,
     setup: before.config, durationMs: state.run.seasonMs, featureWins: { ...state.run.featureWins },
+    regularityFeatures: before.run.regularityFeatures,
     builds: state.run.vehicles.length, hauls: state.run.stats.hauls,
   });
   if (log.length > 100) log.shift();
   forfeitOwnerTour(state);
   archiveClubSeason(state);
+  archiveWorks(state);
   commitSeason(state);
   for (const scope of layer.clears) clearScope(state, scope);
   layer.apply(state, award, choices, before);

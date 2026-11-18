@@ -2,12 +2,14 @@
 import json
 import math
 import random
+import sys
 from pathlib import Path
 
 import bpy
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "public/sprites/circuits/forest-stage.webp"
+variant = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else "forest"
+OUT = ROOT / f"public/sprites/circuits/{variant}-stage.webp"
 random.seed(708)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -23,6 +25,22 @@ def material(name, rgb):
     shader = mat.node_tree.nodes.get("Principled BSDF")
     shader.inputs["Base Color"].default_value = (*rgb, 1)
     shader.inputs["Roughness"].default_value = .85
+    return mat
+
+
+def textured(name, rgb, scale, strength):
+    mat = material(name, rgb)
+    tree = mat.node_tree
+    noise = tree.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = scale
+    noise.inputs["Detail"].default_value = 5
+    geom = tree.nodes.new("ShaderNodeNewGeometry")
+    tree.links.new(geom.outputs["Position"], noise.inputs["Vector"])
+    ramp = tree.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (*[n * (1-strength) for n in rgb], 1)
+    ramp.color_ramp.elements[1].color = (*[min(1, n * (1+strength)) for n in rgb], 1)
+    tree.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    tree.links.new(ramp.outputs["Color"], tree.nodes.get("Principled BSDF").inputs["Base Color"])
     return mat
 
 
@@ -65,10 +83,11 @@ def distance(x, y, path):
     return nearest
 
 
-road = [position(*p) for p in json.loads((ROOT / "src/game/rally-course.json").read_text())]
-grass = material("Field", (0.18, 0.25, 0.093))
+road = [position(*p) for p in json.loads((ROOT / "src/game/rally-course.json").read_text())[variant]]
+grass = textured("Field", (0.18, 0.25, 0.093), 1.3, .72)
 earth = material("Road verge", (0.20, 0.125, 0.063))
-gravel = material("Gravel", (0.60, 0.44, 0.26))
+gravel = textured("Gravel", (0.60, 0.44, 0.26), 28, .55)
+asphalt = textured("Old tarmac", (.24,.24,.20), 21, .5)
 crop = material("Harvested stubble", (0.48, 0.39, 0.13))
 water = material("Quarry stream", (0.063, 0.23, 0.25))
 stone = material("Granite", (0.25, 0.28, 0.24))
@@ -81,10 +100,23 @@ for x, y, width, height in [(-10, 2, 5.6, 4), (8, -3.6, 6, 3.1)]:
     for i in range(14):
         box("Furrow", x, y - height / 2 + i * height / 14, .025, (width, .024, .025), earth)
 stream = [position(x, y) for x, y in [(46,-5),(49,8),(55,16),(59,29),(60,38),(62,46),(66,60),(63,75),(59,89),(59,108)]]
-ribbon("Stream bank", stream, .56, .035, earth)
-ribbon("Stream", stream, .40, .04, water)
+if variant == "forest":
+    ribbon("Stream bank", stream, .56, .035, earth)
+    ribbon("Stream", stream, .40, .04, water)
 ribbon("Gravel shoulder", road, .63, .05, earth)
-ribbon("Driving line", road, .46, .055, gravel)
+ribbon("Driving line", road, .46, .065, asphalt if variant == "fast_straight" else gravel)
+for i, (x, y) in enumerate(road[1:-1], start=1):
+    dx, dy = road[i+1][0] - x, road[i+1][1] - y
+    angle = math.atan2(dy, dx)
+    for side in (-1, 1):
+        ox, oy = -math.sin(angle) * .39 * side, math.cos(angle) * .39 * side
+        if variant == "tight_infield":
+            bpy.ops.mesh.primitive_torus_add(location=(x+ox,y+oy,.10), major_segments=12, minor_segments=5, major_radius=.105, minor_radius=.045)
+            bpy.context.object.data.materials.append(earth if i % 3 else cream)
+        elif variant == "fast_straight":
+            box("Edge line",x+ox*.49,y+oy*.49,.074,(min(.8,math.hypot(dx,dy)*.50),.025,.012),cream,angle)
+        elif i % 4 == 0:
+            box("Guide post",x+ox,y+oy,.11,(.04,.04,.21),cream)
 for x, y, angle in [(-10, -.75, .22), (-8.7, -.65, .22), (8.2, -1.8, -.32)]:
     box("Shed", x, y, .23, (1.3, .70, .45), cream, angle)
     box("Roof", x, y, .49, (1.48, .84, .10), tin, angle)
@@ -94,10 +126,12 @@ for _ in range(370):
         continue
     radius = random.uniform(.13, .29)
     height = radius * random.uniform(2.5, 4.4)
-    bpy.ops.mesh.primitive_cone_add(vertices=7, radius1=radius, depth=height, location=(x, y, height / 2 + .035))
+    bpy.ops.mesh.primitive_cone_add(vertices=9, radius1=radius, depth=height, location=(x, y, height / 2 + .035))
     obj = bpy.context.object
     obj.data.materials.append(random.choice(trees))
     obj.rotation_euler.z = random.uniform(0, math.tau)
+    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=radius*.73, depth=height*.68, location=(x + .02,y,height*.83))
+    bpy.context.object.data.materials.append(trees[1])
 for _ in range(75):
     x, y = random.uniform(-12, 12), random.uniform(-5, 5)
     if distance(x,y,road) > .6 and distance(x,y,stream) < .72:

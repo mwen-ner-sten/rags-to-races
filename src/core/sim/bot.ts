@@ -18,6 +18,7 @@ import { QUEUE_LIMIT, isBenchKind, jobBlocker } from "../jobs";
 import { canOpenPlace } from "../knowhowEngine";
 import { planPurchases, crewCap, nextSeasonPerkSlots, nextSeasonTuneUpPoints, LAYERS, type ScrapChoices, type TeamChoices } from "../layers";
 import { winChance } from "../race";
+import { raceNightBlocker } from "../raceNight";
 import { resolveFlags } from "../rules";
 import type { DisciplineId, EventKind, GameState, JobSpec, PartCategory, PartInstance, Vehicle } from "../types";
 
@@ -54,14 +55,22 @@ export class Bot {
   holdAt?: "team" | "scrap";
   heldReset?: Extract<Action, { type: "reset" }>;
 
-  constructor(state: GameState, public policy: RunPolicy = "sprint", public discipline: DisciplineId = "dirt") {
+  constructor(state: GameState, public policy: RunPolicy = "sprint", public discipline: DisciplineId = "dirt", public raceNights = false) {
     this.state = state;
   }
 
-  private act(action: Action): boolean {
+  protected act(action: Action): boolean {
     const result = apply(this.state, action);
     if (result.error) return false;
     this.state = result.state;
+    return true;
+  }
+
+  protected shouldStop(): boolean {
+    return !!this.heldReset;
+  }
+
+  protected queueOpenRaces(): boolean {
     return true;
   }
 
@@ -85,12 +94,12 @@ export class Bot {
 
   /** Plays until `untilMs` of total time, following the schedule. */
   run(schedule: Schedule, untilMs: number, maxSeasons = 50): void {
-    while (!this.heldReset && this.totalMs < untilMs && this.seasonLog.length < maxSeasons) {
+    while (!this.shouldStop() && this.totalMs < untilMs && this.seasonLog.length < maxSeasons) {
       const dayMs = this.totalMs % (24 * HOUR);
       const dayStart = this.totalMs - dayMs;
       const nextVisit = schedule.visits.map((h) => dayStart + h * HOUR).find((t) => t >= this.totalMs) ?? dayStart + 24 * HOUR + schedule.visits[0] * HOUR;
       this.prepareToLeave();
-      if (this.heldReset) break;
+      if (this.shouldStop()) break;
       this.advance(nextVisit - this.totalMs, true);
       this.visit(schedule.visitMinutes * MIN);
     }
@@ -101,7 +110,7 @@ export class Bot {
     let guard = 0;
     while (this.totalMs < end && guard++ < 2000) {
       this.decide(true);
-      if (this.heldReset) return;
+      if (this.shouldStop()) return;
       const hands = this.state.run.jobs.find((j) => j.lane === "hands");
       const step = Math.max(1000, Math.min(end - this.totalMs, hands ? hands.remaining + 1 : MIN));
       this.advance(step, false);
@@ -115,7 +124,7 @@ export class Bot {
 
   // ───────────────────────────── decisions ─────────────────────────────
 
-  private decide(present: boolean): void {
+  protected decide(present: boolean): void {
     this.maybeReset();
     if (this.heldReset) return;
     this.buyMeta();
@@ -130,7 +139,7 @@ export class Bot {
     this.build();
     this.benchWork();
     this.setHabits();
-    this.race(present);
+    if (present || !this.planOvernightRace()) this.race(present);
     this.fillHands(present);
   }
 
@@ -272,7 +281,7 @@ export class Bot {
     if (s.run.cash - SHELL_PRICE > this.reserve()) this.act({ type: "buyShell" });
   }
 
-  private benchWork(): void {
+  protected benchWork(): void {
     const s = this.state;
     const benches = Math.floor(channel(s, "benches"));
     // Habit-lane jobs loop on their own; queued work takes the next free bench ahead of them.
@@ -395,13 +404,26 @@ export class Bot {
     return best;
   }
 
-  private race(present: boolean): void {
+  protected race(present: boolean): void {
     const s = this.state;
     if (!present && !s.run.habitsKnown.includes("race")) return;
     if (s.run.jobs.some((j) => j.lane === "hands") || s.run.queue.some((q) => q.kind === "race")) return;
     const pick = this.bestRace();
     if (!pick) return;
     this.enqueue({ kind: "race", vehicleUid: pick.vehicle.uid, venueId: pick.venueId, event: pick.event, call: pick.p > 0.6 ? "nurse" : "push" });
+  }
+
+  private planOvernightRace(): boolean {
+    const s = this.state;
+    if (!this.raceNights || s.era || s.run.featureWins.county_fair !== undefined) return false;
+    if (s.run.raceNight) return true;
+    const planned = this.bestRace(true, (uid, venue, event) => s.run.ladder[venue]?.at(-1) !== event
+      || s.run.featureWins[venue] !== undefined || !!raceNightBlocker(s, uid, venue, "push"));
+    const fallback = !planned && !s.run.habitsKnown.includes("race") && (s.run.rep < 20 || s.run.cash < 120)
+      ? this.bestRace(true, (uid, venue, event) => s.run.ladder[venue]?.at(-1) !== event || !!raceNightBlocker(s, uid, venue, "nurse")) : null;
+    const pick = planned ?? fallback;
+    if (!pick || pick.p < (fallback ? 0.65 : 0.15)) return false;
+    return this.act({ type: "raceNight", move: { type: "plan", vehicleUid: pick.vehicle.uid, venueId: pick.venueId, call: pick.p > 0.6 ? "nurse" : "push" } });
   }
 
   /** A part the next vehicle needs that you don't have and the counter can't sell yet. */
@@ -450,6 +472,7 @@ export class Bot {
 
   private fillHands(present: boolean): void {
     const s = this.state;
+    if (s.run.raceNight) return;
     if (s.run.jobs.some((j) => j.lane === "hands") && this.queueFree() <= (present ? 2 : 0)) return;
     const haul = this.haulSpec(!present);
     if (!haul) return;
@@ -459,7 +482,7 @@ export class Bot {
     }
     // Leaving: sign up for upcoming races (one per vehicle, leaving a slot for a haul),
     // then queue the longest useful trips.
-    while (this.queueFree() > 1) {
+    while (this.queueFree() > 1 && this.queueOpenRaces()) {
       const queued = this.state.run.queue;
       // One venue per vehicle; a vehicle can take the next rungs at the same venue (a whole race night).
       const pick = this.bestRace(true, (uid, venueId, event) => queued.some((q) => q.kind === "race" && ((q.vehicleUid === uid && q.venueId !== venueId) || (q.venueId === venueId && q.event === event))));
@@ -493,7 +516,7 @@ export class Bot {
     });
   }
 
-  private manageCrew(): void {
+  protected manageCrew(): void {
     const s = this.state;
     if (!s.era) return;
     while (s.era && this.state.era!.crew.length < crewCap(this.state) && this.state.run.candidates.length > 0) {
@@ -517,11 +540,11 @@ export class Bot {
     }
   }
 
-  private buyMeta(): void {
+  protected buyMeta(): void {
     for (const upgrade of TEAM_UPGRADES) this.act({ type: "buyTeamUpgrade", upgradeId: upgrade.id });
   }
 
-  private chooseScrap(slots: number, points: number, teamEra: boolean, lpAvailable: number): ScrapChoices {
+  protected chooseScrap(slots: number, points: number, teamEra: boolean, lpAvailable: number): ScrapChoices {
     const buy: string[] = [];
     const order = ["barn_find", "tow_hitch", "kid_brother", "night_owl", "shade_tree", "junkyard_eyes", "old_notebook", "tow_hitch", "second_bench", "borrowed_trailer", "hot_shoe", "local_hero", "coupon_book", "swap_meet", "underdog", "early_bird", "tow_hitch", "night_owl", "short_cut", "scavengers_map", "grudge_match"];
     let ranks: Record<string, number> = { ...this.state.meta.perks };
@@ -545,7 +568,7 @@ export class Bot {
     };
   }
 
-  private maybeReset(): void {
+  protected maybeReset(): void {
     const s = this.state;
     const seasonMs = s.run.seasonMs;
     const fairWon = s.run.featureWins.county_fair !== undefined;

@@ -1,6 +1,8 @@
 import { ownerReferencesValid, ownerSchema } from "./ownerSave";
 import { promoterSchema } from "./promoterSave";
-import { clubCharterSchema, clubReferencesValid, clubRoundSchema, clubSchema } from "./clubSave";
+import { rallyReferencesValid } from "@/core/timecards";
+import { clubCharterSchema, clubCourseSchema, clubReferencesValid, clubRoundSchema, clubSchema } from "./clubSave";
+import { manufacturerReferencesValid, manufacturerSchema, worksFamilySchema } from "./manufacturerSave";
 import { z } from "zod";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PART_BY_ID } from "@/core/content/parts";
@@ -13,6 +15,7 @@ import { VEHICLE_BY_ID } from "@/core/content/vehicles";
 import { DISCIPLINES, RIVAL_BY_ID, VENUE_BY_ID } from "@/core/content/events";
 import { upgradeSave } from "@/core/state";
 import { perkSlots } from "@/core/layers";
+import { RACE_NIGHT_STARTS } from "@/core/raceNight";
 import { isCarryableSalvage, salvageCarryUnlocked } from "@/core/salvageCarry";
 import type { GameState, JobSpec } from "@/core/types";
 
@@ -28,7 +31,7 @@ const category = z.enum(["engine", "wheel", "frame", "fuel", "electronics", "dri
 const materials = z.object({ metal: amount, rubber: amount, wiring: amount });
 const partialMaterials = materials.partial();
 const tuneUp = z.object({ haul: count, wrench: count, build: count, race: count });
-const runConfig = z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)), salvageSlot: z.literal(true).optional(), donor: z.object({ partId: known(PART_BY_ID), condition, origin: z.string() }).optional(), club: clubCharterSchema.optional() });
+const runConfig = z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)), salvageSlot: z.literal(true).optional(), donor: z.object({ partId: known(PART_BY_ID), condition, origin: z.string() }).optional(), club: clubCharterSchema.optional(), clubCourse: clubCourseSchema.optional(), clubLoan: clubCourseSchema.optional(), worksPlan: worksFamilySchema.optional() });
 const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), inherited: z.literal(true).optional() });
 const history = z.object({ races: count, wins: count, dnfs: count, bestFinish: count.positive().nullable() });
 const vehicle = z.object({
@@ -49,10 +52,12 @@ const jobSpec = z.discriminatedUnion("kind", [
   ...(["clean", "repair", "restore", "strip"] as const).map((kind) => z.object({ kind: z.literal(kind), partUid: id.optional() }).passthrough()),
   z.object({ kind: z.literal("study"), knowhowId: known(KNOWHOW_BY_ID) }).passthrough(),
   z.object({ kind: z.literal("assemble"), vehicleId: known(VEHICLE_BY_ID), partUids: z.record(id, id), name: z.string() }).passthrough(),
-  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), clubRound: clubRoundSchema.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft", "cut", "recce"]).optional() }).passthrough(),
+  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), regularity: z.literal(true).optional(), clubRound: clubRoundSchema.optional(), worksRound: id.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft", "cut", "recce"]).optional() }).passthrough(),
 ]);
 const beat = z.object({ at: amount, text: z.string(), position: count.positive(), kind: z.enum(["start", "pass", "passed", "hold", "wear", "rival", "last_lap", "dnf", "finish", "caution", "round"]).optional() });
 const raceFields = {
+  rallyClock: z.object({ regularity: z.object({ matched: count.max(4), required: count.min(2).max(4), passed: z.boolean() }).optional(), splitsMs: z.array(count.positive()).max(4), previousMs: count.positive().optional(), previousCar: z.string().optional() }).optional(),
+  course: clubCourseSchema.optional(),
   position: count.positive(), fieldSize: count.positive(), dnf: z.boolean(), margin: number,
   weakestSlot: id.nullable(), weakestPart: part.optional(), beats: z.array(beat),
   rivalOut: z.boolean().optional(), caution: z.boolean().optional(), rounds: count.positive().optional(),
@@ -94,12 +99,17 @@ const handover = z.discriminatedUnion("type", [
   }),
 ]);
 const meta = z.object({
+  rallyLicences: z.record(known(VENUE_BY_ID), count.positive()).optional(),
+  rallyCards: z.array(z.object({ venueId: known(VENUE_BY_ID), event, vehicleId: known(VEHICLE_BY_ID), course: clubCourseSchema.optional(),
+    carName: z.string(), season: count.positive(), splitsMs: z.array(count.positive()).min(2).max(4) })
+    .refine((card) => card.splitsMs.length === ({ sprint: 2, heat: 3, feature: 4 }[card.event]))).max(225).optional(),
   seasonLog: z.array(z.object({
     season: count.positive(), endedBy: z.enum(["scrap", "team"]), teamName: z.string().nullable(),
     organization: z.enum(TEAM_ORGANIZATION_IDS).optional(),
     discipline: z.enum(["dirt", "drag", "rally"]), durationMs: amount, builds: count, hauls: count,
     featureWins: z.record(known(VENUE_BY_ID), amount),
     setup: runConfig,
+    regularityFeatures: z.record(known(VENUE_BY_ID), amount).optional(),
   })).max(100).optional(),
   codex: z.object({ parts: z.record(known(PART_BY_ID), count), places: z.record(known(PLACE_BY_ID), count) }),
   knowhow: z.record(known(KNOWHOW_BY_ID), count), habitMemory: z.record(template, count), lastTopHabit: template.nullable(),
@@ -119,6 +129,7 @@ const meta = z.object({
   seasonsPlayed: count, totalTeamResets: count, milestonesEver: z.array(known(VENUE_BY_ID)),
 });
 const run = z.object({
+  regularityFeatures: z.record(known(VENUE_BY_ID), amount).optional(),
   seasonMs: amount, cash: amount, rep: amount, materials,
   inventory: z.array(part), driveway: z.array(part), vehicles: z.array(vehicle),
   placesOpen: z.array(known(PLACE_BY_ID)), venuesOpen: z.array(known(VENUE_BY_ID)), ladder: z.record(known(VENUE_BY_ID), z.array(event)),
@@ -127,6 +138,7 @@ const run = z.object({
   jobs: z.array(job), queue: z.array(jobSpec), idleLanes: z.array(id), practice: z.record(known(VENUE_BY_ID), amount),
   lastEntered: z.record(id, amount), featureWins: z.record(known(VENUE_BY_ID), amount), races: z.array(result),
   challenge: z.object({ relay: z.array(z.object({ vehicleUid: id, frameUid: id })).optional(), handMeDownEngines: z.array(id).optional(), completedAt: amount.optional() }),
+  raceNight: z.object({ vehicleUid: id, venueId: known(VENUE_BY_ID), call, startsLeft: count.min(1).max(RACE_NIGHT_STARTS), stopOnFeature: z.boolean() }).optional(),
   stats: z.object({ partsSold: count, hauls: count, racesLost: z.record(known(VENUE_BY_ID), count), firstStartDone: z.boolean(), drivewayOverflows: count.optional(), dnfs: count.optional(), counterBuys: count.optional() }),
   revealed: z.array(id), candidates: z.array(known(CREW_BY_ID)), shellsBought: count,
   saleSat: z.record(known(PART_BY_ID), z.object({ n: amount, at: amount })), purseSat: z.record(id, z.object({ n: amount, at: amount })).optional(), notices: z.array(z.string()), pushOnlyRaces: z.boolean(),
@@ -136,7 +148,7 @@ const run = z.object({
   })),
 });
 const gameSchema = z.object({
-  owner: ownerSchema.optional(), promoter: promoterSchema.optional(), club: clubSchema.optional(),
+  owner: ownerSchema.optional(), promoter: promoterSchema.optional(), club: clubSchema.optional(), manufacturer: manufacturerSchema.optional(),
   version: z.literal(1), seed: z.string(), rng: count, uid: count, meta, run,
   scrap: z.object({ lp: amount, lifetimeLp: amount, resets: count, tuneUpPoints: count, milestonesThisEra: z.array(known(VENUE_BY_ID)), daresThisEra: count }),
   team: z.object({ tp: amount, lifetimeTp: amount, resets: count, upgrades: z.record(known(TEAM_UPGRADE_BY_ID), count) }),
@@ -154,6 +166,11 @@ const compatibleSchema = gameSchema.extend({
 });
 
 function referencesValid(game: GameState): boolean {
+  if (!rallyReferencesValid(game)) return false;
+  const night = game.run.raceNight;
+  if (night && (game.era || game.run.featureWins.county_fair !== undefined || !game.run.venuesOpen.includes(night.venueId)
+    || !game.run.vehicles.some((car) => car.uid === night.vehicleUid)
+    || game.run.queue.some((job) => job.kind === "race" && job.vehicleUid === night.vehicleUid))) return false;
   const handover = game.era?.handover;
   if (handover?.type === "track_notes" && handover.discipline !== game.era?.discipline) return false;
   if (handover?.type === "apprenticeship" && (
@@ -164,8 +181,7 @@ function referencesValid(game: GameState): boolean {
   )) return false;
   const seasons = game.meta.seasonLog ?? [];
   if (seasons.some((entry, i) => entry.season > game.meta.seasonsPlayed ||
-    (i > 0 && entry.season <= seasons[i - 1].season) ||
-    Object.values(entry.featureWins).some((ms) => ms > entry.durationMs))) return false;
+    (i > 0 && entry.season <= seasons[i - 1].season))) return false;
   const { relay, completedAt } = game.run.challenge;
   const objective = game.config.dare;
   if (relay && objective !== "homebuilt_relay") return false;
@@ -179,6 +195,7 @@ function referencesValid(game: GameState): boolean {
   } else if (completedAt !== undefined) return false;
   if (!ownerReferencesValid(game) || (game.promoter && !(game.owner && game.owner.titles > 0))) return false;
   if (!clubReferencesValid(game)) return false;
+  if (!manufacturerReferencesValid(game)) return false;
   const inventory = new Map(game.run.inventory.map((part) => [part.uid, part]));
   const free = new Set([...game.run.inventory, ...game.run.driveway].map((part) => part.uid));
   const retired = game.meta.hallOfFame.flatMap((entry) => entry.retirement ? [entry.retirement.vehicleUid] : []);

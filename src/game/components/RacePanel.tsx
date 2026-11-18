@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { DISCIPLINES, EVENT_KINDS, VENUES, venueName } from "@/core/content/events";
+import { DISCIPLINES, EVENT_KINDS, VENUES, getVenue, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
 import { vehicleBusy } from "@/core/garage";
@@ -19,6 +19,7 @@ import { finishText } from "./race/resultText";
 import { VenueInfo } from "./race/VenueInfo";
 import { DirtSignup, LockedVenue } from "./race/VenueCards";
 import { Tips } from "./Tips";
+import { RaceNightPlanner } from "./RaceNightPlanner";
 
 /** The part most likely to wear or fail, called out before you race. */
 function WeakPart({ vehicle }: { vehicle: Vehicle }) {
@@ -98,9 +99,16 @@ function Results({ game }: { game: GameState }) {
   );
 }
 
-export function RacePanel() {
+export function RacePanel({ initialVenue }: { initialVenue?: string }) {
   const game = useGame((s) => s.game);
-  const [vehicleUid, setVehicleUid] = useState<string>("");
+  const [vehicleUid, setVehicleUid] = useState(() => {
+    if (!initialVenue || !game) return "";
+    const [minimum, maximum] = getVenue(initialVenue).tiers;
+    return game.run.vehicles.findLast((car) => {
+      const tier = getVehicle(car.vehicleId).tier;
+      return tier >= minimum && tier <= maximum && !vehicleBusy(game, car.uid);
+    })?.uid ?? "";
+  });
   const [call, setCall] = useState<RaceCall>("nurse");
   const [call2, setCall2] = useState<Call2>(undefined);
   if (!game) return null;
@@ -144,11 +152,12 @@ export function RacePanel() {
         <p className="hint">Push is faster but wears parts and risks a DNF. Nurse it is safer and slower. The odds below change with your call.</p>
         <DriversCall game={game} driver={driver} value={call2} onChange={setCall2} />
         <WeakPart vehicle={vehicle} />
+        <RaceNightPlanner game={game} vehicle={vehicle} call={call} />
         <div className="venues">
           {VENUES.filter((v) => game.run.venuesOpen.includes(v.id)).map((venue) => {
             const allowed = tier >= venue.tiers[0] && tier <= venue.tiers[1];
             return (
-              <article key={venue.id} className="card venue">
+              <article key={venue.id} className="card venue" id={`race-venue-${venue.id}`}>
                 <Image src={venueSprite(venue.id)} alt="" width={120} height={64} />
                 <div className="card-body">
                   <h3>

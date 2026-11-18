@@ -31,6 +31,7 @@ export function openRule(bracket: boolean, prev: EventKind): string {
 
 /** What your hands are doing, as "after your trip (2m)", or null when they're free. */
 function handsLater(game: GameState): string | null {
+  if (game.run.raceNight) return "after Race Night";
   const hands = game.run.jobs.find((j) => j.lane === "hands");
   if (hands) return `after ${jobLabel(game, hands.spec).toLowerCase()} (${duration(hands.remaining)})`;
   const queued = game.run.queue.some((q) => q.kind === "haul" || q.kind === "study" || q.kind === "assemble" || q.kind === "race");
@@ -56,6 +57,7 @@ export function eventStatus(game: GameState, spec: RaceSpec): EventStatus {
     return { kind: "signed_up", text, queueIndex };
   }
   if (game.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid) && !pending) return { kind: "blocked", text: "This vehicle is signed up for another race" };
+  if (game.run.raceNight?.vehicleUid === spec.vehicleUid) return { kind: "blocked", text: "This vehicle is reserved for Race Night" };
   const blocker = jobBlocker(game, spec, true);
   if (blocker) return { kind: "blocked", text: blocker };
   if (ifPodium) return { kind: "ready", action: "Sign up", detail: `runs${ifPodium}` };

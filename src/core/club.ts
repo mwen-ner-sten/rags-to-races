@@ -1,4 +1,5 @@
 import { getVenue } from "./content/events";
+import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "./clubTrack";
 import { enqueue, jobBlocker } from "./jobs";
 import { logSeason } from "./journal";
 import { nextUid } from "./rng";
@@ -60,12 +61,14 @@ export interface ClubFinish {
   position: number;
   fieldSize: number;
   dnf: boolean;
+  call?: RaceCall;
 }
 
 export interface ClubSeason {
   season: number;
   charter: ClubCharter;
   rounds: ClubFinish[];
+  course?: ClubCourseId;
 }
 
 export interface ClubArchive extends ClubSeason {
@@ -75,6 +78,8 @@ export interface ClubArchive extends ClubSeason {
 export interface ClubState {
   active: ClubSeason | null;
   history: ClubArchive[];
+  hasCertifiedClub?: true;
+  trackLicenses?: ClubCourseId[];
 }
 
 export type ClubMove = { type: "enter"; vehicleUid: string; admission: ClubAdmission; call: RaceCall };
@@ -83,10 +88,19 @@ export function clubGate(state: GameState): string | null {
   return new Set(state.promoter?.certified).size >= 2 ? null : "Certify two different Circuit charters to found a club.";
 }
 
-export function clubChoicesBlocker(state: GameState, charter: ClubCharter | undefined): string | null {
+export function clubCourseGate(state: GameState): string | null {
+  const club = state.club;
+  if (club?.hasCertifiedClub || club?.history.some(({ status }) => status === "certified") || (club?.active && clubScore(club.active).certified)) return null;
+  return "Certify a Grassroots Club calendar to build your own layout.";
+}
+
+export function clubChoicesBlocker(state: GameState, charter: ClubCharter | undefined, course?: ClubCourseId, loan?: ClubCourseId): string | null {
+  if (!charter && (course || loan)) return "Choose a club charter before selecting a track or workshop loan.";
   if (charter === undefined) return null;
   if (!Object.hasOwn(CLUB_CHARTERS, charter)) return "Choose a club charter.";
-  return clubGate(state);
+  if (course !== undefined && !Object.hasOwn(CLUB_COURSES, course)) return "Choose a track layout.";
+  if (loan !== undefined && !state.club?.trackLicenses?.includes(loan)) return "Certify that track before borrowing its part.";
+  return clubGate(state) ?? (course ? clubCourseGate(state) : null);
 }
 
 export function clubScore(season: ClubSeason) {
@@ -96,7 +110,10 @@ export function clubScore(season: ClubSeason) {
   const publicFinishes = finishers.filter(({ admission }) => admission === "public").length;
   const complete = season.rounds.length === charter.stops.length;
   const certified = complete && points >= charter.points && finishers.length >= charter.finishes && publicFinishes >= charter.publicFinishes;
-  return { points, finishes: finishers.length, publicFinishes, complete, certified };
+  const course = season.course ? CLUB_COURSES[season.course] : undefined;
+  const coursePodiums = course ? finishers.filter(({ call, position }) => call === course.proofCall && position <= 3).length : 0;
+  const trackCertified = certified && !!course && coursePodiums >= course.podiums;
+  return { points, finishes: finishers.length, publicFinishes, complete, certified, coursePodiums, trackCertified };
 }
 
 export function clubRoundToken(season: ClubSeason): string {
@@ -121,8 +138,9 @@ export function clubSpecMatches(state: GameState, spec: RaceSpec, vehicle?: Vehi
 
 export function clubHostingCost(state: GameState, spec: RaceSpec): number {
   const season = state.club?.active;
-  if (!season || spec.clubRound?.admission !== "public" || spec.clubRound.token !== clubRoundToken(season)) return 0;
-  return CLUB_CHARTERS[season.charter].stops[season.rounds.length]?.publicCost ?? 0;
+  if (!season || spec.clubRound?.token !== clubRoundToken(season)) return 0;
+  const stop = CLUB_CHARTERS[season.charter].stops[season.rounds.length];
+  return stop ? (spec.clubRound.admission === "public" ? stop.publicCost : 0) + courseCost(season.course) : 0;
 }
 
 export function clubEntryBlocker(state: GameState, vehicleUid: string, admission: ClubAdmission, call: RaceCall): string | null {
@@ -155,15 +173,23 @@ export function recordClubRace(state: GameState, spec: RaceSpec, result: RaceRes
   if (!season || !car || !spec.clubRound || spec.vehicleUid !== result.vehicleUid || !clubSpecMatches(state, spec, car)) return;
   const { admission } = spec.clubRound;
   const stop = CLUB_CHARTERS[season.charter].stops[season.rounds.length];
-  season.rounds.push({ raceId: result.id, vehicle: car.name, admission, position: result.position, fieldSize: result.fieldSize, dnf: result.dnf });
+  season.rounds.push({ raceId: result.id, vehicle: car.name, admission, position: result.position, fieldSize: result.fieldSize, dnf: result.dnf, ...(season.course && { call: spec.call }) });
   if (!result.dnf && admission === "public") state.run.rep += 2;
   if (!result.dnf && result.position <= 3 && admission === "ticketed") state.run.cash += ticketedGrant(stop);
   const tally = clubScore(season);
   if (!tally.complete) return;
   const charter = CLUB_CHARTERS[season.charter];
   if (tally.certified) {
+    state.club!.hasCertifiedClub = true;
     state.run.cash += charter.grant;
     state.run.rep += charter.rep;
+  }
+  if (tally.trackCertified && season.course) {
+    const licenses = state.club!.trackLicenses ??= [];
+    if (!licenses.includes(season.course)) {
+      licenses.push(season.course);
+      logSeason(state, `club:track:${season.course}`, `${CLUB_COURSES[season.course].name} certified. Its workshop part can be borrowed at future Club resets.`);
+    }
   }
   logSeason(state, `club:${season.season}`, tally.certified
     ? `${charter.name} certified with ${tally.points} points. The board awarded ${charter.grant} Scrap Bucks and ${charter.rep} Rep.`
@@ -174,8 +200,12 @@ export function ticketedGrant(stop: ClubStop): number {
   return Math.max(5, stop.publicCost);
 }
 
-export function clubEntryPrice(stop: ClubStop, admission: ClubAdmission): number {
-  return getVenue(stop.venueId).events[stop.event].entry + (admission === "public" ? stop.publicCost : 0);
+function courseCost(course: ClubCourseId | undefined): number {
+  return course ? CLUB_COURSES[course].surcharge : 0;
+}
+
+export function clubEntryPrice(stop: ClubStop, admission: ClubAdmission, course?: ClubCourseId): number {
+  return getVenue(stop.venueId).events[stop.event].entry + (admission === "public" ? stop.publicCost : 0) + courseCost(course);
 }
 
 export function archiveClubSeason(state: GameState): void {
@@ -192,16 +222,23 @@ export function startClubSeason(state: GameState): void {
   const charter = state.config.club;
   if (!charter) return;
   const club = state.club ??= { active: null, history: [] };
-  club.active = { charter, season: state.meta.seasonsPlayed + 1, rounds: [] };
+  const { clubCourse, clubLoan } = state.config;
+  club.active = { charter, season: state.meta.seasonsPlayed + 1, rounds: [], ...(clubCourse && { course: clubCourse }) };
   if (charter === "yard_co_op") {
-    for (const partId of ["engine_lawn", "wheel_basic"]) {
-      state.run.inventory.push({ uid: nextUid(state, "p"), partId, condition: 2, origin: "Backyard Co-op" });
-      state.meta.codex.parts[partId] = (state.meta.codex.parts[partId] ?? 0) + 1;
-    }
+    for (const partId of ["engine_lawn", "wheel_basic"]) addClubPart(state, partId, 2, "Backyard Co-op");
   } else {
     state.run.cash += 120;
     state.run.materials.metal += 3;
     state.run.materials.rubber += 2;
   }
+  if (clubLoan) {
+    const course = CLUB_COURSES[clubLoan];
+    addClubPart(state, course.loanPart, 3, clubLoanOrigin(clubLoan));
+  }
   logSeason(state, `club:found:${club.active.season}`, `${CLUB_CHARTERS[charter].name} opened its first meeting. Check the Club calendar for the eligible class.`);
+}
+
+function addClubPart(state: GameState, partId: string, condition: 2 | 3, origin: string): void {
+  state.run.inventory.push({ uid: nextUid(state, "p"), partId, condition, origin });
+  state.meta.codex.parts[partId] = (state.meta.codex.parts[partId] ?? 0) + 1;
 }

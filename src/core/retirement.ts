@@ -14,12 +14,13 @@ export type RetirementMove = { kind: "dismantle"; keepUid: string } | { kind: "e
 type RetirementPlan = { vehicle: Vehicle; retained: PartInstance | null; materials: Partial<Record<MaterialId, number>>; cash: number };
 
 export function canRetireMower(vehicle: Vehicle): boolean {
-  return getVehicle(vehicle.vehicleId).tier <= 1 && vehicle.history.races > vehicle.history.dnfs;
+  return (vehicle.vehicleId === "push_mower" || vehicle.vehicleId === "riding_mower") && vehicle.history.races > vehicle.history.dnfs;
 }
 
 export function retirementPlan(state: GameState, vehicleUid: string, move: RetirementMove): RetirementPlan | string {
   const vehicle = state.run.vehicles.find((car) => car.uid === vehicleUid);
   if (!vehicle || !canRetireMower(vehicle)) return "Finish a race in a Push or Riding Mower first";
+  if (state.run.raceNight?.vehicleUid === vehicleUid) return "Cancel this mower's Race Night first";
   if (vehicleBusy(state, vehicleUid) || state.run.queue.some((job) => job.kind === "race" && job.vehicleUid === vehicleUid)) {
     return "Finish or remove this mower's race sign-ups first";
   }

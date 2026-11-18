@@ -1,27 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { racer, teamRacer } from "../../../tests/fixtures/rewrite";
+import { racer } from "../../../tests/fixtures/rewrite";
+import { clubCandidate } from "../../../tests/fixtures/club";
 import { decodeGameState } from "@/game/save";
 import { apply, must } from "../actions";
-import { CLUB_CHARTERS, clubEntryPrice, clubGate, clubScore, ticketedGrant, type ClubAdmission, type ClubCharter } from "../club";
+import { CLUB_CHARTERS, clubCourseGate, clubEntryPrice, clubGate, clubRoundToken, clubScore, ticketedGrant, type ClubAdmission, type ClubCharter } from "../club";
+import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "../clubTrack";
+import { dnfChance, effectiveScore, rollRace, winChance } from "../race";
 import type { ScrapChoices } from "../layers";
-import type { GameState, Vehicle } from "../types";
+import type { GameState, JobSpec, RaceCall, Vehicle } from "../types";
 
 const HOUR = 3_600_000;
 const cleanChoices: ScrapChoices = { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] };
-
-function clubCandidate(seed = "grassroots-fixture"): GameState {
-  const start = teamRacer(seed);
-  start.era!.milestones.push("state");
-  start.run.featureWins.county_fair = 0;
-  const game = must(start, { type: "owner", move: { type: "found", charter: "privateer" } });
-  game.owner!.tour.rounds = Array.from({ length: 5 }, (_, round) => ({
-    raceId: `past-${round}`, vehicleUid: "fixture-vehicle", carName: "Old stock", position: 1, dnf: false,
-  }));
-  game.owner!.tour.status = "champion";
-  game.owner!.titles = game.owner!.charterTitles.privateer = 1;
-  game.promoter = { clock: 0, season: 2, certified: ["homecoming", "ironworks"], archive: [], meet: null };
-  return game;
-}
 
 function found(game: GameState, club?: ClubCharter, changes: Partial<ScrapChoices> = {}): GameState {
   return must(game, { type: "reset", layer: "scrap", choices: { ...cleanChoices, ...changes, club } });
@@ -45,8 +34,20 @@ function prepareStop(game: GameState): Vehicle {
   return fit(game, stop.vehicleId);
 }
 
-function enter(game: GameState, vehicleUid: string, admission: ClubAdmission): GameState {
-  return must(game, { type: "club", move: { type: "enter", vehicleUid, admission, call: "nurse" } });
+function enter(game: GameState, vehicleUid: string, admission: ClubAdmission, call: RaceCall = "nurse"): GameState {
+  return must(game, { type: "club", move: { type: "enter", vehicleUid, admission, call } });
+}
+
+function finishCoop(game: GameState, call: RaceCall = "nurse"): GameState {
+  game.run.cash = 150;
+  for (let i = 0; i < CLUB_CHARTERS.yard_co_op.stops.length; i += 1) {
+    const car = prepareStop(game);
+    for (const part of Object.values(car.parts)) if (part) part.condition = 4;
+    game = enter(game, car.uid, i < 2 ? "public" : "ticketed", call);
+    game = must(game, { type: "advance", ms: HOUR, away: true });
+  }
+  game.run.featureWins.county_fair = game.run.seasonMs;
+  return game;
 }
 
 describe("Grassroots Club", () => {
@@ -169,5 +170,89 @@ describe("Grassroots Club", () => {
       expect(game.club).toMatchObject({ active: null, history: [{ status: openGate ? "certified" : "finished", charter: "fairground_guild" }] });
       expect(game.config.club).toBeUndefined();
     }
+  });
+});
+
+describe("Track Founding", () => {
+  it("certifies opposite layouts on the same grassroots card and loans one named part alongside a donor", () => {
+    let game = found(clubCandidate("track-winners"), "yard_co_op");
+    expect(clubCourseGate(game)).toMatch(/certify/i);
+    expect(apply(game, { type: "reset", layer: "scrap", choices: { ...cleanChoices, club: "yard_co_op", clubCourse: "tight_infield" } }).error).toMatch(/county fair/i);
+    game = finishCoop(game);
+    expect(clubCourseGate(game)).toBeNull();
+    expect(apply(game, { type: "reset", layer: "scrap", choices: { ...cleanChoices, club: "yard_co_op", clubLoan: "tight_infield" } }).error).toMatch(/certify that track/i);
+    game = finishCoop(found(game, "yard_co_op", { clubCourse: "tight_infield" }));
+    expect(clubScore(game.club!.active!)).toMatchObject({ trackCertified: true });
+    expect(game.club?.trackLicenses).toEqual(["tight_infield"]);
+
+    game.meta.challengeRecords.parts_with_a_past = { completions: 1, bestSeasonMs: 100, bestVehicleName: "Donor" };
+    game.run.inventory.push({ uid: "carry-along", partId: "engine_small", condition: 3, origin: "Curbside" });
+    game.era!.organization = "collective";
+    game = found(game, "yard_co_op", { clubCourse: "fast_straight", clubLoan: "tight_infield", retainedPartUid: "carry-along" });
+    const loan = game.run.inventory.find(({ origin }) => origin === clubLoanOrigin("tight_infield"))!;
+    expect(loan).toMatchObject({ partId: "wheel_knobby", condition: 3 });
+    expect(game.run.inventory.filter(({ origin }) => origin.endsWith("Workshop Loan"))).toHaveLength(1);
+    expect(game.run.inventory.some(({ uid, inherited }) => uid === "carry-along" && inherited)).toBe(true);
+    expect(game.era?.organization).toBe("collective");
+    expect(game.club?.history[0]).toMatchObject({ charter: "yard_co_op", course: "tight_infield", status: "certified" });
+    expect(decodeGameState(JSON.parse(JSON.stringify(game)))).not.toBeNull();
+    const duplicate = structuredClone(game);
+    duplicate.run.inventory.push({ ...loan, uid: "forged-extra-loan" });
+    expect(decodeGameState(JSON.parse(JSON.stringify(duplicate)))).toBeNull();
+    game.run.inventory = game.run.inventory.filter(({ uid }) => uid !== loan.uid);
+    game = finishCoop(game, "push");
+    expect(game.run.inventory.some(({ uid }) => uid === loan.uid)).toBe(false);
+    expect(clubScore(game.club!.active!)).toMatchObject({ trackCertified: true });
+    expect(game.club?.trackLicenses).toEqual(["tight_infield", "fast_straight"]);
+
+    game.era!.organization = "independent";
+    game = found(game, "yard_co_op", { clubCourse: "tight_infield", clubLoan: "fast_straight" });
+    expect(game.era?.organization).toBe("independent");
+    expect(game.run.inventory.filter(({ origin }) => origin.endsWith("Workshop Loan"))).toMatchObject([{ partId: "engine_tiller" }]);
+    expect(game.run.inventory.some(({ uid }) => uid === loan.uid)).toBe(false);
+    game = finishCoop(game);
+    expect(clubScore(game.club!.active!).trackCertified).toBe(true);
+    expect(game.club?.trackLicenses).toHaveLength(2);
+  });
+
+  it.each(["dirt", "drag", "rally"] as const)("uses the course in odds, risks, actual %s scores and race debriefs", (discipline) => {
+    const original = found(clubCandidate(`layout-${discipline}`), "fairground_guild");
+    original.era!.discipline = discipline;
+    const car = prepareStop(original);
+    const season = original.club!.active!;
+    const stop = CLUB_CHARTERS[season.charter].stops[0];
+    const spec: Extract<JobSpec, { kind: "race" }> = { kind: "race", vehicleUid: car.uid, venueId: stop.venueId, event: stop.event, call: "push", clubRound: { token: clubRoundToken(season), admission: "ticketed" } };
+    const forCourse = (course: ClubCourseId) => {
+      const game = structuredClone(original);
+      game.config.clubCourse = course;
+      game.club!.active!.course = course;
+      game.club!.hasCertifiedClub = true;
+      return game;
+    };
+    const tight = forCourse("tight_infield");
+    const straight = forCourse("fast_straight");
+    const pace = (course: ClubCourseId) => effectiveScore(original, car, stop.venueId, "push", undefined, stop.event, course);
+    const odds = (course: ClubCourseId) => winChance(original, car, stop.venueId, stop.event, "push", undefined, undefined, course);
+    expect(pace("tight_infield")).not.toBeCloseTo(pace("fast_straight"), 2);
+    expect(odds("tight_infield")).not.toBeCloseTo(odds("fast_straight"), 4);
+    expect(dnfChance(original, car, stop.venueId, stop.event, "push", undefined, "fast_straight")).toBeGreaterThan(dnfChance(original, car, stop.venueId, stop.event, "push", undefined, "tight_infield"));
+    const ordinary = { ...spec, clubRound: undefined };
+    expect(rollRace(structuredClone(tight), ordinary)).toEqual(rollRace(structuredClone(straight), ordinary));
+    const first = rollRace(structuredClone(tight), spec)!;
+    const second = rollRace(structuredClone(straight), spec)!;
+    expect(first.course).toBe("tight_infield");
+    expect(second.course).toBe("fast_straight");
+    expect(second.margin).not.toBe(first.margin);
+    if (discipline === "rally") {
+      expect(first.beats.map(({ text }) => text).join(" ")).toContain("switchbacks");
+      expect(second.beats.map(({ text }) => text).join(" ")).toContain("fast lane");
+    }
+    const booked = enter(straight, car.uid, "ticketed", "push");
+    expect(booked.run.jobs.find(({ spec }) => spec.kind === "race")?.paid?.cash).toBe(clubEntryPrice(stop, "ticketed") + CLUB_COURSES.fast_straight.surcharge);
+    const loaded = decodeGameState(JSON.parse(JSON.stringify(booked)));
+    expect(loaded).not.toBeNull();
+    const complete = must(loaded!, { type: "advance", ms: HOUR });
+    expect(complete.run.races.at(-1)).toMatchObject({ course: "fast_straight", position: second.position, margin: second.margin });
+    expect(complete.club?.active?.rounds[0]?.call).toBe("push");
   });
 });

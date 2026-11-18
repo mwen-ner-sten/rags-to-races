@@ -15,7 +15,7 @@ export function ResetDisciplines({ game, chosen, onChoose }: ResetDisciplinesPro
     <div className="disciplines">
       {(["dirt", "drag", "rally"] as const).map((id) => (
         <label key={id} className={`card choice ${chosen === id ? "on" : ""}`}>
-          <input type="radio" name="discipline" disabled={!!disciplineBlocker(game, id)} checked={chosen === id} onChange={() => onChoose(id)} />
+          <input id={`reset-discipline-${id}`} type="radio" name="discipline" disabled={!!disciplineBlocker(game, id)} checked={chosen === id} onChange={() => onChoose(id)} />
           <strong>{DISCIPLINES[id].name}</strong>
           {disciplineBlocker(game, id) && <p className="why">{disciplineBlocker(game, id)}</p>}
           <p className="blurb">{DISCIPLINES[id].blurb}</p>

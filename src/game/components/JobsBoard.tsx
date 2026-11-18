@@ -87,8 +87,9 @@ export function JobsBoard() {
   return (
     <aside className="board" aria-label="Work in progress">
       <h2 className="board-title">On the go</h2>
+      {game.run.raceNight && <p className="notice">Race Night has reserved your hands. Queued trips and studies wait until it ends.</p>}
       <Tips ids={["queue", "habits"]} />
-      {!handsBusy && game.run.queue.length === 0 && <p className="notice">Your hands are free. Queue a trip or a study before you step away.</p>}
+      {!handsBusy && !game.run.raceNight && game.run.queue.length === 0 && <p className="notice">Your hands are free. Queue a trip or a study before you step away.</p>}
       <ul className="jobs">
         {game.run.jobs.map((job) => (
           <JobRow key={job.id} game={game} job={job} />

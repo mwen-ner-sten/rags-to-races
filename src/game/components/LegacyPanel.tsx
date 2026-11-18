@@ -5,14 +5,14 @@ import { challengeVehicleFit } from "@/core/challenges";
 import { VENUES, venueName } from "@/core/content/events";
 import { SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge } from "@/core/content/modifiers";
 import { LAYERS, perkSlots, scrapAward } from "@/core/layers";
-import type { GameState } from "@/core/types";
+import type { GameState, SeasonChallengeId } from "@/core/types";
 import { duration, num, pct } from "../format";
 import { useGame } from "../store";
 import { ResetPlanner } from "./ResetPlanner";
 
-export function LegacyPanel() {
+export function LegacyPanel({ initialObjective }: { initialObjective?: SeasonChallengeId }) {
   const game = useGame((s) => s.game);
-  const [planning, setPlanning] = useState(false);
+  const [planning, setPlanning] = useState<SeasonChallengeId | boolean>(initialObjective ?? false);
   if (!game) return null;
   const gate = LAYERS.scrap.gate(game);
   const discipline = game.era?.discipline ?? "dirt";
@@ -20,7 +20,7 @@ export function LegacyPanel() {
     return (
       <section className="section" aria-labelledby="plan-h">
         <h2 id="plan-h">Plan the Scrap Reset</h2>
-        <ResetPlanner layer="scrap" onDone={() => setPlanning(false)} />
+        <ResetPlanner layer="scrap" initialObjective={typeof planning === "string" ? planning : undefined} onDone={() => setPlanning(false)} />
       </section>
     );
   }
@@ -29,6 +29,7 @@ export function LegacyPanel() {
       <h2 id="legacy-h">Legacy</h2>
       <p className="sub">
         Win the County Fair Feature and you can end the Season: scrap it all, keep what you learned, and spend Legacy Points on perks. Stop at the Fair for a quick Season, or push on to the Regional and State for a bigger one.
+        {discipline === "rally" && " A County Forest regularity certificate also qualifies. Each certified Feature earns half its normal points until you win it outright."}
       </p>
       <dl className="facts wide">
         <div>
@@ -50,12 +51,13 @@ export function LegacyPanel() {
       <ul className="milestones">
         {VENUES.map((v) => {
           const at = game.run.featureWins[v.id];
+          const certified = game.run.regularityFeatures?.[v.id];
           const record = game.meta.records[v.id];
           return (
-            <li key={v.id} className={at !== undefined ? "done" : ""}>
+            <li key={v.id} className={at !== undefined || certified !== undefined ? "done" : ""}>
               <span>{venueName(v.id, discipline)} Feature</span>
-              <span className="num">{v.lp} Legacy Points</span>
-              <span className="muted">{at !== undefined ? `won at ${duration(at)}` : record !== undefined ? `best: ${duration(record)}` : ""}</span>
+              <span className="num">{at === undefined && certified !== undefined ? Math.ceil(v.lp / 2) : v.lp} Legacy Points</span>
+              <span className="muted">{at !== undefined ? `won at ${duration(at)}` : certified !== undefined ? `certified at ${duration(certified)}` : record !== undefined ? `best: ${duration(record)}` : ""}</span>
             </li>
           );
         })}
