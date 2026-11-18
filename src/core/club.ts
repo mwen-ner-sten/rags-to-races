@@ -1,5 +1,6 @@
 import { getVenue } from "./content/events";
 import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "./clubTrack";
+import { COUNTY_RIVALS, countyLoanOrigin, countyLoanProvenance, countyVisitorLoanBlocker, type CountyRivalId } from "./countyRivals";
 import { enqueue, jobBlocker } from "./jobs";
 import { logSeason } from "./journal";
 import { nextUid } from "./rng";
@@ -94,13 +95,14 @@ export function clubCourseGate(state: GameState): string | null {
   return "Certify a Grassroots Club calendar to build your own layout.";
 }
 
-export function clubChoicesBlocker(state: GameState, charter: ClubCharter | undefined, course?: ClubCourseId, loan?: ClubCourseId): string | null {
-  if (!charter && (course || loan)) return "Choose a club charter before selecting a track or workshop loan.";
+export function clubChoicesBlocker(state: GameState, charter: ClubCharter | undefined, course?: ClubCourseId, loan?: ClubCourseId, visitor?: CountyRivalId): string | null {
+  if (!charter && (course || loan || visitor)) return "Choose a club charter before selecting a track or workshop loan.";
   if (charter === undefined) return null;
   if (!Object.hasOwn(CLUB_CHARTERS, charter)) return "Choose a club charter.";
   if (course !== undefined && !Object.hasOwn(CLUB_COURSES, course)) return "Choose a track layout.";
   if (loan !== undefined && !state.club?.trackLicenses?.includes(loan)) return "Certify that track before borrowing its part.";
-  return clubGate(state) ?? (course ? clubCourseGate(state) : null);
+  if (visitor && loan) return "Choose one workshop loan from a track or a county visitor.";
+  return clubGate(state) ?? (course ? clubCourseGate(state) : null) ?? countyVisitorLoanBlocker(state, visitor);
 }
 
 export function clubScore(season: ClubSeason) {
@@ -222,7 +224,7 @@ export function startClubSeason(state: GameState): void {
   const charter = state.config.club;
   if (!charter) return;
   const club = state.club ??= { active: null, history: [] };
-  const { clubCourse, clubLoan } = state.config;
+  const { clubCourse, clubLoan, clubVisitor } = state.config;
   club.active = { charter, season: state.meta.seasonsPlayed + 1, rounds: [], ...(clubCourse && { course: clubCourse }) };
   if (charter === "yard_co_op") {
     for (const partId of ["engine_lawn", "wheel_basic"]) addClubPart(state, partId, 2, "Backyard Co-op");
@@ -235,10 +237,11 @@ export function startClubSeason(state: GameState): void {
     const course = CLUB_COURSES[clubLoan];
     addClubPart(state, course.loanPart, 3, clubLoanOrigin(clubLoan));
   }
+  if (clubVisitor) addClubPart(state, COUNTY_RIVALS[clubVisitor].part, 3, countyLoanOrigin(clubVisitor), countyLoanProvenance(state, clubVisitor));
   logSeason(state, `club:found:${club.active.season}`, `${CLUB_CHARTERS[charter].name} opened its first meeting. Check the Club calendar for the eligible class.`);
 }
 
-function addClubPart(state: GameState, partId: string, condition: 2 | 3, origin: string): void {
-  state.run.inventory.push({ uid: nextUid(state, "p"), partId, condition, origin });
+function addClubPart(state: GameState, partId: string, condition: 2 | 3, origin: string, provenance?: import("./types").PartProvenance): void {
+  state.run.inventory.push({ uid: nextUid(state, "p"), partId, condition, origin, ...(provenance && { provenance }) });
   state.meta.codex.parts[partId] = (state.meta.codex.parts[partId] ?? 0) + 1;
 }

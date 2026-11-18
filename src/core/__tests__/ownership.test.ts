@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { decodeGameState } from "@/game/save";
 import { apply, must } from "../actions";
 import { createGame } from "../index";
-import { CHARTERS, currentTourEntry, needsNewScoringCar, ownerCharterBlocker, ownerEntryBlocker, ownerGate, ownerRecords, queuedTourProblem, sponsorProgress, titleForecast, tourCalendar, tourCash, tourGarage, tourRoundStandings, tourRoundToken, tourScore, type OwnerTour } from "../ownership";
+import { getPlace } from "../content/places";
+import { CHARTERS, currentTourEntry, entryPlanStatus, needsNewScoringCar, ownerCharterBlocker, ownerEntryBlocker, ownerGate, ownerRecords, queuedTourProblem, sponsorProgress, titleForecast, tourCalendar, tourCash, tourGarage, tourRoundStandings, tourRoundToken, tourScore, type OwnerTour } from "../ownership";
 import { resolveRace } from "../race";
 import type { GameState, Vehicle } from "../types";
 
@@ -70,6 +71,66 @@ function finishTour(game: GameState, carUid: string): GameState {
 }
 
 describe("Owner championships", () => {
+  it("requires a same-charter title to plan and rechecks the reserve at the actual start", () => {
+    let game = found();
+    const settings = { leadUid: "stock", reserveUid: "beater", call: "nurse", cashFloor: 0 } as const;
+    expect(apply(game, { type: "owner", move: { type: "plan_entries", settings } }).error).toMatch(/Win this charter/);
+    game = finishTour(raceRound(game, "beater"), "stock");
+    for (const car of game.run.vehicles) for (const part of Object.values(car.parts)) part!.condition = 4;
+    game = must(game, { type: "owner", move: { type: "start", charter: "privateer" } });
+    game.run.lastEntered["county_fair:feature"] = game.run.seasonMs;
+    game.run.placesOpen.push("long_haul");
+    game.run.inventory.push({ uid: "sale-part", partId: "engine_v6", condition: 4, origin: "test yard" });
+    const balance = game.run.cash;
+    game = must(game, { type: "owner", move: { type: "plan_entries", settings: { ...settings, cashFloor: balance - 80 } } });
+    expect(currentTourEntry(game)).toBe("queued");
+    expect(game.run.queue[0]).toMatchObject({ vehicleUid: "beater", tourReserve: balance - 80 });
+    const altered = structuredClone(game);
+    const pending = altered.run.queue[0];
+    if (pending.kind === "race") pending.tourReserve = 0;
+    expect(decodeGameState(altered)).toBeNull();
+    expect(game.run.cash).toBe(balance);
+    game = must(game, { type: "enqueue", spec: { kind: "haul", placeId: "long_haul" } });
+    const otherCost = getPlace("long_haul").fee;
+    expect(game.run.cash).toBe(balance - otherCost);
+    game = must(decodeGameState(game)!, { type: "advance", ms: 24 * HOUR, away: true });
+    expect(game.run.cash).toBe(balance - otherCost);
+    expect(game.owner!.tour.rounds).toHaveLength(0);
+    expect(currentTourEntry(game)).toBe("queued");
+    expect(entryPlanStatus(game, game.owner!.tour)).toMatch(/leave less than your/);
+    game = must(game, { type: "sell", partUids: ["sale-part"] });
+    const beforeFlag = game.run.cash;
+    game = must(game, { type: "advance", ms: 1000 });
+    expect(currentTourEntry(game)).toBe("racing");
+    expect(game.run.cash).toBe(beforeFlag - 80);
+    expect(game.run.cash).toBeGreaterThanOrEqual(balance - 80);
+  });
+
+  it("pauses on either withdrawal path and never cancels a live race when the plan is paused", () => {
+    let game = found();
+    game = finishTour(raceRound(game, "beater"), "stock");
+    for (const car of game.run.vehicles) for (const part of Object.values(car.parts)) part!.condition = 4;
+    game = must(game, { type: "owner", move: { type: "start", charter: "privateer" } });
+    game.run.lastEntered["county_fair:feature"] = game.run.seasonMs;
+    const plan = { type: "owner", move: { type: "plan_entries", settings: { leadUid: "beater", reserveUid: "stock", call: "nurse", cashFloor: 0 } } } as const;
+    game = must(game, plan);
+    expect(currentTourEntry(game)).toBe("queued");
+    const advances = { type: "advance", ms: 24 * HOUR, away: true } as const;
+    for (const cancelled of [
+      must(game, { type: "owner", move: { type: "withdraw" } }),
+      must(game, { type: "cancelQueued", index: 0 }),
+    ]) {
+      expect(cancelled.owner!.tour.entryPlan?.enabled).toBe(false);
+      expect(must(cancelled, advances).owner!.tour.rounds).toHaveLength(0);
+    }
+    game = must(must(must(game, { type: "owner", move: { type: "withdraw" } }), advances), plan);
+    expect(currentTourEntry(game)).toBe("racing");
+    game = must(game, { type: "owner", move: { type: "pause_plan" } });
+    expect(currentTourEntry(game)).toBe("racing");
+    game = must(game, advances);
+    expect(game.owner!.tour.rounds).toHaveLength(1);
+    expect(currentTourEntry(game)).toBeNull();
+  });
   it("recommends a Works reserve for the last scoring slot after reloading", () => {
     let game = found("works");
     for (let round = 0; round < 4; round++) game = raceRound(game, "stock");

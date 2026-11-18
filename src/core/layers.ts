@@ -5,6 +5,7 @@
  */
 import { channel } from "./channels";
 import { countyChoiceBlocker } from "./counties";
+import type { CountyRivalId } from "./countyRivals";
 import { CREW, BASE_CREW_CAP, TEAM_ORGANIZATIONS, crewLevel, type TeamOrganization } from "./content/team";
 import { crewTravelBlocker, teamOrganization } from "./crew";
 import { acceptHandover, APPRENTICE_JOBS, applyCrewHandover, crewCanApprentice, crewHandoverOffers, handoverId, HANDOVER_COST, type CrewHandoverChoice } from "./crewLegacy";
@@ -28,9 +29,12 @@ import { initialConfig, initialRun, initialScrap } from "./state";
 import { archiveVehicle } from "./vehicleArchive";
 import type { DisciplineId, EraState, GameState, HomeCounty, PartInstance, RunConfig, Scope, SkillId } from "./types";
 
-export type LayerId = "scrap" | "team";
+import { shopFoundingReady, shopMoveReady, transferBlocker, type ShopLegacy } from "./serviceShop";
+
+export type LayerId = "scrap" | "team" | "shop";
 
 export interface ScrapChoices {
+  shopLegacy?: ShopLegacy;
   /** Perk ranks to buy with Legacy Points before equipping (repeat an id to buy several ranks). */
   buy?: string[];
   perks: string[];
@@ -42,6 +46,7 @@ export interface ScrapChoices {
   club?: ClubCharter;
   clubCourse?: ClubCourseId;
   clubLoan?: ClubCourseId;
+  clubVisitor?: CountyRivalId;
   worksPlan?: WorksFamily;
 }
 
@@ -204,6 +209,7 @@ function toConfig(choices: ScrapChoices): RunConfig {
     ...(choices.club && { club: choices.club }),
     ...(choices.clubCourse && { clubCourse: choices.clubCourse }),
     ...(choices.clubLoan && { clubLoan: choices.clubLoan }),
+    ...(choices.clubVisitor && { clubVisitor: choices.clubVisitor }),
     ...(choices.worksPlan && { worksPlan: choices.worksPlan }),
   };
 }
@@ -215,7 +221,8 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
   gate: (s) => ((s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: s.era?.discipline === "rally" ? "Win or earn a regularity certificate at the County Forest Feature" : "Win the County Fair Feature" }),
   award: scrapAward,
   validate: (s, c) => {
-    const branchBlocked = countyChoiceBlocker(s, c.homeCounty) ?? clubChoicesBlocker(s, c.club, c.clubCourse, c.clubLoan) ?? worksPlanBlocker(s, c.worksPlan);
+    if (c.shopLegacy) return "Transfer your business through a Shop Move.";
+    const branchBlocked = countyChoiceBlocker(s, c.homeCounty) ?? clubChoicesBlocker(s, c.club, c.clubCourse, c.clubLoan, c.clubVisitor) ?? worksPlanBlocker(s, c.worksPlan);
     if (branchBlocked) return branchBlocked;
     if (c.retainedPartUid) {
       const blocked = salvageCarryBlocker(s, c.retainedPartUid, c.hardships);
@@ -231,7 +238,7 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
     s.config = toConfig({ ...choices, homeCounty: choices.homeCounty ?? before.config.homeCounty });
     if (choices.retainedPartUid) {
       const retained = salvageCarryCandidates(before).find(({ part }) => part.uid === choices.retainedPartUid)!.part;
-      s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin, ...(retained.provenance && { provenance: retained.provenance }) };
+      s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin, ...(retained.provenance && { provenance: { ...retained.provenance } }) };
       s.run.inventory.push({ ...retained, inherited: true });
     }
   },
@@ -242,15 +249,17 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
   name: "Team Reset",
   clears: ["run", "config", "scrap", "era"],
   gate: (s) => {
-    if (!s.era) return s.meta.stateWonEver ? { ok: true, reason: null } : { ok: false, reason: "Win the State Invitational Feature" };
+    if (!s.era) return (s.meta.stateWonEver || shopFoundingReady(s)) ? { ok: true, reason: null } : { ok: false, reason: "Win the State Invitational Feature or qualify for a Workshop Collective through the service counter" };
     return (s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: s.era?.discipline === "rally" ? "Win or certify the County Forest Feature this Season" : "Win the County Fair Feature this Season" };
   },
   award: teamAward,
   validate: (s, c) => {
+    if (c.shopLegacy) return "Transfer your business through a Shop Move.";
+    if (!s.era && !s.meta.stateWonEver && shopFoundingReady(s) && c.organization !== "collective") return "The service counter charter founds a Workshop Collective.";
     if (c.organization !== undefined && !Object.hasOwn(TEAM_ORGANIZATIONS, c.organization)) return "Pick a team organization";
     if (c.retainedPartUid) return "Salvage carryover is only available on Scrap Reset";
     if (c.homeCounty !== undefined) return "Choose a home county on Scrap Reset";
-    if (c.club !== undefined || c.clubCourse !== undefined || c.clubLoan !== undefined) return "Found a club on Scrap Reset to keep your team.";
+    if (c.club !== undefined || c.clubCourse !== undefined || c.clubLoan !== undefined || c.clubVisitor !== undefined) return "Found a club on Scrap Reset to keep your team.";
     if (c.worksPlan !== undefined) return "Select your works drawing on Scrap Reset.";
     if (c.discipline !== "dirt" && c.discipline !== "drag" && c.discipline !== "rally") return "Pick a discipline";
     const locked = disciplineBlocker(s, c.discipline);
@@ -307,14 +316,28 @@ function buyPerks(state: GameState, buy: string[]): void {
   state.scrap.lp = plan.lpLeft;
 }
 
-export const LAYERS = { scrap: SCRAP_LAYER, team: TEAM_LAYER } as const;
+export const SHOP_LAYER: LayerDef<ScrapChoices> = {
+  id: "shop",
+  name: "Shop Move",
+  clears: ["run", "config"],
+  gate: (game) => shopMoveReady(game) ? { ok: true, reason: null } : { ok: false, reason: "Fill the three service invoices and build a Riding Mower or larger hauler." },
+  award: () => 0,
+  validate: (game, choices) => transferBlocker(game, choices.shopLegacy),
+  apply: (game, _award, choices, before) => {
+    const legacy = choices.shopLegacy!;
+    game.config = { ...initialConfig(), shopLegacy: legacy, homeCounty: before.config.homeCounty };
+    if (legacy.type === "tool") game.run.tools[legacy.tool] = 1;
+  },
+};
+
+export const LAYERS = { scrap: SCRAP_LAYER, team: TEAM_LAYER, shop: SHOP_LAYER } as const;
 
 function firstEverMilestones(state: GameState): string[] {
   return Object.keys(state.run.featureWins).filter((v) => !state.scrap.milestonesThisEra.includes(v));
 }
 
 /** Banks everything a Season earned into longer-lived scopes. Shared by every reset. */
-function commitSeason(state: GameState): void {
+function commitSeason(state: GameState, layer: LayerId): void {
   const meta = state.meta;
   for (const id of state.run.learned) meta.knowhow[id] = (meta.knowhow[id] ?? 0) + 1;
   for (const template of state.run.habitsKnown) {
@@ -328,7 +351,7 @@ function commitSeason(state: GameState): void {
     meta.records[venueId] = Math.min(meta.records[venueId] ?? Infinity, at);
     if (!meta.milestonesEver.includes(venueId)) meta.milestonesEver.push(venueId);
   }
-  state.scrap.tuneUpPoints += newThisEra.length + (state.scrap.resets === 0 && !state.era ? 5 : 0);
+  state.scrap.tuneUpPoints += newThisEra.length + (layer !== "shop" && state.scrap.resets === 0 && !state.era ? 5 : 0);
   state.scrap.milestonesThisEra.push(...newThisEra);
   if (state.era) {
     for (const venueId of Object.keys(state.run.featureWins)) if (!state.era.milestones.includes(venueId)) state.era.milestones.push(venueId);
@@ -414,13 +437,14 @@ export function performReset(state: GameState, layerId: LayerId, choices: ScrapC
     organization: state.era ? state.era.organization ?? "independent" : undefined,
     setup: before.config, durationMs: state.run.seasonMs, featureWins: { ...state.run.featureWins },
     regularityFeatures: before.run.regularityFeatures,
+    serviceInvoices: before.run.serviceBook?.invoices,
     builds: state.run.vehicles.length, hauls: state.run.stats.hauls,
   });
   if (log.length > 100) log.shift();
   forfeitOwnerTour(state);
   archiveClubSeason(state);
   archiveWorks(state);
-  commitSeason(state);
+  commitSeason(state, layerId);
   for (const scope of layer.clears) clearScope(state, scope);
   layer.apply(state, award, choices, before);
   startClubSeason(state);

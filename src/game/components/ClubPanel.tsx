@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { CLUB_CHARTERS, clubEntryBlocker, clubEntryPrice, clubEntryStatus, clubGate, clubScore, ticketedGrant, type ClubAdmission, type ClubSeason } from "@/core/club";
 import { CLUB_COURSES } from "@/core/clubTrack";
+import { COUNTY_RIVALS } from "@/core/countyRivals";
+import { HOME_COUNTIES } from "@/core/counties";
 import { venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
@@ -68,6 +70,7 @@ export function ClubPanel() {
   const report = season && clubScore(season);
   const definition = season && CLUB_CHARTERS[season.charter];
   const course = season?.course ? CLUB_COURSES[season.course] : undefined;
+  const visitor = game.config.clubVisitor && COUNTY_RIVALS[game.config.clubVisitor];
   const gate = SCRAP_LAYER.gate(game);
   return (
     <div className="panel">
@@ -80,6 +83,7 @@ export function ClubPanel() {
           {season && definition && report && <>
             <section className="section" aria-labelledby="club-calendar-heading">
               <h3 id="club-calendar-heading">{definition.name}</h3>
+              {visitor && <p>{visitor.name} sent a {getPart(visitor.part).name} from {HOME_COUNTIES[visitor.county].name} for this Season’s workshop loan.</p>}
               <p>{report.points}/{definition.points} points · {report.finishes}/{definition.finishes} finishes · {report.publicFinishes}/{definition.publicFinishes} free-gate finishes</p>
               {course && <p>{course.name} · {report.coursePodiums}/{course.podiums} {course.proofCall === "push" ? "Push" : "Nurse"} podiums</p>}
               <ol className="plain">{definition.stops.map((stop, index) => {

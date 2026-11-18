@@ -8,6 +8,7 @@ import { applyHeritage, type HeritageMove } from "./heritage";
 import { applyPromoter, type PromoterMove } from "./promoter";
 import { applyClub, type ClubMove } from "./club";
 import { applyWorks, type WorksMove } from "./manufacturer";
+import { applyCountyMatch, type CountyMatchMove } from "./countyRivals";
 import { channel } from "./channels";
 import { COUNTY_PARTS, HOME_COUNTIES } from "./counties";
 import { getPart } from "./content/parts";
@@ -30,12 +31,16 @@ import { crewBusyRacing, crewTravelBlocker } from "./crew";
 import { releaseApprentice } from "./crewLegacy";
 import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, MaterialId, TuneSetting } from "./types";
 
+import { applyShopOrder, type ShopMove } from "./serviceShop";
+
 export type Action =
+  | { type: "service"; move: ShopMove }
   | { type: "heritage"; move: HeritageMove }
   | { type: "owner"; move: OwnerMove }
   | { type: "promoter"; move: PromoterMove }
   | { type: "club"; move: ClubMove }
   | { type: "works"; move: WorksMove }
+  | { type: "countyMatch"; move: CountyMatchMove }
   | { type: "advance"; ms: number; away?: boolean }
   | { type: "enqueue"; spec: JobSpec }
   | { type: "batchClean"; partUids: string[] }
@@ -86,6 +91,11 @@ export function apply(state: GameState, action: Action): ActionResult {
 
 function applyMut(s: GameState, action: Action): string | null {
   switch (action.type) {
+    case "service": {
+      const error = applyShopOrder(s, action.move);
+      if (!error) { afterChange(s); dispatch(s); }
+      return error;
+    }
     case "heritage":
       return applyHeritage(s, action.move);
     case "owner":
@@ -96,6 +106,8 @@ function applyMut(s: GameState, action: Action): string | null {
       return applyClub(s, action.move);
     case "works":
       return applyWorks(s, action.move);
+    case "countyMatch":
+      return applyCountyMatch(s, action.move);
     case "advance":
       if (!(action.ms > 0)) return null;
       advance(s, action.ms, action.away ?? false);
@@ -105,9 +117,12 @@ function applyMut(s: GameState, action: Action): string | null {
     case "raceNight":
       return applyRaceNight(s, action.move);
     case "enqueue":
-      if (action.spec.kind === "race" && (action.spec.tourRound !== undefined || action.spec.tourReserve !== undefined)) return "Enter touring rounds from the Owner calendar";
+      if (action.spec.kind === "race" && (action.spec.tourRound !== undefined || action.spec.tourReserve !== undefined || action.spec.ownerDrive !== undefined)) {
+        return "Enter touring rounds from the Owner calendar";
+      }
       if (action.spec.kind === "race" && action.spec.clubRound !== undefined) return "Enter club rounds from the Club calendar";
       if (action.spec.kind === "race" && action.spec.worksRound !== undefined) return "Enter works trials from the Manufacturer desk";
+      if (action.spec.kind === "race" && action.spec.countyMatch !== undefined) return "Enter the county matchup from the Race screen";
       return enqueue(s, action.spec);
     case "batchClean": {
       if (action.partUids.length < 2 || action.partUids.length > 3 || new Set(action.partUids).size !== action.partUids.length) return "Choose two or three different parts";

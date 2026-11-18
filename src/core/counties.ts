@@ -2,7 +2,7 @@ import type { GameState, HomeCounty } from "./types";
 
 export const HOME_COUNTIES = {
   home: { name: "Mill County", source: null, replaces: null, summary: "The familiar start with Neighbourhood Yards and Marisol's Junkyard." },
-  river: { name: "River County", source: "floodplain", replaces: "yards", summary: "Free Floodplain Lots replace Neighbourhood Yards. Find more chassis and River Tires, but the wet lots have poorer condition and few engines." },
+  river: { name: "River County", source: "floodplain", replaces: "yards", summary: "Floodplain Lots replace Neighbourhood Yards. Opens at 5 Rep, with free 3-minute trips for chassis and River Tires. The wet lots have poorer condition and few engines." },
   quarry: { name: "Quarry County", source: "quarry_breakers", replaces: "junkyard", summary: "Quarry Breakers replaces Marisol's Junkyard. Opens at 20 Rep with a trailer and charges 14 Scrap Bucks per trip. Hard parts and the Quarry Four are common; useful tires are scarcer." },
 } as const;
 

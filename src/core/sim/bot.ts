@@ -12,6 +12,7 @@ import { CREW_BY_ID, TEAM_UPGRADES } from "../content/team";
 import { TOOLS } from "../content/tools";
 import { SHELL_PRICE, VEHICLES, getVehicle } from "../content/vehicles";
 import { channel } from "../channels";
+import { homeCounty } from "../counties";
 import { reservedPartUids, vehicleBusy } from "../garage";
 import { templateBase } from "../habits";
 import { QUEUE_LIMIT, isBenchKind, jobBlocker } from "../jobs";
@@ -153,7 +154,10 @@ export class Bot {
   }
 
   private openPlaces(): void {
-    for (const id of ["place:dirt", "place:junkyard", "place:auction", "place:long_haul", "place:yards"]) {
+    const county = homeCounty(this.state);
+    const trailer = county === "quarry" ? "place:quarry_breakers" : "place:junkyard";
+    const yards = county === "river" ? "place:floodplain" : "place:yards";
+    for (const id of ["place:dirt", trailer, "place:auction", "place:long_haul", yards]) {
       if (!canOpenPlace(this.state, id)) this.act({ type: "openPlace", knowhowId: id });
     }
   }
@@ -464,8 +468,13 @@ export class Bot {
     const scored = open
       .filter((p) => longOk || p.tripMs <= 10 * MIN)
       .map((p) => ({ id: p.id, value: (p.finds.reduce((sum, f) => sum + getPart(f.partId).value * f.weight, 0) / p.finds.reduce((s2, f) => s2 + f.weight, 0)) / (p.tripMs / HOUR + 0.05) }));
+    const stage = homeCounty(s);
+    if (stage === "river" && !s.run.vehicles.some((vehicle) => vehicle.vehicleId === "riding_mower")
+      && scored.some((place) => place.id === "floodplain")) return "floodplain";
+    if (stage === "quarry" && !s.run.vehicles.some((vehicle) => vehicle.vehicleId === "go_kart")
+      && scored.some((place) => place.id === "quarry_breakers")) return "quarry_breakers";
     // Prefer the highest-tier place you can reach; long trips when away.
-    const tierOrder = ["long_haul", "auction", "junkyard", "yards", "curb"];
+    const tierOrder = ["long_haul", "auction", "quarry_breakers", "junkyard", "floodplain", "yards", "curb"];
     for (const id of tierOrder) if (scored.some((x) => x.id === id)) return id;
     return scored[0]?.id ?? null;
   }
@@ -500,7 +509,7 @@ export class Bot {
     if (resolveFlags(s).teamEra) return;
     const known = s.run.habitsKnown;
     const wanted: string[] = [];
-    const bestHaul = ["haul:long_haul", "haul:junkyard", "haul:yards", "haul:curb"].find((t) => known.includes(t) && !jobBlocker(s, { kind: "haul", placeId: t.slice(5) }));
+    const bestHaul = ["haul:long_haul", "haul:quarry_breakers", "haul:junkyard", "haul:floodplain", "haul:yards", "haul:curb"].find((t) => known.includes(t) && !jobBlocker(s, { kind: "haul", placeId: t.slice(5) }));
     if (bestHaul) wanted.push(bestHaul);
     // Racing earns the Rep everything else waits on, so it outranks bench habits.
     if (known.includes("race")) {

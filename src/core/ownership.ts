@@ -81,12 +81,16 @@ export const CHARTERS: Record<OwnerCharter, CharterDef> = {
 
 export const TOUR_POINTS = [12, 9, 7, 5, 3, 1] as const;
 export const OWNER_HISTORY_LIMIT = 20;
-export const SPONSOR_IDS = ["reliable", "front_row"] as const;
+export const SPONSOR_IDS = ["reliable", "front_row", "rookie_kart", "owner_driver"] as const;
 type SponsorId = typeof SPONSOR_IDS[number];
+
+export const ROOKIE_KART_START_LIMIT = 3;
 
 export const TOUR_SPONSORS = {
   reliable: { name: "Reliable Parts", term: "Score in all five rounds", stake: 150, bonus: 450 },
   front_row: { name: "Front Row Fuel", term: "Win three rounds", stake: 450, bonus: 1100 },
+  rookie_kart: { name: "Development Seat", term: "Podium in the County Fair Feature with the named rookie Go-Kart", stake: 250, bonus: 1100 },
+  owner_driver: { name: "Owner-Driver Contingency", term: "Drive the Regional Heat yourself and finish on the podium", stake: 250, bonus: 850 },
 } satisfies Record<SponsorId, { name: string; term: string; stake: number; bonus: number }>;
 
 export interface OwnerFinish {
@@ -95,6 +99,8 @@ export interface OwnerFinish {
   carName: string;
   position: number;
   dnf: boolean;
+  planned?: true;
+  ownerDriven?: true;
   finance?: { entry: number; prize: number };
   setup?: { engine?: string; tires?: string; tune: Vehicle["tune"]; call: RaceSpec["call"] };
 }
@@ -107,6 +113,7 @@ export interface OwnerTour {
   rounds: (OwnerFinish | null)[];
   status: "active" | "champion" | "finished" | "retired";
   sponsor?: SponsorId;
+  sponsorCar?: { uid: string; name: string; startsAtSigning: number };
   itinerary?: "reverse" | "endurance";
   entryPlan?: EntryPlan;
 }
@@ -149,7 +156,7 @@ function creditOwnerRecord(records: OwnerRecords, tour: OwnerTour): void {
 }
 
 export type OwnerMove =
-  | { type: "found" | "start"; charter: OwnerCharter; sponsor?: SponsorId; itinerary?: OwnerTour["itinerary"] }
+  | { type: "found" | "start"; charter: OwnerCharter; sponsor?: SponsorId; sponsorVehicleUid?: string; itinerary?: OwnerTour["itinerary"] }
   | { type: "enter"; vehicleUid: string; call: RaceSpec["call"]; call2?: RaceSpec["call2"] }
   | { type: "plan_entries"; settings: EntryPlanSettings }
   | { type: "skip" | "withdraw" | "retire" | "pause_plan" };
@@ -186,21 +193,66 @@ export function tourCalendar(tour: OwnerTour): readonly TourStop[] {
   return stops;
 }
 
-export function sponsorshipBlocker(state: GameState, sponsor: SponsorId): string | null {
+export function rookieSponsorCars(state: GameState): Vehicle[] {
+  return state.run.vehicles.filter((car) => car.vehicleId === "go_kart" && car.history.races <= ROOKIE_KART_START_LIMIT);
+}
+
+export function sponsorshipBlocker(state: GameState, sponsor: SponsorId, charter?: OwnerCharter, itinerary?: OwnerTour["itinerary"], sponsorVehicleUid?: string): string | null {
   if (!Object.hasOwn(TOUR_SPONSORS, sponsor)) return "Choose a valid sponsor.";
   if (!state.owner?.titles) return "Win a championship to pitch sponsors.";
   const { stake } = TOUR_SPONSORS[sponsor];
-  return state.run.cash < stake ? `The sponsor requires a ${stake} Scrap Bucks stake.` : null;
+  if (state.run.cash < stake) return `The sponsor requires a ${stake} Scrap Bucks stake.`;
+  if (sponsor !== "rookie_kart" && sponsor !== "owner_driver") return null;
+  if (charter && charter !== "privateer") return "This sponsor backs the Independent Tour.";
+  if (sponsor === "owner_driver") return itinerary === "endurance" ? "This contract needs the Regional Heat." : null;
+  const rookies = rookieSponsorCars(state);
+  if (!rookies.length) return `Build a Go-Kart with at most ${ROOKIE_KART_START_LIMIT} race starts first.`;
+  return !charter || rookies.some((car) => car.uid === sponsorVehicleUid) ? null : "Name a rookie Go-Kart for the County Fair round.";
+}
+
+function sponsorRound(tour: OwnerTour, sponsor: "rookie_kart" | "owner_driver"): number {
+  const [venue, event] = sponsor === "rookie_kart" ? ["county_fair", "feature"] : ["regional", "heat"];
+  return tourCalendar(tour).findIndex((stop) => stop.venueId === venue && stop.event === event);
+}
+
+export function ownerDrivenRound(tour: OwnerTour): boolean {
+  return tour.sponsor === "owner_driver" && sponsorRound(tour, "owner_driver") === tour.rounds.length;
+}
+
+/** Pure forecasts for an unassisted entry use the same car, discipline and team upgrades. */
+export function ownerDriverView(state: GameState, ownerDriving: boolean): GameState {
+  return ownerDriving && state.era ? { ...state, era: { ...state.era, crew: [] } } : state;
+}
+
+export function sponsorRoundInstruction(tour: OwnerTour): string | null {
+  if (ownerDrivenRound(tour)) return "You drive this Regional Heat. Crew can’t ride with you, and the entry waits for your hands to be free.";
+  if (tour.sponsor === "rookie_kart" && sponsorRound(tour, "rookie_kart") === tour.rounds.length) {
+    return `Bring ${tour.sponsorCar?.name ?? "the named Go-Kart"} home on the podium to earn the Development Seat payout.`;
+  }
+  return null;
+}
+
+export function nominatedRookie(tour: OwnerTour): string | undefined {
+  return tour.sponsor === "rookie_kart" && sponsorRound(tour, "rookie_kart") === tour.rounds.length
+    ? tour.sponsorCar?.uid : undefined;
 }
 
 export function sponsorProgress(tour: OwnerTour): { completed: number; target: number; payout: number } | null {
   if (!tour.sponsor) return null;
   const sponsor = TOUR_SPONSORS[tour.sponsor];
-  const target = tour.sponsor === "reliable" ? CHARTERS[tour.charter].calendar.length : 3;
-  const completed = tour.rounds.filter((finish) => {
-    const score = finishPoints(finish);
-    return tour.sponsor === "reliable" ? score > 0 : score === TOUR_POINTS[0];
-  }).length;
+  const dedicatedRound = tour.sponsor === "rookie_kart" || tour.sponsor === "owner_driver";
+  const target = dedicatedRound ? 1 : tour.sponsor === "reliable" ? tourCalendar(tour).length : 3;
+  let completed: number;
+  if (tour.sponsor === "rookie_kart" || tour.sponsor === "owner_driver") {
+    const finish = tour.rounds[sponsorRound(tour, tour.sponsor)];
+    const correctEntry = tour.sponsor === "rookie_kart" ? finish?.vehicleUid === tour.sponsorCar?.uid : finish?.ownerDriven;
+    completed = Number(!!finish && !finish.dnf && finish.position <= 3 && !!correctEntry);
+  } else {
+    completed = tour.rounds.filter((finish) => {
+      const score = finishPoints(finish);
+      return tour.sponsor === "reliable" ? score > 0 : score === TOUR_POINTS[0];
+    }).length;
+  }
   const payout = completed >= target && (tour.status === "champion" || tour.status === "finished")
     ? sponsor.stake + sponsor.bonus : 0;
   return { completed, target, payout };
@@ -298,6 +350,9 @@ export function tourGarage(state: GameState, tour: OwnerTour, call: RaceSpec["ca
   const stop = tourCalendar(tour)[tour.rounds.length];
   if (!stop) return [];
   const [minimum, maximum] = getVenue(stop.venueId).tiers;
+  const ownerDrive = ownerDrivenRound(tour);
+  const forecast = ownerDriverView(state, ownerDrive);
+  const second = ownerDrive ? undefined : call2;
   const needReserve = needsNewScoringCar(tour);
   const scoringCars = scoringCarIds(tour);
   return state.run.vehicles.flatMap((car) => {
@@ -306,9 +361,9 @@ export function tourGarage(state: GameState, tour: OwnerTour, call: RaceSpec["ca
     const ready = Number(!ownerEntryBlocker(state, tour, car.uid, call, call2));
     return [{
       car, ready, fulfillsLineup: Number(needReserve && !scoringCars.has(car.uid)),
-      odds: winChance(state, car, stop.venueId, stop.event, call, call2),
-      dnf: dnfChance(state, car, stop.venueId, stop.event, call, call2),
-      score: effectiveScore(state, car, stop.venueId, call, call2, stop.event),
+      odds: winChance(forecast, car, stop.venueId, stop.event, call, second),
+      dnf: dnfChance(forecast, car, stop.venueId, stop.event, call, second),
+      score: effectiveScore(forecast, car, stop.venueId, call, second, stop.event),
     }];
   }).sort((a, b) => b.ready - a.ready || b.fulfillsLineup - a.fulfillsLineup || b.odds - a.odds || a.dnf - b.dnf || b.score - a.score)
     .map(({ car }) => car);
@@ -318,6 +373,7 @@ export function ownerEntryBlocker(state: GameState, tour: OwnerTour, vehicleUid:
   const stop = tourCalendar(tour)[tour.rounds.length];
   if (tour.status !== "active" || !stop) return "Start a championship first.";
   if (currentTourEntry(state)) return "This round already has an entry.";
+  if (ownerDrivenRound(tour) && call2) return "This round’s contract calls for an unassisted owner-driver.";
   const car = state.run.vehicles.find((vehicle) => vehicle.uid === vehicleUid);
   if (!car) return "Choose a car.";
   const eligibility = ownerClassBlocker(tour, car)
@@ -345,7 +401,8 @@ function plannedEntry(state: GameState, tour: OwnerTour): { spec: RaceSpec | nul
     if (!vehicleUid) continue;
     const reason = ownerEntryBlocker(state, tour, vehicleUid, plan.call);
     if (!reason) return {
-      spec: { kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid, call: plan.call, tourRound: tourRoundToken(tour), tourReserve: plan.cashFloor },
+      spec: { kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid, call: plan.call, tourRound: tourRoundToken(tour), tourReserve: plan.cashFloor,
+        ownerDrive: ownerDrivenRound(tour) ? true : undefined },
       reason: null,
     };
     const car = state.run.vehicles.find((candidate) => candidate.uid === vehicleUid);
@@ -389,7 +446,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
       if (tour?.status === "active") return "Finish or retire from your current championship first.";
       const blocked = ownerCharterBlocker(state, move.charter);
       if (blocked) return blocked;
-      const sponsorBlocked = move.sponsor && sponsorshipBlocker(state, move.sponsor);
+      const sponsorBlocked = move.sponsor && sponsorshipBlocker(state, move.sponsor, move.charter, move.itinerary, move.sponsorVehicleUid);
       if (sponsorBlocked) return sponsorBlocked;
       if (move.itinerary === "reverse" && !reverseTourUnlocked(state, move.charter)) {
         return "Win this charter in your current discipline to race it in reverse.";
@@ -398,6 +455,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
         return "Win this charter in two disciplines to run the all-Feature tour.";
       }
       if (move.itinerary !== undefined && move.itinerary !== "reverse" && move.itinerary !== "endurance") return "Choose an available itinerary.";
+      const rookie = move.sponsor === "rookie_kart" ? rookieSponsorCars(state).find((car) => car.uid === move.sponsorVehicleUid) : undefined;
       const newTour: OwnerTour = {
         id: nextUid(state, "tour"),
         charter: move.charter,
@@ -405,6 +463,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
         rounds: [],
         status: "active",
         sponsor: move.sponsor,
+        sponsorCar: rookie && { uid: rookie.uid, name: rookie.name, startsAtSigning: rookie.history.races },
         itinerary: move.itinerary,
       };
       if (move.sponsor) state.run.cash -= TOUR_SPONSORS[move.sponsor].stake;
@@ -428,7 +487,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
       const stop = tourCalendar(tour)[tour.rounds.length];
       return enqueue(state, {
         kind: "race", venueId: stop.venueId, event: stop.event, vehicleUid: move.vehicleUid, call: move.call, call2: move.call2,
-        tourRound: tourRoundToken(tour),
+        tourRound: tourRoundToken(tour), ownerDrive: ownerDrivenRound(tour) ? true : undefined,
       });
     }
     case "plan_entries": {
@@ -441,6 +500,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
       if (reserveUid === leadUid || (reserveUid && !state.run.vehicles.some((car) => car.uid === reserveUid))) {
         return "Choose a different reserve car from the garage.";
       }
+      removePlannedQueuedEntry(state, tour);
       tour.entryPlan = { leadUid, reserveUid, call, cashFloor, enabled: true };
       queueTourPlan(state);
       return null;
@@ -448,8 +508,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
     case "pause_plan": {
       if (!tour || tour.status !== "active" || !tour.entryPlan) return "There is no entry plan to pause.";
       tour.entryPlan.enabled = false;
-      const token = tourRoundToken(tour);
-      state.run.queue = state.run.queue.filter((job) => job.kind !== "race" || job.tourRound !== token || job.tourReserve === undefined);
+      removePlannedQueuedEntry(state, tour);
       return null;
     }
     case "skip":
@@ -471,6 +530,11 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
   }
 }
 
+function removePlannedQueuedEntry(state: GameState, tour: OwnerTour): void {
+  const token = tourRoundToken(tour);
+  state.run.queue = state.run.queue.filter((job) => job.kind !== "race" || job.tourRound !== token || job.tourReserve === undefined);
+}
+
 function removeQueuedEntry(state: GameState, tour: OwnerTour): void {
   const token = tourRoundToken(tour);
   state.run.queue = state.run.queue.filter((spec) => spec.kind !== "race" || spec.tourRound !== token);
@@ -485,7 +549,7 @@ export function forfeitOwnerTour(state: GameState): void {
   logSeason(state, `retired:${tour.id}`, `Retired from the ${CHARTERS[tour.charter].name}.`);
 }
 
-export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: RaceResult, entry: number): void {
+export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: RaceResult, entry: number, drivenAlone = false): void {
   if (state.era && result.venueId === "state" && result.event === "feature" && result.position === 1 && !result.dnf) {
     state.meta.teamStateWon = true;
   }
@@ -495,12 +559,14 @@ export function recordOwnerFinish(state: GameState, spec: RaceSpec, result: Race
   if (!stop || stop.venueId !== result.venueId || stop.event !== result.event || spec.vehicleUid !== result.vehicleUid) return;
   const car = state.run.vehicles.find((vehicle) => vehicle.uid === result.vehicleUid);
   if (!car || ownerClassBlocker(tour, car)) return;
-  const finish = {
+  const finish: OwnerFinish = {
     raceId: result.id,
     vehicleUid: result.vehicleUid,
     carName: car.name,
     position: result.position,
     dnf: result.dnf,
+    planned: spec.tourReserve !== undefined ? true : undefined,
+    ownerDriven: ownerDrivenRound(tour) && drivenAlone ? true : undefined,
     finance: { entry, prize: result.prize },
     setup: { engine: car.parts.engine?.partId, tires: car.parts.wheel?.partId, tune: car.tune, call: result.call },
   };

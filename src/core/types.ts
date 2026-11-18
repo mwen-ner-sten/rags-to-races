@@ -15,6 +15,7 @@
 import type { OwnerState } from "./ownership";
 import type { ClubAdmission, ClubCharter, ClubState } from "./club";
 import type { ClubCourseId } from "./clubTrack";
+import type { CountyContact, CountyMatchResult, CountyRivalId } from "./countyRivals";
 import type { ManufacturerState, WorksFamily } from "./manufacturer";
 import type { PromoterState } from "./promoter";
 
@@ -53,16 +54,22 @@ export interface PartInstance {
   origin: string;
   provenance?: PartProvenance;
   protected?: boolean;
+  referral?: import("./serviceShop").CustomerId;
   /** This physical part has already crossed one Scrap Reset. */
   inherited?: true;
 }
 
 export type HomeCounty = "home" | "river" | "quarry";
+export type NeighborCounty = Exclude<HomeCounty, "home">;
+
+export type BatonProgress =
+  | { leg: "qualify"; from: NeighborCounty; qualified?: { uid: string; at: number } }
+  | { leg: "deliver"; from: NeighborCounty; qualified: { uid: string; at: number }; completedAt?: number };
 
 export interface PartProvenance {
-  county: HomeCounty;
-  placeId: string;
-  season: number;
+  readonly county: HomeCounty;
+  readonly placeId: string;
+  readonly season: number;
 }
 
 export interface VehicleHistory {
@@ -93,7 +100,7 @@ export type JobSpec =
   | { kind: "strip"; partUid?: string }
   | { kind: "study"; knowhowId: string }
   | { kind: "assemble"; vehicleId: string; partUids: Record<string, string>; name: string }
-  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; useLastPace?: true; tourRound?: string; tourReserve?: number; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
+  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; useLastPace?: true; tourRound?: string; tourReserve?: number; ownerDrive?: true; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; countyMatch?: CountyRivalId; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
 
 export type LaneId = string; // "hands" | "bench:0" | "habit:1" | "crew:<id>"
 
@@ -160,6 +167,7 @@ export interface RaceRoll {
 }
 
 export interface RaceResult {
+  countyMeeting?: CountyMatchResult;
   rallyClock?: import("./timecards").RallyClock;
   course?: ClubCourseId;
   id: string;
@@ -233,6 +241,7 @@ export interface SeasonChallengeProgress {
 }
 
 export interface MetaState {
+  serviceReferences?: import("./serviceShop").ServiceReferences;
   heritageRegister?: import("./heritage").HeritageAward[];
   rallyLicences?: Record<string, number>;
   rallyCards?: import("./timecards").RallyCard[];
@@ -258,6 +267,7 @@ export interface MetaState {
   guideOff?: boolean;
   daresCompleted: string[];
   challengeRecords: Partial<Record<SeasonChallengeId, SeasonChallengeRecord>>;
+  countyFreight?: Partial<Record<NeighborCounty, number>>;
   disciplineMastery: Record<string, number>;
   hardshipMastery: Record<string, number>;
   teamStateWon?: boolean;
@@ -310,6 +320,7 @@ export interface EraState {
 }
 
 export interface RunState {
+  serviceBook?: import("./serviceShop").ServiceBook;
   heritageSetups?: string[];
   heritageProject?: import("./heritage").HeritageProject;
   regularityFeatures?: Record<string, number>;
@@ -339,6 +350,7 @@ export interface RunState {
   lastEntered: Record<string, number>;
   featureWins: Record<string, number>; // venue → season ms of first Feature win
   challenge: SeasonChallengeProgress;
+  countyBaton?: BatonProgress;
   raceNight?: { vehicleUid: string; venueId: string; call: RaceCall; startsLeft: number; stopOnFeature: boolean };
   races: RaceResult[];
   stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number; dnfs?: number; counterBuys?: number };
@@ -356,8 +368,10 @@ export interface RunState {
 }
 
 export interface RunConfig {
+  shopLegacy?: import("./serviceShop").ShopLegacy;
   donor?: Pick<PartInstance, "partId" | "condition" | "origin" | "provenance">;
   homeCounty?: HomeCounty;
+  countyFreight?: true;
   perks: string[]; // equipped this Season
   tuneUp: Record<SkillId, number>;
   dare: string | null;
@@ -367,14 +381,16 @@ export interface RunConfig {
   club?: ClubCharter;
   clubCourse?: ClubCourseId;
   clubLoan?: ClubCourseId;
+  clubVisitor?: CountyRivalId;
   worksPlan?: WorksFamily;
 }
 
 export interface SeasonResult {
+  serviceInvoices?: import("./serviceShop").Invoice[];
   regularityFeatures?: Record<string, number>;
   organization?: import("./content/team").TeamOrganization;
   season: number;
-  endedBy: "scrap" | "team";
+  endedBy: "scrap" | "team" | "shop";
   teamName: string | null;
   discipline: DisciplineId;
   setup: RunConfig;
@@ -385,6 +401,7 @@ export interface SeasonResult {
 }
 
 export interface GameState {
+  countyRivals?: Partial<Record<CountyRivalId, CountyContact>>;
   manufacturer?: ManufacturerState;
   club?: ClubState;
   owner?: OwnerState;

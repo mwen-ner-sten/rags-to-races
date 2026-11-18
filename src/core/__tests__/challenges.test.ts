@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeGameState } from "../../game/save";
 import { channel } from "../channels";
-import { PLACES } from "../content/places";
+import { getPlace } from "../content/places";
 import { getVehicle } from "../content/vehicles";
 import { stripYield } from "../garage";
 import { apply, createGame, must } from "../index";
@@ -15,7 +15,7 @@ const WIN: RaceRoll = {
 };
 
 const KART = { engine: "engine_v4", frame: "frame_kart", wheel: "wheel_dirt", fuel: "fuel_gas_can" };
-const [CURB, YARDS, JUNKYARD, AUCTION] = PLACES.map((place) => place.name);
+const [CURB, YARDS, JUNKYARD, AUCTION] = ["curb", "yards", "junkyard", "auction"].map((place) => getPlace(place).name);
 
 function addKart(state: GameState, uid: string): Vehicle {
   const kart: Vehicle = {

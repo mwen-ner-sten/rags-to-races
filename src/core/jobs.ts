@@ -1,8 +1,10 @@
 import { advancePromoter } from "./promoter";
 import { clubHostingCost, clubSpecMatches } from "./club";
 import { worksSpecMatches } from "./manufacturer";
+import { countySpecMatches } from "./countyRivals";
 import { channel } from "./channels";
 import { countyPlaceBlocker } from "./counties";
+import { customerLeads, recordService } from "./serviceShop";
 import { cardFor } from "./timecards";
 import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
@@ -71,7 +73,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       const req = place.requires?.(state);
       if (req) return req;
       if (state.run.cash < place.fee) return `Needs ${place.fee} Scrap Bucks`;
-      if (spec.focus && !isLearned(state, "tech:scouting")) return "Learn Scouting to look for something specific";
+      if (spec.focus && spec.focus !== customerLeads(state) && !isLearned(state, "tech:scouting")) return "Learn Scouting to look for something specific";
       return null;
     }
     case "clean": {
@@ -136,6 +138,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       if (!vehicle) return "Pick a vehicle";
       if (spec.clubRound && !clubSpecMatches(state, spec, vehicle)) return "That club sign-up is no longer current";
       if (spec.worksRound && !worksSpecMatches(state, spec, vehicle)) return "That works sign-up needs the signed engine and three family parts";
+      if (spec.countyMatch && !countySpecMatches(state, spec)) return "That county sign-up needs the local Push Mower build";
       if (vehicleBusy(state, vehicle.uid) && !signUp) return "That vehicle is already racing";
       if (!state.run.venuesOpen.includes(spec.venueId)) return "That venue isn't open to you yet";
       const venue = getVenue(spec.venueId);
@@ -150,6 +153,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
         return "Set a class time on this standard Rally course before entering regularity.";
       }
       if (spec.call2) {
+        if (spec.ownerDrive) return "This round’s contract calls for an unassisted owner-driver.";
         const available = signUp ? assignedRacingCrewIds(state) : racingCrewIds(state);
         const driver = state.era?.crew.some((c) => c.assignment.type === "driver" && available.includes(c.id));
         const calls = DISCIPLINES[resolveFlags(state).discipline].secondCall;
@@ -480,6 +484,7 @@ function firstFreeBenchLane(state: GameState): LaneId {
 function crewAccepts(state: GameState, member: CrewMember, spec: JobSpec): boolean {
   const def = CREW_BY_ID[member.id];
   if (!def) return false;
+  if (spec.kind === "race" && spec.ownerDrive) return false;
   if (crewTravelBlocker(state, spec.kind)) return false;
   if (def.refuses.includes(spec.kind)) return false;
   if (spec.kind === "haul" && def.refusesPlace === spec.placeId) return false;
@@ -531,6 +536,7 @@ function completeJob(state: GameState, job: ActiveJob): void {
       const next = part ? conditionAfter(spec.kind, part.condition) : null;
       if (part && next !== null) {
         part.condition = next;
+        recordService(state, part);
         if (spec.kind === "clean") addJournal(state, "first_clean", STORY.first_clean);
         if (spec.kind === "restore") tell(state, "first_restore");
         benchFeed(state, job, `${getPart(part.partId).name} is now ${CONDITION_NAMES[next]}.`);

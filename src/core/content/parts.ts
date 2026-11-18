@@ -35,7 +35,7 @@ export const PARTS: readonly PartDef[] = [
   { id: "wheel_busted", name: "Busted Wheel", category: "wheel", tier: 0, power: 0, handling: 2, reliability: 3, weight: 5, value: 2, blurb: "Round enough." },
   { id: "wheel_basic", name: "Turf Tire", category: "wheel", tier: 1, power: 2, handling: 5, reliability: 8, weight: 6, value: 6, blurb: "Grippy on grass, nervous on dirt." },
   { id: "wheel_kart", name: "Kart Slick", category: "wheel", tier: 2, power: 3, handling: 11, reliability: 12, weight: 6, value: 24, blurb: "Small, sticky, made to turn." },
-  { id: "wheel_river", name: "River Tire", category: "wheel", tier: 2, power: 1, handling: 14, reliability: 7, weight: 5, value: 18, blurb: "Light river-trailer rubber. It grips through a corner and wears quickly under load." },
+  { id: "wheel_river", name: "River Tire", category: "wheel", tier: 2, power: 1, handling: 14, reliability: 7, weight: 5, value: 18, blurb: "Light river-trailer rubber. Strong in a corner and a weak link on a rough track." },
   { id: "wheel_sport", name: "Sport Tire", category: "wheel", tier: 3, power: 4, handling: 16, reliability: 16, weight: 9, value: 45, blurb: "Off a coupe somebody wrapped around a pole." },
   { id: "wheel_knobby", name: "Knobby Tire", category: "wheel", tier: 1, power: 1, handling: 3, reliability: 12, weight: 7, value: 6, blurb: "Off a wheelbarrow. Never goes flat, never goes fast." },
   { id: "wheel_dirt", name: "Dirt Tire", category: "wheel", tier: 2, power: 2, handling: 8, reliability: 18, weight: 8, value: 24, blurb: "Tall blocks that dig in and shrug off rocks." },

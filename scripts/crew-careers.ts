@@ -1,16 +1,18 @@
 /**
  * Earn team and sponsor checkpoints through the same actions as the browser.
- * npx tsx scripts/crew-careers.ts [seeds] [mixed|daily] [output-dir] [first-seed]
+ * npx tsx scripts/crew-careers.ts [seeds] [mixed|daily] [output-dir] [first-seed] [entry-plan|local-sponsors]
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createGame, must, type TeamChoices } from "../src/core";
+import { counterBlocker, createGame, must, type TeamChoices } from "../src/core";
 import { CREW_BY_ID, type TeamOrganization } from "../src/core/content/team";
+import { getVehicle } from "../src/core/content/vehicles";
 import { crewCanApprentice, crewHandoverOffers, APPRENTICE_JOBS, HANDOVER_COST, type WorkshopRoutine } from "../src/core/crewLegacy";
-import { LAYERS, crewCap, nextSeasonPerkSlots, nextSeasonTuneUpPoints, nextTeamPerkSlots, scrapAward, teamAward, teamResetLegacyBudget } from "../src/core/layers";
-import { currentTourEntry, ownerGate, ownerTourActive, sponsorProgress, sponsorshipBlocker, tourCalendar, tourCash, tourGarage, tourScore, type OwnerTour } from "../src/core/ownership";
+import { crewCap, nextSeasonPerkSlots, nextSeasonTuneUpPoints, nextTeamPerkSlots, scrapAward, teamAward, teamResetLegacyBudget } from "../src/core/layers";
+import { currentTourEntry, nominatedRookie, ownerGate, ownerTourActive, rookieSponsorCars, sponsorProgress, sponsorshipBlocker, tourCalendar, tourCash, tourGarage, tourScore, type OwnerTour } from "../src/core/ownership";
 import { jobBlocker } from "../src/core/jobs";
-import { winChance } from "../src/core/race";
+import { reservedPartUids } from "../src/core/garage";
+import { partScoreAt, winChance } from "../src/core/race";
 import { Bot, SCHEDULES } from "../src/core/sim/bot";
 import { teamCheckpoint } from "../src/core/sim/teamCheckpoint";
 import type { GameState, JobSpec, RaceCall } from "../src/core/types";
@@ -22,6 +24,8 @@ const scheduleId = process.argv[3] ?? "mixed";
 const schedule = SCHEDULES[scheduleId];
 const output = process.argv[4] ?? `test-results/crew-careers-${scheduleId}`;
 const firstSeed = Number(process.argv[5] ?? 0);
+const planSponsoredEntries = process.argv[6] === "entry-plan";
+const localSponsorship = process.argv[6] === "local-sponsors";
 const strategies = {
   workshop: { organization: "collective", handover: "apprenticeship", sponsor: "reliable" },
   racing: { organization: "independent", handover: "track_notes", sponsor: "front_row" },
@@ -39,6 +43,7 @@ class CareerPilot extends Bot {
   readonly entryProblems: Record<string, number> = {};
   handoverCost: number | undefined;
   sponsorTour: OwnerTour | undefined;
+  sponsoredManualEntries = 0;
   private previousTours = new Set<string>();
 
   constructor(state: GameState, elapsed: number, private strategy: Strategy) {
@@ -169,6 +174,32 @@ class CareerPilot extends Bot {
     }
   }
 
+  private commissionRookie(): void {
+    const game = this.state;
+    if ([...game.run.queue, ...game.run.jobs.map((job) => job.spec)].some((job) => job.kind === "assemble" && job.vehicleId === "go_kart")) return;
+    const reserved = reservedPartUids(game);
+    const partUids: Record<string, string> = {};
+    for (const slot of getVehicle("go_kart").slots) {
+      const score = (part: { partId: string; condition: 2 | 3 | 4 }) => partScoreAt(part, "dirt", "county_fair", slot.slot);
+      const current = this.state;
+      const stocked = slot.accepts.filter((partId) => !counterBlocker(current, partId))
+        .map((partId) => ({ partId, condition: 3 as const })).sort((a, b) => score(b) - score(a))[0];
+      const loose = current.run.inventory.filter((part) => slot.accepts.includes(part.partId) && part.condition >= 2 && !reserved.has(part.uid))
+        .sort((a, b) => partScoreAt(b, "dirt", "county_fair", slot.slot) - partScoreAt(a, "dirt", "county_fair", slot.slot))[0];
+      if (stocked && (!loose || score(stocked) > partScoreAt(loose, "dirt", "county_fair", slot.slot) + 1)) {
+        if (this.act({ type: "buyPart", partId: stocked.partId })) {
+          const bought = this.state.run.inventory.findLast((part) => part.partId === stocked.partId && !reserved.has(part.uid));
+          if (bought) { partUids[slot.slot] = bought.uid; reserved.add(bought.uid); continue; }
+        }
+      }
+      if (loose) { partUids[slot.slot] = loose.uid; reserved.add(loose.uid); }
+      else if (slot.required) return;
+    }
+    if (this.act({ type: "enqueue", spec: { kind: "assemble", vehicleId: "go_kart", partUids, name: "Development Kart" } })) {
+      this.markStage("rookieCommissioned");
+    }
+  }
+
   protected override race(present: boolean): void {
     const game = this.state;
     const notes = game.era?.handover;
@@ -192,24 +223,46 @@ class CareerPilot extends Bot {
       }
       if (this.act({ type: "owner", move: { type: "found", charter: "privateer" } })) this.markStage("firstTour");
     } else if (game.owner.tour.status !== "active") {
-      const sponsor = game.owner.titles ? strategies[this.strategy].sponsor : undefined;
-      if (!sponsor || !sponsorshipBlocker(game, sponsor)) {
-        if (this.act({ type: "owner", move: { type: "start", charter: "privateer", sponsor } }) && sponsor) this.markStage("sponsorSigned");
+      const sponsor = game.owner.titles
+        ? localSponsorship ? this.strategy === "workshop" ? "rookie_kart" : "owner_driver" : strategies[this.strategy].sponsor
+        : undefined;
+      const rookie = sponsor === "rookie_kart" ? rookieSponsorCars(game)[0] : undefined;
+      if (sponsor === "rookie_kart" && !rookie) {
+        this.commissionRookie();
+        return;
+      }
+      if (!sponsor || !sponsorshipBlocker(game, sponsor, "privateer", undefined, rookie?.uid)) {
+        if (this.act({ type: "owner", move: { type: "start", charter: "privateer", sponsor, sponsorVehicleUid: rookie?.uid } }) && sponsor) this.markStage("sponsorSigned");
       } else {
         super.race(present);
         return;
       }
     }
     const tour = this.state.owner?.tour;
-    if (!tour || currentTourEntry(this.state)) return;
+    if (!tour) return;
+    if (planSponsoredEntries && tour.sponsor) {
+      if (tour.entryPlan?.enabled) return;
+      const stock = this.state.run.vehicles.find((car) => car.vehicleId === "street_stock");
+      const fair = tourGarage(this.state, tour, "nurse")[0];
+      const lead = stock ?? fair;
+      if (lead && this.act({ type: "owner", move: { type: "plan_entries", settings: {
+        leadUid: lead.uid, reserveUid: fair?.uid !== lead.uid ? fair?.uid : undefined, call: "nurse", cashFloor: 1000,
+      } } })) this.markStage("entryPlanSaved");
+      return;
+    }
+    if (currentTourEntry(this.state)) return;
     const stop = tourCalendar(tour)[tour.rounds.length];
     if (!stop) return;
     // A win sponsor only pushes when the extra gamble makes an appreciable difference.
-    for (const car of tourGarage(this.state, tour, "nurse")) {
+    const nominee = nominatedRookie(tour);
+    for (const car of tourGarage(this.state, tour, "nurse").filter((candidate) => !nominee || candidate.uid === nominee)) {
       const pushWorthwhile = tour.sponsor === "front_row" && winChance(this.state, car, stop.venueId, stop.event, "push")
         > winChance(this.state, car, stop.venueId, stop.event, "nurse") + 0.1;
-      const call: RaceCall = pushWorthwhile ? "push" : "nurse";
-      if (this.act({ type: "owner", move: { type: "enter", vehicleUid: car.uid, call } })) return;
+      const call: RaceCall = nominee || pushWorthwhile ? "push" : "nurse";
+      if (this.act({ type: "owner", move: { type: "enter", vehicleUid: car.uid, call } })) {
+        if (tour.sponsor) this.sponsoredManualEntries++;
+        return;
+      }
     }
     const key = `${stop.venueId}:${stop.event}`;
     this.entryProblems[key] = (this.entryProblems[key] ?? 0) + 1;
@@ -229,12 +282,18 @@ for (let i = firstSeed; i < firstSeed + seeds; i++) {
       pilot.run(schedule, entry.elapsed + (scheduleId === "daily" ? 190 : 95) * DAY);
       const state = pilot.state;
       if (!decodeGameState(state)) throw new Error(`The ${strategy} run produced a save that cannot reload.`);
+      const impact = strategy === "workshop" ? pilot.milestones.habitWorking : pilot.milestones.heatRacedFirst;
+      const plannedRounds = pilot.sponsorTour?.rounds.filter((finish) => finish?.planned).length ?? 0;
+      const passed = state.team.resets >= 2 && impact !== undefined && pilot.milestones.sponsorSettled !== undefined
+        && (!planSponsoredEntries || plannedRounds === pilot.sponsorTour?.rounds.length);
+      if (!passed) process.exitCode = 1;
       const cash = pilot.sponsorTour && tourCash(pilot.sponsorTour);
       rows.push({
-        seed, strategy, schedule: scheduleId, ...pilot.milestones,
+        seed, strategy, schedule: scheduleId, acceptance: passed, ...pilot.milestones,
         elapsed: pilot.totalMs / DAY, teamResets: state.team.resets, handover: state.era?.handover,
         handoverCost: pilot.handoverCost, crew: state.era?.crew.map(({ id, jobsDone, service }) => ({ id, jobsDone, service })),
         lastTour: state.owner?.tour, sponsor: pilot.sponsorTour && sponsorProgress(pilot.sponsorTour), cash,
+        sponsoredManualEntries: pilot.sponsoredManualEntries, plannedRounds,
         notes: pilot.notes, entryProblems: pilot.entryProblems, currentState: {
           builds: state.run.vehicles.map((vehicle) => vehicle.vehicleId), venues: state.run.venuesOpen, wins: state.run.featureWins,
           season: state.meta.seasonsPlayed + 1, cash: state.run.cash, lastRaces: state.run.races.slice(-5).map(({ venueId, event, position }) => ({ venueId, event, position })),
@@ -243,6 +302,7 @@ for (let i = firstSeed; i < firstSeed + seeds; i++) {
       console.log(`${seed} ${scheduleId} ${strategy} · ${pilot.totalMs / DAY} days · ${Object.keys(pilot.milestones).join(", ")}`);
     }
   } catch (error) {
+    process.exitCode = 1;
     rows.push({ seed, schedule: scheduleId, error: String(error) });
     console.error(String(error));
   }

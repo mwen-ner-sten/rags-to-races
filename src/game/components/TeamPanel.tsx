@@ -135,7 +135,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
       <section className="section" aria-labelledby="team-h">
         <h2 id="team-h">Lou&apos;s back bay</h2>
         <p className="sub">
-          Win the State Invitational Feature and Lou offers you the empty bay behind his race shop. Founding a team ends Era 1: you pick a discipline, hire crew who work in parallel, and earn Team Points. Your Legacy Points and perk slots start over; everything in your Notebook stays.
+          A State Invitational win opens Lou’s back bay to either team. The service counter can also sponsor a Workshop Collective when both business references are on file, all three current invoices are paid, and you have a hauler. Founding a team ends Era 1: you pick a discipline, hire crew who work in parallel, and earn Team Points. Your Legacy Points and perk slots start over; everything in your Notebook stays.
         </p>
         <p>
           Founding now would give <strong className="num">{num(teamAward(game))}</strong> Team Points.

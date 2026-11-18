@@ -3,30 +3,39 @@
 import { useState } from "react";
 import { DISCIPLINES, VENUES, venueName } from "@/core/content/events";
 import { DARE_BY_ID, HARDSHIP_BY_ID, PERK_BY_ID, SEASON_CHALLENGES, isSeasonChallenge } from "@/core/content/modifiers";
-import type { SeasonResult } from "@/core/types";
+import type { GameState, SeasonResult } from "@/core/types";
 import { getPart } from "@/core/content/parts";
 import { HOME_COUNTIES } from "@/core/counties";
 import { partOriginLabel } from "@/core/provenance";
 import { TEAM_ORGANIZATIONS } from "@/core/content/team";
 import { CLUB_CHARTERS } from "@/core/club";
+import { CUSTOMERS, shopLegacyName } from "@/core/serviceShop";
 import { CLUB_COURSES } from "@/core/clubTrack";
+import { COUNTY_RIVALS } from "@/core/countyRivals";
+import { WORKS_FAMILIES } from "@/core/manufacturer";
 import { conditionName, duration } from "../format";
 
-function Loadout({ season }: { season: SeasonResult }) {
+function Loadout({ season, contacts }: { season: SeasonResult; contacts?: GameState["countyRivals"] }) {
   const { setup } = season;
   const objective = setup.dare && (isSeasonChallenge(setup.dare) ? SEASON_CHALLENGES[setup.dare] : DARE_BY_ID[setup.dare]);
   const perks = setup.perks.map((id) => PERK_BY_ID[id].name);
   const hardships = setup.hardships.map((id) => HARDSHIP_BY_ID[id].name);
   const training = Object.entries(setup.tuneUp).filter(([, points]) => points > 0).map(([skill, points]) => `${skill} +${points}`);
+  const visitor = setup.clubVisitor && COUNTY_RIVALS[setup.clubVisitor];
+  const contact = setup.clubVisitor && contacts?.[setup.clubVisitor]?.earned;
   return <section className="card">
     <h3>Season {season.season} · {season.teamName ?? "Home garage"}</h3>
-    <p>{DISCIPLINES[season.discipline].name} · {season.endedBy === "team" ? "Team" : "Scrap"} Reset after {duration(season.durationMs)}</p>
+    <p>{DISCIPLINES[season.discipline].name} · {{ team: "Team Reset", scrap: "Scrap Reset", shop: "Shop Move" }[season.endedBy]} after {duration(season.durationMs)}</p>
     <p>{season.hauls} hauls · {season.builds} vehicles at reset</p>
     {season.organization && <p>{TEAM_ORGANIZATIONS[season.organization].name}</p>}
     {setup.club && <p>Club · {CLUB_CHARTERS[setup.club].name}</p>}
     {setup.clubCourse && <p>Course · {CLUB_COURSES[setup.clubCourse].name}</p>}
     {setup.clubLoan && <p>Track workshop loan · {getPart(CLUB_COURSES[setup.clubLoan].loanPart).name}</p>}
+    {visitor && <p>Visiting workshop · {getPart(visitor.part).name} from {visitor.name}, {HOME_COUNTIES[visitor.county].name}{contact && ` · earned in Season ${contact.season}`}</p>}
+    {setup.worksPlan && <p>Works drawing · {WORKS_FAMILIES[setup.worksPlan].name}</p>}
     {season.regularityFeatures && <p>Certified stages · {Object.keys(season.regularityFeatures).map((id) => venueName(id, "rally")).join(", ")}</p>}
+    {setup.shopLegacy && <p>Workshop transfer · {shopLegacyName(setup.shopLegacy)}</p>}
+    {!!season.serviceInvoices?.length && <p>Paid work · {season.serviceInvoices.map((r) => CUSTOMERS[r.client].name).join(", ")}</p>}
     {setup.homeCounty && <p>Home county · {HOME_COUNTIES[setup.homeCounty].name}</p>}
     {setup.donor && <p>Donor · {conditionName(setup.donor.condition)} {getPart(setup.donor.partId).name} from {partOriginLabel(setup.donor)}</p>}
     {objective && <p>Objective · {objective.name}</p>}
@@ -36,7 +45,7 @@ function Loadout({ season }: { season: SeasonResult }) {
   </section>;
 }
 
-export function SeasonLog({ log }: { log: readonly SeasonResult[] }) {
+export function SeasonLog({ log, contacts }: { log: readonly SeasonResult[]; contacts?: GameState["countyRivals"] }) {
   const [firstId, setFirstId] = useState("");
   const [secondId, setSecondId] = useState("");
   if (!log.length) return <p className="empty">Finish a Season with a reset to record its loadout and Feature times here.</p>;
@@ -50,8 +59,8 @@ export function SeasonLog({ log }: { log: readonly SeasonResult[] }) {
       <label>Season to inspect <select value={first.season} onChange={(e) => setFirstId(e.target.value)}>{selectSeason(newest)}</select></label>
       {second && <label>Compare with <select value={second.season} onChange={(e) => setSecondId(e.target.value)}>{selectSeason(other)}</select></label>}
     </div>
-    <Loadout season={first} />
-    {second && <Loadout season={second} />}
+    <Loadout season={first} contacts={contacts} />
+    {second && <Loadout season={second} contacts={contacts} />}
     <table>
       <caption>Time to first Feature win</caption>
       <thead><tr><th scope="col">Track</th><th scope="col">Season {first.season}</th>{second && <th scope="col">Season {second.season}</th>}</tr></thead>

@@ -5,6 +5,7 @@ import { logSeason } from "./journal";
 import { perkUnlocked, refreshPerkUnlocks } from "./perks";
 import { hauledSource, partOriginLabel } from "./provenance";
 import { getPlace } from "./content/places";
+import { recordBatonWin } from "./countyBaton";
 import type { GameState, Vehicle } from "./types";
 
 export function haulOriginsOn(vehicle: Vehicle, season?: number): string[] {
@@ -56,6 +57,7 @@ export function challengeVehicleFit(state: GameState, venueId: string, vehicle: 
 
 /** A challenge can be completed on a repeat Feature win, once per Season. */
 export function recordChallengeWin(state: GameState, venueId: string, vehicle: Vehicle): void {
+  recordBatonWin(state, venueId, vehicle);
   const id = state.config.dare;
   const progress = state.run.challenge;
   if (!isSeasonChallenge(id) || progress.completedAt !== undefined) return;

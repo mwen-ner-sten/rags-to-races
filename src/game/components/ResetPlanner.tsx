@@ -10,6 +10,7 @@ import { ownerTourActive } from "@/core/ownership";
 import { homeCounty } from "@/core/counties";
 import { CLUB_CHARTERS, clubGate, clubScore, type ClubCharter } from "@/core/club";
 import type { ClubCourseId } from "@/core/clubTrack";
+import { COUNTY_RIVALS, type CountyRivalId } from "@/core/countyRivals";
 import { worksReport, type WorksFamily } from "@/core/manufacturer";
 import { ClubTrackOptions } from "./ClubTrackOptions";
 import { WorksDrawingPicker } from "./ManufacturerPanel";
@@ -20,6 +21,7 @@ import { ResetDisciplines } from "./ResetDisciplines";
 import { ResetHardships } from "./ResetHardships";
 import { ResetPerks } from "./ResetPerks";
 import { ResetSalvage } from "./ResetSalvage";
+import { shopFoundingReady } from "@/core/serviceShop";
 import { ResetHomeCounty } from "./ResetHomeCounty";
 
 const SKILLS: { id: SkillId; label: string }[] = [
@@ -47,7 +49,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const [county, setCounty] = useState<HomeCounty>(() => homeCounty(game));
   const [club, setClub] = useState<ClubCharter | undefined>(initialClub);
   const [clubCourse, setClubCourse] = useState<ClubCourseId | undefined>();
-  const [clubLoan, setClubLoan] = useState<ClubCourseId | undefined>();
+  const [clubLoan, setClubLoan] = useState<ClubCourseId | CountyRivalId | undefined>();
   const [worksPlan, setWorksPlan] = useState<WorksFamily | undefined>();
   const award = isTeam ? teamAward(game) : scrapAward(game);
   const lpAvailable = isTeam ? teamResetLegacyBudget(game) : game.scrap.lp + award;
@@ -69,7 +71,8 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const [colorA, setColorA] = useState(game.era?.colors[0] ?? "#c8372d");
   const [colorB, setColorB] = useState(game.era?.colors[1] ?? "#f2f2ee");
   const [keepCrew, setKeepCrew] = useState<string>("");
-  const [organization, setOrganization] = useState<TeamOrganization>(game.era?.organization ?? "independent");
+  const workshopCharter = !game.era && !game.meta.stateWonEver && shopFoundingReady(game);
+  const [organization, setOrganization] = useState<TeamOrganization>(workshopCharter ? "collective" : game.era?.organization ?? "independent");
   const [handoverKey, setHandoverKey] = useState("");
 
   const plan = useMemo(() => planPurchases(game, buy, lpAvailable), [game, buy, lpAvailable]);
@@ -84,7 +87,9 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const choices = {
     homeCounty: isTeam ? undefined : county,
     buy, perks: equipped, tuneUp: tune, dare, hardships, retainedPartUid: isTeam ? undefined : retainedPartUid || undefined,
-    club: isTeam ? undefined : club, clubCourse: !isTeam && club ? clubCourse : undefined, clubLoan: !isTeam && club ? clubLoan : undefined,
+    club: isTeam ? undefined : club, clubCourse: !isTeam && club ? clubCourse : undefined,
+    clubLoan: !isTeam && club && clubLoan && !Object.hasOwn(COUNTY_RIVALS, clubLoan) ? clubLoan as ClubCourseId : undefined,
+    clubVisitor: !isTeam && club && clubLoan && Object.hasOwn(COUNTY_RIVALS, clubLoan) ? clubLoan as CountyRivalId : undefined,
     worksPlan: isTeam ? undefined : worksPlan,
   };
   const handovers = isTeam ? crewHandoverOffers(game, discipline) : [];
@@ -250,7 +255,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
             {TEAM_ORGANIZATION_IDS.map((id) => (
               <label className="organization-choice" key={id}>
                 <Image src={`/sprites/organizations/${id}.webp`} width={880} height={495} sizes="(max-width: 600px) 90vw, 340px" alt="" />
-                <span><input type="radio" name="team-organization" checked={organization === id} onChange={() => setOrganization(id)} /> <strong>{TEAM_ORGANIZATIONS[id].name}</strong></span>
+                <span><input type="radio" name="team-organization" disabled={workshopCharter && id !== "collective"} checked={organization === id} onChange={() => setOrganization(id)} /> <strong>{TEAM_ORGANIZATIONS[id].name}</strong></span>
                 <span>{TEAM_ORGANIZATIONS[id].description}</span>
               </label>
             ))}

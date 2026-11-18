@@ -128,7 +128,7 @@ export function worksEntryStatus(state: GameState): "queued" | "racing" | null {
 
 export function worksSpecMatches(state: GameState, spec: RaceSpec, car?: Vehicle, checkFittedArticle = true): boolean {
   const deal = state.manufacturer?.active;
-  if (!deal || spec.worksRound !== worksToken(deal) || spec.tourRound || spec.clubRound || spec.regularity || spec.call2) return false;
+  if (!deal || spec.worksRound !== worksToken(deal) || spec.tourRound || spec.tourReserve !== undefined || spec.clubRound || spec.countyMatch || spec.regularity || spec.useLastPace || spec.call2) return false;
   const report = worksReport(deal);
   const vehicle = car ?? state.run.vehicles.find(({ uid }) => uid === spec.vehicleUid);
   return Boolean(!report.failed && report.next && vehicle?.vehicleId === "go_kart" && vehicle.uid === deal.vehicleUid

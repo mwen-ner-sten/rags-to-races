@@ -21,3 +21,16 @@ Certify either club card to open a new layout choice on future Club resets. Each
 | Fast Straight | Weights power more heavily, raises wear and failure risk, and adds Rally fast lanes. Costs three additional Scrap Bucks per start. | Certify the club with two Push podiums | Good Tiller Engine |
 
 The layout, odds, sealed race result, HUD label, and replay all use the same course profile. Track licenses survive future resets and appear in the club archive. After a license is earned, the next Club plan can borrow one Good part from any licensed layout, independent of the active course. This can give an opposite-layout workshop a viable new setup without consuming the ordinary donor slot. The part lasts for that Season, uses its normal condition and fit rules, and bears its workshop provenance. Discarding it does not create a replacement. A later Club reset can take another single loan. Independent and Collective team organizations keep their existing rules.
+
+## Visiting workshops
+
+Moving to River or Quarry County also opens a single local Sprint matchup. Enter with a Push Mower carrying a part hauled locally in the current Season. A Curbside find can qualify, so the player can build a contender before opening the county’s specialist source. The match runs as a real Sprint at the area's normal Backyard venue and uses the ordinary cooldown, wear, practice and race queue. A loss, breakdown, or rival retirement can be retried after repairs or a new setup. The contact is earned once by finishing ahead of the rival while their car is still running.
+
+| Contact | Racing profile | Future Club workshop loan |
+| --- | --- | --- |
+| Inez Marsh, River County | Steady pace and low breakdown risk | A Good River Tire from Floodplain Lots |
+| Wade Slater, Quarry County | Higher pace and greater variation, with more breakdown risk | A Good Quarry Four from Quarry Breakers |
+
+An earned contact can supply the next Club even if it is founded in another county. Visitor loans share the one-part workshop loan slot with track licenses. The physical part keeps the visitor’s name, workshop, county and the Season in which the relationship was earned. Garage and Hall of Fame views display that provenance. A borrowed part from another county does not count as a fresh local haul.
+
+`npx tsx scripts/county-rival-route.ts` earned the regional passport from a blank save at Day 6.34 and tested both moves on copies of that earned garage. Both contacts were earned at Day 0.52 of the new Season using a Worn local Tiller Engine and Worn Turf Tire. The core regression separately seeds a weak Quarry build that loses once, then wins after installing real replacement parts. A seeded Club-eligible save verifies that a River loan keeps its original provenance when borrowed after a move to Quarry and that a duplicate loan cannot be imported.

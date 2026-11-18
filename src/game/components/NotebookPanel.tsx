@@ -260,7 +260,7 @@ export function NotebookPanel() {
       {tab === "Codex" && <Codex game={game} />}
       {tab === "Rivals" && <Rivals game={game} />}
       {tab === "Hall of Fame" && <HallOfFame game={game} />}
-      {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} />}
+      {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} contacts={game.countyRivals} />}
       {tab === "Timecards" && <RallyCards cards={game.meta.rallyCards ?? []} />}
       </div>
     </section>

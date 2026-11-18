@@ -4,8 +4,10 @@ import { heritageReferencesValid } from "@/core/heritage";
 import { rallyReferencesValid } from "@/core/timecards";
 import { clubCharterSchema, clubCourseSchema, clubReferencesValid, clubRoundSchema, clubSchema } from "./clubSave";
 import { manufacturerReferencesValid, manufacturerSchema, worksFamilySchema } from "./manufacturerSave";
+import { countyContactsSchema, countyContactsValid, countyMeetingSchema, countyRivalSchema } from "./countyRivalSave";
 import { homeCountySchema, partProvenanceSchema } from "./provenanceSave";
 import { z } from "zod";
+import { CUSTOMER_IDS, TRANSFER_TOOLS, serviceReferencesValid } from "@/core/serviceShop";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PART_BY_ID } from "@/core/content/parts";
 import { PLACE_BY_ID } from "@/core/content/places";
@@ -34,8 +36,12 @@ const category = z.enum(["engine", "wheel", "frame", "fuel", "electronics", "dri
 const materials = z.object({ metal: amount, rubber: amount, wiring: amount });
 const partialMaterials = materials.partial();
 const tuneUp = z.object({ haul: count, wrench: count, build: count, race: count });
-const runConfig = z.object({ perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)), salvageSlot: z.literal(true).optional(), donor: z.object({ partId: known(PART_BY_ID), condition, origin: z.string(), provenance: partProvenanceSchema.optional() }).optional(), club: clubCharterSchema.optional(), clubCourse: clubCourseSchema.optional(), clubLoan: clubCourseSchema.optional(), worksPlan: worksFamilySchema.optional(), homeCounty: homeCountySchema.optional() });
-const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), inherited: z.literal(true).optional(), provenance: partProvenanceSchema.optional() });
+const client = z.enum(CUSTOMER_IDS);
+const shopLegacy = z.discriminatedUnion("type", [z.object({ type: z.literal("tool"), tool: z.enum(TRANSFER_TOOLS) }), z.object({ type: z.literal("client"), client })]);
+const invoice = z.object({ client, partUid: id, partId: known(PART_BY_ID), condition, origin: z.string() });
+const invoices = z.array(invoice).max(CUSTOMER_IDS.length);
+const runConfig = z.object({ shopLegacy: shopLegacy.optional(), perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)), salvageSlot: z.literal(true).optional(), donor: z.object({ partId: known(PART_BY_ID), condition, origin: z.string(), provenance: partProvenanceSchema.optional() }).optional(), club: clubCharterSchema.optional(), clubCourse: clubCourseSchema.optional(), clubLoan: clubCourseSchema.optional(), clubVisitor: countyRivalSchema.optional(), worksPlan: worksFamilySchema.optional(), homeCounty: homeCountySchema.optional() });
+const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), referral: client.optional(), inherited: z.literal(true).optional(), provenance: partProvenanceSchema.optional() });
 const history = z.object({ races: count, wins: count, dnfs: count, bestFinish: count.positive().nullable() });
 const vehicle = z.object({
   uid: id, vehicleId: known(VEHICLE_BY_ID), name: z.string(), parts: z.record(id, part),
@@ -55,7 +61,7 @@ const jobSpec = z.discriminatedUnion("kind", [
   ...(["clean", "repair", "restore", "strip"] as const).map((kind) => z.object({ kind: z.literal(kind), partUid: id.optional() }).passthrough()),
   z.object({ kind: z.literal("study"), knowhowId: known(KNOWHOW_BY_ID) }).passthrough(),
   z.object({ kind: z.literal("assemble"), vehicleId: known(VEHICLE_BY_ID), partUids: z.record(id, id), name: z.string() }).passthrough(),
-  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), tourReserve: count.optional(), regularity: z.literal(true).optional(), useLastPace: z.literal(true).optional(), clubRound: clubRoundSchema.optional(), worksRound: id.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft", "cut", "recce"]).optional() }).passthrough(),
+  z.object({ kind: z.literal("race"), vehicleUid: id, venueId: known(VENUE_BY_ID), event, call, tourRound: id.optional(), tourReserve: count.optional(), ownerDrive: z.literal(true).optional(), regularity: z.literal(true).optional(), useLastPace: z.literal(true).optional(), clubRound: clubRoundSchema.optional(), worksRound: id.optional(), countyMatch: countyRivalSchema.optional(), call2: z.enum(["pit", "stay", "launch_hard", "launch_soft", "cut", "recce"]).optional() }).passthrough(),
 ]);
 const beat = z.object({ at: amount, text: z.string(), position: count.positive(), kind: z.enum(["start", "pass", "passed", "hold", "wear", "rival", "last_lap", "dnf", "finish", "caution", "round"]).optional() });
 const raceFields = {
@@ -67,6 +73,7 @@ const raceFields = {
 };
 const roll = z.object({ ...raceFields, heritageEntry: id.optional(), rivalBeaten: z.boolean(), rivalFaced: z.boolean().optional(), advanced: z.boolean().optional(), cleanBuild: z.boolean().optional(), crewIds: z.array(known(CREW_BY_ID)).optional(), wearSteps: z.record(id, count), laps: count.positive(), durationMs: amount.positive() });
 const result = z.object({
+  countyMeeting: countyMeetingSchema.optional(),
   ...raceFields, id, seasonMs: amount, vehicleUid: id, venueId: known(VENUE_BY_ID), event, call,
   prize: amount, rep: amount, rival: z.object({ id: known(RIVAL_BY_ID), beaten: z.boolean() }).optional(),
   laps: count.positive().optional(), durationMs: amount.positive().optional(),
@@ -102,6 +109,7 @@ const handover = z.discriminatedUnion("type", [
   }),
 ]);
 const meta = z.object({
+  serviceReferences: z.object({ equipment: z.object({ tool: z.enum(TRANSFER_TOOLS), season: count.positive(), invoice }).optional(), referral: z.object({ season: count.positive(), invoice }).optional() }).optional(),
   heritageRegister: z.array(z.object({ kind: z.enum(["exhibit","special"]), model: known(VEHICLE_BY_ID), originalName: z.string(), carName: z.string(), season: count.positive(), completions: count.positive() })).max(2 * Object.keys(VEHICLE_BY_ID).length).optional(),
   rallyLicences: z.record(known(VENUE_BY_ID), count.positive()).optional(),
   rallyCards: z.array(z.object({ venueId: known(VENUE_BY_ID), event, vehicleId: known(VEHICLE_BY_ID), course: clubCourseSchema.optional(),
@@ -109,7 +117,7 @@ const meta = z.object({
     carName: z.string(), season: count.positive(), splitsMs: z.array(count.positive()).min(2).max(4) })
     .refine((card) => (!card.lastRun || card.lastRun.splitsMs.length === card.splitsMs.length) && card.splitsMs.length === ({ sprint: 2, heat: 3, feature: 4 }[card.event]))).max(225).optional(),
   seasonLog: z.array(z.object({
-    season: count.positive(), endedBy: z.enum(["scrap", "team"]), teamName: z.string().nullable(),
+    season: count.positive(), endedBy: z.enum(["scrap", "team", "shop"]), serviceInvoices: invoices.optional(), teamName: z.string().nullable(),
     organization: z.enum(TEAM_ORGANIZATION_IDS).optional(),
     discipline: z.enum(["dirt", "drag", "rally"]), durationMs: amount, builds: count, hauls: count,
     featureWins: z.record(known(VENUE_BY_ID), amount),
@@ -134,6 +142,7 @@ const meta = z.object({
   seasonsPlayed: count, totalTeamResets: count, milestonesEver: z.array(known(VENUE_BY_ID)),
 });
 const run = z.object({
+  serviceBook: z.object({ invoices, ticket: z.object({ client, partUid: id, worked: z.boolean() }).optional() }).optional(),
   heritageSetups: z.array(known(VEHICLE_BY_ID)).optional(),
   heritageProject: z.object({ uid: id, kind: z.enum(["exhibit","special"]), oldSeason: count.positive(), originalName: z.string(), model: known(VEHICLE_BY_ID),
     parts: z.array(z.object({ slot: id, partId: known(PART_BY_ID) })), completed: z.string().optional() }).optional(),
@@ -156,7 +165,7 @@ const run = z.object({
   })),
 });
 const gameSchema = z.object({
-  owner: ownerSchema.optional(), promoter: promoterSchema.optional(), club: clubSchema.optional(), manufacturer: manufacturerSchema.optional(),
+  owner: ownerSchema.optional(), promoter: promoterSchema.optional(), club: clubSchema.optional(), manufacturer: manufacturerSchema.optional(), countyRivals: countyContactsSchema.optional(),
   version: z.literal(1), seed: z.string(), rng: count, uid: count, meta, run,
   scrap: z.object({ lp: amount, lifetimeLp: amount, resets: count, tuneUpPoints: count, milestonesThisEra: z.array(known(VENUE_BY_ID)), daresThisEra: count }),
   team: z.object({ tp: amount, lifetimeTp: amount, resets: count, upgrades: z.record(known(TEAM_UPGRADE_BY_ID), count) }),
@@ -175,7 +184,7 @@ const compatibleSchema = gameSchema.extend({
 
 function referencesValid(game: GameState): boolean {
   if (countyChoiceBlocker(game, game.config.homeCounty) || game.run.placesOpen.some((placeId) => countyPlaceBlocker(game, placeId))) return false;
-  if (!rallyReferencesValid(game) || !heritageReferencesValid(game)) return false;
+  if (!serviceReferencesValid(game) || !rallyReferencesValid(game) || !heritageReferencesValid(game)) return false;
   const night = game.run.raceNight;
   if (night && (game.era || game.run.featureWins.county_fair !== undefined || !game.run.venuesOpen.includes(night.venueId)
     || !game.run.vehicles.some((car) => car.uid === night.vehicleUid)
@@ -205,6 +214,7 @@ function referencesValid(game: GameState): boolean {
   if (!ownerReferencesValid(game) || (game.promoter && !(game.owner && game.owner.titles > 0))) return false;
   if (!clubReferencesValid(game)) return false;
   if (!manufacturerReferencesValid(game)) return false;
+  if (!countyContactsValid(game)) return false;
   const inventory = new Map(game.run.inventory.map((part) => [part.uid, part]));
   const free = new Set([...game.run.inventory, ...game.run.driveway].map((part) => part.uid));
   const retired = game.meta.hallOfFame.flatMap((entry) => entry.retirement ? [entry.retirement.vehicleUid] : []);

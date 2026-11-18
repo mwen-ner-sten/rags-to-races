@@ -1,8 +1,8 @@
 import { getVenue, venueName } from "@/core/content/events";
-import { CHARTERS, finishPoints, ownerCharterBlocker, tourCalendar, tourScore } from "@/core/ownership";
+import { CHARTERS, finishPoints, ownerCharterBlocker, sponsorProgress, TOUR_SPONSORS, tourCalendar, tourScore } from "@/core/ownership";
 import { PROMOTER_CHARTERS, promoterBookingReason, promoterGate, promoterReport, promoterSchedule, promoterTargets } from "@/core/promoter";
 import type { GameState } from "@/core/types";
-import { ordinal } from "./format";
+import { num, ordinal } from "./format";
 
 export interface AwayCareerReport {
   tab: "owner" | "promoter";
@@ -31,14 +31,24 @@ export function awayCareer(before: GameState, after: GameState) {
     const unlocked = [circuitOpened && "The Circuit Office is open.", mixedCupOpened && "The County-to-State Cup is open."].filter(Boolean).join(" ");
     const calendar = tourCalendar(tour);
     const stop = calendar[tour.rounds.length];
+    const settled = tour.rounds.length - previousTour.rounds.length;
+    const roundSummary = settled > 1 ? `${settled} rounds settled. ` : "";
+    const sponsorship = tour.sponsor && sponsorProgress(tour);
+    const sponsorName = tour.sponsor && TOUR_SPONSORS[tour.sponsor].name;
+    const sponsorSummary = sponsorName && sponsorship && (tour.status === "champion" || tour.status === "finished")
+      ? sponsorship.payout
+        ? ` ${sponsorName} paid ${num(sponsorship.payout)} Scrap Bucks, including your returned stake.`
+        : ` ${sponsorName}’s target was missed and the stake was forfeited.`
+      : "";
+    if (sponsorSummary) coveredFeedKeys.add(`championship-sponsor:${tour.id}`);
     if (tour.status === "champion") {
-      reports.push({ tab: "owner", title: `Won the ${charter.name}`, detail: `${score.points} championship points and ${charter.teamPoints} Team Points earned.`, next: unlocked || "Choose your next championship.", circuitOpened });
+      reports.push({ tab: "owner", title: `Won the ${charter.name}`, detail: `${roundSummary}${score.points} championship points and ${charter.teamPoints} Team Points earned.${sponsorSummary}`, next: unlocked || "Choose your next championship.", circuitOpened });
     } else if (tour.status === "finished") {
-      reports.push({ tab: "owner", title: `${charter.name} complete`, detail: `${score.points}/${charter.target} points and ${score.cars}/${charter.minCars} scoring cars.`, next: "Review the standings before choosing your next charter." });
+      reports.push({ tab: "owner", title: `${charter.name} complete`, detail: `${roundSummary}${score.points}/${charter.target} points and ${score.cars}/${charter.minCars} scoring cars.${sponsorSummary}`, next: "Review the standings before choosing your next charter." });
     } else if (lastRound && stop) {
       const lastStop = calendar[tour.rounds.length - 1];
       const finish = lastRound.dnf ? "did not finish" : `finished ${ordinal(lastRound.position)}`;
-      reports.push({ tab: "owner", title: `${charter.name} · Round ${tour.rounds.length} settled`, detail: `${lastRound.carName} ${finish} at ${venueName(lastStop.venueId, tour.discipline)} and scored ${finishPoints(lastRound)} points.`, next: `Next up is the ${stop.event} at ${venueName(stop.venueId, tour.discipline)}.` });
+      reports.push({ tab: "owner", title: `${charter.name} · Round ${tour.rounds.length} settled`, detail: `${roundSummary}${lastRound.carName} ${finish} at ${venueName(lastStop.venueId, tour.discipline)} and scored ${finishPoints(lastRound)} points.`, next: `Next up is the ${stop.event} at ${venueName(stop.venueId, tour.discipline)}.` });
     }
   }
 

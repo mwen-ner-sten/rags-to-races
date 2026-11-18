@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DISCIPLINES, RIVAL_BY_ID, getVenue, venueName } from "@/core/content/events";
 import { CLUB_COURSES } from "@/core/clubTrack";
+import { COUNTY_RIVALS } from "@/core/countyRivals";
 import { getPart } from "@/core/content/parts";
 import { totalTime } from "@/core/timecards";
 import type { GameState, RaceResult } from "@/core/types";
@@ -106,6 +107,7 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
           {race.caution && <p>The yellow flag came out.</p>}
           {race.rallyClock?.regularity && <p>{race.rallyClock.regularity.passed ? "Regularity certificate earned" : "Outside regularity tolerance"} · {race.rallyClock.regularity.matched}/{race.rallyClock.regularity.required} stages within 8%.</p>}
           {race.course && <p>{CLUB_COURSES[race.course].brief}</p>}
+          {race.countyMeeting && <p>{COUNTY_RIVALS[race.countyMeeting.rival].name} {race.countyMeeting.rivalOut ? "retired" : race.countyMeeting.beaten ? "finished behind you" : "finished ahead of you"}.</p>}
           {race.rivalOut && rival && <p>{rival.name}’s car quit before the flag.</p>}
           {!race.dnf && race.position > 1 && <p className="muted">You were {Math.abs(race.margin * 100).toFixed(1)}% off the car ahead.</p>}
           {race.wear.length > 0 && <p>Wear: {race.wear.map((w) => `${w.slot} ${conditionName(w.from)} → ${conditionName(w.to)}`).join(", ")}</p>}

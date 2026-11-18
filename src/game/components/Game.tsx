@@ -24,7 +24,9 @@ import { promoterGate } from "@/core/promoter";
 import { OwnerPanel } from "./OwnerPanel";
 import { PromoterPanel } from "./PromoterPanel";
 import { clubGate } from "@/core/club";
+import { ServiceCounter } from "./ServiceCounter";
 import { ClubPanel } from "./ClubPanel";
+import { CountyMatchPanel } from "./CountyMatchPanel";
 import { ManufacturerPanel, WorksDrawingWorkshop } from "./ManufacturerPanel";
 import { TeamPanel } from "./TeamPanel";
 import { hasUnreadTip } from "./Tips";
@@ -330,7 +332,10 @@ export function Game() {
               <BuildPanel />
             </div>
           )}
-          {active === "race" && <RacePanel key={jump?.request} initialVenue={jump?.target.tab === "race" ? jump.target.venueId : undefined} />}
+          {active === "race" && <>
+            <CountyMatchPanel game={game} />
+            <RacePanel key={jump?.request} initialVenue={jump?.target.tab === "race" ? jump.target.venueId : undefined} />
+          </>}
           {active === "notebook" && <NotebookPanel />}
           {active === "legacy" && <LegacyPanel key={jump?.request} initialObjective={jump?.target.tab === "legacy" ? jump.target.objective : undefined} />}
           {active === "team" && <TeamPanel key={jump?.request} plannedDiscipline={jump?.target.tab === "team" && "discipline" in jump.target ? jump.target.discipline : undefined} />}

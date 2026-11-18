@@ -33,6 +33,31 @@ function writeGame(game: GameState, savedAt = Date.now()): void {
   storage.setItem(KEY, JSON.stringify({ game, savedAt }));
 }
 
+it("plays an earned five-round entry plan while away and reports the settlement once", () => {
+  let game = must(pendingOwnerFinal(), { type: "advance", ms: 60 * 60_000 });
+  expect(game.owner!.titles).toBe(1);
+  game.run.venuesOpen = [...new Set([...game.run.venuesOpen, "county_fair"])];
+  game.run.ladder.county_fair = ["sprint", "heat", "feature"];
+  for (const part of Object.values(game.run.vehicles[0].parts)) part!.condition = 4;
+  game = must(game, { type: "owner", move: { type: "start", charter: "club", sponsor: "front_row" } });
+  game = must(game, { type: "owner", move: { type: "plan_entries", settings: { leadUid: "fixture-vehicle", call: "nurse", cashFloor: 500 } } });
+  writeGame(game, Date.now() - 48 * 60 * 60_000);
+  useGame.getState().load();
+  const post = useGame.getState();
+  expect(post.game?.owner?.tour.rounds).toHaveLength(5);
+  expect(post.game?.owner?.tour.rounds.every((round) => round?.planned)).toBe(true);
+  expect(post.game?.owner?.titles).toBe(2);
+  expect(post.game?.owner?.tour.entryPlan?.enabled).toBe(false);
+  expect(post.away?.careerReports).toHaveLength(1);
+  expect(post.away?.careerReports[0]).toMatchObject({
+    title: "Won the Homegrown Cup",
+    detail: expect.stringMatching(/5 rounds settled.*Front Row Fuel paid 1,550 Scrap Bucks/),
+  });
+  useGame.getState().load();
+  expect(useGame.getState().game?.owner?.titles).toBe(2);
+  expect(useGame.getState().away).toBeNull();
+});
+
 describe("save validation", () => {
   it("accepts a real game, including after a JSON round trip", () => {
     expect(isGameState(createGame("ok"))).toBe(true);

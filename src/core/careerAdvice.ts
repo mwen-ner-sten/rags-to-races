@@ -4,6 +4,7 @@ import { SEASON_CHALLENGES } from "./content/modifiers";
 import { TEAM_ORGANIZATIONS } from "./content/team";
 import { teamOrganization } from "./crew";
 import { crewHandoverOffers, handoverName } from "./crewLegacy";
+import { shopFoundingReady } from "./serviceShop";
 import { LAYERS } from "./layers";
 import {
   CHARTERS, currentTourEntry, needsNewScoringCar, ownerCharterBlocker, ownerGate, queuedTourProblem, tourCalendar, tourScore,
@@ -47,7 +48,13 @@ function raceAction(state: GameState, desired: string): CareerAction[] {
 }
 
 function builderOpportunities(state: GameState): CareerOpportunity[] {
-  const foundingReady = LAYERS.team.gate(state).ok;
+  if (!state.meta.stateWonEver && shopFoundingReady(state)) return [{
+    id: "service-charter", title: "Your Workshop Collective charter",
+    detail: "The customers from your old shops have backed your first team. Choose the team name, colors and discipline in Lou’s back bay.",
+    evidence: "Two business references, three current paid invoices and a working hauler.",
+    actions: [{ label: "Found a Workshop Collective", destination: { tab: "team", discipline: "dirt", focus: "organization" } }],
+  }];
+  const foundingReady = state.meta.stateWonEver;
   const scrapReady = LAYERS.scrap.gate(state).ok;
   if (!state.run.revealed.includes("legacy") && !foundingReady && !scrapReady) return [];
   const rally = RALLY_CHALLENGES.find((id) => state.meta.challengeRecords[id]);

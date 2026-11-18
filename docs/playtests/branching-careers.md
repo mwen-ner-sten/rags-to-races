@@ -26,3 +26,14 @@ The original first-season bot ran 12 seeds each on the daily, mixed and active s
 Those policies chase an outright win. A separate Rally trial entered the same Go-Kart on its class timecard at County Forest. It finished outside the podium, matched all four splits within 8%, earned six Legacy Points, and took a Scrap Reset. Its class best survived the reset. The Ridgeway certificate must be repeated in a later Season for a State Forest regularity invitation.
 
 The first production browser pass exposed an old-save edge: an accepted legacy garage can have a Fair time beyond the saved Season clock. Rejecting that time only after retirement made the next reload lose the reset. The archive now preserves the historical values the live save loader already accepts.
+## Careers tested without a racing win
+
+The service counter buys a trailer wheel, a serviced engine and a fuel tank, each registered before its bench work. Two invoices bring the Riding Mower plans to the study bench. Three paid invoices and working transport qualify for a Shop Move. Moving with owned equipment or with one customer's salvage leads changes what the next garage can do. A later shop with a reference from each kind of move can found a Workshop Collective without entering a race.
+
+Twelve blank garages completed their first move in 6.7–6.8 simulated hours of continuous decision-making. Each followed both transfer orders to founding, for 24 founding careers. A returning customer signed only for a real part found with their lead. The benchmark plays continuously and does not model daily check-ins. Run `npx tsx scripts/customer-career.ts 12` to reproduce it and export a charter-ready garage.
+
+Eight other blank garages reached their first racing reset and each rebuilt the same archived mower twice. All sixteen heritage projects earned a museum or period-special register entry, then reached the next Scrap Reset. A museum delivery permanently removes the full car. The period special keeps the car and requires a class Feature podium with a different installed build.
+
+On the initial twelve-seed Rally comparison, two regularity seasons timed out at sixty simulated days. Players can now declare either the all-time class record or the most recent classified pace. A slower setup can post its own reference without erasing the record. Replaying those seeds made all 24 County Forest certificates in 2.4–9.8 simulated days. Eighteen certificates were earned in fourth place or lower.
+
+Production build `e4cf93e` passed 70 Playwright checks across desktop and mobile, including a browser-driven rebuild, museum donation, reload and register lookup.

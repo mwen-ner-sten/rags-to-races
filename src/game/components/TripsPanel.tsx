@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { channel } from "@/core/channels";
 import { countyPlaceBlocker, homeCounty, HOME_COUNTIES } from "@/core/counties";
+import { COUNTY_RIVALS, localRival } from "@/core/countyRivals";
 import { toolStocked } from "@/core/actions";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
 import { PLACES, codexLevel } from "@/core/content/places";
@@ -11,6 +12,7 @@ import { getPart } from "@/core/content/parts";
 import { TOOLS } from "@/core/content/tools";
 import { SHELL_PRICE } from "@/core/content/vehicles";
 import { DRIVEWAY_RULES, DRIVEWAY_SPACE, drivewayRule, garageSpace } from "@/core/garage";
+import { customerLeads } from "@/core/serviceShop";
 import { carryFor, haulOdds } from "@/core/haul";
 import { baseDuration, jobBlocker } from "@/core/jobs";
 import { canOpenPlace, knowhowTier, placeRepCost } from "@/core/knowhowEngine";
@@ -49,7 +51,9 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
   const openBlocker = !open && def ? canOpenPlace(game, knowhowId) : null;
   const tier = def ? knowhowTier(game, knowhowId) : "learning";
   const scouting = game.run.learned.includes("tech:scouting");
-  const odds = open && scouting ? haulOdds(placeId, spec.focus).sort((a, b) => b.chance - a.chance) : [];
+  const contact = customerLeads(game);
+  const scopes = scouting ? FOCUS : contact ? [contact] : [];
+  const odds = open && scopes.length > 0 ? haulOdds(placeId, spec.focus).sort((a, b) => b.chance - a.chance) : [];
 
   return (
     <article className={`card place ${open ? "" : "locked"}`}>
@@ -87,12 +91,12 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
         </div>
         {open ? (
           <div className="actions">
-            {scouting && (
+            {scopes.length > 0 && (
               <label>
                 <span className="sr-only">Look for</span>
                 <select value={focus} onChange={(e) => setFocus(e.target.value as PartCategory | "")}>
                   <option value="">Anything</option>
-                  {FOCUS.map((c) => (
+                  {scopes.map((c) => (
                     <option key={c} value={c}>
                       Look for {c}
                     </option>
@@ -181,6 +185,7 @@ export function TripsPanel() {
   const dispatch = useGame((s) => s.dispatch);
   if (!game) return null;
   const county = HOME_COUNTIES[homeCounty(game)];
+  const rival = localRival(game);
   const places = PLACES.filter((p) => !countyPlaceBlocker(game, p.id) && (p.id === "curb" || p.id === county.source || game.run.revealed.includes("places") || game.run.placesOpen.includes(p.id)
     || placeRepCost(game, `place:${p.id}`) === 0));
   const visible = places.filter((p) => {
@@ -194,6 +199,7 @@ export function TripsPanel() {
       <section className="section" aria-labelledby="trips-h">
         <h2 id="trips-h">Trips</h2>
         {game.config.homeCounty && <p className="hint">Home county · {county.name}</p>}
+        {rival && !game.countyRivals?.[rival]?.earned && <p className="hint">Fit a part from a local haul to a Push Mower to race {COUNTY_RIVALS[rival].name} in the county matchup.</p>}
         <Tips ids={["places"]} />
         <p className="sub">Each trip takes you away for a while and brings home what you can carry ({num(channel(game, "carry"))} parts).</p>
         <div className="cards">

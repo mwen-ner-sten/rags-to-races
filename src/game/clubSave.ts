@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CLUB_CHARTERS, CLUB_HISTORY_LIMIT, clubEntryPrice, clubGate, clubScore, clubSpecMatches, type ClubCharter, type ClubFinish } from "@/core/club";
 import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "@/core/clubTrack";
+import { COUNTY_RIVALS, COUNTY_RIVAL_IDS, countyLoanOrigin, countyLoanProvenance, countyVisitorLoanBlocker } from "@/core/countyRivals";
 import type { GameState, JobSpec } from "@/core/types";
 
 const id = z.string().min(1);
@@ -29,18 +30,27 @@ export function clubReferencesValid(state: GameState): boolean {
   const entries = [...state.run.queue, ...state.run.jobs.map(({ spec }) => spec)].filter(
     (spec): spec is Extract<JobSpec, { kind: "race" }> => spec.kind === "race" && spec.clubRound !== undefined,
   );
-  const { clubCourse, clubLoan } = state.config;
-  const loanOrigins = courses.map(clubLoanOrigin);
+  const { clubCourse, clubLoan, clubVisitor } = state.config;
+  const loanOrigins = [...courses.map(clubLoanOrigin), ...COUNTY_RIVAL_IDS.map(countyLoanOrigin)];
   const loans = [...state.run.inventory, ...state.run.driveway, ...state.run.vehicles.flatMap((vehicle) => Object.values(vehicle.parts))]
     .filter((part) => part && loanOrigins.includes(part.origin));
-  if (!club) return state.config.club === undefined && !clubCourse && !clubLoan && entries.length === 0 && !loans.length && !state.run.races.some(({ course }) => course);
+  if (!club) return state.config.club === undefined && !clubCourse && !clubLoan && !clubVisitor && entries.length === 0 && !loans.length && !state.run.races.some(({ course }) => course);
   const { active } = club;
   if (clubGate(state) || active?.charter !== state.config.club || entries.length > 1) return false;
   if (active && active.season !== state.meta.seasonsPlayed + 1) return false;
   if (active?.course !== clubCourse || (clubLoan && (!active || !club.trackLicenses?.includes(clubLoan)))) return false;
+  if (clubVisitor && (!active || clubLoan || countyVisitorLoanBlocker(state, clubVisitor))) return false;
   if (new Set(club.trackLicenses).size !== (club.trackLicenses?.length ?? 0) || (club.trackLicenses?.length && !club.hasCertifiedClub)) return false;
   if (clubCourse && !club.hasCertifiedClub && !club.history.some(({ status }) => status === "certified")) return false;
-  if (loans.length > 1 || loans.some((part) => !clubLoan || part!.origin !== clubLoanOrigin(clubLoan) || part!.partId !== CLUB_COURSES[clubLoan].loanPart || part!.inherited)) return false;
+  if (loans.length > 1 || loans.some((part) => {
+    if (!part || part.inherited) return true;
+    if (clubVisitor) {
+      const origin = countyLoanProvenance(state, clubVisitor);
+      return part.origin !== countyLoanOrigin(clubVisitor) || part.partId !== COUNTY_RIVALS[clubVisitor].part
+        || part.provenance?.county !== origin.county || part.provenance.placeId !== origin.placeId || part.provenance.season !== origin.season;
+    }
+    return !clubLoan || part.origin !== clubLoanOrigin(clubLoan) || part.partId !== CLUB_COURSES[clubLoan].loanPart;
+  })) return false;
   if (!entries.every((spec) => clubSpecMatches(state, spec))) return false;
   const booking = state.run.jobs.find(({ spec }) => spec.kind === "race" && spec.clubRound);
   if (booking?.spec.kind === "race" && booking.spec.clubRound) {
