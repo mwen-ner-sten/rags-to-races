@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { pendingBaton, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../../../tests/fixtures/workshopAway";
+import { pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../../../tests/fixtures/workshopAway";
 import { racer } from "../../../tests/fixtures/rewrite";
 import { decodeGameState } from "../../game/save";
 import { apply, must } from "../index";
 import { possiblePins, selectedPin } from "../careerPin";
 import { EXPERIMENTAL_OFF, experimentalCareers, setExperimentalCareers } from "../features";
-import { batonUnlocked } from "../countyBaton";
 import { LAYERS } from "../layers";
 import { motorPoolVisible } from "../motorPool";
 import { shopFoundingReady, shopMoveReady } from "../serviceShop";
@@ -29,7 +28,7 @@ describe("experimental careers flag", () => {
     for (const action of moves) expect(apply(state, action).error).toBe(EXPERIMENTAL_OFF);
   });
 
-  it("hides the shop route, motor pool and baton gates", () => {
+  it("hides the shop route and motor pool gates", () => {
     setExperimentalCareers(true);
     const state = pendingDepotAndRepair();
     expect(motorPoolVisible(state)).toBe(true);
@@ -38,7 +37,6 @@ describe("experimental careers flag", () => {
     expect(shopMoveReady(state)).toBe(false);
     expect(shopFoundingReady(state)).toBe(false);
     expect(LAYERS.shop.gate(state).ok).toBe(false);
-    expect(batonUnlocked(state)).toBe(false);
   });
 
   it("keeps the normal Team Reset gate and the organisation choice independent of the service route", () => {
@@ -67,21 +65,12 @@ describe("experimental careers flag", () => {
 
   it("loads and resets saves that already hold experimental progress while hidden", () => {
     setExperimentalCareers(true);
-    const states = [pendingDepotAndRepair(), pendingWorksFinal(), pendingHeritage("special"), pendingBaton("qualify")];
+    const states = [pendingDepotAndRepair(), pendingWorksFinal(), pendingHeritage("special")];
     setExperimentalCareers(false);
     for (const state of states) {
       expect(decodeGameState(JSON.parse(JSON.stringify(state)))).not.toBeNull();
       state.run.featureWins.county_fair = state.run.seasonMs;
       expect(() => must(state, { type: "reset", layer: "scrap", choices: state.config })).not.toThrow();
     }
-  });
-
-  it("refuses County Baton and freight choices at a Scrap Reset while off", () => {
-    setExperimentalCareers(true);
-    const state = pendingBaton("qualify");
-    setExperimentalCareers(false);
-    state.run.featureWins.county_fair = state.run.seasonMs;
-    expect(apply(state, { type: "reset", layer: "scrap", choices: { ...state.config, countyBaton: "carry" } }).error).toBe(EXPERIMENTAL_OFF);
-    expect(apply(state, { type: "reset", layer: "scrap", choices: { ...state.config, countyFreight: true } }).error).toBe(EXPERIMENTAL_OFF);
   });
 });

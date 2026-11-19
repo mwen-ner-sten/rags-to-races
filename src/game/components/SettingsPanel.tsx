@@ -83,7 +83,7 @@ export function SettingsPanel() {
         <input type="checkbox" checked={experimental} onChange={(e) => setExperimental(e.target.checked)} />
         Experimental careers — unbalanced, may change
       </label>
-      <p className="sub">Shows the Manufacturer works deals, the Service counter and Shop Move, the County Motor Pool, Heritage and the County Baton. They are unfinished side careers that have not been playtested. This is a setting for this browser, not part of your save, so turning it off only hides them.</p>
+      <p className="sub">Shows the Manufacturer works deals, the Service counter and Shop Move, the County Motor Pool, Heritage and county freight. They are unfinished side careers that have not been playtested. This is a setting for this browser, not part of your save, so turning it off only hides them.</p>
       <CheckpointShelf />
       <h3 className="label">Start over</h3>
       <p className="sub">Starts a fresh game and Notebook. Your garage checkpoints stay saved. Export browser backup keeps your previous browser save until another backup replaces it.</p>

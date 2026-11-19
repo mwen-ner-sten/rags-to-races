@@ -11,7 +11,6 @@ import { CLUB_CHARTERS, clubGate, type ClubCharter } from "@/core/club";
 import type { ClubCourseId } from "@/core/clubTrack";
 import { COUNTY_RIVALS, type CountyRivalId } from "@/core/countyRivals";
 import type { WorksFamily } from "@/core/manufacturer";
-import { getPart } from "@/core/content/parts";
 import { ClubTrackOptions } from "./ClubTrackOptions";
 import { WorksDrawingPicker } from "./ManufacturerPanel";
 import type { DisciplineId, GameState, HomeCounty, SeasonChallengeId, SkillId } from "@/core/types";
@@ -25,9 +24,8 @@ import { workshopCharterOnly } from "@/core/serviceShop";
 import { CheckpointShelf } from "./CheckpointShelf";
 import { OpeningComparison } from "./OpeningComparison";
 import { ResetHomeCounty } from "./ResetHomeCounty";
-import { freightBlocker, FREIGHT_COST, locateBatonPart, otherCounty, type BatonChoice } from "@/core/countyBaton";
+import { freightBlocker } from "@/core/salvageCarry";
 import { scrapResetLegacyBudget } from "@/core/layers";
-import { CountyBatonPlanner } from "./CountyBaton";
 import { ResetCommitments } from "./ResetCommitments";
 import { experimentalCareers } from "@/core/features";
 
@@ -52,22 +50,16 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const game = useGame((s) => s.game) as GameState;
   const dispatch = useGame((s) => s.dispatch);
   const isTeam = layer === "team";
-  const [plannedPartUid, setRetainedPartUid] = useState("");
-  const [plannedCounty, setCounty] = useState<HomeCounty>(() => homeCounty(game));
-  const [baton, setBaton] = useState<BatonChoice | undefined>();
-  const [forfeitBaton, setForfeitBaton] = useState(false);
+  const [retainedPartUid, setRetainedPartUid] = useState("");
+  const [county, setCounty] = useState<HomeCounty>(() => homeCounty(game));
   const [plannedFreight, setFreight] = useState(false);
   const [club, setClub] = useState<ClubCharter | undefined>(initialClub);
   const [clubCourse, setClubCourse] = useState<ClubCourseId | undefined>();
   const [clubLoan, setClubLoan] = useState<ClubCourseId | CountyRivalId | undefined>();
   const [worksPlan, setWorksPlan] = useState<WorksFamily | undefined>();
   const experimental = experimentalCareers();
-  const activeBaton = experimental ? game.run.countyBaton : undefined;
-  const handoff = !isTeam && baton === "carry" && activeBaton?.leg === "qualify" && activeBaton.qualified
-    ? { uid: activeBaton.qualified.uid, county: otherCounty(activeBaton.from) } : undefined;
-  const retainedPartUid = handoff?.uid ?? plannedPartUid;
-  const county = handoff?.county ?? plannedCounty;
-  const freight = !handoff && plannedFreight;
+  const canFreight = !isTeam && !!retainedPartUid && !freightBlocker(game, county, retainedPartUid);
+  const freight = canFreight && plannedFreight;
   const award = isTeam ? teamAward(game) : scrapAward(game);
   const lpAvailable = isTeam ? teamResetLegacyBudget(game) : scrapResetLegacyBudget(game, freight);
   const slots = isTeam ? nextTeamPerkSlots(game) : nextSeasonPerkSlots(game, !!retainedPartUid && !freight);
@@ -103,7 +95,6 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const conflict = seasonObjectiveConflict(hardships, dare, nextDiscipline);
   const choices = {
     homeCounty: isTeam ? undefined : county,
-    countyBaton: isTeam ? undefined : baton,
     countyFreight: !isTeam && freight ? true as const : undefined,
     buy, perks: equipped, tuneUp: tune, dare, hardships, retainedPartUid: isTeam ? undefined : retainedPartUid || undefined,
     club: isTeam ? undefined : club, clubCourse: !isTeam && club ? clubCourse : undefined,
@@ -116,19 +107,9 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const teamChoices = { ...choices, discipline, organization, handover, teamName, colors: [colorA, colorB], keepCrewId: keepCrew || null } satisfies TeamChoices;
   const blocker = gate.ok ? (isTeam ? TEAM_LAYER.validate(game, teamChoices) : SCRAP_LAYER.validate(game, choices)) : gate.reason;
   const activeChallenge = game.config.dare;
-  const abandonsBaton = activeBaton && (activeBaton.leg === "qualify" || activeBaton.completedAt === undefined) && (isTeam || baton !== "carry");
-  const guardedBaton = activeBaton?.qualified ? locateBatonPart(game, activeBaton.qualified.uid).part : undefined;
-  const losesGuardedBaton = guardedBaton?.batonGuard && (isTeam || retainedPartUid !== guardedBaton.uid);
-  const confirmBatonLoss = abandonsBaton || losesGuardedBaton;
-  const canFreight = baton !== "carry" && !freightBlocker(game, county, retainedPartUid || undefined);
 
   const confirm = () => {
-    if ((!confirmBatonLoss || forfeitBaton) && dispatch({ type: "reset", layer, choices: isTeam ? teamChoices : choices })) onDone();
-  };
-  const chooseObjective = (objective: string | null) => {
-    setDare(objective);
-    setBaton(undefined);
-    setForfeitBaton(false);
+    if (dispatch({ type: "reset", layer, choices: isTeam ? teamChoices : choices })) onDone();
   };
 
   return (
@@ -217,24 +198,13 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
         </div>
       </div>
 
-      {!isTeam && <ResetSalvage game={game} value={retainedPartUid} slots={nextSeasonPerkSlots(game)} rookie={hardships.includes("rookie_plates")} freight={freight} fixedByBaton={!!handoff} onChange={(uid) => {
-        setRetainedPartUid(uid);
-        setForfeitBaton(false);
-        setFreight(false);
-      }} />}
-      {!isTeam && <ResetHomeCounty game={game} county={county} fixedByBaton={!!handoff} onChoose={(nextCounty) => {
+      {!isTeam && <ResetHomeCounty game={game} county={county} onChoose={(nextCounty) => {
         setCounty(nextCounty);
         setFreight(false);
       }} />}
-      {!isTeam && (canFreight || freight) && <label className="check"><input type="checkbox" checked={freight} onChange={(event) => setFreight(event.target.checked)} /> Pay {FREIGHT_COST} Legacy Points for freight and keep all perk slots</label>}
-      {!isTeam && experimental && <CountyBatonPlanner game={game} choice={baton} onChoose={(choice) => {
-        setForfeitBaton(false);
-        setBaton(choice);
-        if (choice) setDare(null);
-      }} onContinue={() => {
-        setForfeitBaton(false);
-        setBaton("carry");
-        setDare(null);
+      {!isTeam && <ResetSalvage game={game} value={retainedPartUid} slots={nextSeasonPerkSlots(game)} rookie={hardships.includes("rookie_plates")} freight={freight} onFreight={canFreight ? setFreight : undefined} onChange={(uid) => {
+        setRetainedPartUid(uid);
+        setFreight(false);
       }} />}
       {!isTeam && !clubGate(game) && <fieldset>
         <legend>Club charter (optional)</legend>
@@ -307,13 +277,12 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
 
       <fieldset>
         <legend>Objective for next Season (optional)</legend>
-        {baton && <p className="hint">County Baton is selected. Choosing another objective clears the Baton selection.</p>}
         <label className="check">
-          <input type="radio" name="dare" checked={dare === null && !baton} onChange={() => chooseObjective(null)} /> Standard Season
+          <input type="radio" name="dare" checked={dare === null} onChange={() => setDare(null)} /> Standard Season
         </label>
         {DARES.filter((d) => !game.meta.daresCompleted.includes(d.id)).map((d) => (
           <label key={d.id} className="check">
-            <input type="radio" name="dare" checked={dare === d.id} onChange={() => chooseObjective(d.id)} />
+            <input type="radio" name="dare" checked={dare === d.id} onChange={() => setDare(d.id)} />
             <span>
               <strong>{d.name}</strong>: {d.text} Unlocks {PERK_BY_ID[d.unlocksPerk].name}.
             </span>
@@ -326,7 +295,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
           const unavailable = seasonObjectiveConflict(hardships, id, nextDiscipline);
           return (
             <label key={id} className="check">
-              <input id={`reset-objective-${id}`} type="radio" name="dare" checked={dare === id} disabled={dare !== id && !!unavailable} onChange={() => chooseObjective(id)} />
+              <input id={`reset-objective-${id}`} type="radio" name="dare" checked={dare === id} disabled={dare !== id && !!unavailable} onChange={() => setDare(id)} />
               <span>
                 <strong>{challenge.name}</strong>. {challenge.text} {challenge.mastery} increases by 5% per completion, up to 15%.
                 {done > 0 && <span className="muted"> Completed {done}× · +{pct(challengeMastery(done))}.</span>}
@@ -348,16 +317,8 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
       {isSeasonChallenge(activeChallenge) && game.run.challenge.completedAt === undefined && (
         <p className="why">This reset ends your current {SEASON_CHALLENGES[activeChallenge].name} attempt. You can select it again for the next Season.</p>
       )}
-      {confirmBatonLoss && <fieldset>
-        <legend>{abandonsBaton ? "End this County Baton attempt" : "Scrap the safeguarded baton"}</legend>
-        {abandonsBaton && <p className="why">Confirming the reset ends the unfinished attempt. Earned freight permits and Parts With a Past records stay.</p>}
-        {guardedBaton?.batonGuard && <p className="why">{losesGuardedBaton
-          ? `The safeguarded ${getPart(guardedBaton.partId).name} will be scrapped.`
-          : `The ${getPart(guardedBaton.partId).name} crosses in the ordinary crate. Its County Baton protection ends.`}</p>}
-        <label className="check"><input type="checkbox" checked={forfeitBaton} onChange={(event) => setForfeitBaton(event.target.checked)} /> {losesGuardedBaton ? "I’m ready to scrap the safeguarded part" : "I’m ready to end this attempt"}</label>
-      </fieldset>}
       <div className="actions">
-        <button className="btn primary big wrap" disabled={!!blocker || (!!confirmBatonLoss && !forfeitBaton)} onClick={confirm}>
+        <button className="btn primary big wrap" disabled={!!blocker} onClick={confirm}>
           {isTeam ? (game.era ? "Fold the team and start over" : "Found the team") : "End the Season: Scrap Reset"}
         </button>
         <button className="btn" onClick={onDone}>

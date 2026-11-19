@@ -1,8 +1,6 @@
 import { getVenue, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import type { CareerDestination } from "@/core/careerAdvice";
-import { HOME_COUNTIES } from "@/core/counties";
-import { BATON_PART, otherCounty } from "@/core/countyBaton";
 import { garageSpace } from "@/core/garage";
 import { exhibitBlocker } from "@/core/heritage";
 import { WORKS_FAMILIES, worksReport } from "@/core/manufacturer";
@@ -84,28 +82,6 @@ function workshopUpdates(before: GameState, after: GameState, coveredFeedKeys: S
       next: result.homologated ? `The ${num(family.grant)} Scrap Bucks grant was paid. File the report and use the drawing at a future Scrap Reset.`
         : result.failed ? "The deal is out of starts or budget. File the Works report." : "Review the remaining benchmark and entry terms under Garage → Suppliers.",
     });
-  }
-
-  const baton = after.run.countyBaton;
-  const previousBaton = before.run.countyBaton;
-  if (baton && previousBaton?.from === baton.from) {
-    const countyName = HOME_COUNTIES[otherCounty(baton.from)].name;
-    if (baton.leg === "qualify" && previousBaton.leg === "qualify" && baton.qualified && baton.qualified.uid !== previousBaton.qualified?.uid) {
-      coveredFeedKeys.add("county-baton-qualified");
-      reports.push({
-        id: "baton-qualified", tab: "legacy", destination: { tab: "legacy", section: "baton" }, action: "Open County Baton",
-        title: "County Baton qualified", detail: `Your ${getPart(BATON_PART[baton.from]).name} earned the first leg.`,
-        next: `Carry that exact part to ${countyName} using the County Baton option at Scrap Reset.`,
-      });
-    }
-    if (baton.leg === "deliver" && previousBaton.leg === "deliver" && baton.completedAt !== undefined && previousBaton.completedAt === undefined) {
-      coveredFeedKeys.add("county-baton-delivered");
-      reports.push({
-        id: "baton-delivered", tab: "legacy", destination: { tab: "legacy", section: "baton" }, action: "Open County Baton",
-        title: "County Baton delivered", detail: `The Fair win with your inherited part earned a ${countyName} freight permit.`,
-        next: "Use the permit at a future Scrap Reset into that county.",
-      });
-    }
   }
   return reports;
 }

@@ -9,8 +9,7 @@ import type { GameState, SeasonChallengeId } from "@/core/types";
 import { duration, num, pct } from "../format";
 import { useGame } from "../store";
 import { ResetPlanner } from "./ResetPlanner";
-import { CountyBatonStatus } from "./CountyBaton";
-import { FREIGHT_COST } from "@/core/countyBaton";
+import { FREIGHT_COST } from "@/core/salvageCarry";
 import { experimentalCareers } from "@/core/features";
 
 export function LegacyPanel({ initialObjective }: { initialObjective?: SeasonChallengeId }) {
@@ -49,9 +48,8 @@ export function LegacyPanel({ initialObjective }: { initialObjective?: SeasonCha
         </div>
       </dl>
       {game.config.salvageSlot && <p className="hint">Salvage carryover took one perk slot this Season. {perkSlots(game)} slots are available for perks.</p>}
-      {experimentalCareers() && game.config.countyFreight && <p className="hint">The county freight permit cost {FREIGHT_COST} Legacy Points this Season. All {perkSlots(game)} perk slots are available.</p>}
+      {experimentalCareers() && game.config.countyFreight && <p className="hint">Shipping your part cost {FREIGHT_COST} Legacy Points this Season. All {perkSlots(game)} perk slots are available.</p>}
       <SeasonChallenges game={game} />
-      {experimentalCareers() && <CountyBatonStatus game={game} />}
       <h3 className="label">Milestones this Season</h3>
       <ul className="milestones">
         {VENUES.map((v) => {

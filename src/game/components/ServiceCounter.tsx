@@ -3,7 +3,6 @@
 import { experimentalCareers } from "@/core/features";
 import { useState } from "react";
 import { getPart } from "@/core/content/parts";
-import { locateBatonPart } from "@/core/countyBaton";
 import { TOOL_BY_ID } from "@/core/content/tools";
 import { benchCost, partSellValue, reservedPartUids } from "@/core/garage";
 import { jobBlocker } from "@/core/jobs";
@@ -59,9 +58,6 @@ function Transfer({ game }: { game: GameState }) {
   const legacy = options.find((option) => shopLegacyName(option) === choice);
   const choices = { ...initialConfig(), shopLegacy: legacy };
   const blocker = SHOP_LAYER.validate(game, choices);
-  const baton = game.run.countyBaton;
-  const abandonsBaton = baton && (baton.leg === "qualify" || baton.completedAt === undefined);
-  const guardedBaton = baton?.qualified && locateBatonPart(game, baton.qualified.uid).part;
   return (
     <section className="customer-block">
       <h3>Move the shop</h3>
@@ -84,11 +80,9 @@ function Transfer({ game }: { game: GameState }) {
       {legacy && (
         <>
           <ResetCommitments game={game} />
-          {abandonsBaton && <p className="why">This move ends the unfinished County Baton attempt. Earned freight permits and Parts With a Past records stay.</p>}
-          {guardedBaton?.batonGuard && <p className="why">The safeguarded {getPart(guardedBaton.partId).name} will be scrapped.</p>}
           <label>
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> Close this
-            garage and begin the next Season.{guardedBaton?.batonGuard && " I’m ready to scrap the safeguarded part."}
+            garage and begin the next Season.
           </label>
           <button
             className="btn primary"
@@ -160,11 +154,7 @@ function ActiveJob({ game, client }: JobCardProps) {
   const busy = !!part && reservedPartUids(game).has(part.uid);
   const workWhy = busy ? "Booked on the bench." : task ? jobBlocker(game, task) : null;
   const delivery = serviceDelivery(game);
-  const deliverWhy = part?.batonGuard
-    ? "Release County Baton protection in the Garage to hand this part over."
-    : typeof delivery === "string"
-      ? delivery
-      : null;
+  const deliverWhy = typeof delivery === "string" ? delivery : null;
   return (
     <article className="customer-card active">
       <header className="customer-head">

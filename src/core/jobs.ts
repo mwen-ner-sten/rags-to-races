@@ -31,7 +31,6 @@ import { assignedRacingCrewIds, creditCrew, crewBusyRacing, crewEfficiency, crew
 import { applyCrewHandover, crewCanApprentice } from "./crewLegacy";
 import { queueTourPlan } from "./ownership";
 import type { ActiveJob, Condition, CrewMember, EventKind, GameState, JobSpec, LaneId, MaterialId, PartInstance } from "./types";
-import { batonGuarded } from "./features";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -112,7 +111,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "strip": {
       const part = findAnyPart(state, spec.partUid);
       if (!part) return "Pick a part";
-      return batonGuarded(part) ? "Release County Baton protection first." : null;
+      return null;
     }
     case "study": {
       const def = getKnowhow(spec.knowhowId);

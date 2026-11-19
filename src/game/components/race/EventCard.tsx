@@ -3,7 +3,6 @@ import { useState } from "react";
 import { cardFor, totalTime, tripmeterAvailable } from "@/core/timecards";
 
 import { BRACKET_SPREAD, DISCIPLINES, RIVAL_BY_ID, VENUES, getVenue } from "@/core/content/events";
-import { batonRaceSetup } from "@/core/countyBaton";
 import { LAPS } from "@/core/raceBeats";
 import { rallyRoute } from "@/core/rally";
 import { WORKS_FAMILIES, WORKS_FAMILY_IDS, worksFit } from "@/core/manufacturer";
@@ -85,7 +84,6 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
   const makers = experimentalCareers() && spec.venueId === "county_fair" && spec.event === "feature" && !spec.regularity && ["go_kart", "beater_car"].includes(vehicle.vehicleId)
     ? WORKS_FAMILY_IDS.filter((id) => !game.manufacturer?.invites.includes(id)) : [];
   const watched = makers.filter((id) => worksFit(vehicle, id) >= 2);
-  const baton = experimentalCareers() && spec.event === "feature" && batonRaceSetup(game, spec.venueId, vehicle, spec.regularity);
   return (
     <article className={`event-card ${status.kind}`}>
       <header className="event-head">
@@ -118,7 +116,6 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
       </dl>
       {note && <p className="why event-purse">{note}</p>}
       <p className="event-stakes muted">{stakes(game, spec.venueId, spec.event, bracket)}</p>
-      {baton && <p className={baton.ready ? "hint" : "why"}>County Baton · {baton.text}</p>}
       {!locked && makers.length > 0 && <p className="muted">{watched.length > 0
         ? `A podium invites this build to ${watched.map((id) => WORKS_FAMILIES[id].name).join(" and ")}.`
         : "Two parts from the same engineering family can draw a manufacturer's invitation with a podium."}</p>}

@@ -72,7 +72,6 @@ export function exhibitBlocker(game: GameState, project: HeritageProject, car: V
   if (project.kind !== "exhibit" || project.completed) return "Open an unfinished museum project.";
   if (vehicleBusy(game, car.uid) || game.run.queue.some((job) => job.kind === "race" && job.vehicleUid === car.uid) || game.run.raceNight?.vehicleUid === car.uid) return "Finish or withdraw the car's racing entries.";
   if (game.manufacturer?.active?.vehicleUid === car.uid) return "Release the car from its works agreement first.";
-  if (Object.values(car.parts).some((part) => part?.batonGuard)) return "Pull the safeguarded County Baton part before donating this vehicle.";
   if (car.history.races <= car.history.dnfs) return "Finish a shakedown race in this car before donating it.";
   return heritageFit(project, car);
 }

@@ -574,7 +574,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
 
   if (spec.event === "feature" && won) {
     onFeatureWin(state, spec, vehicle, roll);
-    recordChallengeWin(state, spec.venueId, vehicle, spec.regularity);
+    recordChallengeWin(state, spec.venueId, vehicle);
   }
   recordOwnerFinish(state, spec, result, paidEntry ?? event.entry, spec.ownerDrive === true && roll.crewIds?.length === 0);
   if (spec.clubRound) recordClubRace(state, spec, result);

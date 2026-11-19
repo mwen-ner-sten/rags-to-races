@@ -303,7 +303,7 @@ export function Game() {
     if (t.id === "club") return !clubGate(game);
     if (t.id === "garage" && (motorPoolVisible(game) || (experimental && !!game.manufacturer?.invites.length))) return true; // false unless experimental
     if (t.id === "team" && (game.era || LAYERS.team.gate(game).ok)) return true;
-    if (t.id === "legacy" && ((experimental && game.run.countyBaton) || LAYERS.scrap.gate(game).ok)) return true;
+    if (t.id === "legacy" && LAYERS.scrap.gate(game).ok) return true;
     if (t.id === "race" && game.run.vehicles.length > 0) return true;
     return !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0);
   });
