@@ -2,9 +2,10 @@
 
 import { venueName } from "@/core/content/events";
 import type { GameState } from "@/core/types";
-import { capitalize, conditionName, num, ordinal } from "../../format";
+import { capitalize, conditionName, num } from "../../format";
 import { useGame } from "../../store";
 import { RaceLive } from "./RaceLive";
+import { finishText } from "./resultText";
 
 /** The top of the Race tab: the race on the track right now, or how the last one went. */
 export function OnTrack({ game }: { game: GameState }) {
@@ -25,7 +26,7 @@ export function OnTrack({ game }: { game: GameState }) {
     <section className="section on-track" aria-labelledby="on-track-h">
       <h2 id="on-track-h">Last race</h2>
       <p className="last-race">
-        <strong className={`race-pos num ${last.dnf ? "dnf" : last.position === 1 ? "win" : ""}`}>{last.dnf ? "DNF" : `${ordinal(last.position)} of ${last.fieldSize}`}</strong>{" "}
+        <strong className={`race-pos num ${last.dnf ? "dnf" : last.position === 1 ? "win" : ""}`}>{finishText(last)}</strong>{" "}
         {venueName(last.venueId, discipline)} {capitalize(last.event)} · +{num(last.prize)} Scrap Bucks · +{last.rep} Rep
       </p>
       {last.wear.length > 0 && <p className="muted">Wear: {last.wear.map((w) => `${w.slot} ${conditionName(w.from)} → ${conditionName(w.to)}`).join(", ")}</p>}

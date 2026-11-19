@@ -2,6 +2,20 @@ import type { CrewRole, JobSpec } from "../types";
 
 type JobKind = JobSpec["kind"];
 
+export const TEAM_ORGANIZATION_IDS = ["independent", "collective"] as const;
+export type TeamOrganization = typeof TEAM_ORGANIZATION_IDS[number];
+
+export const TEAM_ORGANIZATIONS = {
+  independent: {
+    name: "Independent Garage",
+    description: "Crew can handle trips and race entries in parallel. Mechanics share the ordinary workshop benches.",
+  },
+  collective: {
+    name: "Workshop Collective",
+    description: "A hired mechanic can staff one dedicated bench alongside the ordinary workshop. Each Season offers a mechanic if one is available. Crew can still drive and spot, but leave trips and race entries to you.",
+  },
+} satisfies Record<TeamOrganization, { name: string; description: string }>;
+
 export interface CrewDef {
   id: string;
   name: string;

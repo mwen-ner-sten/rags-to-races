@@ -1,12 +1,14 @@
 "use client";
 
 import { channel } from "@/core/channels";
+import { nowhereToStow } from "@/core/garage";
 import { habitThreshold, templateBase } from "@/core/habits";
 import { jobRate, nextEventInMs } from "@/core/jobs";
 import type { ActiveJob, GameState } from "@/core/types";
 import { duration } from "../format";
 import { habitLabel, habitOptions, jobLabel, laneLabel } from "../labels";
 import { useGame } from "../store";
+import { Lately } from "./Feed";
 import { RaceLive } from "./race/RaceLive";
 import { Tips } from "./Tips";
 
@@ -63,6 +65,7 @@ function HabitSlots({ game }: { game: GameState }) {
               </option>
             ))}
           </select>
+          {template?.startsWith("haul:") && nowhereToStow(game) && <span className="hint">Paused: the garage and driveway are full.</span>}
         </label>
       ))}
       {game.run.habitsKnown.length === 0 && <p className="hint">Repeat a job enough times and it becomes a Habit you can drop in a slot.</p>}
@@ -84,8 +87,9 @@ export function JobsBoard() {
   return (
     <aside className="board" aria-label="Work in progress">
       <h2 className="board-title">On the go</h2>
+      {game.run.raceNight && <p className="notice">Race Night has reserved your hands. Queued trips and studies wait until it ends.</p>}
       <Tips ids={["queue", "habits"]} />
-      {!handsBusy && game.run.queue.length === 0 && <p className="notice">Your hands are free. Queue a trip or a study before you step away.</p>}
+      {!handsBusy && !game.run.raceNight && game.run.queue.length === 0 && <p className="notice">Your hands are free. Queue a trip or a study before you step away.</p>}
       <ul className="jobs">
         {game.run.jobs.map((job) => (
           <JobRow key={job.id} game={game} job={job} />
@@ -108,6 +112,9 @@ export function JobsBoard() {
                       <span className="muted num"> · next run in {duration(nextEventInMs(game, spec.venueId, spec.event))}</span>
                     )}
                   </span>
+                  {i > 0 && spec.kind !== "race" && game.run.queue[i - 1].kind !== "race" && (
+                    <button className="link-btn" onClick={() => dispatch({ type: "prioritizeQueued", index: i })} aria-label={`Move ${jobLabel(game, spec)} up`}>Move up</button>
+                  )}
                   <button className="link-btn" onClick={() => dispatch({ type: "cancelQueued", index: i })}>
                     Remove
                   </button>
@@ -117,6 +124,7 @@ export function JobsBoard() {
           )}
         </div>
       )}
+      <Lately />
       <HabitSlots game={game} />
       {game.run.revealed.includes("habits") && nextHabits.length > 0 && (
         <div className="habit-progress">
