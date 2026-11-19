@@ -1,3 +1,4 @@
+import { earn, recordRace } from "./stats";
 import { channel } from "./channels";
 import { rallyExpectedPace, rallySplits, rallyWinForecast } from "./rally";
 import { bankRallyTime, cardFor, judgeRegularity, stampRallyFeature, usesRallyClassCard } from "./timecards";
@@ -471,6 +472,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
   const event = venue.events[spec.event];
   const { position, fieldSize, dnf, rivalBeaten } = roll;
   const won = position === 1 && !dnf;
+  const scrapOnCar = Object.values(vehicle.parts).some((p) => p && p.condition === 0);
 
   const wear: RaceResult["wear"] = [];
   for (const [slot, steps] of Object.entries(roll.wearSteps)) {
@@ -495,7 +497,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
   if (spec.regularity) prize = 0;
   let rep = share > 0 ? Math.ceil(event.rep * share) : 0;
   if (won && spec.event === "feature" && hasPerk(state, "local_hero")) rep *= 2;
-  state.run.cash += prize;
+  earn(state, prize);
   state.run.rep += rep;
 
   const result: RaceResult = {
@@ -526,6 +528,7 @@ export function settleRace(state: GameState, spec: RaceSpec, roll: RaceRoll, pai
     ...(roll.rallyClock && { rallyClock: roll.rallyClock }),
   };
   state.run.races.push(result);
+  recordRace(state, { won, dnf, position, prize, feature: spec.event === "feature", venueId: spec.venueId, scrapOnCar });
   if (!dnf && roll.rallyClock && !spec.regularity && usesRallyClassCard(spec, roll.course)) {
     bankRallyTime(state, vehicle, spec.venueId, spec.event, roll.course, roll.rallyClock.splitsMs);
   }

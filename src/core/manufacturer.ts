@@ -1,3 +1,4 @@
+import { earn, spend } from "./stats";
 import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "./clubTrack";
 import { getVenue } from "./content/events";
 import { reservedPartUids, vehicleBusy } from "./garage";
@@ -199,7 +200,7 @@ export function applyWorks(state: GameState, move: WorksMove): string | null {
       const reason = worksSignBlocker(state, move.family, vehicle);
       if (reason) return reason;
       const manufacturer = WORKS_FAMILIES[move.family];
-      state.run.cash -= manufacturer.fee;
+      spend(state, manufacturer.fee);
       works!.active = { id: nextUid(state, "works"), season: state.meta.seasonsPlayed + 1, family: move.family, vehicleUid: vehicle!.uid, article: vehicle!.name, engineUid: vehicle!.parts.engine!.uid, attempts: [] };
       return null;
     }
@@ -220,7 +221,7 @@ export function applyWorks(state: GameState, move: WorksMove): string | null {
       const family = WORKS_FAMILIES[state.config.worksPlan!];
       const { drawing } = family;
       const part = state.run.inventory.find(({ uid }) => uid === move.partUid)!;
-      state.run.cash -= drawing.cash;
+      spend(state, drawing.cash);
       state.run.materials[drawing.material] -= drawing.units;
       part.partId = drawing.output;
       part.origin = `${family.name} drawing`;
@@ -253,7 +254,7 @@ export function recordWorksRace(state: GameState, spec: RaceSpec, result: RaceRe
   deal.attempts.push({ raceId: result.id, step, spent: paidEntry, ...proof, passed: worksOutcome(next!, proof) });
   if (!worksReport(deal).homologated) return;
   const maker = WORKS_FAMILIES[deal.family];
-  state.run.cash += maker.grant;
+  earn(state, maker.grant);
   if (!works.drawings.includes(deal.family)) works.drawings.push(deal.family);
   const key = `works:honors:${deal.id}`;
   logSeason(state, key, `${maker.name} homologated ${deal.article}. Its drawing is available in a future Scrap Reset.`, key);

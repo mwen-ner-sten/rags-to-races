@@ -41,7 +41,7 @@ export interface Toast {
 
 const AWAY_ITEMS = 8;
 const MAX_TOASTS = 3;
-const TOAST_KINDS: readonly FeedKind[] = ["habit", "place", "knowhow", "build", "race", "story"];
+const TOAST_KINDS: readonly FeedKind[] = ["habit", "place", "knowhow", "build", "race", "story", "achievement"];
 let toastSeq = 0;
 
 /** Feed items that are new or changed since `before` and worth a passing toast. */

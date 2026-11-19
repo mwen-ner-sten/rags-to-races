@@ -1,3 +1,4 @@
+import { earn } from "./stats";
 import { getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
 import { TOOL_BY_ID } from "./content/tools";
@@ -193,7 +194,7 @@ export function applyShopOrder(game: GameState, move: ShopMove): string | null {
       );
     }
   }
-  game.run.cash += client.cash;
+  earn(game, client.cash);
   game.run.rep += 2;
   delete book.ticket;
   pushFeed(

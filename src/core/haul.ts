@@ -62,6 +62,8 @@ export function completeHaul(state: GameState, spec: HaulSpec, crewId?: string):
   }
   state.meta.codex.places[place.id] = (state.meta.codex.places[place.id] ?? 0) + 1;
   state.run.stats.hauls += 1;
+  state.meta.stats.trips += 1;
+  state.meta.stats.partsFound += finds.length;
   addJournal(state, "first_find", STORY.first_find);
   stowFinds(state, finds);
   return finds;

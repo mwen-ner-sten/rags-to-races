@@ -15,6 +15,7 @@ const KIND_LABEL: Record<FeedKind, string> = {
   build: "Built",
   race: "Race",
   story: "Note",
+  achievement: "Achievement",
 };
 
 const SHORT_COUNT = 6;
