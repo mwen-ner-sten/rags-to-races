@@ -51,6 +51,7 @@ export const TIPS: readonly TipDef[] = [
     lines: [
       "The odds show your chance of winning with this vehicle and call. Your car races on the track while you get on with other things.",
       "A top-3 finish opens the next event at that venue. Winning a Feature opens new places to race.",
+      "Heading out? Sign up for the Sprint, then the Heat and Feature too. Each one runs only if you podium the race before it.",
       "Racing wears parts down. Check them in the Garage between races.",
     ],
     when: revealed("race"),
@@ -99,6 +100,24 @@ export const TIPS: readonly TipDef[] = [
     title: "Crew",
     lines: ["Crew members work jobs in parallel with you. Give each one an assignment, and keep an eye on morale: tired crew work slower."],
     when: revealed("crew"),
+  },
+  {
+    id: "venues",
+    title: "Tracks want different builds",
+    lines: [
+      "Each track rewards different stats, so the best part depends on where you race. A Dirt Tire can beat a Kart Slick on a rough track, for one.",
+      "On Your vehicles, use Racing at to compare a car's score at each open track. Better parts in your garage are suggested for you.",
+    ],
+    when: (s) => s.run.venuesOpen.length >= 2,
+  },
+  {
+    id: "street_stock",
+    title: "Street Stock plans",
+    lines: [
+      "A Street Stock is built for the Invitationals. It needs a second sedan shell in Good condition, a Caged Chassis, a big engine and a race-grade fuel tank, plus 900 Scrap Bucks and plenty of metal.",
+      "Start looking for the cage now: it only turns up on the longest hauls.",
+    ],
+    when: (s) => s.run.available.includes("blueprint:street_stock") || s.run.learned.includes("blueprint:street_stock"),
   },
 ];
 

@@ -3,13 +3,19 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { CONDITION_STAT, getPart } from "@/core/content/parts";
+import { batonPartTag } from "@/core/countyBaton";
+import { CUSTOMERS } from "@/core/serviceShop";
+import { partOriginLabel } from "@/core/provenance";
 import { type BenchKind, DRIVEWAY_RULES, DRIVEWAY_SPACE, benchCost, conditionAfter, drivewayRule, garageSpace, partSellValue, reservedPartUids, saleQuote, stripYield, swapOutCandidate } from "@/core/garage";
 import { baseDuration, jobBlocker, jobRate } from "@/core/jobs";
 import type { Condition, DrivewayRule, GameState, JobSpec, MaterialId, PartInstance } from "@/core/types";
 import { capitalize, conditionName, duration, num, pct } from "../format";
 import { partSprite } from "../sprites";
 import { useGame } from "../store";
+import { ChannelWhy } from "./ChannelWhy";
+import { useStrongAt } from "./GarageStrongAt";
 import { Tips } from "./Tips";
+import { BatonGuardControls } from "./CountyBaton";
 
 const UPGRADES: { kind: Exclude<BenchKind, "strip">; label: string }[] = [
   { kind: "clean", label: "Clean" },
@@ -122,6 +128,8 @@ function BusyStatus({ game, part }: { game: GameState; part: PartInstance }) {
 interface PartProps {
   game: GameState;
   part: PartInstance;
+  /** "Strong at" phrase for this part, when it has one. */
+  strongAt?: string;
   /** The part is waiting on the driveway rather than in the garage. */
   onDriveway?: boolean;
 }
@@ -139,7 +147,7 @@ function PartActions({ game, part, onDriveway }: PartProps) {
       {onDriveway && (
         <button className="btn small act primary" disabled={!out} onClick={() => dispatch({ type: "swapIn", partUid: part.uid })} title="Bring it into the garage and put your cheapest part out here instead">
           <span className="act-label">Swap in</span>
-          <span className="act-detail">{out ? `sends out ${getPart(out.partId).name} (${conditionName(out.condition)})` : "everything is on the bench"}</span>
+          <span className="act-detail">{out ? `sends out ${getPart(out.partId).name} (${conditionName(out.condition)})` : "no unprotected part is free"}</span>
         </button>
       )}
       {upgrade && (
@@ -152,14 +160,18 @@ function PartActions({ game, part, onDriveway }: PartProps) {
           onClick={() => enqueue({ kind: upgrade.kind, partUid: part.uid })}
         />
       )}
-      <ActionButton label="Strip" time={time("strip")} detail={`get ${strip}`} title="Break it down for materials. The part is gone." onClick={() => enqueue({ kind: "strip", partUid: part.uid })} />
-      <ActionButton label="Sell" time="now" detail={`get ${num(sell)} Scrap Bucks`} title="Sell it to the dealer right now" onClick={() => dispatch({ type: "sell", partUids: [part.uid] })} />
+      {part.batonGuard ? <span className="hint">Safeguarded from sale and stripping</span> : <>
+        <ActionButton label="Strip" time={time("strip")} detail={`get ${strip}`} title="Break it down for materials. The part is gone." onClick={() => enqueue({ kind: "strip", partUid: part.uid })} />
+        <ActionButton label="Sell" time="now" detail={`get ${num(sell)} Scrap Bucks`} title="Sell it to the dealer right now" onClick={() => dispatch({ type: "sell", partUids: [part.uid] })} />
+      </>}
+      <button className={`btn small${part.protected ? " primary" : ""}`} aria-pressed={part.protected ?? false} title="Protect this part from automatic disposal and garage swaps" onClick={() => dispatch({ type: "protectPart", partUid: part.uid, keep: !part.protected })}>Keep</button>
     </div>
   );
 }
 
-function PartRow({ game, part, reserved, onDriveway }: PartProps & { reserved: boolean }) {
+function PartRow({ game, part, reserved, onDriveway, strongAt }: PartProps & { reserved: boolean }) {
   const def = getPart(part.partId);
+  const batonTag = batonPartTag(game, part);
   const hint = reserved || onDriveway || nextUpgrade(game, part) ? null : upgradeHint(game, part);
   return (
     <li className={`part ${reserved ? "busy" : ""}`}>
@@ -172,10 +184,14 @@ function PartRow({ game, part, reserved, onDriveway }: PartProps & { reserved: b
         <div className="part-meta muted">
           <span>{capitalize(def.category)}</span>
           <span>Tier {def.tier}</span>
-          <span>from {part.origin}</span>
+          <span>from {partOriginLabel(part)}{part.referral && " · lead from " + CUSTOMERS[part.referral].name}</span>
+          {part.inherited && <span>Carried from last Season</span>}
+          {batonTag && <span className="chip">{batonTag}</span>}
         </div>
         <PartStats part={part} />
+        {strongAt && <div className="garage-strong">{strongAt}</div>}
         {hint && <div className="why">{hint}</div>}
+        {batonTag && <BatonGuardControls game={game} part={part} />}
       </div>
       {reserved ? <BusyStatus game={game} part={part} /> : <PartActions game={game} part={part} onDriveway={onDriveway} />}
     </li>
@@ -230,7 +246,7 @@ function RulePicker({ game }: { game: GameState }) {
   );
 }
 
-function DrivewaySection({ game, reserved }: { game: GameState; reserved: Set<string> }) {
+function DrivewaySection({ game, reserved, strong }: { game: GameState; reserved: Set<string>; strong: Record<string, string> }) {
   const parts = game.run.driveway;
   if (parts.length === 0) return null;
   const rule = DRIVEWAY_RULES.find((r) => r.id === drivewayRule(game));
@@ -250,7 +266,7 @@ function DrivewaySection({ game, reserved }: { game: GameState; reserved: Set<st
       <RulePicker game={game} />
       <ul className="parts">
         {parts.map((p) => (
-          <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} onDriveway />
+          <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} onDriveway strongAt={strong[p.partId]} />
         ))}
       </ul>
     </div>
@@ -262,12 +278,14 @@ export function PartsPanel() {
   const dispatch = useGame((s) => s.dispatch);
   const [filter, setFilter] = useState("all");
   const reserved = useMemo(() => (game ? reservedPartUids(game) : new Set<string>()), [game]);
+  const strong = useStrongAt(game);
   if (!game) return null;
   const parts = [...game.run.inventory]
     .filter((p) => filter === "all" || getPart(p.partId).category === filter)
     .sort((a, b) => getPart(b.partId).tier - getPart(a.partId).tier || b.condition - a.condition);
-  const junk = game.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !reserved.has(p.uid));
+  const junk = game.run.inventory.filter((p) => getPart(p.partId).category === "junk" && !p.protected && !reserved.has(p.uid));
   const junkValue = saleQuote(game, junk);
+  const washBatch = parts.filter((part) => !reserved.has(part.uid) && !jobBlocker(game, { kind: "clean", partUid: part.uid })).slice(0, 3);
   const categories = [...new Set(game.run.inventory.map((p) => getPart(p.partId).category))];
   return (
     <section className="section" aria-labelledby="parts-h">
@@ -275,8 +293,11 @@ export function PartsPanel() {
         <h2 id="parts-h">Parts</h2>
         <SpaceMeter game={game} />
       </div>
+      <div className="garage-space-why">
+        Garage space: <ChannelWhy game={game} channelId="storage" />
+      </div>
       <Tips ids={["garage", "driveway", "materials"]} />
-      <DrivewaySection game={game} reserved={reserved} />
+      <DrivewaySection game={game} reserved={reserved} strong={strong} />
       <ConditionLadder />
       <p className="sub">
         The percentage is how much of a part’s stats it gives on the track. Strip breaks a part down into the materials Repair and Restore use. The dealer pays less for a part they’ve just bought a pile of.
@@ -294,6 +315,9 @@ export function PartsPanel() {
           </select>
         </label>
         {game.run.driveway.length === 0 && <RulePicker game={game} />}
+        {washBatch.length > 1 && (
+          <button className="btn small" title={washBatch.map((part) => getPart(part.partId).name).join(", ")} onClick={() => dispatch({ type: "batchClean", partUids: washBatch.map((part) => part.uid) })}>Queue cleaning for {washBatch.length} shown parts</button>
+        )}
         {junk.length > 0 && (
           <button className="btn small" onClick={() => dispatch({ type: "sell", partUids: junk.map((p) => p.uid) })}>
             Sell all junk ({junk.length}) for {num(junkValue)} Scrap Bucks
@@ -305,7 +329,7 @@ export function PartsPanel() {
       ) : (
         <ul className="parts">
           {parts.map((p) => (
-            <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} />
+            <PartRow key={p.uid} game={game} part={p} reserved={reserved.has(p.uid)} strongAt={strong[p.partId]} />
           ))}
         </ul>
       )}

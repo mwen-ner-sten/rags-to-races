@@ -1,4 +1,6 @@
 import type { GameState, MetaState, RunConfig, RunState, ScrapLayerState, TeamLayerState } from "./types";
+import { refreshPerkUnlocks } from "./perks";
+import { assignedRacingCrewIds } from "./crew";
 
 export function initialMeta(): MetaState {
   return {
@@ -12,6 +14,7 @@ export function initialMeta(): MetaState {
     perks: {},
     perksUnlocked: [],
     daresCompleted: [],
+    challengeRecords: {},
     disciplineMastery: {},
     hardshipMastery: {},
     stateWonEver: false,
@@ -56,6 +59,7 @@ export function initialRun(): RunState {
     practice: {},
     lastEntered: {},
     featureWins: {},
+    challenge: {},
     races: [],
     stats: { partsSold: 0, hauls: 0, racesLost: {}, firstStartDone: false },
     revealed: ["haul"],
@@ -63,6 +67,7 @@ export function initialRun(): RunState {
     shellsBought: 0,
     saleSat: {},
     notices: [],
+    feed: [],
     pushOnlyRaces: true,
   };
 }
@@ -89,8 +94,23 @@ export function newGame(seed: string): GameState {
 /** Fills in fields added after a save was written, so older saves keep loading. */
 export function upgradeSave(game: GameState): GameState {
   const next = structuredClone(game);
+  if (next.era && (next.run.featureWins.state !== undefined || next.era.milestones.includes("state"))) {
+    next.meta.teamStateWon = true;
+  }
   next.run.driveway ??= [];
+  next.run.feed ??= [];
+  next.run.challenge ??= {};
+  next.meta.challengeRecords ??= {};
   // Players from before tips existed already know the systems they've seen.
   next.meta.tipsSeen ??= [...next.run.revealed];
+  for (const job of next.run.jobs) {
+    if (!job.race) continue;
+    job.race.crewIds ??= [...new Set([...assignedRacingCrewIds(next), ...(job.lane.startsWith("crew:") ? [job.lane.slice(5)] : [])])];
+    const spec = job.spec;
+    const vehicle = spec.kind === "race" ? next.run.vehicles.find((v) => v.uid === spec.vehicleUid) : undefined;
+    const part = job.race.weakestSlot ? vehicle?.parts[job.race.weakestSlot] : undefined;
+    if (!job.race.weakestPart && part) job.race.weakestPart = { ...part };
+  }
+  refreshPerkUnlocks(next);
   return next;
 }

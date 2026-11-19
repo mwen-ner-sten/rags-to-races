@@ -14,6 +14,12 @@ export interface ToolDef {
   benches?: number;
   /** Storage slots added per copy. */
   storage?: number;
+  /** Assembly speed added (fraction). */
+  buildSpeed?: number;
+  /** Engine repair speed added (fraction). */
+  rebuildSpeed?: number;
+  /** Only stocked once you own a vehicle of this tier. */
+  minTier?: number;
 }
 
 export const TOOLS: readonly ToolDef[] = [
@@ -21,9 +27,12 @@ export const TOOLS: readonly ToolDef[] = [
   { id: "shelving", name: "Shelving", blurb: "Six more spots for parts.", cash: 20, materials: { metal: 4 }, max: 4, storage: 6 },
   { id: "tire_machine", name: "Tire Machine", blurb: "No more prying with a screwdriver. Bench work +15%.", cash: 90, materials: {}, max: 1, benchSpeed: 0.15 },
   { id: "impact_wrench", name: "Impact Wrench", blurb: "Bzzzt. Bench work +20%.", cash: 120, materials: { wiring: 1 }, max: 1, benchSpeed: 0.2 },
-  { id: "welder", name: "Welder", blurb: "A buzz box from a garage sale. Lets you learn Welding.", cash: 150, materials: {}, max: 1 },
-  { id: "second_bench", name: "Second Bench", blurb: "Two jobs on the bench at once.", cash: 250, materials: { metal: 8 }, max: 1, benches: 1 },
-  { id: "engine_hoist", name: "Engine Hoist", blurb: "Lifts a V6. Needed for the Beater plans.", cash: 350, materials: { metal: 6 }, max: 1 },
+  { id: "welder", name: "Welder", blurb: "A buzz box from a garage sale. Lets you learn Welding.", cash: 220, materials: {}, max: 1 },
+  { id: "second_bench", name: "Second Bench", blurb: "Two jobs on the bench at once.", cash: 350, materials: { metal: 8 }, max: 1, benches: 1 },
+  { id: "engine_hoist", name: "Engine Hoist", blurb: "Lifts a V6. Needed for the Beater plans.", cash: 500, materials: { metal: 6 }, max: 1 },
+  { id: "engine_stand", name: "Engine Stand", blurb: "Spin it over, work on it standing up. Engine repairs 30% faster.", cash: 450, materials: { metal: 8 }, max: 1, rebuildSpeed: 0.3, minTier: 2 },
+  { id: "torque_wrench", name: "Torque Wrench", blurb: "Click. Done right the first time. Vehicles assemble 30% faster.", cash: 600, materials: {}, max: 1, buildSpeed: 0.3, minTier: 2 },
+  { id: "parts_tumbler", name: "Parts Tumbler", blurb: "A drum of walnut shells that never sleeps. Bench work +20%.", cash: 900, materials: { metal: 12, wiring: 2 }, max: 1, benchSpeed: 0.2, minTier: 3 },
 ];
 
 export const TOOL_BY_ID: Record<string, ToolDef> = Object.fromEntries(TOOLS.map((t) => [t.id, t]));

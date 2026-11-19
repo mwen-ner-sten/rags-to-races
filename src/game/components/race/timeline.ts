@@ -35,3 +35,71 @@ export function lapsFor(event: EventKind, laps: number | undefined, strip: boole
   if (strip) return 1;
   return laps ?? LAPS[event];
 }
+
+/** In a drag round the pass takes this share of the round; the car then holds at the line. */
+export const PASS_SHARE = 0.8;
+
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+
+export type BracketEnd = "won" | "out" | "dnf";
+
+/** Where the two cars are in a drag bracket at one moment. */
+export interface BracketView {
+  /** The round being shown (1-based); locked to the last round once the race has ended. */
+  round: number;
+  rounds: number;
+  /** 0..1 down the strip for this round's pass. */
+  progress: number;
+  /** Your position against the other lane: 1 ahead, 2 behind, fractional while it changes. */
+  rank: number;
+  /** Strip progress at which your car stopped, in a round that ends in a DNF. */
+  dnfAt?: number;
+  /** Set once the final beat has happened. */
+  ended: BracketEnd | null;
+}
+
+const roundOfTime = (at: number, roundMs: number, rounds: number): number => Math.max(1, Math.min(rounds, Math.floor(at / roundMs + 1e-9) + 1));
+
+function bracketRank(beats: readonly RaceBeat[], ms: number, t0: number, roundMs: number): number {
+  const inRound = (b: RaceBeat) => b.at >= t0 - 1e-6 && b.at < t0 + roundMs - 1e-6;
+  const start = beats.find((b) => b.kind === "round" && inRound(b));
+  const end = beats.find((b) => (b.kind === "pass" || b.kind === "finish" || b.kind === "dnf") && inRound(b));
+  const from = start?.position ?? 1;
+  if (!end) return from;
+  if (end.at <= ms + 1e-6) return end.position;
+  return from + (end.position - from) * smooth(clamp01((ms - t0) / Math.max(1, end.at - t0)));
+}
+
+/**
+ * A drag race replays each round as its own pass: the race is split evenly into `rounds` segments, and
+ * within a segment the strip runs 0→1 over the first {@link PASS_SHARE}, then holds. After the last beat
+ * (the win, the loss that ends it, or a DNF) the cars stay parked for whatever time remains.
+ */
+export function bracketView(beats: readonly RaceBeat[], ms: number, durationMs: number, rounds: number): BracketView {
+  const count = Math.max(1, Math.round(rounds));
+  const roundMs = Math.max(1, durationMs) / count;
+  const last = beats[beats.length - 1];
+  const terminal = last && (last.kind === "finish" || last.kind === "dnf") ? last : undefined;
+  const reached = terminal !== undefined && terminal.at <= ms + 1e-6;
+  const round = reached ? roundOfTime(terminal.at, roundMs, count) : roundOfTime(ms, roundMs, count);
+  const t0 = (round - 1) * roundMs;
+  const dnfRound = terminal?.kind === "dnf" ? roundOfTime(terminal.at, roundMs, count) : 0;
+  const ended: BracketEnd | null = !reached ? null : terminal.kind === "dnf" ? "dnf" : terminal.position === 1 ? "won" : "out";
+  return {
+    round,
+    rounds: count,
+    progress: clamp01((ms - t0) / (roundMs * PASS_SHARE)),
+    rank: bracketRank(beats, ms, t0, roundMs),
+    dnfAt: terminal && dnfRound === round ? clamp01((terminal.at - t0) / (roundMs * PASS_SHARE)) : undefined,
+    ended,
+  };
+}
+
+/** The status line for a drag race: "Round 2 of 3 · ahead", then "Won the event", "Out in round 2" or "DNF". */
+export function bracketStatus(view: BracketView): string {
+  if (view.ended === "won") return "Won the event";
+  if (view.ended === "out") return `Out in round ${view.round}`;
+  if (view.ended === "dnf") return "DNF";
+  const where = view.rank < 1.5 ? "ahead" : "behind";
+  return view.rounds === 1 ? `Your pass · ${where}` : `Round ${view.round} of ${view.rounds} · ${where}`;
+}

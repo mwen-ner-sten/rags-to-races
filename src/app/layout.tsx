@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, IBM_Plex_Mono, IBM_Plex_Sans, Kalam } from "next/font/google";
+import { IBM_Plex_Mono, Orbitron, Rajdhani } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import "./feed.css";
+import "./race-extras.css";
+import "./garage-extras.css";
 
-// Era 1 writes in pencil (Kalam); the Team era paints shop signs (Barlow Condensed).
-const kalam = Kalam({ variable: "--font-kalam", subsets: ["latin"], weight: ["400", "700"], display: "swap" });
-const barlow = Barlow_Condensed({ variable: "--font-barlow", subsets: ["latin"], weight: ["500", "600", "700"], display: "swap", preload: false });
-const plexSans = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
-const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"], display: "swap" });
+// "Midnight Circuit": Orbitron for signage, Rajdhani for reading, Plex Mono for numbers.
+const orbitron = Orbitron({ variable: "--font-orbitron", subsets: ["latin"], weight: ["500", "700", "900"], display: "swap" });
+const rajdhani = Rajdhani({ variable: "--font-rajdhani", subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"], display: "swap", preload: false });
 
 export const metadata: Metadata = {
   title: "Rags to Races",
@@ -16,10 +18,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${kalam.variable} ${barlow.variable} ${plexSans.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${orbitron.variable} ${rajdhani.variable} ${plexMono.variable}`}>
       <body>
         {children}
-        <Analytics />
+        {process.env.VERCEL === "1" && <Analytics />}
       </body>
     </html>
   );
