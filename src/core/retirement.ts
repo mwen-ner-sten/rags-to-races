@@ -7,7 +7,6 @@ import { logSeason } from "./journal";
 import { nextUid } from "./rng";
 import { releaseVehicle } from "./vehicleArchive";
 import type { GameState, MaterialId, PartInstance, Vehicle } from "./types";
-import { batonGuarded } from "./features";
 
 export const MOWER_EXCHANGE = { cash: 12, parts: ["engine_tiller", "wheel_knobby"], condition: 2 } as const;
 
@@ -27,7 +26,6 @@ export function retirementPlan(state: GameState, vehicleUid: string, move: Retir
     return "Finish or remove this mower's race sign-ups first";
   }
   const parts = Object.values(vehicle.parts).filter((part) => part !== undefined);
-  if (parts.some((part) => batonGuarded(part) && (move.kind === "exchange" || move.keepUid !== part.uid))) return "Pull or keep the safeguarded County Baton part before retiring this mower.";
   const room = garageSpace(state) - state.run.inventory.length;
   if (move.kind === "exchange") {
     if (getVehicle(vehicle.vehicleId).slots.some((slot) => slot.required && !vehicle.parts[slot.slot])) return "Fit every required part before exchanging the mower";

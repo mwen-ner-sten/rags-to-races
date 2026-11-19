@@ -13,7 +13,7 @@ export interface CareerJump {
 
 function focusId(target: CareerDestination): string {
   switch (target.tab) {
-    case "legacy": return target.section === "baton" ? "county-baton-status" : target.objective ? `reset-objective-${target.objective}` : "legacy-h";
+    case "legacy": return target.objective ? `reset-objective-${target.objective}` : "legacy-h";
     case "trips": return "trips-h";
     case "garage": return { service: "service-counter", build: "build-h", "service-delivery": "service-delivery", "motor-pickup": "motor-pickup",
       "motor-pool": "motor-pool-heading", parts: "parts-h" }[target.section];

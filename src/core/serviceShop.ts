@@ -114,7 +114,7 @@ export function shopLegacyName(choice: ShopLegacy) {
 export function serviceCandidates(game: GameState, client: CustomerId) {
   const request = CUSTOMERS[client];
   return game.run.inventory.filter(
-    (p) => getPart(p.partId).category === request.category && p.condition < request.threshold && !p.inherited && !p.batonGuard,
+    (p) => getPart(p.partId).category === request.category && p.condition < request.threshold && !p.inherited,
   );
 }
 
@@ -139,7 +139,6 @@ export function serviceDelivery(game: GameState) {
   const client = CUSTOMERS[ticket.client];
   if (!part || getPart(part.partId).category !== client.category || !ticket.worked || part.condition < client.threshold)
     return "Fix the part up to the condition the customer wants first.";
-  if (part.batonGuard) return "Release County Baton protection first.";
   if (reservedPartUids(game).has(part.uid)) return "Finish the booked bench work first.";
   return { ticket, part, client };
 }

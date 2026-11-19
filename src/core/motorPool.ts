@@ -71,7 +71,7 @@ export function motorWearSlot(rig: Vehicle, route: MotorRouteId): string {
 }
 
 export function motorOwnStock(part: PartInstance): boolean {
-  return !part.inherited && !part.batonGuard && !TEMPORARY_ORIGINS.has(part.origin);
+  return !part.inherited && !TEMPORARY_ORIGINS.has(part.origin);
 }
 
 function roadworthy(rig: Vehicle): boolean {
@@ -89,7 +89,6 @@ export function motorLodgeBlocker(game: GameState, vehicleUid: string): string |
   if (game.owner?.tour.status === "active" && game.owner.tour.rounds.some((result) => result?.vehicleUid === vehicleUid)) return "Finish this rig’s active Owner tour first.";
   if (game.manufacturer?.active?.vehicleUid === vehicleUid) return "File the rig’s works deal before lodging it.";
   if (game.promoter?.meet?.guest.uid === vehicleUid) return "Close the Circuit calendar using this guest first.";
-  if (Object.values(rig.parts).some((part) => part?.batonGuard)) return "Pull the safeguarded County Baton part before lodging the rig.";
   if (Object.values(rig.parts).some((part) => part && !motorOwnStock(part))) return "Remove inherited, drawing, or loaned parts first. Only wholly owned stock can cross through the depot.";
   return null;
 }

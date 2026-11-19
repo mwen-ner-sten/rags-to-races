@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useState } from "react";
 import { blueprintPlan, haulSourcesForSlot } from "@/core/buildPlanning";
-import { batonPartTag } from "@/core/countyBaton";
 import { getPart } from "@/core/content/parts";
 import type { VehicleDef } from "@/core/content/vehicles";
 import { jobBlocker } from "@/core/jobs";
@@ -16,12 +15,7 @@ import { partScoreAt } from "@/core/race";
 import type { SlotDef } from "@/core/content/vehicles";
 import type { PartInstance } from "@/core/types";
 import { PartTitle, partOption } from "./BuildSlotRow";
-import { experimentalCareers } from "@/core/features";
 import { ChoiceList, type ChoiceItem } from "./ChoiceList";
-
-function shownBatonTag(game: GameState, part: Parameters<typeof batonPartTag>[1]): string | undefined {
-  return experimentalCareers() ? batonPartTag(game, part) : undefined;
-}
 
 interface SlotPickerProps {
   game: GameState;
@@ -36,15 +30,12 @@ function SlotPicker({ game, slot, options, value, onChange }: SlotPickerProps) {
   const discipline = game.era?.discipline ?? "dirt";
   const score = (part: PartInstance) => partScoreAt(part, discipline, undefined, slot.slot);
   const top = options.length > 1 ? Math.max(...options.map(score)) : undefined;
-  const rows = options.map((part): ChoiceItem => {
-    const baton = shownBatonTag(game, part);
-    return {
-      id: part.uid,
-      title: <PartTitle part={part} />,
-      tag: top !== undefined && score(part) === top ? "Best fit" : undefined,
-      meta: <>score <span className="num">{score(part).toFixed(1)}</span> · {partOriginLabel(part)}{baton && ` · ${baton}`}</>,
-    };
-  });
+  const rows = options.map((part): ChoiceItem => ({
+    id: part.uid,
+    title: <PartTitle part={part} />,
+    tag: top !== undefined && score(part) === top ? "Best fit" : undefined,
+    meta: <>score <span className="num">{score(part).toFixed(1)}</span> · {partOriginLabel(part)}</>,
+  }));
   const label = (slot.label ?? slot.slot) + (slot.required ? "" : " (optional)");
   const emptyText = `Needs ${slot.accepts.map((id) => getPart(id).name).join(" or ")}`;
   return (
@@ -83,7 +74,7 @@ export function Blueprint({ game, def }: { game: GameState; def: VehicleDef }) {
             return (
               <div key={slot.slot} className="slot slot-choice">
                 <SlotPicker game={game} slot={slot} options={options} value={plan.chosen[slot.slot] ?? ""} onChange={(uid) => setPicks({ ...picks, [slot.slot]: uid })} />
-                {options.length === 0 && fixable.length > 0 && <span className="why">On hand but needs bench work · {fixable.map((part) => partOption(part, shownBatonTag(game, part))).join(", ")}</span>}
+                {options.length === 0 && fixable.length > 0 && <span className="why">On hand but needs bench work · {fixable.map(partOption).join(", ")}</span>}
                 {sources.length > 0 && <span className="hint">Per random find: {sources.map(({ place, chance }) => `${place.name} ${pct(chance)}`).join(" · ")}</span>}
               </div>
             );

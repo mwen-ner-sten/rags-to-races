@@ -55,7 +55,6 @@ export interface PartInstance {
   origin: string;
   provenance?: PartProvenance;
   protected?: boolean;
-  batonGuard?: true;
   referral?: import("./serviceShop").CustomerId;
   /** This physical part has already crossed one Scrap Reset. */
   inherited?: true;
@@ -63,10 +62,6 @@ export interface PartInstance {
 
 export type HomeCounty = "home" | "river" | "quarry";
 export type NeighborCounty = Exclude<HomeCounty, "home">;
-
-export type BatonProgress =
-  | { leg: "qualify"; from: NeighborCounty; qualified?: { uid: string; at: number } }
-  | { leg: "deliver"; from: NeighborCounty; qualified: { uid: string; at: number }; completedAt?: number };
 
 export interface PartProvenance {
   readonly county: HomeCounty;
@@ -302,7 +297,6 @@ export interface MetaState {
   guideOff?: boolean;
   daresCompleted: string[];
   challengeRecords: Partial<Record<SeasonChallengeId, SeasonChallengeRecord>>;
-  countyFreight?: Partial<Record<NeighborCounty, number>>;
   disciplineMastery: Record<string, number>;
   hardshipMastery: Record<string, number>;
   teamStateWon?: boolean;
@@ -390,7 +384,6 @@ export interface RunState {
   lastEntered: Record<string, number>;
   featureWins: Record<string, number>; // venue → season ms of first Feature win
   challenge: SeasonChallengeProgress;
-  countyBaton?: BatonProgress;
   raceNight?: { vehicleUid: string; venueId: string; call: RaceCall; startsLeft: number; stopOnFeature: boolean };
   races: RaceResult[];
   stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number; dnfs?: number; counterBuys?: number };

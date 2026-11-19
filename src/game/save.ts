@@ -22,9 +22,8 @@ import { DISCIPLINES, RIVAL_BY_ID, VENUE_BY_ID } from "@/core/content/events";
 import { upgradeSave } from "@/core/state";
 import { perkSlots } from "@/core/layers";
 import { countyChoiceBlocker, countyPlaceBlocker } from "@/core/counties";
-import { BATON_PART, batonPartTag, batonUnlocked, freightEligible, otherCounty } from "@/core/countyBaton";
 import { RACE_NIGHT_STARTS } from "@/core/raceNight";
-import { isCarryableSalvage, salvageCarryUnlocked } from "@/core/salvageCarry";
+import { freightEligible, isCarryableSalvage, salvageCarryUnlocked } from "@/core/salvageCarry";
 import type { GameState, JobSpec } from "@/core/types";
 
 const number = z.number().finite();
@@ -45,13 +44,7 @@ const invoice = z.object({ client, partUid: id, partId: known(PART_BY_ID), condi
 const depotReceipts = z.array(z.enum(["ramp","pump"])).max(2).refine((r) => new Set(r).size === r.length);
 const invoices = z.array(invoice).max(CUSTOMER_IDS.length);
 const runConfig = z.object({ shopLegacy: shopLegacy.optional(), perks: z.array(known(PERK_BY_ID)), tuneUp, dare: z.union([known(DARE_BY_ID), z.enum(SEASON_CHALLENGE_IDS)]).nullable(), hardships: z.array(known(HARDSHIP_BY_ID)), salvageSlot: z.literal(true).optional(), donor: z.object({ partId: known(PART_BY_ID), condition, origin: z.string(), provenance: partProvenanceSchema.optional() }).optional(), club: clubCharterSchema.optional(), clubCourse: clubCourseSchema.optional(), clubLoan: clubCourseSchema.optional(), clubVisitor: countyRivalSchema.optional(), worksPlan: worksFamilySchema.optional(), homeCounty: homeCountySchema.optional(), countyFreight: z.literal(true).optional() });
-const neighborCounty = z.enum(["river", "quarry"]);
-const batonProof = z.object({ uid: id, at: amount });
-const countyBaton = z.discriminatedUnion("leg", [
-  z.object({ leg: z.literal("qualify"), from: neighborCounty, qualified: batonProof.optional() }),
-  z.object({ leg: z.literal("deliver"), from: neighborCounty, qualified: batonProof, completedAt: amount.optional() }),
-]);
-const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), batonGuard: z.literal(true).optional(), referral: client.optional(), inherited: z.literal(true).optional(), provenance: partProvenanceSchema.optional() });
+const part = z.object({ uid: id, partId: known(PART_BY_ID), condition, origin: z.string(), protected: z.boolean().optional(), referral: client.optional(), inherited: z.literal(true).optional(), provenance: partProvenanceSchema.optional() });
 const history = z.object({ races: count, wins: count, dnfs: count, bestFinish: count.positive().nullable() });
 const vehicle = z.object({
   uid: id, vehicleId: known(VEHICLE_BY_ID), name: z.string(), parts: z.record(id, part),
@@ -157,7 +150,6 @@ const meta = z.object({
   drivewayRule: z.enum(["strip_sell", "sell", "strip", "leave"]).optional(), tipsSeen: z.array(id), guideOff: z.boolean().optional(),
   daresCompleted: z.array(known(DARE_BY_ID)), disciplineMastery: z.record(known(DISCIPLINES), count),
   challengeRecords: z.partialRecord(z.enum(SEASON_CHALLENGE_IDS), z.object({ completions: count.positive(), bestSeasonMs: amount, bestVehicleName: z.string() })),
-  countyFreight: z.partialRecord(neighborCounty, count.positive()).optional(),
   hardshipMastery: z.record(known(HARDSHIP_BY_ID), count), teamStateWon: z.boolean().optional(), stateWonEver: z.boolean(),
   journalSeen: z.array(id), journal: z.array(z.object({ id, season: count.positive(), seasonMs: amount, text: z.string() })),
   seasonsPlayed: count, totalTeamResets: count, milestonesEver: z.array(known(VENUE_BY_ID)),
@@ -178,7 +170,6 @@ const run = z.object({
   jobs: z.array(job), queue: z.array(jobSpec), idleLanes: z.array(id), practice: z.record(known(VENUE_BY_ID), amount),
   lastEntered: z.record(id, amount), featureWins: z.record(known(VENUE_BY_ID), amount), races: z.array(result),
   challenge: z.object({ relay: z.array(z.object({ vehicleUid: id, frameUid: id })).optional(), handMeDownEngines: z.array(id).optional(), completedAt: amount.optional() }),
-  countyBaton: countyBaton.optional(),
   raceNight: z.object({ vehicleUid: id, venueId: known(VENUE_BY_ID), call, startsLeft: count.min(1).max(RACE_NIGHT_STARTS), stopOnFeature: z.boolean() }).optional(),
   stats: z.object({ partsSold: count, hauls: count, racesLost: z.record(known(VENUE_BY_ID), count), firstStartDone: z.boolean(), drivewayOverflows: count.optional(), dnfs: count.optional(), counterBuys: count.optional() }),
   revealed: z.array(id), candidates: z.array(known(CREW_BY_ID)), shellsBought: count,
@@ -210,13 +201,6 @@ const compatibleSchema = gameSchema.extend({
 function referencesValid(game: GameState): boolean {
   if (!motorPoolReferencesValid(game)) return false;
   if (countyChoiceBlocker(game, game.config.homeCounty) || game.run.placesOpen.some((placeId) => countyPlaceBlocker(game, placeId))) return false;
-  const baton = game.run.countyBaton;
-  if (baton && (!batonUnlocked(game) || game.config.dare)) return false;
-  if (baton?.leg === "qualify" && (game.config.homeCounty !== baton.from || (baton.qualified && baton.qualified.at > game.run.seasonMs))) return false;
-  if (baton?.leg === "deliver" && (game.config.homeCounty !== otherCounty(baton.from) || !game.config.salvageSlot
-    || game.config.donor?.partId !== BATON_PART[baton.from] || game.config.donor.provenance?.county !== baton.from
-    || game.config.donor.provenance.season !== game.meta.seasonsPlayed
-    || (baton.completedAt !== undefined && (baton.completedAt > game.run.seasonMs || !game.meta.countyFreight?.[otherCounty(baton.from)])))) return false;
   if (!serviceReferencesValid(game) || !rallyReferencesValid(game) || !heritageReferencesValid(game)) return false;
   const night = game.run.raceNight;
   if (night && (game.era || game.run.featureWins.county_fair !== undefined || !game.run.venuesOpen.includes(night.venueId)
@@ -254,12 +238,8 @@ function referencesValid(game: GameState): boolean {
   if (new Set(retired).size !== retired.length || game.run.vehicles.some((car) => retired.includes(car.uid))) return false;
   const parts = [...game.run.inventory, ...game.run.driveway, ...game.run.vehicles.flatMap((vehicle) => Object.values(vehicle.parts).filter((part) => part !== undefined))];
   if (parts.some((part) => part.provenance && part.provenance.season > game.meta.seasonsPlayed + 1)) return false;
-  if (parts.some((part) => part.batonGuard && (part.uid !== baton?.qualified?.uid || !batonPartTag(game, part)))) return false;
   const inherited = parts.filter((piece) => piece.inherited);
   if (inherited.length > (game.config.salvageSlot || game.config.countyFreight ? 1 : 0) || inherited.some((piece) => !isCarryableSalvage(piece))) return false;
-  if (baton?.leg === "deliver" && (inherited.some((part) => part.uid !== baton.qualified.uid || part.partId !== BATON_PART[baton.from]
-    || part.provenance?.county !== baton.from || part.provenance.season !== game.meta.seasonsPlayed)
-    || parts.some((part) => part.uid === baton.qualified.uid && !part.inherited))) return false;
   if (game.config.salvageSlot && (!salvageCarryUnlocked(game) || game.config.hardships.includes("rookie_plates") || game.config.perks.length > perkSlots(game))) return false;
   if (game.config.countyFreight && (game.config.salvageSlot || game.config.hardships.includes("rookie_plates")
     || !freightEligible(game, game.config.homeCounty ?? "home", game.config.donor))) return false;

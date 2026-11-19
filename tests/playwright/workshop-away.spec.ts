@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { garageSpace } from "../../src/core/garage";
 import type { GameState } from "../../src/core/types";
-import { HOUR, pendingBaton, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../fixtures/workshopAway";
+import { HOUR, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../fixtures/workshopAway";
 import { setExperimentalCareers } from "../../src/core/features";
 
 // Covers experimental side careers, which are hidden unless this browser preference is on.
@@ -88,11 +88,4 @@ test("Works proof opens the homologated deal without repeating it in the return 
   await away.getByRole("button", { name: "Open Works report" }).click();
   await expect(page.getByRole("heading", { name: /Copper Comet/ })).toBeFocused();
   await expect(page.getByRole("button", { name: "File works report" })).toBeVisible();
-});
-
-test("the first baton leg opens Legacy before the Scrap Reset gate is available", async ({ page }) => {
-  const away = await returnFromAbsence(page, pendingBaton("qualify"));
-  await away.getByRole("button", { name: "Open County Baton" }).click();
-  await expect(page.getByRole("heading", { name: "County Baton" })).toBeFocused();
-  await expect(page.getByText(/Qualified\. Carry the same part to Quarry County/)).toBeVisible();
 });

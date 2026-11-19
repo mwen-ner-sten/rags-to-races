@@ -14,7 +14,7 @@ import { venueLockReason } from "./race";
 import type { DisciplineId, GameState, SeasonChallengeId } from "./types";
 
 export type CareerDestination =
-  | { tab: "legacy"; objective?: SeasonChallengeId; section?: "baton" }
+  | { tab: "legacy"; objective?: SeasonChallengeId }
   | { tab: "garage"; section: "service" | "build" | "service-delivery" | "motor-pickup" | "motor-pool" | "parts" }
   | { tab: "trips" }
   | { tab: "manufacturer"; section?: "deal" }
