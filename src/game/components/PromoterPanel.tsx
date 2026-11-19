@@ -11,6 +11,8 @@ import {
 } from "@/core/promoter";
 import type { GameState, TuneSetting } from "@/core/types";
 import { useGame } from "../store";
+import { ChoiceList, type ChoiceItem } from "./ChoiceList";
+import { Segmented } from "./Segmented";
 
 const charterIds = Object.keys(PROMOTER_CHARTERS) as PromoterCharter[];
 const stewardshipIds = Object.keys(STEWARDSHIP) as Stewardship[];
@@ -42,26 +44,35 @@ function CharterCard({ game, id }: { game: GameState; id: PromoterCharter }) {
         <p>{targets.points} points · {targets.finishes} finishes · {targets.podiums} podium{targets.podiums === 1 ? "" : "s"}</p>
         {lock ? <p className="why">{lock}</p> : current ? (
           <>
-            <label className="inline" htmlFor={`promoter-guest-${id}`}>Guest build
-              <select id={`promoter-guest-${id}`} value={useReturning ? "returning" : current.uid} onChange={(event) => setSelected(event.target.value)}>
-                {vehicles.map((vehicle) => <option key={vehicle.uid} value={vehicle.uid}>{vehicle.name}</option>)}
-                {returning && <option value="returning">{returning.name} · returning entry</option>}
-              </select>
-            </label>
+            <ChoiceList compact id={`promoter-guest-${id}`} label="Guest build" value={useReturning ? "returning" : current.uid} onChange={setSelected}
+              items={[
+                ...vehicles.map((vehicle): ChoiceItem => ({ id: vehicle.uid, title: vehicle.name, meta: getVehicle(vehicle.vehicleId).name })),
+                ...(returning ? [{ id: "returning", title: returning.name, meta: `${getVehicle(returning.vehicleId).name} · returning entry` }] : []),
+              ]} />
             {useReturning && <p className="muted">The returning entry keeps its wear. Its crew brings one extra workshop pass.</p>}
-            <label className="inline" htmlFor={`promoter-rules-${id}`}>Stewardship
-              <select id={`promoter-rules-${id}`} value={stewardship} onChange={(event) => setStewardship(event.target.value as Stewardship)}>
-                {stewardshipIds.map((rules) => <option key={rules} value={rules} disabled={!!promoterPolicyLock(game, rules)}>{STEWARDSHIP[rules].name}</option>)}
-              </select>
-            </label>
-            <p className="muted">{STEWARDSHIP[stewardship].brief}</p>
+            <Segmented<Stewardship>
+              id={`promoter-rules-${id}`}
+              label="Stewardship"
+              value={stewardship}
+              onChange={setStewardship}
+              hint={STEWARDSHIP[stewardship].brief}
+              options={stewardshipIds.map((rules) => {
+                const reason = promoterPolicyLock(game, rules);
+                return { value: rules, label: STEWARDSHIP[rules].name, disabled: !!reason, reason: reason ?? undefined };
+              })}
+            />
             <p>{targets.fieldFinishes} field finishes{targets.closeFinishes > 0 && ` · ${targets.closeFinishes} winning gaps within 8%`}{targets.winners > 0 && ` · ${targets.winners} different winners`}</p>
-            <label className="inline" htmlFor={`promoter-route-${id}`}>Route
-              <select id={`promoter-route-${id}`} value={route} onChange={(event) => setRoute(event.target.value as PromoterRoute)}>
-                {routes.map((value) => <option key={value} value={value} disabled={!!promoterRouteLock(game, id, value)}>{PROMOTER_ROUTES[value].name}</option>)}
-              </select>
-            </label>
-            <p className="muted">{PROMOTER_ROUTES[route].detail}</p>
+            <Segmented<PromoterRoute>
+              id={`promoter-route-${id}`}
+              label="Route"
+              value={route}
+              onChange={setRoute}
+              hint={PROMOTER_ROUTES[route].detail}
+              options={routes.map((value) => {
+                const reason = promoterRouteLock(game, id, value);
+                return { value, label: PROMOTER_ROUTES[value].name, disabled: !!reason, reason: reason ?? undefined };
+              })}
+            />
             {(game.promoter?.certified.length ?? 0) > 0 && !game.promoter?.workshopLicensed && (
               <label><input type="checkbox" checked={workshopBid} onChange={(event) => setWorkshopBid(event.target.checked)} /> Bid for a workshop license. Certify with a roadworthy guest and one unused pass.</label>
             )}
@@ -136,11 +147,13 @@ function Calendar({ game, meet }: { game: GameState; meet: PromoterMeet }) {
           {ballast && <p>{entrantName(ballast, meet.guest.name)} carries the leader’s ballast.</p>}
           {meet.booking ? <p role="status">Booked with {meet.booking.result.call === "push" ? "Push" : "Nurse"} · {Math.ceil((meet.booking.due - (game.promoter?.clock ?? 0)) / 60_000)} min to the flag</p> : (
             <>
-              <label className="inline" htmlFor="promoter-setup">Guest setup
-                <select id="promoter-setup" value={meet.guest.tune} onChange={(event) => dispatch({ type: "promoter", move: { type: "tune", tune: event.target.value as TuneSetting } })}>
-                  {setupOptions.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-                </select>
-              </label>
+              <Segmented<TuneSetting>
+                id="promoter-setup"
+                label="Guest setup"
+                value={meet.guest.tune}
+                onChange={(tune) => dispatch({ type: "promoter", move: { type: "tune", tune } })}
+                options={setupOptions.map(({ id, name }) => ({ value: id, label: name }))}
+              />
               {reason && <p className="why">{reason}</p>}
               <div className="actions">
                 {(["push", "nurse"] as const).map((call) => {
@@ -158,17 +171,14 @@ function Calendar({ game, meet }: { game: GameState; meet: PromoterMeet }) {
           )}
           {game.promoter && game.promoter.certified.length > 0 && (
             <>
-              <label className="inline" htmlFor="promoter-clerk">Calendar clerk
-                <select id="promoter-clerk" value={meet.clerkCall ?? "manual"} onChange={(event) => {
-                  const call = event.target.value;
-                  dispatch({ type: "promoter", move: { type: "clerk", call: call === "manual" ? null : call as PromoterClerkCall } });
-                }}>
-                  <option value="manual">Book meetings myself</option>
-                  <option value="nurse">Keep booking with Nurse</option>
-                  <option value="push">Keep booking with Push</option>
-                  <option value="adaptive" disabled={!adaptiveClerkEarned(game)}>Choose pace by risk</option>
-                </select>
-              </label>
+              <ChoiceList id="promoter-clerk" label="Calendar clerk" value={meet.clerkCall ?? "manual"}
+                onChange={(call) => dispatch({ type: "promoter", move: { type: "clerk", call: call === "manual" ? null : call as PromoterClerkCall } })}
+                items={[
+                  { id: "manual", title: "Book meetings myself" },
+                  { id: "nurse", title: "Keep booking with Nurse" },
+                  { id: "push", title: "Keep booking with Push" },
+                  { id: "adaptive", title: "Choose pace by risk", disabled: !adaptiveClerkEarned(game), reason: "Certify calendars under two policies to earn this." },
+                ]} />
               <p className="muted">The clerk works while you are away and pauses for failed inspections.</p>
               {!adaptiveClerkEarned(game) && <p className="muted">Certify calendars under two policies to earn adaptive booking.</p>}
               {game.promoter.workshopLicensed && <label><input type="checkbox" checked={!!meet.autoService} onChange={(event) => dispatch({ type: "promoter", move: { type: "clerk-service", enabled: event.target.checked } })} /> Let the clerk spend passes on parts that fail inspection</label>}

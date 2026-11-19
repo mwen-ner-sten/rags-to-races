@@ -5,7 +5,8 @@ import { SeasonLog } from "./SeasonLog";
 import { RallyCards } from "./RallyCards";
 import { HeritageOffer } from "./HeritageDesk";
 import type { CareerDestination } from "@/core/careerAdvice";
-import { useState, type KeyboardEvent } from "react";
+import { useState } from "react";
+import { SubNav } from "./SubNav";
 import { RIVALS, venueName } from "@/core/content/events";
 import { PARTS, getPart } from "@/core/content/parts";
 import { PLACES } from "@/core/content/places";
@@ -155,26 +156,12 @@ export function NotebookPanel({ section, onOpen }: { section?: "Hall of Fame" | 
   const game = useGame((s) => s.game);
   const [tab, setTab] = useState<(typeof SECTIONS)[number]>(section ?? "Journal");
   if (!game) return null;
-  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (step === 0) return;
-    e.preventDefault();
-    const next = sections[(sections.indexOf(tab) + step + sections.length) % sections.length];
-    setTab(next);
-    document.getElementById(`nb-tab-${next}`)?.focus();
-  };
   const sections = SECTIONS.filter((name) => name !== "Timecards" || game.era?.discipline === "rally" || !!game.meta.rallyCards?.length);
   return (
     <section className="section" aria-labelledby="notebook-h">
       <h2 id="notebook-h">Notebook</h2>
       <Tips ids={["codex"]} />
-      <div className="subtabs" role="tablist" aria-label="Notebook sections" onKeyDown={onTabKey}>
-        {sections.map((s) => (
-          <button key={s} role="tab" id={`nb-tab-${s}`} aria-controls="nb-panel" aria-selected={tab === s} tabIndex={tab === s ? 0 : -1} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>
-            {s}
-          </button>
-        ))}
-      </div>
+      <SubNav idPrefix="nb" label="Notebook sections" items={sections.map((id) => ({ id, label: id }))} value={tab} onChange={setTab} />
       <div role="tabpanel" id="nb-panel" aria-labelledby={`nb-tab-${tab}`}>
       {tab === "Journal" && <Journal game={game} />}
       {tab === "Codex" && <Codex game={game} />}

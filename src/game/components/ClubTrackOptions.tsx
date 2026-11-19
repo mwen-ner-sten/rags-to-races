@@ -4,6 +4,19 @@ import { COUNTY_RIVALS, COUNTY_RIVAL_IDS, type CountyRivalId } from "@/core/coun
 import { HOME_COUNTIES } from "@/core/counties";
 import { getPart } from "@/core/content/parts";
 import type { GameState } from "@/core/types";
+import { ChoiceList, type ChoiceItem } from "./ChoiceList";
+
+function loanItems(loans: readonly ClubCourseId[], visitors: readonly CountyRivalId[]): ChoiceItem[] {
+  return [
+    { id: "", title: "No loan" },
+    ...loans.map((id): ChoiceItem => ({ id, title: getPart(CLUB_COURSES[id].loanPart).name, meta: CLUB_COURSES[id].name })),
+    ...visitors.map((id): ChoiceItem => ({
+      id,
+      title: getPart(COUNTY_RIVALS[id].part).name,
+      meta: `${COUNTY_RIVALS[id].name} · ${HOME_COUNTIES[COUNTY_RIVALS[id].county].name}`,
+    })),
+  ];
+}
 
 const layouts = Object.keys(CLUB_COURSES) as ClubCourseId[];
 
@@ -33,13 +46,8 @@ export function ClubTrackOptions({ game, course, loan, onCourse, onLoan }: {
         </label>;
       })}
       </>}
-      {canBorrow && <label className="inline" htmlFor="club-workshop-loan">Workshop loan
-        <select id="club-workshop-loan" value={loan ?? ""} onChange={(event) => onLoan(event.target.value ? event.target.value as ClubCourseId | CountyRivalId : undefined)}>
-          <option value="">No loan</option>
-          {loans.map((id) => <option value={id} key={id}>{getPart(CLUB_COURSES[id].loanPart).name} · {CLUB_COURSES[id].name}</option>)}
-          {visitors.map((id) => <option value={id} key={id}>{getPart(COUNTY_RIVALS[id].part).name} · {COUNTY_RIVALS[id].name} · {HOME_COUNTIES[COUNTY_RIVALS[id].county].name}</option>)}
-        </select>
-      </label>}
+      {canBorrow && <ChoiceList id="club-workshop-loan" label="Workshop loan" value={loan ?? ""} items={loanItems(loans, visitors)}
+        onChange={(id) => onLoan(id ? id as ClubCourseId | CountyRivalId : undefined)} />}
       {canBorrow && <p className="hint">Borrow one Good part from a track or a visitor, even if you move counties. It fits any compatible car and uses no donor slot.</p>}
     </fieldset>
   );
