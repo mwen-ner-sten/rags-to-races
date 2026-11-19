@@ -12,6 +12,8 @@ import { BuildPanel } from "./BuildPanel";
 import { CareerDesk, CareerFocus, type CareerJump } from "./CareerDesk";
 import { feedAge } from "./Feed";
 import { FeedToasts } from "./FeedToasts";
+import { guideStep } from "@/core/guide";
+import { GoalStrip } from "./GoalStrip";
 import { Guide } from "./Guide";
 import { JobsBoard } from "./JobsBoard";
 import { LegacyPanel } from "./LegacyPanel";
@@ -332,6 +334,7 @@ export function Game() {
         }))}
       />
       {!game.meta.careerPin && <Guide tab={active} onShow={showTab} onOpen={showCareerTarget} />}
+      <GoalStrip guideVisible={!game.meta.careerPin && guideStep(game) !== null} canShow={(t) => tabs.some((x) => x.id === t)} onShow={showTab} />
       <div className="layout">
         <main className="main">
           <Notices />
