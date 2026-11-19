@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGame, must } from "@/core";
+import { apply, createGame, must } from "@/core";
 import type { GameState } from "@/core/types";
 import { pendingCircuitFinal, pendingOwnerFinal, racer, saveText, swapMeetGame, teamRacer } from "../../../tests/fixtures/rewrite";
 import { HOUR, pendingBaton, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../../../tests/fixtures/workshopAway";
@@ -40,6 +40,58 @@ function returnAfter(game: GameState, elapsed: number) {
   useGame.getState().load();
   return useGame.getState();
 }
+
+describe("paused jobs", () => {
+  it("preserves an eight-hour study through switching jobs, saves and offline time", () => {
+    const game = createGame("study-pause");
+    const study = { type: "enqueue", spec: { kind: "study", knowhowId: "tech:bodywork" } } as const;
+    game.run.available.push(study.spec.knowhowId);
+    const running = must(must(game, study), { type: "advance", ms: 2 * HOUR });
+    const { id, remaining } = running.run.jobs[0];
+    expect(remaining).toBe(6 * HOUR);
+
+    const queued = must(running, { type: "enqueue", spec: { kind: "haul", placeId: "curb" } });
+    const { dispatch } = returnAfter(queued, 0);
+    expect(dispatch({ type: "pauseJob", jobId: id })).toBe(true);
+    expect(useGame.getState().game?.run.jobs[0].spec.kind).toBe("haul");
+    expect(dispatch(study)).toBe(false);
+    expect(dispatch({ type: "resumeJob", jobId: id })).toBe(false);
+
+    vi.advanceTimersByTime(24 * HOUR);
+    useGame.getState().load();
+    const reloaded = useGame.getState().game!;
+    expect(reloaded.run.stats.hauls).toBe(1);
+    expect(reloaded.run.learned).not.toContain(study.spec.knowhowId);
+    expect(reloaded.run.pausedJobs).toMatchObject([{ id, remaining }]);
+
+    expect(dispatch({ type: "resumeJob", jobId: id })).toBe(true);
+    useGame.getState().load();
+    expect(useGame.getState().game?.run.jobs).toMatchObject([{ id, remaining }]);
+    expect(dispatch({ type: "advance", ms: remaining - 1 })).toBe(true);
+    expect(useGame.getState().game?.run.learned).not.toContain(study.spec.knowhowId);
+    expect(dispatch({ type: "advance", ms: 1 })).toBe(true);
+    expect(useGame.getState().game?.run.learned).toContain(study.spec.knowhowId);
+  });
+
+  it("keeps a paid repair's part reserved and refunds its materials once if discarded", () => {
+    const game = createGame("repair-pause");
+    const partUid = "worn-engine";
+    game.run.inventory.push({ uid: partUid, partId: "engine_lawn", condition: 2, origin: "Curbside" });
+    game.run.learned.push("tech:rebuilding");
+    game.run.materials = { metal: 20, rubber: 20, wiring: 20 };
+    const running = must(game, { type: "enqueue", spec: { kind: "repair", partUid } });
+    const jobId = running.run.jobs[0].id;
+    const paused = must(running, { type: "pauseJob", jobId });
+    const saved = decodeGameState(JSON.parse(JSON.stringify(paused)))!;
+    expect(saved.run.materials).not.toEqual(game.run.materials);
+    expect(apply(saved, { type: "sell", partUids: [partUid] }).error).toMatch(/being worked on/);
+    const resumed = must(saved, { type: "resumeJob", jobId });
+    expect(resumed.run.materials).toEqual(saved.run.materials);
+    const discarded = must(saved, { type: "cancelJob", jobId });
+    expect(discarded.run.materials).toEqual(game.run.materials);
+    expect(must(discarded, { type: "cancelJob", jobId }).run.materials).toEqual(game.run.materials);
+  });
+});
 
 describe("workshop and branch catch-up", () => {
   it("prioritizes newly arrived stock and an actionable invoice, preserving both through reload until collected", () => {

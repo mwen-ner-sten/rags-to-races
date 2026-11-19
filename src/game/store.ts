@@ -157,6 +157,7 @@ export const useGame = create<Store>((set, get) => ({
     const latest = result.state.run.races[result.state.run.races.length - 1];
     // A race you entered by hand is announced; Habit races just land in the results list.
     if (latest && latest.id !== before && action.type === "advance" && !action.away && !isHabitRace(game, latest)) set({ finished: latest });
+    if (action.type === "pauseJob" || action.type === "resumeJob" || action.type === "cancelJob") get().save();
     return true;
   },
 

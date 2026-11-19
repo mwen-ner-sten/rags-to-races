@@ -81,7 +81,7 @@ export const GUIDE: readonly GuideStep[] = [
   {
     id: "plans",
     title: "Study the Riding Mower plans",
-    how: () => "Open the Workshop and press Study under Know-how. It keeps your hands busy for a while, so queue a trip to start after it.",
+    how: () => "Open the Workshop and press Study under Know-how. You can pause and resume the study if you need your hands for another job.",
     tab: "workshop",
     done: (s) => s.run.learned.includes("blueprint:riding_mower"),
   },
