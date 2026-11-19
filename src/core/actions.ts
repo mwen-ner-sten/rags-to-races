@@ -291,7 +291,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "setTune": {
       const vehicle = s.run.vehicles.find((v) => v.uid === action.vehicleUid);
       if (!vehicle) return "No such vehicle";
-      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning") && !(experimentalCareers() && s.run.heritageSetups?.includes(vehicle.vehicleId))) return "Learn Tuning or set up this model’s heritage jig.";
+      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning") && !(experimentalCareers() && s.run.heritageSetups?.includes(vehicle.vehicleId))) return "Learn Tuning first.";
       vehicle.tune = action.tune;
       return null;
     }

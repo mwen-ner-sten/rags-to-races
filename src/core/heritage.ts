@@ -1,4 +1,3 @@
-import { spend } from "./stats";
 import { getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
 import { venueName } from "./content/events";
@@ -31,13 +30,12 @@ export interface HeritageAward {
 export type HeritageMove =
   | { type: "start"; archiveIndex: number; kind: HeritageKind }
   | { type: "cancel" }
-  | { type: "donate"; vehicleUid: string }
-  | { type: "claim"; kind: HeritageKind; model: string };
+  | { type: "donate"; vehicleUid: string };
 
 export const HERITAGE_VENUES = ["backyard", "dirt", "county_fair", "regional", "state"];
 
 export function eligibleHistory(game: GameState, entry: HallOfFameEntry): boolean {
-  return experimentalCareers() && entry.season <= game.meta.seasonsPlayed && entry.history.races > entry.history.dnfs &&
+  return experimentalCareers() && !game.meta.heritageRegister?.some((award) => award.model === entry.vehicleId) && entry.season <= game.meta.seasonsPlayed && entry.history.races > entry.history.dnfs &&
     getVehicle(entry.vehicleId).slots.every((slot) => !slot.required || entry.parts.some((part) => part.slot === slot.slot && slot.accepts.includes(part.partId)));
 }
 
@@ -79,42 +77,16 @@ export function exhibitBlocker(game: GameState, project: HeritageProject, car: V
   return heritageFit(project, car);
 }
 
-export function heritageManual(model: string): string {
-  return getVehicle(model).blueprint ?? "blueprint:riding_mower";
-}
-export function heritageClaimBlocker(game: GameState, kind: HeritageKind, model: string): string | null {
-  if (!game.meta.heritageRegister?.some((award) => award.kind === kind && award.model === model)) return "Complete this model's heritage project first.";
-  if (kind === "special") {
-    if (game.run.learned.includes("tech:tuning") || game.run.heritageSetups?.includes(model)) return "Tuning is already available.";
-    return game.run.materials.metal < 1 || game.run.materials.rubber < 1 ? "The setup jig needs one Metal and one Rubber." : null;
-  }
-  const manual = heritageManual(model);
-  if (game.run.learned.includes(manual) || game.run.available.includes(manual)) return "These plans are already in your workshop.";
-  return game.run.cash < 12 ? "Printing the drawings costs 12 Scrap Bucks." : null;
-}
-
 export function applyHeritage(game: GameState, move: HeritageMove): string | null {
   if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   const project = game.run.heritageProject;
   if (move.type === "start") {
     if (project) return project.completed ? "A heritage project has already been completed this Season." : "Finish or release the active project.";
     const entry = game.meta.hallOfFame[move.archiveIndex];
+    if (entry && game.meta.heritageRegister?.some((award) => award.model === entry.vehicleId)) return "This model already has a permanent Hall of Fame display.";
     if (!entry || !eligibleHistory(game, entry)) return "Choose a previous Season's complete, race-finished build.";
     game.run.heritageProject = { uid: nextUid(game, "h"), kind: move.kind, model: entry.vehicleId, originalName: entry.name, oldSeason: entry.season,
       parts: entry.parts.map(({ slot, partId }) => ({ slot, partId })) };
-    return null;
-  }
-  if (move.type === "claim") {
-    const blocked = heritageClaimBlocker(game, move.kind, move.model);
-    if (blocked) return blocked;
-    if (move.kind === "exhibit") {
-      spend(game, 12);
-      game.run.available.push(heritageManual(move.model));
-    } else {
-      game.run.materials.metal -= 1;
-      game.run.materials.rubber -= 1;
-      (game.run.heritageSetups ??= []).push(move.model);
-    }
     return null;
   }
   if (!project || project.completed) return "There is no open heritage project.";

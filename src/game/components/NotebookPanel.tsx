@@ -4,7 +4,7 @@ import Image from "next/image";
 import { SeasonLog } from "./SeasonLog";
 import { RallyCards } from "./RallyCards";
 import { Achievements, LifetimeStatsTable } from "./AchievementsStats";
-import { HeritageOffer } from "./HeritageDesk";
+import { eligibleHistory } from "@/core/heritage";
 import type { CareerDestination } from "@/core/careerAdvice";
 import { useState } from "react";
 import { SubNav } from "./SubNav";
@@ -94,10 +94,21 @@ function HallOfFame({ game, onOpen }: { game: GameState; onOpen?: (target: Caree
     `${entry.name} ${getVehicle(entry.vehicleId).name} Season ${entry.season}`.toLowerCase().includes(query)
   );
   return <>
-    {experimentalCareers() && game.run.heritageProject && <div className="notice" role="status">
-      <p>{game.run.heritageProject.originalName} is being {game.run.heritageProject.kind === "exhibit" ? "recreated" : "rebuilt as a period special"}. Work on it in the Workshop, under Heritage.</p>
-      {onOpen && <button className="btn small" onClick={() => onOpen({ tab: "workshop", section: "Heritage" })}>Open Heritage in the Workshop</button>}
-    </div>}
+    {experimentalCareers() && !!game.meta.heritageRegister?.length && <section aria-label="Museum collection">
+      <h3>Museum collection</h3>
+      <ul className="plain">{game.meta.heritageRegister.map((award) => <li key={award.model + award.kind}>
+        <article className="part-study">
+          <Image src={vehicleSprite(award.model)} alt={getVehicle(award.model).name} width={96} height={64} />
+          <div>
+            <h4>{award.carName}</h4>
+            <p>{getVehicle(award.model).name} · {award.kind === "exhibit" ? "Museum exhibit" : "Period special"}</p>
+            <p>In tribute to {award.originalName} · Dedicated in Season {award.season}</p>
+          </div>
+        </article>
+      </li>)}</ul>
+    </section>}
+    {experimentalCareers() && onOpen && (game.run.heritageProject || game.meta.hallOfFame.some((entry) => eligibleHistory(game, entry))) &&
+      <button className="btn small" onClick={() => onOpen({ tab: "workshop", section: "Heritage" })}>Open Heritage in the Workshop</button>}
     <label className="archive-field">Find a retired vehicle
       <input type="search" value={filter} onChange={(event) => { setFilter(event.target.value); setLimit(12); }} placeholder="Name, model or season" />
     </label>
@@ -114,7 +125,6 @@ function HallOfFame({ game, onOpen }: { game: GameState; onOpen?: (target: Caree
           <ul className="plain">{entry.parts.map((part) => <li key={part.slot}>
             <strong>{getPart(part.partId).name}</strong> · {conditionName(part.condition)} · {partOriginLabel(part)}
           </li>)}</ul>
-          {experimentalCareers() && <HeritageOffer game={game} entry={entry} />}
         </details>
       </li>)}
     </ul>

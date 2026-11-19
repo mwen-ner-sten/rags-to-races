@@ -28,6 +28,7 @@ test("the mower exchange previews its fee and archives the retired racer", async
   const results = page.getByRole("region", { name: "Results", exact: true });
   await expect(results.getByText(/Regression racer/)).toBeVisible();
   await expect(results.getByRole("button", { name: "Watch", exact: true })).toBeEnabled();
+  if (await page.getByRole("button", { name: /^More/ }).isVisible()) await page.getByRole("button", { name: /^More/ }).click();
   await page.getByRole("button", { name: /^Notebook/ }).click();
   await page.getByRole("tab", { name: "Hall of Fame", exact: true }).click();
   await page.getByText("Regression racer", { exact: true }).click();

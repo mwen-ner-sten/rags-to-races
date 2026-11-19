@@ -93,7 +93,11 @@ for (let i = 0; i < seeds; i++) {
     const g = must(next, { type: "heritage", move: { type: "start", archiveIndex, kind: route } });
     const player = new Restorer(g, route);
     player.run(SCHEDULES.mixed, 40 * DAY);
-    if (!decodeGameState(player.state)) throw Error("Invalid result");
+    if (player.awardAt === undefined || !player.heldReset) throw Error("Restorer missed its dedication or Scrap Reset");
+    const returned = decodeGameState(must(player.state, player.heldReset));
+    const plaque = returned?.meta.heritageRegister?.[0];
+    if (!returned || plaque?.kind !== route || plaque.originalName !== next.meta.hallOfFame[archiveIndex].name ||
+        eligibleHistory(returned, returned.meta.hallOfFame[archiveIndex])) throw Error("Dedication lost across reset");
     const result = {
       seed: i,
       route,

@@ -27,7 +27,7 @@ function garage(kind: "special" | "exhibit") {
   return must(state, { type: "heritage", move: { type: "start", kind, archiveIndex: 0 } });
 }
 
-it("donates a complete faithful shakedown car and prints a useful earlier manual after a real reset", () => {
+it("donates a complete faithful shakedown car and keeps its dedication across a real reset", () => {
   let game = garage("exhibit");
   const donation = { type: "heritage", move: { type: "donate", vehicleUid: "new-garage" } } as const;
   const booked = must(game, { type: "enqueue", spec: { ...sprint, vehicleUid: "new-garage" } });
@@ -37,16 +37,14 @@ it("donates a complete faithful shakedown car and prints a useful earlier manual
   expect(game.meta.hallOfFame.at(-1)?.retirement?.kind).toBe("exhibit");
   expect(decodeGameState(game)?.meta.heritageRegister?.[0].carName).toBe("Meadow II");
   expect(apply(game, donation).error).toBeTruthy();
+  game.run.featureWins.state = game.run.seasonMs;
+  game.meta.stateWonEver = true;
+  const team = must(game, { type: "reset", layer: "team", choices: { ...game.config, discipline: "dirt", teamName: "Museum", colors: ["#123456", "#ffffff"] } });
+  expect(decodeGameState(team)?.meta.heritageRegister).toEqual(game.meta.heritageRegister);
   game = nextSeason(game);
-  const claim = { type: "heritage", move: { type: "claim", kind: "exhibit", model: "push_mower" } } as const;
-  expect(apply(game, claim).error).toMatch(/12 Scrap/);
-  game.run.cash = 12;
-  game = must(game, claim);
-  expect(game.run.cash).toBe(0);
-  expect(game.run.available).toContain("blueprint:riding_mower");
-  expect(game.run.learned).not.toContain("blueprint:riding_mower");
-  game = must(game, { type: "enqueue", spec: { kind: "study", knowhowId: "blueprint:riding_mower" } });
-  expect(game.run.jobs.some((job) => job.spec.kind === "study")).toBe(true);
+  expect(game.run.heritageProject).toBeUndefined();
+  expect(decodeGameState(game)?.meta.heritageRegister?.[0]).toMatchObject({ carName: "Meadow II", season: 3 });
+  expect(apply(game, { type: "heritage", move: { type: "start", kind: "special", archiveIndex: 0 } }).error).toMatch(/already has a permanent/);
 });
 
 it("awards only the registered period-special setup that started the Feature, and keeps the car", () => {
@@ -67,9 +65,18 @@ it("awards only the registered period-special setup that started the Feature, an
   expect(game.meta.heritageRegister?.[0].kind).toBe("special");
   game = nextSeason(game);
   game.run.vehicles.push(structuredClone(car));
-  game.run.materials.metal = game.run.materials.rubber = 1;
-  game = must(game, { type: "heritage", move: { type: "claim", kind: "special", model: "push_mower" } });
-  game = must(game, { type: "setTune", vehicleUid: car.uid, tune: "reliable" });
-  expect(decodeGameState(game)?.run.vehicles[0].tune).toBe("reliable");
-  expect(game.run.learned).not.toContain("tech:tuning");
+  expect(apply(game, { type: "setTune", vehicleUid: car.uid, tune: "reliable" }).error).toMatch(/Learn Tuning/);
+  // A jig already purchased in an older experimental save works until the Season ends.
+  game.run.heritageSetups = ["push_mower"];
+  const imported = decodeGameState(game)!;
+  expect(must(imported, { type: "setTune", vehicleUid: car.uid, tune: "reliable" }).run.vehicles[0].tune).toBe("reliable");
+});
+
+it("retains the first build when a reset archives the 201st racer", () => {
+  const state = racer("long-archive");
+  const first = nextSeason(state).meta.hallOfFame[0];
+  state.meta.hallOfFame = Array.from({ length: 200 }, (_, i) => ({ ...first, name: `Build ${i + 1}` }));
+  const loaded = decodeGameState(nextSeason(state));
+  expect(loaded?.meta.hallOfFame).toHaveLength(201);
+  expect(loaded?.meta.hallOfFame[0].name).toBe("Build 1");
 });
