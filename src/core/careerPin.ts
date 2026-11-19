@@ -75,7 +75,7 @@ export function careerPinStep(game: GameState, pin: CareerPin): Step {
   if (pin === "paid-work") {
     if (!game.era && shopFoundingReady(game))
       return {
-        detail: "Both references are signed. Found your Workshop Collective with the current invoices and hauler.",
+        detail: "Both references are signed. Found your Workshop Collective with this Season’s finished customer jobs and hauler.",
         label: "Draft the team",
         destination: { tab: "team", discipline: "dirt", focus: "organization" },
       };
@@ -89,13 +89,13 @@ export function careerPinStep(game: GameState, pin: CareerPin): Step {
     const ticket = game.run.serviceBook?.ticket;
     const client = ticket?.client ?? stockedServiceClient(game);
     const message = shopMoveReady(game)
-      ? "All three invoices are paid and a hauler is ready. Choose what to take to your next shop."
+      ? "All three customer jobs are done and a hauler is ready. Choose what to take to your next shop."
       : done.length === 3
-        ? "Your invoices are paid. Build a Riding Mower or larger hauler to move the shop."
+        ? "Your customer jobs are done. Build a Riding Mower or larger hauler to move the shop."
         : `${client
-            ? (ticket ? "Service the part registered to " : "Open a work order for ") + CUSTOMERS[client].name + "."
-            : "Check the open requests and haul a repairable part that matches one."} ${done.length} of 3 invoices are paid.`;
-    return { detail: message, label: "Open customer repairs", destination: { tab: "garage", section: "service" } };
+            ? (ticket ? "Fix up and hand over the part for " : "Take the job for ") + CUSTOMERS[client].name + "."
+            : "Check what each customer wants and haul a worn part that matches one."} ${done.length} of 3 customer jobs are done.`;
+    return { detail: message, label: "Open customer jobs", destination: { tab: "garage", section: "service" } };
   }
   if (pin === "heritage") {
     const p = game.run.heritageProject;

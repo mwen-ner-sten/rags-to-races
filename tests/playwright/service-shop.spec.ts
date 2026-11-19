@@ -25,9 +25,11 @@ test("the garage can close for a customer route with zero racing wins", async ({
   await page.getByLabel("Save text").fill(saveText(game));
   await page.getByRole("button",{name:"Import save",exact:true}).click();
   await page.getByRole("button",{name:/^Garage/}).first().click();
-  await page.getByText(/Customer repairs · 2\/3 paid invoices/).click();
-  await page.getByRole("button",{name:"Deliver part and collect payment"}).click();
-  await page.getByLabel("Take one thing with you").selectOption("Orchard grounds crew");
+  await page.getByRole("tab",{name:/^Customers/}).click();
+  await expect(page.getByText(/2 of 3 jobs done/)).toBeVisible();
+  await page.getByRole("button",{name:/^Hand over · /}).click();
+  await expect(page.getByText(/3 of 3 jobs done/)).toBeVisible();
+  await page.getByRole("group",{name:"Take one thing with you"}).getByRole("radio",{name:/Orchard grounds crew/}).check();
   await page.getByRole("checkbox",{name:"Close this garage and begin the next Season."}).check();
   await page.getByRole("button",{name:"Move the shop",exact:true}).click();
   await page.getByRole("button",{name:/^Trips/}).first().click();
@@ -48,33 +50,33 @@ test("the first haul opens a workshop route for the engine actually found", asyn
   await page.getByRole("button", { name: "Go", exact: true }).click();
   await page.clock.fastForward(18_000);
   await expect(workshop).toBeVisible();
-  await expect(page.getByText(/Three paid invoices and a hauler/).first()).toBeVisible();
+  await expect(page.getByText(/Three finished jobs and a hauler/).first()).toBeVisible();
   await workshop.click();
 
   const counter = page.locator("#service-counter");
-  const requests = page.getByLabel("Open request");
-  const register = page.getByRole("button", { name: "Register for service" });
+  const card = (name: string) => page.getByRole("article").filter({ has: page.getByRole("heading", { name }) });
+  const orchard = card("Orchard grounds crew");
+  const marina = card("Mira at the landing");
   await expect(counter).toBeFocused();
   await expect(counter).toBeInViewport();
-  await expect(requests).toHaveValue("orchard");
-  await expect(page.getByLabel("Register a part").locator("option:checked")).toHaveText(/Small Engine · Rusted · Curbside/);
+  await expect(orchard.getByRole("group", { name: "Part to fix up" })).toContainText(/Small Engine\s*Rusted\s*Curbside/);
+  await expect(orchard.getByRole("button", { name: "Take this job" })).toBeEnabled();
 
-  // A different open request is still allowed, even without a matching part.
-  await requests.selectOption("marina");
+  // A different customer's job is still listed, even without a matching part to take on.
   await page.clock.fastForward(1_000);
-  await expect(requests).toHaveValue("marina");
-  await expect(register).toBeDisabled();
+  await expect(marina.getByRole("button", { name: "Take this job" })).toHaveCount(0);
+  await expect(marina.getByText(/You need .* that is worse than/)).toBeVisible();
 
   await page.getByRole("button", { name: "Trips", exact: true }).click();
   await expect(page.getByLabel("Pin a project")).toHaveValue("paid-work");
-  await expect(page.getByText(/Open a work order for Orchard grounds crew/)).toBeVisible();
-  await page.getByRole("button", { name: "Open customer repairs", exact: true }).click();
+  await expect(page.getByText(/Take the job for Orchard grounds crew/)).toBeVisible();
+  await page.getByRole("button", { name: "Open customer jobs", exact: true }).click();
   await expect(counter).toBeFocused();
-  await register.click();
-  await expect(page.getByText("Small Engine · Rusted · Curbside", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Clean registered part" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Deliver part and collect payment" })).toBeDisabled();
+  await orchard.getByRole("button", { name: "Take this job" }).click();
+  await expect(orchard.getByText(/Small Engine · Rusted · Curbside/)).toBeVisible();
+  await expect(orchard.getByRole("button", { name: "Clean the Small Engine" })).toBeEnabled();
+  await expect(orchard.getByRole("button", { name: /^Hand over · / })).toBeDisabled();
 
   await page.getByRole("button", { name: "Trips", exact: true }).click();
-  await expect(page.getByText(/Service the part registered to Orchard grounds crew/)).toBeVisible();
+  await expect(page.getByText(/Fix up and hand over the part for Orchard grounds crew/)).toBeVisible();
 });

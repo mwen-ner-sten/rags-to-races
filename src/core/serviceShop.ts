@@ -99,7 +99,7 @@ export function transferBlocker(game: GameState, choice?: ShopLegacy): string | 
       : "Choose a tool you own.";
   return game.run.serviceBook?.invoices.some((r) => r.client === choice.client)
     ? null
-    : "Choose a customer whose invoice you settled.";
+    : "Choose a customer whose job you finished.";
 }
 
 /** Existing callers sometimes pass their outgoing RunConfig as the next loadout. Its old transfer simply expires. */
@@ -134,11 +134,11 @@ export function recordService(game: GameState, part: PartInstance) {
 
 export function serviceDelivery(game: GameState) {
   const ticket = game.run.serviceBook?.ticket;
-  if (!ticket) return "Choose a repair contract first.";
+  if (!ticket) return "Take a customer job first.";
   const part = game.run.inventory.find((p) => p.uid === ticket.partUid);
   const client = CUSTOMERS[ticket.client];
   if (!part || getPart(part.partId).category !== client.category || !ticket.worked || part.condition < client.threshold)
-    return "Service and return the registered part in the requested condition.";
+    return "Fix the part up to the condition the customer wants first.";
   if (part.batonGuard) return "Release County Baton protection first.";
   if (reservedPartUids(game).has(part.uid)) return "Finish the booked bench work first.";
   return { ticket, part, client };
@@ -157,7 +157,7 @@ export function applyShopOrder(game: GameState, move: ShopMove): string | null {
     return null;
   }
   const ticket = book.ticket;
-  if (!ticket) return "Choose a repair contract first.";
+  if (!ticket) return "Take a customer job first.";
   if (move.type === "release") {
     delete book.ticket;
     return null;
@@ -183,7 +183,7 @@ export function applyShopOrder(game: GameState, move: ShopMove): string | null {
       logSeason(
         game,
         "workshop-machine-reference",
-        "The grounds committee accepted an invoice from your relocated workshop.",
+        "The grounds committee signed off a job from your relocated workshop.",
       );
     }
     if (

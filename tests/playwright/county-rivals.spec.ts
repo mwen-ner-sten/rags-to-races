@@ -21,7 +21,7 @@ test("a regional starter finds the authored rival and runs a real local Sprint",
   await expect(page.getByText(/Fit a part from a local haul.*Inez Marsh/)).toBeVisible();
   await page.getByRole("button", { name: /^Race/ }).click();
   const match = page.getByRole("region", { name: "River County matchup · Inez Marsh" });
-  await match.getByLabel("Race pace").selectOption("push");
+  await match.getByRole("group", { name: "Race pace" }).getByRole("button", { name: "Push" }).click();
   await match.getByRole("button", { name: "Sign up against Inez Marsh" }).click();
   await expect(match.getByText("County match on track.")).toBeVisible();
   await page.clock.fastForward(90_000);

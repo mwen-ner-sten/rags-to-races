@@ -35,18 +35,19 @@ test("shop openings compare a tool and customer lead without moving the live gar
   await page.getByRole("button", { name: "Import save", exact: true }).click();
   await expect(page.getByText("Save loaded. Your previous game is kept as a backup in this browser.")).toBeVisible();
   await page.getByRole("button", { name: /^Garage/ }).click();
-  await page.getByText("Customer repairs · 3/3 paid invoices", { exact: true }).click();
+  await page.getByRole("tab", { name: /^Customers/ }).click();
+  await expect(page.getByText(/3 of 3 jobs done/)).toBeVisible();
   await page.getByText("Compare opening garages", { exact: true }).click();
 
-  const choice = page.getByLabel("Take one thing with you");
+  const choice = page.getByRole("group", { name: "Take one thing with you" });
   const a = page.getByRole("button", { name: "Preview in A", exact: true });
   const b = page.getByRole("button", { name: "Preview in B", exact: true });
   await expect(a).toBeDisabled();
   await expect(b).toBeDisabled();
   await expect(page.getByText("Choose which part of the business to take.", { exact: true })).toBeVisible();
-  await choice.selectOption("Parts Washer");
+  await choice.getByRole("radio", { name: /Move Parts Washer/ }).check();
   await a.click();
-  await choice.selectOption("Orchard grounds crew");
+  await choice.getByRole("radio", { name: /Orchard grounds crew/ }).check();
   await b.click();
 
   await expect(page.getByRole("row", { name: /^Transferred tool/ }).getByRole("cell")).toHaveText(["Parts Washer · level 1", "None"]);
@@ -60,10 +61,11 @@ test("shop openings compare a tool and customer lead without moving the live gar
   await expect(page.getByText("These two opening garages match in every listed detail.")).toBeVisible();
   await page.getByLabel("Show differences only").uncheck();
   await expect(page.getByRole("button", { name: "Move the shop", exact: true })).toBeDisabled();
-  await choice.selectOption("");
+  await choice.getByRole("radio", { name: /^Nothing yet/ }).check();
   await expect(b).toBeDisabled();
   await expect(page.getByRole("columnheader", { name: "Opening B", exact: true })).toBeVisible();
   await expect(page.getByRole("banner")).toContainText(`Season ${game.meta.seasonsPlayed + 1} ·`);
-  await expect(page.getByText("Customer repairs · 3/3 paid invoices", { exact: true })).toBeVisible();
+  await expect(page.getByText(/3 of 3 jobs done/)).toBeVisible();
+  await page.getByRole("tab", { name: "Vehicles" }).click();
   await expect(page.getByRole("heading", { name: game.run.vehicles[0].name }).first()).toBeVisible();
 });

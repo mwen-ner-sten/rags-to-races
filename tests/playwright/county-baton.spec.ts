@@ -66,6 +66,7 @@ test("the exact baton can be safeguarded, deliberately released by keyboard, and
   await openSave(page, riverGarage(true));
   const garage = page.getByRole("button", { name: /^Garage/ });
   await garage.click();
+  await page.getByRole("tab", { name: /^Parts/ }).click();
   const tire = page.getByRole("listitem").filter({ has: page.getByText("Qualifying baton", { exact: true }) });
   await expect(tire.getByText(/Floodplain Lots · River County/)).toBeVisible();
   await tire.getByRole("button", { name: "Safeguard baton" }).press("Enter");
@@ -93,13 +94,15 @@ test("the exact baton can be safeguarded, deliberately released by keyboard, and
   const carry = plan.getByRole("radio", { name: "Carry this baton to Quarry County for one perk slot" });
   await carry.check();
   await expect(confirmation).toHaveCount(0);
-  await expect(page.getByLabel("Part to carry")).toBeDisabled();
+  const carried = page.getByRole("group", { name: "Part to carry" });
+  await expect(carried.getByRole("radio", { name: /^None/ })).toBeDisabled();
+  await expect(carried.getByRole("radio", { name: /River Tire/ })).toBeDisabled();
   await expect(page.getByRole("radio", { name: /^Quarry County/ })).toBeChecked();
   await page.getByRole("radio", { name: "Standard Season" }).check();
-  await expect(page.getByLabel("Part to carry")).toHaveValue("");
+  await expect(carried.getByRole("radio", { name: /^None/ })).toBeChecked();
   await expect(page.getByRole("radio", { name: /^River County/ })).toBeChecked();
   await expect(confirmation).toBeVisible();
-  await page.getByLabel("Part to carry").selectOption("baton-tire");
+  await carried.getByRole("radio", { name: /River Tire/ }).check();
   await expect(page.getByText("The River Tire crosses in the ordinary crate. Its County Baton protection ends.", { exact: true })).toBeVisible();
   await carry.check();
   await reset.click();
@@ -109,6 +112,8 @@ test("the exact baton can be safeguarded, deliberately released by keyboard, and
   await page.clock.fastForward(6_000);
   await page.reload();
   await garage.click();
+  // The new Season's garage holds no vehicles yet, so Parts is its only section and there is no tablist.
+  await expect(page.getByRole("tablist", { name: "Garage sections" })).toHaveCount(0);
   await expect(page.getByRole("listitem").filter({ has: page.getByText("Transferred baton", { exact: true }) }).getByText("Safeguarded from sale and stripping")).toBeVisible();
 });
 
@@ -118,9 +123,12 @@ test("the race setup identifies the eligible part and abandoning requires an exp
   await race.click();
   await expect(page.getByText(/Fit a River Tire from River County hauled this Season/)).toBeVisible();
   await page.getByRole("button", { name: /^Garage/ }).click();
+  await page.getByRole("tab", { name: /^Parts/ }).click();
   await expect(page.getByText("Eligible baton candidate", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Vehicles" }).click();
   const car = page.getByRole("article").filter({ has: page.getByRole("heading", { name: /Regression racer/ }) });
-  await car.getByLabel("Swap wheel").selectOption("baton-tire");
+  await car.locator("summary", { hasText: "for wheel" }).click();
+  await car.getByRole("button", { name: "Install River Tire" }).click();
   await race.click();
   await expect(page.getByText(/River Tire fitted. A Feature win counts/)).toBeVisible();
   await page.getByRole("button", { name: "Legacy", exact: true }).click();

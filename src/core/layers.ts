@@ -275,14 +275,14 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
   clears: ["run", "config", "scrap", "era"],
   gate: (s) => {
     if (depotCharter(s)) return { ok: true, reason: null };
-    if (!s.era) return (s.meta.stateWonEver || shopFoundingReady(s)) ? { ok: true, reason: null } : { ok: false, reason: "Win the State Invitational Feature or qualify for a Workshop Collective through the service counter" };
+    if (!s.era) return (s.meta.stateWonEver || shopFoundingReady(s)) ? { ok: true, reason: null } : { ok: false, reason: "Win the State Invitational Feature or qualify for a Workshop Collective through customer jobs" };
     return (s.run.featureWins.county_fair !== undefined || s.run.regularityFeatures?.county_fair !== undefined) ? { ok: true, reason: null } : { ok: false, reason: s.era?.discipline === "rally" ? "Win or certify the County Forest Feature this Season" : "Win the County Fair Feature this Season" };
   },
   award: teamAward,
   validate: (s, c) => {
     if (c.countyBaton || c.countyFreight) return "County Baton and freight are available at Scrap Reset";
     if (c.shopLegacy && !sameShopLegacy(c.shopLegacy, s.config.shopLegacy)) return "Transfer your business through a Shop Move.";
-    if (workshopCharterOnly(s) && c.organization !== "collective") return "The service counter charter founds a Workshop Collective.";
+    if (workshopCharterOnly(s) && c.organization !== "collective") return "The customer jobs charter founds a Workshop Collective.";
     if (c.organization !== undefined && !Object.hasOwn(TEAM_ORGANIZATIONS, c.organization)) return "Pick a team organization";
     if (c.retainedPartUid) return "Salvage carryover is only available on Scrap Reset";
     if (c.homeCounty !== undefined) return "Choose a home county on Scrap Reset";
@@ -347,7 +347,7 @@ export const SHOP_LAYER: LayerDef<ScrapChoices> = {
   id: "shop",
   name: "Shop Move",
   clears: ["run", "config"],
-  gate: (game) => shopMoveReady(game) ? { ok: true, reason: null } : { ok: false, reason: "Fill the three service invoices and build a Riding Mower or larger hauler." },
+  gate: (game) => shopMoveReady(game) ? { ok: true, reason: null } : { ok: false, reason: "Finish all three customer jobs and build a Riding Mower or larger hauler." },
   award: () => 0,
   validate: (game, choices) => choices.countyBaton || choices.countyFreight
     ? "County Baton and freight are available at Scrap Reset"

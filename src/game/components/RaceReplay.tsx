@@ -13,6 +13,7 @@ import { conditionName, num } from "../format";
 import { useGame } from "../store";
 import { finishText } from "./race/resultText";
 import { RaceScreen, type RaceShown } from "./race/RaceScreen";
+import { Segmented } from "./Segmented";
 
 /** A replay plays the whole race in this long, however long the real one was. */
 const REPLAY_MS = 14_000;
@@ -91,11 +92,12 @@ function Replay({ race, game, onClose, onFix }: { race: RaceResult; game: GameSt
           if (finished) { progress.current = 0; setT(0); }
           setPlaying(!playing);
         }}>{playing ? "Pause replay" : finished ? "Replay again" : "Resume replay"}</button>
-        <label>Replay speed{" "}
-          <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
-            {[0.5, 1, 2].map((value) => <option key={value} value={value}>{value}×</option>)}
-          </select>
-        </label>
+        <Segmented
+          label="Replay speed"
+          value={String(speed)}
+          onChange={(value) => setSpeed(Number(value))}
+          options={[0.5, 1, 2].map((value) => ({ value: String(value), label: `${value}×` }))}
+        />
         <label className="replay-progress">Race progress{" "}
           <input type="range" min="0" max="1000" value={Math.round(t * 1000)} aria-valuetext={`${Math.round(t * 100)}% through the replay`} onChange={(event) => seek(Number(event.target.value) / 1000)} />
         </label>

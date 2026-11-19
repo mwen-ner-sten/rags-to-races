@@ -15,13 +15,14 @@ import { canRetireMower } from "@/core/retirement";
 import { vehicleSprite } from "../sprites";
 import { useGame } from "../store";
 import { BuildSlotRow } from "./BuildSlotRow";
+import { Segmented } from "./Segmented";
 import { VehicleRetirement } from "./VehicleRetirement";
 import { experimentalCareers } from "@/core/features";
 
-const TUNES: { id: TuneSetting; label: string }[] = [
-  { id: "balanced", label: "Balanced" },
-  { id: "power", label: "Power (+12% power, −15% reliability)" },
-  { id: "reliable", label: "Reliable (+20% reliability, −5% power)" },
+const TUNES: { id: TuneSetting; label: string; effect: string }[] = [
+  { id: "balanced", label: "Balanced", effect: "No trade-off." },
+  { id: "power", label: "Power", effect: "+12% power, −15% reliability." },
+  { id: "reliable", label: "Reliable", effect: "+20% reliability, −5% power." },
 ];
 
 /** Open venues this tier may enter, lowest first. */
@@ -116,17 +117,13 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
             />
           ))}
         </div>
-        <label className="inline">
-          <span>Tune</span>
-          <select value={vehicle.tune} disabled={!tuning} onChange={(e) => dispatch({ type: "setTune", vehicleUid: vehicle.uid, tune: e.target.value as TuneSetting })}>
-            {TUNES.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          {!tuning && <span className="why">Learn Tuning</span>}
-        </label>
+        <Segmented<TuneSetting>
+          label="Tune"
+          value={vehicle.tune}
+          hint={TUNES.find((t) => t.id === vehicle.tune)?.effect}
+          options={TUNES.map((t) => ({ value: t.id, label: t.label, disabled: !tuning, reason: "Learn Tuning" }))}
+          onChange={(tune) => dispatch({ type: "setTune", vehicleUid: vehicle.uid, tune })}
+        />
         {canRetireMower(vehicle) && <VehicleRetirement game={game} vehicle={vehicle} />}
       </div>
     </article>

@@ -11,6 +11,7 @@ import { cautionChance, dnfChance, purseFactor, raceDurationMs, winChance } from
 import type { EventKind, GameState, JobSpec, Vehicle } from "@/core/types";
 import { capitalize, duration, num, pct } from "../../format";
 import { useGame } from "../../store";
+import { Segmented } from "../Segmented";
 import { eventStatus } from "./eventStatus";
 import { experimentalCareers } from "@/core/features";
 
@@ -124,10 +125,10 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
       {stages && <p className="small">{stages.map(capitalize).join(" → ")}</p>}
       {reference && <details>
         <summary>Class timecard · {(totalTime(reference.splitsMs) / 1000).toFixed(1)}s</summary>
-        {card && card.lastRun && <label>Target splits <select value={useLastPace ? "last" : "record"} onChange={(e) => setUseLastPace(e.target.value === "last")}>
-          <option value="record">Class record</option>
-          <option value="last">Last classified race</option>
-        </select></label>}
+        {card && card.lastRun && <Segmented label="Target splits" value={useLastPace ? "last" : "record"} onChange={(value) => setUseLastPace(value === "last")} options={[
+          { value: "record", label: "Class record" },
+          { value: "last", label: "Last classified race" },
+        ]} />}
         <p>{reference.carName}, Season {reference.season}. Match each split within 8% to qualify by time. A regularity entry gives up the cash purse.</p>
         <p className="num">{reference.splitsMs.map((ms) => `${(ms / 1000).toFixed(1)}s`).join(" · ")}</p>
         {spec.event === "feature" && <p>A stamped Feature earns half its usual Legacy Points and can open the next venue. A County Forest certificate qualifies for a reset.</p>}

@@ -11,11 +11,52 @@ import type { GameState } from "@/core/types";
 import { num, pct } from "../format";
 import { vehicleSprite } from "../sprites";
 import { useGame } from "../store";
-import { partOption } from "./BuildSlotRow";
+import { partOriginLabel } from "@/core/provenance";
+import { partScoreAt } from "@/core/race";
+import type { SlotDef } from "@/core/content/vehicles";
+import type { PartInstance } from "@/core/types";
+import { PartTitle, partOption } from "./BuildSlotRow";
 import { experimentalCareers } from "@/core/features";
+import { ChoiceList, type ChoiceItem } from "./ChoiceList";
 
 function shownBatonTag(game: GameState, part: Parameters<typeof batonPartTag>[1]): string | undefined {
   return experimentalCareers() ? batonPartTag(game, part) : undefined;
+}
+
+interface SlotPickerProps {
+  game: GameState;
+  slot: SlotDef;
+  options: readonly PartInstance[];
+  value: string;
+  onChange: (uid: string) => void;
+}
+
+/** One blueprint slot: the chosen part, with the other fitting parts a Change click away. */
+function SlotPicker({ game, slot, options, value, onChange }: SlotPickerProps) {
+  const discipline = game.era?.discipline ?? "dirt";
+  const score = (part: PartInstance) => partScoreAt(part, discipline, undefined, slot.slot);
+  const top = options.length > 1 ? Math.max(...options.map(score)) : undefined;
+  const rows = options.map((part): ChoiceItem => {
+    const baton = shownBatonTag(game, part);
+    return {
+      id: part.uid,
+      title: <PartTitle part={part} />,
+      tag: top !== undefined && score(part) === top ? "Best fit" : undefined,
+      meta: <>score <span className="num">{score(part).toFixed(1)}</span> · {partOriginLabel(part)}{baton && ` · ${baton}`}</>,
+    };
+  });
+  const label = (slot.label ?? slot.slot) + (slot.required ? "" : " (optional)");
+  const emptyText = `Needs ${slot.accepts.map((id) => getPart(id).name).join(" or ")}`;
+  return (
+    <ChoiceList
+      label={label}
+      compact
+      items={rows.length ? [{ id: "", title: "None" }, ...rows] : []}
+      value={value}
+      onChange={onChange}
+      emptyText={emptyText}
+    />
+  );
 }
 
 export function Blueprint({ game, def }: { game: GameState; def: VehicleDef }) {
@@ -40,22 +81,11 @@ export function Blueprint({ game, def }: { game: GameState; def: VehicleDef }) {
           {plan.slots.map(({ slot, options, fixable }) => {
             const sources = slot.required && !plan.chosen[slot.slot] ? haulSourcesForSlot(game, slot) : [];
             return (
-              <label key={slot.slot} className="slot">
-                <span className="slot-name">
-                  {slot.label ?? slot.slot}
-                  {!slot.required && <span className="muted"> (optional)</span>}
-                </span>
-                <select value={plan.chosen[slot.slot] ?? ""} onChange={(e) => setPicks({ ...picks, [slot.slot]: e.target.value })}>
-                  <option value="">{options.length ? "None" : `Needs ${slot.accepts.map((id) => getPart(id).name).join(" or ")}`}</option>
-                  {options.map((p) => (
-                    <option key={p.uid} value={p.uid}>
-                      {partOption(p, shownBatonTag(game, p))}
-                    </option>
-                  ))}
-                </select>
+              <div key={slot.slot} className="slot slot-choice">
+                <SlotPicker game={game} slot={slot} options={options} value={plan.chosen[slot.slot] ?? ""} onChange={(uid) => setPicks({ ...picks, [slot.slot]: uid })} />
                 {options.length === 0 && fixable.length > 0 && <span className="why">On hand but needs bench work · {fixable.map((part) => partOption(part, shownBatonTag(game, part))).join(", ")}</span>}
                 {sources.length > 0 && <span className="hint">Per random find: {sources.map(({ place, chance }) => `${place.name} ${pct(chance)}`).join(" · ")}</span>}
-              </label>
+              </div>
             );
           })}
         </div>
