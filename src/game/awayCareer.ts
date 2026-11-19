@@ -4,7 +4,7 @@ import type { CareerDestination } from "@/core/careerAdvice";
 import { HOME_COUNTIES } from "@/core/counties";
 import { BATON_PART, otherCounty } from "@/core/countyBaton";
 import { garageSpace } from "@/core/garage";
-import { exhibitBlocker, heritageClaimBlocker } from "@/core/heritage";
+import { exhibitBlocker } from "@/core/heritage";
 import { WORKS_FAMILIES, worksReport } from "@/core/manufacturer";
 import { MOTOR_ROUTES } from "@/core/motorPool";
 import { CHARTERS, finishPoints, ownerCharterBlocker, sponsorProgress, TOUR_SPONSORS, tourCalendar, tourScore } from "@/core/ownership";
@@ -61,12 +61,11 @@ function workshopUpdates(before: GameState, after: GameState, coveredFeedKeys: S
       });
     } else if (project.kind === "special" && project.completed) {
       coveredFeedKeys.add(`heritage:${project.uid}`);
-      const blocked = heritageClaimBlocker(after, project.kind, project.model);
       reports.push({
         id: "heritage-special", tab: "workshop", destination: { tab: "workshop", section: "Heritage" },
         action: "Open the Heritage Register", title: "Period special entered in the Heritage Register",
-        detail: `${project.completed} unlocked a tuning jig based on ${project.originalName}.`,
-        next: blocked ?? "Make the jig in the Workshop’s Heritage register to unlock early tuning for this model.",
+        detail: `${project.completed} earned a Hall of Fame display in tribute to ${project.originalName}.`,
+        next: "Find its permanent display in the Hall of Fame.",
       });
     }
   }
