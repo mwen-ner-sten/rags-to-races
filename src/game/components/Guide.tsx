@@ -25,7 +25,7 @@ export function Guide({ tab, onShow, onOpen }: { tab: string; onShow: (tab: Guid
       </div>
       <p>{step.how(game)}</p>
       {workshopOpen && (
-        <p>You can also fix up a part for a paying customer. Three finished jobs and a hauler let you move the shop to a new Season.</p>
+        <p>You can also fix up a part for a paying customer. Check what the dealer would pay before you give a spare to a customer.</p>
       )}
       <div className="guide-actions">
         {tab !== step.tab && (

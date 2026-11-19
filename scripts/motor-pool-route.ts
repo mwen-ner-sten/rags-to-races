@@ -1,9 +1,9 @@
 /** Action-only depot continuation from the repair-only checkpoint produced by scripts/customer-career.ts. */
 import { readFileSync } from "node:fs";
+import { getPart } from "../src/core/content/parts";
 import { must } from "../src/core";
 import { TEAM_LAYER, teamAward } from "../src/core/layers";
-import { MOTOR_ROUTE_IDS, MOTOR_ROUTES, motorFitCandidates, motorTenderCandidates, type MotorPoolMove } from "../src/core/motorPool";
-import { shopFoundingReady } from "../src/core/serviceShop";
+import { MOTOR_ROUTE_IDS, MOTOR_ROUTES, motorPoolVisible, motorFitCandidates, motorTenderCandidates, type MotorPoolMove } from "../src/core/motorPool";
 import { initialConfig } from "../src/core/state";
 import type { GameState } from "../src/core/types";
 import { decodeSave } from "../src/game/save";
@@ -12,10 +12,10 @@ import { setExperimentalCareers } from "../src/core/features";
 // These routes exercise the experimental side careers, which are off by default.
 setExperimentalCareers(true);
 
-const checkpoint = process.argv[2] ?? "test-results/service-careers/charter-ready.txt";
+const checkpoint = process.argv[2] ?? "test-results/service-careers/depot-ready.txt";
 const save = decodeSave(Buffer.from(readFileSync(checkpoint, "utf8").trim(), "base64").toString("utf8"));
-if (!save || !shopFoundingReady(save.game) || save.game.era || save.game.meta.stateWonEver || save.game.run.races.length) {
-  throw new Error("A valid repair-only, charter-ready checkpoint is required.");
+if (!save || !motorPoolVisible(save.game) || save.game.era || save.game.meta.stateWonEver || save.game.run.races.length) {
+  throw new Error("A valid repair-only, depot-ready checkpoint is required.");
 }
 
 const act = (game: GameState, move: MotorPoolMove) => must(game, { type: "motorPool", move });
@@ -37,6 +37,18 @@ for (const route of MOTOR_ROUTE_IDS) {
     const donor = motorFitCandidates(game, slot).find(({ condition }) => condition >= 2);
     if (!donor) throw new Error(`The checkpoint has no roadworthy stock for the ${slot}.`);
     game = act(game, { type: "fit", slot, partUid: donor.uid });
+  }
+  // The relocated shop may have just installed its only Worn engine. Clean the take-off for trade.
+  if (!motorTenderCandidates(game, route).length) {
+    const spare = game.run.inventory.find((part) => getPart(part.partId).category === MOTOR_ROUTES[route].tender && part.condition < 2);
+    if (spare) {
+      for (let condition = spare.condition; condition < 2; condition++) {
+        game = must(game, { type: "enqueue", spec: { kind: "clean", partUid: spare.uid } });
+        const cleaning = game.run.jobs.find(({ spec }) => spec.kind === "clean" && spec.partUid === spare.uid);
+        if (!cleaning) throw new Error("The depot tender did not reach the bench.");
+        game = must(game, { type: "advance", ms: Math.ceil(cleaning.remaining) + 1 });
+      }
+    }
   }
   const tender = motorTenderCandidates(game, route)[0];
   if (!tender) throw new Error(`The checkpoint has no trade stock for ${route}.`);

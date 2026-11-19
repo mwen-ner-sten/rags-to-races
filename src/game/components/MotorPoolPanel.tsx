@@ -83,7 +83,7 @@ export function MotorPoolPanel({ game, onManageParts }: { game: GameState; onMan
       {studyIssue && <span className="why">{studyIssue}</span>}
     </div>}
     {!custody ? <>
-      <p id="motor-custody-terms">Leave a Riding Mower, Service Runabout, or Beater at the depot. The rig leaves your garage until you complete both routes. Its equipment, wear and race history carry through resets.</p>
+      <p id="motor-custody-terms">Leave a Riding Mower, Service Runabout, or Beater at the depot. The rig leaves your garage. You can bring it back between runs this Season. If you leave it here through a reset, finish both routes to bring it home. Its equipment, wear and race history carry through resets.</p>
       {selected && <ChoiceList id="motor-rig" label="Rig to lodge" compact value={selected.uid}
         items={garageRigs.map((rig) => ({ id: rig.uid, title: rig.name, meta: getVehicle(rig.vehicleId).name }))}
         onChange={(uid) => {setChosen(uid); setConfirm(null);}} />}
@@ -116,6 +116,9 @@ export function MotorPoolPanel({ game, onManageParts }: { game: GameState; onMan
       <ul className="plain">{getVehicle(custody.rig.vehicleId).slots.map(({ slot }) => <Equipment game={game} rig={custody.rig} slot={slot} key={slot} />)}</ul>
       {!pool?.job && !pool?.claim && <div className="cards">{MOTOR_ROUTE_IDS.map((route) => <RouteCard game={game} rig={custody.rig} route={route} key={route} onBooked={finishAction} />)}</div>}
       <div className="actions">
+        {!reclaimIssue && pool?.lastLodgedSeason === game.meta.seasonsPlayed + 1 && (
+          <p>Bring the rig home now and your next depot booking opens next Season.</p>
+        )}
         <button className="btn" ref={custodyButton} type="button" disabled={!!reclaimIssue} onClick={() => {
           if (confirm !== reclaimKey) setConfirm(reclaimKey);
           else if (dispatch({ type: "motorPool", move: { type: "reclaim" } })) finishAction();

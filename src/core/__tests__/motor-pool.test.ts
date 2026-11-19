@@ -64,13 +64,23 @@ describe("County Motor Pool", () => {
     const revoked = structuredClone(game);
     delete revoked.meta.serviceReferences;
     expect(motorPoolVisible(revoked)).toBe(false);
-    expect(motorLodgeBlocker(revoked, rig.uid)).toMatch(/both service references/);
+    expect(motorLodgeBlocker(revoked, rig.uid)).toMatch(/customer reference/);
     const lodged = move(game, { type: "lodge", vehicleUid: rig.uid });
     expect(lodged.run.vehicles).toEqual([]);
     expect(lodged.motorPool?.custody?.rig).toEqual(rig);
     expect(lodged.run.habitSlots.some((habit) => habit?.includes(rig.uid))).toBe(false);
     expect(vehicleForReplay(lodged, rig.uid)).toEqual(rig);
     expect(parsed(lodged)).not.toBeNull();
+  });
+
+  it.each(["equipment", "referral"] as const)("accepts a single %s reference without another book or Shop Move", (reference) => {
+    const game = ready();
+    delete game.meta.serviceReferences![reference === "equipment" ? "referral" : "equipment"];
+    delete game.run.serviceBook;
+    expect(motorPoolVisible(game)).toBe(true);
+    expect(TEAM_LAYER.gate(game).ok).toBe(false);
+    const lodged = move(game, { type: "lodge", vehicleUid: game.run.vehicles[0].uid });
+    expect(parsed(lodged)?.motorPool).toEqual(lodged.motorPool);
   });
 
   it("consumes specific tender and a fee, and settles the same physical reward live and offline", () => {
@@ -100,7 +110,7 @@ describe("County Motor Pool", () => {
     expect(apply(game, { type: "motorPool", move: { type: "book", route: "ramp", tenderUid: tender.uid } }).error).toMatch(/booking this Season/);
   });
 
-  it("uses actual equipment, swaps one physical part, and returns the exact rig only after both receipts", () => {
+  it("uses actual equipment, swaps one physical part, and lets the player bring the same rig home or stay for another delivery", () => {
     let game = ready();
     const original = game.run.vehicles[0];
     const oldWheel = original.parts.wheel!;
@@ -115,7 +125,9 @@ describe("County Motor Pool", () => {
     game = move(game, { type: "book", route: "ramp", tenderUid: oldWheel.uid });
     expect(apply(game, { type: "motorPool", move: { type: "fit", slot: "engine", partUid: engine.uid } }).error).toMatch(/cannot swap/);
     game = move(must(game, { type: "advance", ms: HOUR }), { type: "claim" });
-    expect(apply(game, { type: "motorPool", move: { type: "reclaim" } }).error).toMatch(/both depot routes/);
+    const early = move(game, { type: "reclaim" });
+    expect(parsed(early)?.run.vehicles.find(({ uid }) => uid === original.uid)?.parts.wheel?.condition).toBe(3);
+    expect(motorLodgeBlocker(early, original.uid)).toMatch(/one rig per Season/);
     game = move(must(move(game, { type: "book", route: "pump", tenderUid: engine.uid }), { type: "advance", ms: HOUR }), { type: "claim" });
     game = move(game, { type: "reclaim" });
     expect(game.run.vehicles.filter(({ uid }) => uid === original.uid)).toHaveLength(1);
@@ -218,5 +230,6 @@ describe("County Motor Pool", () => {
     expect(game.run.inventory.filter(({ uid }) => uid === claim?.part.uid)).toHaveLength(1);
     expect(game.run.inventory.some(({ uid }) => uid === tender.uid)).toBe(false);
     expect(game.run.depotReceipts).toEqual(["ramp"]);
+    expect(apply(game, { type: "motorPool", move: { type: "reclaim" } }).error).toMatch(/both depot routes/);
   });
 });

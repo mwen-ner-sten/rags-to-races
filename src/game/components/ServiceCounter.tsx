@@ -5,10 +5,11 @@ import { useState } from "react";
 import { getPart } from "@/core/content/parts";
 import { locateBatonPart } from "@/core/countyBaton";
 import { TOOL_BY_ID } from "@/core/content/tools";
-import { reservedPartUids } from "@/core/garage";
+import { benchCost, partSellValue, reservedPartUids } from "@/core/garage";
 import { jobBlocker } from "@/core/jobs";
 import { scrapAward, SHOP_LAYER } from "@/core/layers";
 import {
+  depotCharter,
   CUSTOMER_IDS,
   CUSTOMERS,
   TRANSFER_TOOLS,
@@ -47,14 +48,7 @@ function Transfer({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const [choice, setChoice] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const gate = SHOP_LAYER.gate(game);
-  if (!gate.ok)
-    return (
-      <section className="customer-block">
-        <h3>Move the shop</h3>
-        <p>{gate.reason}</p>
-      </section>
-    );
+  if (!SHOP_LAYER.gate(game).ok) return null;
   const options: ShopLegacy[] = [
     ...TRANSFER_TOOLS.filter((tool) => (game.run.tools[tool] ?? 0) > 0).map((tool): ShopLegacy => ({
       type: "tool",
@@ -253,6 +247,13 @@ function OpenJob({ game, client }: JobCardProps) {
       {!otherActive && part && (
         <div className="customer-actions">
           <PartPicker parts={candidates} value={part.uid} onChange={setPicked} />
+          <p className="muted">
+            Dealer offer today · {partSellValue(game, part)} Scrap Bucks as is.
+            {" "}For this job, {request.threshold === 2 ? "clean to Worn" : (
+              (part.condition < 2 ? "clean to Worn, then repair" : "repair") + " with " +
+              Object.entries(benchCost(part, "repair")).map(([name, count]) => count + " " + name).join(" and ")
+            )}.
+          </p>
           <button
             className="btn small primary"
             onClick={() => dispatch({ type: "service", move: { type: "register", client, partUid: part.uid } })}
@@ -285,10 +286,8 @@ function Progress({ game }: { game: GameState }) {
         <p className="muted">Two jobs done and the grounds crew shares the Riding Mower plans for your study bench.</p>
       )}
       {shopMoveReady(game) ? (
-        <p className="muted">Three jobs done and a hauler ready: you can move the shop (below).</p>
-      ) : (
-        <p className="muted">Three jobs done and a Riding Mower or larger hauler let you move the shop to a new Season.</p>
-      )}
+        <p className="muted">Your customer book is full. Stay and race, or move the shop to start a new Season.</p>
+      ) : null}
     </>
   );
 }
@@ -307,9 +306,9 @@ function Charter({ game }: { game: GameState }) {
         </li>
       </ul>
       <p>
-        {shopFoundingReady(game)
+        {(shopFoundingReady(game) || depotCharter(game))
           ? "The committee signed your charter. Open Team to found the Workshop Collective."
-          : "Both references carry across Seasons. Bring them to a shop with three finished jobs and a Riding Mower or larger hauler to found a team."}
+          : "One signed reference and a depot rig open the County Motor Pool. Collect both freight deliveries in one Season for a charter. You can also qualify with both references, three paid jobs this Season and a hauler."}
       </p>
     </section>
   );

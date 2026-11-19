@@ -3,7 +3,8 @@ import { venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { eligibleHistory } from "./heritage";
 import { worksReport, WORKS_FAMILIES } from "./manufacturer";
-import { CUSTOMERS, shopFoundingReady, shopMoveReady, stockedServiceClient } from "./serviceShop";
+import { motorPoolVisible } from "./motorPool";
+import { depotCharter, CUSTOMERS, shopFoundingReady, shopMoveReady, stockedServiceClient } from "./serviceShop";
 import type { GameState } from "./types";
 import { experimentalCareers } from "./features";
 
@@ -73,11 +74,17 @@ function raceStep(game: GameState, target: string, detail: string): Step {
 export function careerPinStep(game: GameState, pin: CareerPin): Step {
   const hall: CareerDestination = { tab: "notebook", section: "Hall of Fame" };
   if (pin === "paid-work") {
-    if (!game.era && shopFoundingReady(game))
+    if (!game.era && (shopFoundingReady(game) || depotCharter(game)))
       return {
-        detail: "Both references are signed. Found your Workshop Collective with this Season’s finished customer jobs and hauler.",
+        detail: "Your workshop charter is ready. Found your Workshop Collective.",
         label: "Draft the team",
         destination: { tab: "team", discipline: "dirt", focus: "organization" },
+      };
+    if (!game.era && motorPoolVisible(game) && (game.motorPool?.custody || game.motorPool?.lastLodgedSeason !== game.meta.seasonsPlayed + 1))
+      return {
+        detail: "Collect the ramp and pump deliveries in one Season to earn your Workshop Collective charter.",
+        label: "Open the depot",
+        destination: { tab: "garage", section: "motor-pool" },
       };
     if (!game.run.revealed.includes("bench") && !game.config.shopLegacy && !game.run.serviceBook)
       return {

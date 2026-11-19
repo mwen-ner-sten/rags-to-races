@@ -86,6 +86,11 @@ export function workshopCharterOnly(game: GameState): boolean {
   return depotCharter(game) && game.run.featureWins.county_fair === undefined && game.run.regularityFeatures?.county_fair === undefined;
 }
 
+export function hasServiceReference(game: GameState): boolean {
+  const refs = game.meta.serviceReferences;
+  return !!(refs?.equipment || refs?.referral);
+}
+
 export function shopFoundingReady(game: GameState) {
   const references = game.meta.serviceReferences;
   return !!references?.equipment && !!references.referral && shopMoveReady(game);

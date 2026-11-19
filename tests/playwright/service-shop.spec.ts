@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createGame } from "../../src/core";
 import { racer, saveText } from "../fixtures/rewrite";
 import { setExperimentalCareers } from "../../src/core/features";
 
@@ -44,13 +45,16 @@ test("the garage can close for a customer route with zero racing wins", async ({
 
 test("the first haul opens a workshop route for the engine actually found", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-11-01T18:00:00Z") });
+  await page.addInitScript((game) => {
+    localStorage.setItem("rags-to-races:v2", JSON.stringify({ game, savedAt: Date.now() }));
+  }, createGame("service-first-haul"));
   await page.goto("/");
   const workshop = page.getByRole("button", { name: "Follow the workshop route" });
   await expect(workshop).toHaveCount(0);
   await page.getByRole("button", { name: "Go", exact: true }).click();
   await page.clock.fastForward(18_000);
   await expect(workshop).toBeVisible();
-  await expect(page.getByText(/Three finished jobs and a hauler/).first()).toBeVisible();
+  await expect(page.getByText(/what the dealer would pay/).first()).toBeVisible();
   await workshop.click();
 
   const counter = page.locator("#service-counter");
@@ -60,6 +64,8 @@ test("the first haul opens a workshop route for the engine actually found", asyn
   await expect(counter).toBeFocused();
   await expect(counter).toBeInViewport();
   await expect(orchard.getByRole("group", { name: "Part to fix up" })).toContainText(/Small Engine\s*Rusted\s*Curbside/);
+  await expect(orchard.getByText(/Dealer offer today/)).toContainText(/clean to Worn, then repair with 1 metal and 1 wiring/);
+  await expect(page.getByRole("heading", { name: "Move the shop" })).toHaveCount(0);
   await expect(orchard.getByRole("button", { name: "Take this job" })).toBeEnabled();
 
   // A different customer's job is still listed, even without a matching part to take on.
