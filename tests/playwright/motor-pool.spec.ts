@@ -10,6 +10,14 @@ const REGRESSION_WHEEL = "depot-fit-wheel";
 const REGRESSION_TENDER = "depot-ramp-tender";
 const now = new Date("2026-11-01T18:00:00Z");
 
+async function pickRunabout(page: Page) {
+  const rigs = page.getByRole("group", { name: "Rig to lodge" });
+  await rigs.getByRole("button", { name: /Change/ }).click();
+  // A compact list collapses the moment a row is chosen, so click instead of check().
+  await rigs.getByRole("radio", { name: new RegExp(RUNABOUT) }).click();
+  await expect(rigs).toContainText(RUNABOUT);
+}
+
 function permittedDepot() {
   const game = racer("depot-garage-browser", "service_runabout");
   game.run.vehicles[0].name = RUNABOUT;
@@ -43,31 +51,35 @@ async function openSave(page: Page, game: GameState, away = false) {
 test("garage exposes the depot and a named Runabout can be lodged, fitted and sent to Ramp depot", async ({ page }) => {
   await openSave(page, permittedDepot());
   await page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: /^Garage/ }).click();
+  const depotTab = page.getByRole("tab", { name: /^Depot/ });
+  await expect(page.getByRole("tab", { name: "Vehicles" })).toHaveAttribute("aria-selected", "true");
+  await depotTab.click();
+  await expect(depotTab).toHaveAttribute("aria-selected", "true");
   const heading = page.getByRole("heading", { name: "County Motor Pool", exact: true });
   await expect(heading).toBeVisible();
-  const shortcut = page.getByRole("button", { name: "Open County Motor Pool" });
-  await expect(shortcut).toBeInViewport();
-  await shortcut.focus();
-  await page.keyboard.press("Enter");
-  await expect(heading).toBeFocused();
 
-  await page.getByLabel("Rig to lodge").selectOption("fixture-vehicle");
+  await pickRunabout(page);
   await page.getByRole("button", { name: "Lodge rig at depot" }).click();
   const confirm = page.getByRole("button", { name: `Confirm lodging ${RUNABOUT}` });
   await expect(confirm).toHaveAccessibleDescription(/leaves your garage/i);
   await page.getByRole("button", { name: "Keep in the garage" }).click();
-  await expect(page.getByRole("heading", { name: new RegExp(RUNABOUT) })).toBeVisible();
   const lodge = page.getByRole("button", { name: "Lodge rig at depot" });
   await expect(lodge).toBeFocused();
+  await page.getByRole("tab", { name: "Vehicles" }).click();
+  await expect(page.getByRole("heading", { name: new RegExp(RUNABOUT) })).toBeVisible();
+  await depotTab.click();
+  await pickRunabout(page);
   await lodge.click();
   await confirm.click();
   await expect(heading).toBeFocused();
+  await page.getByRole("tab", { name: "Vehicles" }).click();
   await expect(page.getByRole("heading", { name: new RegExp(RUNABOUT) })).toHaveCount(0);
+  await depotTab.click();
 
   const depot = page.getByRole("region", { name: "County Motor Pool" });
   await expect(depot.getByText(/Rear wheel · Rusted/)).toBeVisible();
   await expect(depot.getByRole("button", { name: "Book Ramp depot" })).toBeDisabled();
-  await depot.getByLabel("Replace Rear wheel").selectOption(REGRESSION_WHEEL);
+  await depot.getByRole("group", { name: "Replace Rear wheel" }).getByRole("radio", { name: /Knobby Tire/ }).check();
   await depot.getByRole("button", { name: "Fit Rear wheel" }).click();
   await expect(depot.getByText(/Rear wheel · Good Knobby Tire/)).toBeVisible();
   await expect(depot.getByText(/Front wheel · Restored Turf Tire/)).toBeVisible();
@@ -96,12 +108,13 @@ test("a full garage exposes the waiting return and gives a route to free space b
   const claim = page.getByRole("button", { name: "Collect depot stock" });
   await expect(claim).toBeDisabled();
   await page.getByRole("button", { name: "Manage garage parts" }).click();
-  await expect(page.getByRole("heading", { name: "Parts", exact: true })).toBeFocused();
+  await expect(page.getByRole("tab", { name: /^Parts/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Parts", exact: true })).toBeVisible();
   await page.getByRole("button", { name: /Sell all junk/ }).click();
-  const shortcut = page.getByRole("button", { name: "Open depot pickup" });
-  await shortcut.click();
-  await expect(claim).toBeFocused();
+  await page.getByRole("tab", { name: /^Depot/ }).click();
+  await expect(claim).toBeEnabled();
   await claim.click();
   await expect(claim).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Parts/ }).click();
   await expect(page.getByText("from County Motor Pool · Ramp depot", { exact: true })).toBeVisible();
 });

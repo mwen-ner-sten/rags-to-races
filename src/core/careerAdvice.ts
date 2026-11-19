@@ -56,7 +56,7 @@ function builderOpportunities(state: GameState): CareerOpportunity[] {
   if (workshopCharterOnly(state)) return [{
     id: "service-charter", title: "Your Workshop Collective charter",
     detail: "The customers from your old shops have backed your first team. Choose the team name, colors and discipline in Lou’s back bay.",
-    evidence: depotCharter(state) ? "Your ramp and pump-station receipts were signed this Season." : "Two business references, three current paid invoices and a working hauler.",
+    evidence: depotCharter(state) ? "Your ramp and pump-station receipts were signed this Season." : "Two business references, three customer jobs done this Season and a working hauler.",
     actions: [{ label: "Found a Workshop Collective", destination: { tab: "team", discipline: "dirt", focus: "organization" } }],
   }];
   const foundingReady = state.meta.stateWonEver;

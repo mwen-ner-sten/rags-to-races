@@ -76,6 +76,16 @@ export function BuildPanel() {
           {blueprints.every((v) => owned.has(v.id)) && <p className="empty">You’ve built everything you have plans for. New plans come from winning, studying and better tools.</p>}
         </section>
       )}
+    </>
+  );
+}
+
+/** Ways to get a part without a trip: the parts counter and the swap meet. */
+export function PartsSupply() {
+  const game = useGame((s) => s.game);
+  if (!game) return null;
+  return (
+    <>
       {game.run.revealed.includes("tools") && <PartsCounter game={game} />}
       <SwapMeet game={game} />
     </>

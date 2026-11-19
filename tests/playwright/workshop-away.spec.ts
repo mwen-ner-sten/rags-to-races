@@ -41,12 +41,12 @@ test("depot arrival opens the ordinary pickup and reports it only once after a r
 test("registered repair opens its disclosure and focuses the payment action", async ({ page }) => {
   const away = await returnFromAbsence(page, pendingDepotAndRepair());
   await away.getByRole("button", { name: "Open customer repair" }).click();
-  const deliver = page.getByRole("button", { name: "Deliver part and collect payment" });
+  const deliver = page.getByRole("button", { name: /^Hand over · / });
   await expect(deliver).toBeFocused();
   await expect(deliver).toBeInViewport();
   await deliver.click();
   await expect(deliver).toHaveCount(0);
-  await expect(page.getByText(/Customer repairs · 1\/3 paid invoices/)).toBeVisible();
+  await expect(page.getByText(/1 of 3 jobs done/)).toBeVisible();
 });
 
 test("a full garage shows the pickup blocker without losing the parked reward", async ({ page }) => {
@@ -67,7 +67,7 @@ test("museum shakedown opens Hall of Fame with the actual car already selected",
   await away.getByRole("button", { name: "Inspect the museum car" }).click();
   await expect(page.getByRole("tab", { name: "Hall of Fame" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Heritage register" })).toBeFocused();
-  await expect(page.getByLabel("Inspect garage car")).toHaveValue("museum-mower");
+  await expect(page.getByRole("group", { name: "Inspect garage car" }).getByRole("radio", { name: /Meadow II/ })).toBeChecked();
   await expect(page.getByRole("button", { name: "Deliver to museum" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deliver to museum" })).toBeDisabled();
 });

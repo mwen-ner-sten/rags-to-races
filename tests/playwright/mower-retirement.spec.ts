@@ -17,7 +17,7 @@ test("the mower exchange previews its fee and archives the retired racer", async
   await expect(page.getByText("Save loaded. Your previous game is kept as a backup in this browser.")).toBeVisible();
   await page.getByRole("button", { name: /^Garage/ }).click();
   await page.getByText("Retire Regression racer", { exact: true }).click();
-  await page.getByLabel("Retirement route").selectOption("exchange");
+  await page.getByRole("group", { name: "Retirement route" }).getByRole("button", { name: "Trade for a Push Mower kit" }).click();
   await expect(page.getByText(/12 Scrap Bucks for a Worn Tiller Engine and Worn Knobby Tire/)).toBeVisible();
   await page.getByRole("button", { name: "Confirm mower exchange" }).click();
   await expect(page.getByRole("button", { name: "Assemble", exact: true })).toBeEnabled();

@@ -6,6 +6,7 @@ import { eligibleHistory, exhibitBlocker, heritageClaimBlocker, heritageFit, her
 import type { GameState, HallOfFameEntry } from "@/core/types";
 import { RestorationParts } from "./RestorationParts";
 import { useGame } from "../store";
+import { ChoiceList } from "./ChoiceList";
 
 export function HeritageOffer({ game, entry }: { game: GameState; entry: HallOfFameEntry }) {
   const dispatch = useGame((s) => s.dispatch);
@@ -38,7 +39,7 @@ export function HeritageDesk({ game, vehicleUid }: { game: GameState; vehicleUid
           : `Keep an original component model and fit a different one or an extra accessory. Bring each part to Worn or better and podium at the ${heritageVenue(game, project.model)} Feature. This model then qualifies for an early tuning jig.`}</p>
         <RestorationParts game={game} project={project} car={car} />
         {car ? <>
-          <label>Inspect garage car <select value={car.uid} onChange={(e) => { setUid(e.target.value); setConfirm(""); }}>{candidates.map((v) => <option key={v.uid} value={v.uid}>{v.name}</option>)}</select></label>
+          <ChoiceList label="Inspect garage car" value={car.uid} items={candidates.map((v) => ({ id: v.uid, title: v.name }))} onChange={(next) => { setUid(next); setConfirm(""); }} />
           <p>{issue ?? (exhibit ? "Passed the museum inspection." : "Ready for a Feature podium.")}</p>
           {exhibit && !issue && <>
             <label><input type="checkbox" checked={confirm === car.uid} onChange={(e) => setConfirm(e.target.checked ? car.uid : "")} /> Donate {car.name} and every installed part permanently.</label>

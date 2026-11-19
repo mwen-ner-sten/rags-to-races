@@ -13,6 +13,7 @@ async function importGame(page: Page, game: unknown): Promise<void> {
 test("trades at the earned Swap Meet and preserves the result after reload", async ({ page }) => {
   await importGame(page, swapMeetGame());
   await page.getByRole("button", { name: /^Garage/ }).click();
+  await page.getByRole("tab", { name: /^Parts/ }).click();
   const trade = page.getByRole("region", { name: "Swap meet", exact: true });
   const submit = trade.getByRole("button", { name: "Trade three parts" });
   await expect(submit).toBeDisabled();
@@ -32,6 +33,7 @@ test("trades at the earned Swap Meet and preserves the result after reload", asy
   expect(saved.game.run.inventory[0]).toMatchObject({ partId: "engine_lawn", condition: 2, origin: "Swap meet" });
   expect(exported.length).toBeGreaterThan(100);
   await page.getByRole("button", { name: /^Garage/ }).click();
+  await page.getByRole("tab", { name: /^Parts/ }).click();
   await expect(page.getByRole("heading", { name: "Swap meet", exact: true })).toBeVisible();
 });
 

@@ -19,7 +19,7 @@ test("salvage carryover trades a perk slot for the chosen worn part", async ({ p
   await page.getByRole("button", { name: "Legacy", exact: true }).click();
   await page.getByRole("button", { name: "Plan the Scrap Reset", exact: true }).click();
 
-  await page.getByLabel("Part to carry").selectOption({ label: "Tiller Engine · Worn · Garage" });
+  await page.getByRole("group", { name: "Part to carry" }).getByRole("radio", { name: /Tiller Engine Worn.*Garage/ }).check();
   await expect(page.getByText(/1 perk slot remains/)).toBeVisible();
   const reset = page.getByRole("button", { name: "End the Season: Scrap Reset", exact: true });
   await expect(reset).toBeDisabled();

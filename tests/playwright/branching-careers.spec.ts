@@ -81,7 +81,7 @@ test("a mechanic pins their route across a page reload and lands on the open ser
   await page.getByLabel("Pin a project").selectOption("paid-work");
   await page.reload();
   await expect(page.getByLabel("Pin a project")).toHaveValue("paid-work");
-  await page.getByRole("button",{name:"Open customer repairs"}).click();
-  await expect(page.getByLabel("Open request")).toBeVisible();
+  await page.getByRole("button",{name:"Open customer jobs"}).click();
+  await expect(page.getByRole("heading",{name:"Customer jobs"})).toBeVisible();
   await expect(page.locator("#service-counter")).toBeFocused();
 });

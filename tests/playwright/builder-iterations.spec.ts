@@ -57,12 +57,15 @@ test("a protected part stays marked after reload and batch cleaning starts norma
   await importBuilderSave(page, state);
   const garage = page.getByRole("button", { name: /^Garage/ });
   await garage.click();
+  const partsTab = page.getByRole("tab", { name: /^Parts/ });
+  await partsTab.click();
   const engine = page.getByRole("listitem").filter({ has: page.getByText("Lawn Mower Engine", { exact: true }) });
   await engine.getByRole("button", { name: "Keep", exact: true }).click();
   await expect(engine.getByRole("button", { name: "Keep", pressed: true })).toBeVisible();
   await page.clock.fastForward(6_000);
   await page.reload();
   await garage.click();
+  await partsTab.click();
   await expect(engine.getByRole("button", { name: "Keep", pressed: true })).toBeVisible();
   await page.getByRole("button", { name: "Queue cleaning for 2 shown parts" }).click();
   await expect(page.getByText("Queued, waiting for a free bench", { exact: true })).toBeVisible();
