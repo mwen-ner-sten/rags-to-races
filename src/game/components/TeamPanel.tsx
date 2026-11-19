@@ -5,7 +5,7 @@ import { depotCharter } from "@/core/serviceShop";
 import { useState } from "react";
 import { DISCIPLINES, venueName } from "@/core/content/events";
 import { HARDSHIP_BY_ID } from "@/core/content/modifiers";
-import { CREW_BY_ID, TEAM_ORGANIZATIONS, TEAM_UPGRADES, crewLevel } from "@/core/content/team";
+import { CREW_BY_ID, TEAM_ORGANIZATIONS, crewLevel } from "@/core/content/team";
 import { crewCap, LAYERS, teamAward } from "@/core/layers";
 import { crewBusyRacing, crewTravelBlocker, teamOrganization } from "@/core/crew";
 import { resolveFlags } from "@/core/rules";
@@ -138,7 +138,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
       <section className="section" aria-labelledby="team-h">
         <h2 id="team-h">Lou&apos;s back bay</h2>
         <p className="sub">
-          A State Invitational win opens Lou’s back bay to either team. The service counter can also sponsor a Workshop Collective when both business references are on file, all three current invoices are paid, and you have a hauler. Founding a team ends Era 1: you pick a discipline, hire crew who work in parallel, and earn Team Points. Your Legacy Points and perk slots start over; everything in your Notebook stays.
+          A State Invitational win opens Lou’s back bay to either team. The service counter can also sponsor a Workshop Collective when both business references are on file, all three current invoices are paid, and you have a hauler. Founding a team ends Era 1: you pick a discipline, hire crew who work in parallel, and earn Team Points. Your Legacy Points and perk slots start over; everything you know and everything in your Notebook stays.
         </p>
         <p>
           Founding now would give <strong className="num">{num(teamAward(game))}</strong> Team Points.
@@ -232,29 +232,6 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
             </div>
           </>
         )}
-      </section>
-      <section className="section" aria-labelledby="upgrades-h">
-        <h2 id="upgrades-h">Shop upgrades</h2>
-        <div className="grid-list">
-          {TEAM_UPGRADES.map((u) => {
-            const rank = game.team.upgrades[u.id] ?? 0;
-            const cost = u.cost[rank];
-            return (
-              <div key={u.id} className="row-card">
-                <div>
-                  <strong>{u.name}</strong> {u.cost.length > 1 && <span className="muted num">{rank}/{u.cost.length}</span>}
-                  <p className="blurb">{u.text}</p>
-                </div>
-                <div className="row-action">
-                  <button className="btn wrap" disabled={cost === undefined || game.team.tp < cost} onClick={() => dispatch({ type: "buyTeamUpgrade", upgradeId: u.id })}>
-                    {cost === undefined ? "Built" : `${cost} Team Points`}
-                  </button>
-                  {cost !== undefined && game.team.tp < cost && <span className="why">Needs {cost - game.team.tp} more Team Points</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </section>
       <section className="section">
         <div className="actions">

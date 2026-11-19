@@ -104,7 +104,7 @@ describe("workshop and branch catch-up", () => {
     const returned = returnAfter(pendingHeritage(kind), 2 * HOUR);
     expect(returned.away?.careerReports).toMatchObject([{
       id: `heritage-${kind}`, detail: expect.stringContaining("Meadow II"), destination: {
-        tab: "notebook", section: "Hall of Fame", heritage: true, ...(kind === "exhibit" && { vehicleUid: "museum-mower" }),
+        tab: "workshop", section: "Heritage", ...(kind === "exhibit" && { vehicleUid: "museum-mower" }),
       },
     }]);
     expect(returned.away?.items.some(({ key }) => key?.startsWith("heritage:"))).toBe(false);

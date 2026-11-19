@@ -18,7 +18,8 @@ function focusId(target: CareerDestination): string {
     case "garage": return { service: "service-counter", build: "build-h", "service-delivery": "service-delivery", "motor-pickup": "motor-pickup",
       "motor-pool": "motor-pool-heading", parts: "parts-h" }[target.section];
     case "manufacturer": return target.section === "deal" ? "works-deal-h" : "manufacturer-h";
-    case "notebook": return "heritage" in target ? "heritage-register-h" : "nb-panel";
+    case "notebook": return "nb-panel";
+    case "workshop": return "heritage-register-h";
     case "team": return "section" in target ? "crew-h" : target.focus ? `team-${target.focus}` : `reset-discipline-${target.discipline}`;
     case "race": return `race-venue-${target.venueId}`;
     case "owner": return `owner-${target.section}`;

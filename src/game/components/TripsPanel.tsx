@@ -5,18 +5,16 @@ import { useState } from "react";
 import { channel } from "@/core/channels";
 import { countyPlaceBlocker, homeCounty, HOME_COUNTIES } from "@/core/counties";
 import { COUNTY_RIVALS, localRival } from "@/core/countyRivals";
-import { toolStocked } from "@/core/actions";
 import { KNOWHOW_BY_ID } from "@/core/content/knowhow";
-import { PLACES, codexLevel } from "@/core/content/places";
+import { PLACES, CODEX_LEVELS, codexLevel } from "@/core/content/places";
 import { getPart } from "@/core/content/parts";
-import { TOOLS } from "@/core/content/tools";
 import { SHELL_PRICE } from "@/core/content/vehicles";
 import { DRIVEWAY_RULES, DRIVEWAY_SPACE, drivewayRule, garageSpace } from "@/core/garage";
 import { customerLeads } from "@/core/serviceShop";
 import { carryFor, haulOdds } from "@/core/haul";
 import { baseDuration, jobBlocker } from "@/core/jobs";
 import { canOpenPlace, knowhowTier, placeRepCost } from "@/core/knowhowEngine";
-import type { GameState, MaterialId, PartCategory } from "@/core/types";
+import type { GameState, PartCategory } from "@/core/types";
 import { duration, num, pct } from "../format";
 import { placeSprite } from "../sprites";
 import { useGame } from "../store";
@@ -45,7 +43,9 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
   const open = game.run.placesOpen.includes(placeId);
   const knowhowId = `place:${placeId}`;
   const def = KNOWHOW_BY_ID[knowhowId];
-  const level = codexLevel(game.meta.codex.places[placeId] ?? 0);
+  const trips = game.meta.codex.places[placeId] ?? 0;
+  const level = codexLevel(trips);
+  const nextLevel = CODEX_LEVELS[level + 1];
   const spec = { kind: "haul" as const, placeId, focus: focus || undefined };
   const blocker = open ? jobBlocker(game, spec) : null;
   const openBlocker = !open && def ? canOpenPlace(game, knowhowId) : null;
@@ -78,7 +78,7 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
           )}
           <div>
             <dt>Codex</dt>
-            <dd className="num">Lv {level}</dd>
+            <dd className="num">Lv {level} · {nextLevel ? `${trips}/${nextLevel} trips` : `${trips} trips`}</dd>
           </div>
         </dl>
         <div className="channel-line">
@@ -132,54 +132,6 @@ function PlaceCard({ game, placeId }: { game: GameState; placeId: string }) {
   );
 }
 
-function Tools({ game }: { game: GameState }) {
-  const dispatch = useGame((s) => s.dispatch);
-  const stocked = TOOLS.filter((tool) => toolStocked(game, tool.id));
-  return (
-    <section aria-labelledby="tools-h" className="section">
-      <h2 id="tools-h">Tools counter</h2>
-      <Tips ids={["tools"]} />
-      <p className="sub">Bought with Scrap Bucks. They stay until the Season ends.</p>
-      <div className="sub channel-line">
-        <span>
-          Bench speed <ChannelWhy game={game} channelId="bench_speed" />
-        </span>
-      </div>
-      <div className="grid-list">
-        {stocked.map((tool) => {
-          const owned = game.run.tools[tool.id] ?? 0;
-          const maxed = owned >= tool.max;
-          const mats = Object.entries(tool.materials).map(([m, n]) => `${n} ${m}`);
-          const missing = Object.entries(tool.materials).filter(([m, n]) => game.run.materials[m as MaterialId] < (n ?? 0));
-          const short = game.run.cash < tool.cash || missing.length > 0;
-          const reason = maxed
-            ? null
-            : game.run.cash < tool.cash
-              ? `Needs ${num(tool.cash - game.run.cash)} more Scrap Bucks`
-              : missing.length > 0
-                ? `Needs more ${missing.map(([m]) => m).join(", ")}`
-                : null;
-          return (
-            <div key={tool.id} className="row-card">
-              <div>
-                <strong>{tool.name}</strong> {tool.max > 1 && <span className="muted num">{owned}/{tool.max}</span>}
-                <p className="blurb">{tool.blurb}</p>
-              </div>
-              <div className="row-action">
-                <button className="btn wrap" disabled={maxed || short} onClick={() => dispatch({ type: "buyTool", toolId: tool.id })}>
-                  {maxed ? "Owned" : `${num(tool.cash)} Scrap Bucks${mats.length ? ` + ${mats.join(", ")}` : ""}`}
-                </button>
-                {reason && <span className="why">{reason}</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {stocked.length < TOOLS.length && <p className="muted small">Bigger shop tools turn up once you&apos;re building bigger machines.</p>}
-    </section>
-  );
-}
-
 export function TripsPanel() {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
@@ -202,6 +154,7 @@ export function TripsPanel() {
         {rival && !game.countyRivals?.[rival]?.earned && <p className="hint">Fit a part from a local haul to a Push Mower to race {COUNTY_RIVALS[rival].name} in the county matchup.</p>}
         <Tips ids={["places"]} />
         <p className="sub">Each trip takes you away for a while and brings home what you can carry ({num(channel(game, "carry"))} parts).</p>
+        {Object.values(game.meta.codex.places).some((n) => n > 0) && <p className="hint">Each Codex level makes trips there 5% faster and finds a little less rusty.</p>}
         <div className="cards">
           {visible.map((p) => (
             <PlaceCard key={p.id} game={game} placeId={p.id} />
@@ -222,7 +175,6 @@ export function TripsPanel() {
           </div>
         )}
       </section>
-      {game.run.revealed.includes("tools") && <Tools game={game} />}
     </div>
   );
 }

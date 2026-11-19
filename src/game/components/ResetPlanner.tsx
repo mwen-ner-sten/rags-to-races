@@ -199,7 +199,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
         <div>
           <h3 className="label">You keep</h3>
           <ul>
-            <li>Your Notebook: Codex, Know-how, Habit memory, records, rivals, Hall of Fame</li>
+            <li>What you know and your Notebook: Codex, Know-how, Habit memory, records, rivals, Hall of Fame</li>
             <li>Perks you own{isTeam ? " (slots go back to the base)" : ""}</li>
             {isTeam ? <li>Team Points and team upgrades</li> : <li>Legacy Points you don’t spend</li>}
             {!isTeam && game.era && <li>Your team, crew, discipline and organization</li>}

@@ -53,19 +53,19 @@ function workshopUpdates(before: GameState, after: GameState, coveredFeedKeys: S
     const wasReady = car && before.run.vehicles.some((vehicle) => !exhibitBlocker(before, previousProject, vehicle));
     if (car && !wasReady) {
       reports.push({
-        id: "heritage-exhibit", tab: "notebook", destination: { tab: "notebook", section: "Hall of Fame", heritage: true, vehicleUid: car.uid },
+        id: "heritage-exhibit", tab: "workshop", destination: { tab: "workshop", section: "Heritage", vehicleUid: car.uid },
         action: "Inspect the museum car", title: "Museum car ready for inspection",
         detail: `${car.name} meets the museum’s shakedown and exhibit requirements.`,
-        next: "Inspect the car in the Heritage Register before deciding whether to donate it.",
+        next: "Inspect the car in the Workshop’s Heritage register before deciding whether to donate it.",
       });
     } else if (project.kind === "special" && project.completed) {
       coveredFeedKeys.add(`heritage:${project.uid}`);
       const blocked = heritageClaimBlocker(after, project.kind, project.model);
       reports.push({
-        id: "heritage-special", tab: "notebook", destination: { tab: "notebook", section: "Hall of Fame", heritage: true },
+        id: "heritage-special", tab: "workshop", destination: { tab: "workshop", section: "Heritage" },
         action: "Open the Heritage Register", title: "Period special entered in the Heritage Register",
         detail: `${project.completed} unlocked a tuning jig based on ${project.originalName}.`,
-        next: blocked ?? "Make the jig in the Heritage Register to unlock early tuning for this model.",
+        next: blocked ?? "Make the jig in the Workshop’s Heritage register to unlock early tuning for this model.",
       });
     }
   }
