@@ -4,7 +4,7 @@ import { useState } from "react";
 import { venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import { WORKS_FAMILIES, WORKS_FAMILY_IDS, WORKS_MAX_ATTEMPTS, trialEntry, worksEnterBlocker, worksEntryStatus, worksFit, worksRecastBlocker, worksReport, worksSignBlocker, worksStock, type WorksDeal, type WorksFamily, type WorksTest } from "@/core/manufacturer";
-import type { GameState } from "@/core/types";
+import type { GameState, RaceCall } from "@/core/types";
 import { capitalize, ordinal } from "../format";
 import { useGame } from "../store";
 import { ChoiceList } from "./ChoiceList";
@@ -34,7 +34,7 @@ export function WorksDrawingPicker({ game, value, onChange }: { game: GameState;
   </fieldset>;
 }
 
-export function WorksDrawingWorkshop({ game }: { game: GameState }) {
+function WorksDrawingWorkshop({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const [choice, setChoice] = useState("");
   const id = game.config.worksPlan;
@@ -57,7 +57,7 @@ export function WorksDrawingWorkshop({ game }: { game: GameState }) {
 }
 
 function TrialTerms({ trial, game }: { trial: WorksTest; game: GameState }) {
-  return <>{venueName(trial.venue, game.era?.discipline ?? "dirt")} {capitalize(trial.event)} · {capitalize(trial.call)} · {trial.place ? "Podium" : "Finish"}
+  return <>{venueName(trial.venue, game.era?.discipline ?? "dirt")} {capitalize(trial.event)} · {trial.place ? "Podium" : "Finish"}
     {trial.wearLimit !== undefined && ` · At most ${trial.wearLimit} condition step lost`} · {trialEntry(trial)} Scrap Bucks</>;
 }
 
@@ -71,6 +71,7 @@ function Offer({ game, id }: { game: GameState; id: WorksFamily }) {
   return <article className="card"><div className="card-body">
     <h3>{family.name}</h3>
     <p>{family.principles} Your named Go-Kart keeps its signed engine and at least three family parts.</p>
+    <DrawingTerms id={id} />
     <details><summary>Family parts</summary><p>{family.parts.map((partId) => getPart(partId).name).join(" · ")}</p></details>
     <ol className="plain">{family.tests.map((trial) => <li key={trial.venue}><TrialTerms trial={trial} game={game} /></li>)}</ol>
     <p>{family.fee} Scrap Bucks inspection fee · {family.budget} trial budget · up to {WORKS_MAX_ATTEMPTS} starts.</p>
@@ -89,7 +90,8 @@ function Deal({ game, deal }: { game: GameState; deal: WorksDeal }) {
   const family = WORKS_FAMILIES[deal.family];
   const report = worksReport(deal);
   const status = worksEntryStatus(game);
-  const blocker = worksEnterBlocker(game);
+  const [pace, setPace] = useState<RaceCall>(family.tests[0].call);
+  const blocker = worksEnterBlocker(game, pace);
   return <section className="section" aria-labelledby="works-deal-h">
     <h3 id="works-deal-h">{family.name} · {deal.article}</h3>
     <p>{report.step}/{family.tests.length} benchmarks passed · {deal.attempts.length}/{WORKS_MAX_ATTEMPTS} starts · {report.spent}/{family.budget} Scrap Bucks spent</p>
@@ -100,7 +102,10 @@ function Deal({ game, deal }: { game: GameState; deal: WorksDeal }) {
     {report.failed && <p role="status">The deal ran out of starts or entry budget before the article passed both tests.</p>}
     {!report.failed && report.next && <>
       <p>Next benchmark · <TrialTerms trial={report.next} game={game} /></p>
-      <button className="btn primary" type="button" disabled={!!blocker} onClick={() => dispatch({ type: "works", move: { type: "enter" } })}>Sign up for works trial</button>
+      {!status && <label>Trial pace <select value={pace} onChange={(e) => setPace(e.target.value === "push" ? "push" : "nurse")}>
+        <option value="push">Push for position</option><option value="nurse">Nurse the car to limit wear</option>
+      </select></label>}
+      <button className="btn primary" type="button" disabled={!!blocker} onClick={() => dispatch({ type: "works", move: { type: "enter", call: pace } })}>Sign up for works trial</button>
       {status ? <p role="status">{status === "queued" ? "Signed up in the race queue. Fit the signed engine and three family parts before the start." : "On track."}</p> : blocker && <p className="why">{blocker}</p>}
     </>}
     {!status && <button className="btn" type="button" onClick={() => {
@@ -110,15 +115,16 @@ function Deal({ game, deal }: { game: GameState; deal: WorksDeal }) {
   </section>;
 }
 
-export function ManufacturerPanel() {
-  const game = useGame((s) => s.game);
-  const works = game?.manufacturer;
-  if (!game || !works?.invites.length) return null;
+export function ManufacturerPanel({ game }: { game: GameState }) {
+  const works = game.manufacturer;
+  if (!works?.invites.length) return null;
+  const offers = WORKS_FAMILY_IDS.filter((id) => works.invites.includes(id) && !works.drawings.includes(id));
   return <div className="panel">
-    <header className="section"><h2 id="manufacturer-h">Manufacturer</h2><p>Commission a physical article from your garage. Standard races, Club and Owner routes stay available during the deal.</p></header>
-    {works.active ? <Deal key={works.active.id} game={game} deal={works.active} /> : <section className="section" aria-labelledby="works-offers-h">
+    <header className="section"><h2 id="manufacturer-h">Suppliers</h2></header>
+    <WorksDrawingWorkshop game={game} />
+    {works.active ? <Deal key={works.active.id} game={game} deal={works.active} /> : offers.length > 0 && <section className="section" aria-labelledby="works-offers-h">
       <h3 id="works-offers-h">Works offers</h3>
-      <div className="cards">{WORKS_FAMILY_IDS.filter((id) => works.invites.includes(id)).map((id) => <Offer game={game} id={id} key={id} />)}</div>
+      <div className="cards">{offers.map((id) => <Offer game={game} id={id} key={id} />)}</div>
     </section>}
     {works.drawings.length > 0 && <section className="section" aria-labelledby="works-drawings-h">
       <h3 id="works-drawings-h">Earned drawings</h3><ul>{works.drawings.map((id) => <li key={id}><strong>{WORKS_FAMILIES[id].name}</strong><DrawingTerms id={id} /></li>)}</ul>

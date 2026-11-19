@@ -63,7 +63,7 @@ export function manufacturerReferencesValid(state: GameState): boolean {
       const result = state.run.races.find(({ id }) => id === attempt.raceId);
       if (!result) return true; // The recent race list can drop older trials.
       const test = WORKS_FAMILIES[active.family].tests[attempt.step];
-      return result.vehicleUid === active.vehicleUid && result.event === test.event && result.venueId === test.venue && result.call === test.call
+      return result.vehicleUid === active.vehicleUid && result.event === test.event && result.venueId === test.venue
         && result.position === attempt.position && result.dnf === attempt.dnf && result.wear.reduce((n, wear) => n + wear.from - wear.to, 0) === attempt.wear;
     })) return false;
   }

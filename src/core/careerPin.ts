@@ -133,7 +133,7 @@ export function careerPinStep(game: GameState, pin: CareerPin): Step {
         : m.drawings.length
           ? "Your homologated drawings are on file. Choose one on a Scrap Reset."
           : "An invitation is waiting. Bring a Go-Kart with three parts from the same family.";
-      return { detail, label: "Open Manufacturer", destination: { tab: "manufacturer" } };
+      return { detail, label: "Open suppliers", destination: { tab: "garage", section: "works" } };
     }
     return raceStep(
       game,

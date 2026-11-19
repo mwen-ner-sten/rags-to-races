@@ -16,8 +16,7 @@ function focusId(target: CareerDestination): string {
     case "legacy": return target.section === "baton" ? "county-baton-status" : target.objective ? `reset-objective-${target.objective}` : "legacy-h";
     case "trips": return "trips-h";
     case "garage": return { service: "service-counter", build: "build-h", "service-delivery": "service-delivery", "motor-pickup": "motor-pickup",
-      "motor-pool": "motor-pool-heading", parts: "parts-h" }[target.section];
-    case "manufacturer": return target.section === "deal" ? "works-deal-h" : "manufacturer-h";
+      "motor-pool": "motor-pool-heading", works: "manufacturer-h", "works-deal": "works-deal-h", parts: "parts-h" }[target.section];
     case "notebook": return "nb-panel";
     case "workshop": return "heritage-register-h";
     case "team": return "section" in target ? "crew-h" : target.focus ? `team-${target.focus}` : `reset-discipline-${target.discipline}`;

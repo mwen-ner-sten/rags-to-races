@@ -84,7 +84,7 @@ describe("workshop and branch catch-up", () => {
     const pending = pendingWorksFinal();
     const returned = returnAfter(pending, 2 * HOUR);
     expect(returned.away?.careerReports).toMatchObject([{
-      id: "works-proof", title: "Works article homologated", destination: { tab: "manufacturer", section: "deal" },
+      id: "works-proof", title: "Works article homologated", destination: { tab: "garage", section: "works-deal" },
     }]);
     expect(returned.game?.manufacturer?.drawings).toEqual(["redwheel"]);
     expect(returned.game?.manufacturer?.active?.attempts).toHaveLength(2);
