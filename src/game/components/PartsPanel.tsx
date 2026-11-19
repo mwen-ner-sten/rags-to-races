@@ -261,7 +261,7 @@ function DrivewaySection({ game, reserved, strong }: { game: GameState; reserved
       </div>
       <p className="sub">
         These didn’t fit in the garage. They move in by themselves, best first, as soon as space frees up. Until then you can swap one in, strip it or sell it. If more than {DRIVEWAY_SPACE} pile up, {rule?.text}.
-        {canChoose && !game.run.learned.includes("tech:sorting") && " Study Sorting in the Notebook to choose what happens instead."}
+        {canChoose && !game.run.learned.includes("tech:sorting") && " Study Sorting in the Workshop to choose what happens instead."}
       </p>
       <RulePicker game={game} />
       <ul className="parts">

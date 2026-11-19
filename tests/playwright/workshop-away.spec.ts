@@ -62,10 +62,10 @@ test("a full garage shows the pickup blocker without losing the parked reward", 
   await expect(page.getByText("Free a garage slot to collect. The part stays at the depot through a reset.")).toBeVisible();
 });
 
-test("museum shakedown opens Hall of Fame with the actual car already selected", async ({ page }) => {
+test("museum shakedown opens the Workshop Heritage desk with the actual car already selected", async ({ page }) => {
   const away = await returnFromAbsence(page, pendingHeritage("exhibit"));
   await away.getByRole("button", { name: "Inspect the museum car" }).click();
-  await expect(page.getByRole("tab", { name: "Hall of Fame" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Heritage" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Heritage register" })).toBeFocused();
   await expect(page.getByLabel("Inspect garage car")).toHaveValue("museum-mower");
   await expect(page.getByRole("button", { name: "Deliver to museum" })).toBeVisible();

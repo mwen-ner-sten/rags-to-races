@@ -89,12 +89,20 @@ export function careerPinStep(game: GameState, pin: CareerPin): Step {
   }
   if (pin === "heritage") {
     const p = game.run.heritageProject;
+    // Working a project (or claiming earned awards) happens at the Workshop's Heritage desk;
+    // only choosing a retired car to start one sends the player to the Notebook record.
+    if (p || game.meta.heritageRegister?.length)
+      return {
+        detail: p
+          ? p.completed
+            ? p.completed + " entered the register. Your earned workshop privileges are filed in the Workshop, under Heritage."
+            : "Inspect the " + getVehicle(p.model).name + " against " + p.originalName + "’s original parts."
+          : "Your earned workshop privileges are filed in the Workshop, under Heritage.",
+        label: "Open Heritage in the Workshop",
+        destination: { tab: "workshop", section: "Heritage" },
+      };
     return {
-      detail: p
-        ? p.completed
-          ? p.completed + " entered the register. Your earned workshop privileges are filed here."
-          : "Inspect the " + getVehicle(p.model).name + " against " + p.originalName + "’s original parts."
-        : "Choose a previous Season’s race-finished car and register a museum recreation or a period special.",
+      detail: "Choose a previous Season’s race-finished car and register a museum recreation or a period special.",
       label: "Open Hall of Fame",
       destination: hall,
     };

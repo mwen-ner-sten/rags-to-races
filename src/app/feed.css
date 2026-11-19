@@ -138,3 +138,10 @@
     overscroll-behavior: contain;
   }
 }
+
+/* Clear the fixed bottom navigation (56px) in phone / touchscreen mode. */
+@media (max-width: 640px), (hover: none) and (pointer: coarse) {
+  .feed-toasts {
+    bottom: calc(180px + env(safe-area-inset-bottom, 0px));
+  }
+}

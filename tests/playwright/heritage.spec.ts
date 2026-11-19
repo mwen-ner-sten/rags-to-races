@@ -22,13 +22,15 @@ test("a returning mechanic fits an archival component, approves a museum donatio
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByLabel("Save text").fill(saveText(game));
   await page.getByRole("button", { name: "Import save", exact: true }).click();
-  const hall = async () => {
-    await page.getByRole("button", { name: /^Notebook/ }).click();
-    await page.getByRole("tab", { name: "Hall of Fame" }).click();
-  };
-  await hall();
+  await page.getByRole("button", { name: /^Notebook/ }).click();
+  await page.getByRole("tab", { name: "Hall of Fame" }).click();
+  await expect(page.getByRole("region", { name: "Heritage register" })).toHaveCount(0);
   await page.locator("summary").filter({ hasText: "Blue Monday" }).click();
   await page.getByRole("button", { name: "Recreate for the museum" }).click();
+  await expect(page.getByText("Blue Monday is being recreated. Work on it in the Workshop, under Heritage.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Heritage register" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Open Heritage in the Workshop" }).click();
+  await expect(page.getByRole("tab", { name: "Heritage" })).toHaveAttribute("aria-selected", "true");
   const desk = page.getByRole("region", { name: "Heritage register" });
   await desk.getByText("Find original components", { exact: false }).click();
   await desk.getByRole("button", { name: /^Fit / }).click();
@@ -38,7 +40,8 @@ test("a returning mechanic fits an archival component, approves a museum donatio
   await deliver.click();
   await expect(desk.getByText("Blue Tuesday entered the register this Season.")).toBeVisible();
   await page.reload();
-  await hall();
+  await page.getByRole("button", { name: /^Workshop/ }).click();
+  await page.getByRole("tab", { name: "Heritage" }).click();
   await expect(desk.getByText("Blue Tuesday entered the register this Season.")).toBeVisible();
   await expect(desk.getByRole("button", { name: "Print drawings", exact: false })).toBeVisible();
 });

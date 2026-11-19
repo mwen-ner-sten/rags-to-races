@@ -18,8 +18,9 @@ export type CareerDestination =
   | { tab: "garage"; section: "service" | "build" | "service-delivery" | "motor-pickup" | "motor-pool" | "parts" }
   | { tab: "trips" }
   | { tab: "manufacturer"; section?: "deal" }
-  | { tab: "notebook"; section: "Hall of Fame"; heritage?: true; vehicleUid?: string }
+  | { tab: "notebook"; section: "Hall of Fame" }
   | { tab: "notebook"; section: "Timecards" }
+  | { tab: "workshop"; section: "Heritage"; vehicleUid?: string }
   | { tab: "team"; discipline: DisciplineId; focus?: "handover" | "organization" }
   | { tab: "team"; section: "crew" }
   | { tab: "race"; venueId: string }
