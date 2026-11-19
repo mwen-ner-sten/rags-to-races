@@ -20,7 +20,7 @@ import { TOOL_BY_ID } from "./content/tools";
 import { SHELL_PRICE, getVehicle } from "./content/vehicles";
 import { DRIVEWAY_RULES, counterPrice, fillFromDriveway, garageSpace, reservedPartUids, sellParts, swapOutCandidate, vehicleBusy } from "./garage";
 import { templateBase } from "./habits";
-import { advance, afterChange, cancelJob, dispatch, dropJob, dropOrphanSignUps, enqueue, jobBlocker } from "./jobs";
+import { advance, afterChange, cancelJob, dispatch, dropJob, dropOrphanSignUps, enqueue, jobBlocker, pauseJob, resumeJob } from "./jobs";
 import { canOpenPlace, isLearned, learn, placeRepCost } from "./knowhowEngine";
 import { crewCap, performReset, type LayerId, type ScrapChoices, type TeamChoices } from "./layers";
 import { nextUid } from "./rng";
@@ -56,6 +56,8 @@ export type Action =
   | { type: "cancelQueued"; index: number }
   | { type: "prioritizeQueued"; index: number }
   | { type: "cancelJob"; jobId: string }
+  | { type: "pauseJob"; jobId: string }
+  | { type: "resumeJob"; jobId: string }
   | { type: "sell"; partUids: string[] }
   | { type: "protectPart"; partUid: string; keep: boolean }
   | { type: "guardBaton"; partUid: string; keep: boolean }
@@ -176,6 +178,13 @@ function applyMut(s: GameState, action: Action): string | null {
       cancelJob(s, action.jobId);
       return null;
     }
+    case "pauseJob": {
+      const issue = pauseJob(s, action.jobId);
+      if (!issue) dispatch(s);
+      return issue;
+    }
+    case "resumeJob":
+      return resumeJob(s, action.jobId);
     case "sell": {
       const reserved = reservedPartUids(s);
       const uids = new Set(action.partUids);

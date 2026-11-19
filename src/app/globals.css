@@ -1049,6 +1049,13 @@ textarea {
   margin-bottom: 4px;
 }
 
+.job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0 6px;
+}
+
 .job-lane {
   font-family: var(--display);
   font-size: 0.62rem;

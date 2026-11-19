@@ -12,16 +12,25 @@ import { Lately } from "./Feed";
 import { RaceLive } from "./race/RaceLive";
 import { Tips } from "./Tips";
 
+function JobProgress({ job, label }: { job: Pick<ActiveJob, "remaining" | "duration">; label: string }) {
+  const done = 100 * (1 - job.remaining / job.duration);
+  return (
+    <div className="bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(done)}>
+      <span style={{ width: `${Math.min(100, done)}%` }} />
+    </div>
+  );
+}
+
 function JobRow({ game, job }: { game: GameState; job: ActiveJob }) {
   const dispatch = useGame((s) => s.dispatch);
-  const done = 1 - job.remaining / job.duration;
+  const label = jobLabel(game, job.spec);
   const rate = jobRate(game, job, false);
   if (job.spec.kind === "race" && job.race) {
     return (
       <li className="job job-race">
         <div className="job-head">
           <span className="job-lane">{laneLabel(job.lane)}</span>
-          <span className="job-name">{jobLabel(game, job.spec)}</span>
+          <span className="job-name">{label}</span>
           <span className="job-time num">{duration(job.remaining / Math.max(rate, 0.01))}</span>
         </div>
         <RaceLive game={game} job={job} compact />
@@ -32,17 +41,16 @@ function JobRow({ game, job }: { game: GameState; job: ActiveJob }) {
     <li className="job">
       <div className="job-head">
         <span className="job-lane">{laneLabel(job.lane)}</span>
-        <span className="job-name">{jobLabel(game, job.spec)}</span>
+        <span className="job-name">{label}</span>
         <span className="job-time num">{duration(job.remaining / Math.max(rate, 0.01))}</span>
-        {!job.looping && (
-          <button className="link-btn" onClick={() => dispatch({ type: "cancelJob", jobId: job.id })} aria-label={`Cancel ${jobLabel(game, job.spec)}`}>
-            Cancel
-          </button>
+        {!job.looping && job.spec.kind !== "race" && (
+          <div className="job-actions">
+            <button className="link-btn" onClick={() => dispatch({ type: "pauseJob", jobId: job.id })} aria-label={`Pause ${label}`}>Pause</button>
+            <button className="link-btn" onClick={() => dispatch({ type: "cancelJob", jobId: job.id })} aria-label={`Cancel ${label}`}>Cancel</button>
+          </div>
         )}
       </div>
-      <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(done * 100)}>
-        <span style={{ width: `${Math.min(100, done * 100)}%` }} />
-      </div>
+      <JobProgress job={job} label={label} />
     </li>
   );
 }
@@ -77,6 +85,7 @@ export function JobsBoard() {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
   if (!game) return null;
+  const pausedJobs = game.run.pausedJobs ?? [];
   const handsBusy = game.run.jobs.some((j) => j.lane === "hands");
   const nextHabits = Object.entries(game.run.reps)
     .filter(([t]) => !game.run.habitsKnown.includes(t))
@@ -89,12 +98,36 @@ export function JobsBoard() {
       <h2 className="board-title">On the go</h2>
       {game.run.raceNight && <p className="notice">Race Night has reserved your hands. Queued trips and studies wait until it ends.</p>}
       <Tips ids={["queue", "habits"]} />
-      {!handsBusy && !game.run.raceNight && game.run.queue.length === 0 && <p className="notice">Your hands are free. Queue a trip or a study before you step away.</p>}
+      {!handsBusy && !game.run.raceNight && game.run.queue.length === 0 && <p className="notice">Your hands are free. {pausedJobs.length ? "Resume a paused job or start something else." : "Queue a trip or a study before you step away."}</p>}
       <ul className="jobs">
         {game.run.jobs.map((job) => (
           <JobRow key={job.id} game={game} job={job} />
         ))}
       </ul>
+      {pausedJobs.length > 0 && (
+        <div>
+          <h3 className="label">Paused jobs</h3>
+          <ul className="jobs">
+            {pausedJobs.map((job) => {
+              const label = jobLabel(game, job.spec);
+              return (
+                <li key={job.id} className="job">
+                  <div className="job-head">
+                    <span className="job-lane">Paused</span>
+                    <span className="job-name">{label}</span>
+                    <span className="job-time num">{Math.round(100 * (1 - job.remaining / job.duration))}%</span>
+                    <div className="job-actions">
+                      <button className="link-btn" onClick={() => dispatch({ type: "resumeJob", jobId: job.id })} aria-label={`Resume ${label}`}>Resume</button>
+                      <button className="link-btn" onClick={() => dispatch({ type: "cancelJob", jobId: job.id })} aria-label={`Discard ${label}`}>Discard</button>
+                    </div>
+                  </div>
+                  <JobProgress job={job} label={label} />
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       {game.run.revealed.includes("queue") && (
         <div className="queue">
           <h3 className="label">

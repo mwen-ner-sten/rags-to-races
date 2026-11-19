@@ -24,6 +24,9 @@ export function KnowhowList({ game }: { game: GameState }) {
           const learned = game.run.learned.includes(k.id);
           const available = game.run.available.includes(k.id);
           const tier = knowhowTier(game, k.id);
+          const active = game.run.jobs.find(({ spec }) => spec.kind === "study" && spec.knowhowId === k.id);
+          const paused = game.run.pausedJobs?.find(({ spec }) => spec.kind === "study" && spec.knowhowId === k.id);
+          const queued = game.run.queue.some((spec) => spec.kind === "study" && spec.knowhowId === k.id);
           const blocker = jobBlocker(game, { kind: "study", knowhowId: k.id });
           return (
             <li key={k.id} className={learned ? "learned" : available ? "ready" : "locked"}>
@@ -34,6 +37,20 @@ export function KnowhowList({ game }: { game: GameState }) {
               </div>
               {learned ? (
                 <span className="chip win">Known</span>
+              ) : paused ? (
+                <div className="row-action">
+                  <button className="btn small primary" onClick={() => dispatch({ type: "resumeJob", jobId: paused.id })} aria-label={`Resume ${k.name}`}>
+                    Resume · {Math.round(100 * (1 - paused.remaining / paused.duration))}% complete
+                  </button>
+                </div>
+              ) : active ? (
+                <div className="row-action">
+                  <button className="btn small" onClick={() => dispatch({ type: "pauseJob", jobId: active.id })} aria-label={`Pause ${k.name}`}>
+                    Pause study
+                  </button>
+                </div>
+              ) : queued ? (
+                <span className="chip">Queued</span>
               ) : available ? (
                 <div className="row-action">
                   <button className="btn small primary" disabled={!!blocker} onClick={() => dispatch({ type: "enqueue", spec: { kind: "study", knowhowId: k.id } })}>

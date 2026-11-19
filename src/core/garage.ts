@@ -4,7 +4,7 @@ import { getVehicle, isWheelSlot } from "./content/vehicles";
 import { pushFeed } from "./feed";
 import { hasPerk } from "./rules";
 import { STORY, addJournal } from "./journal";
-import type { Condition, DrivewayRule, GameState, MaterialId, PartInstance, TuneSetting, Vehicle } from "./types";
+import type { Condition, DrivewayRule, GameState, JobSpec, MaterialId, PartInstance, TuneSetting, Vehicle } from "./types";
 
 export interface Stats {
   power: number;
@@ -131,19 +131,18 @@ export function conditionAfter(kind: BenchKind, condition: Condition): Condition
   return null;
 }
 
-/** Parts reserved by running jobs (being cleaned, repaired, stripped or assembled). */
+export function jobPartUids(spec: JobSpec): string[] {
+  if (spec.kind === "assemble") return Object.values(spec.partUids);
+  if (spec.kind === "clean" || spec.kind === "repair" || spec.kind === "restore" || spec.kind === "strip") {
+    return spec.partUid ? [spec.partUid] : [];
+  }
+  return [];
+}
+
+/** Parts reserved by running, paused or queued work. */
 export function reservedPartUids(state: GameState): Set<string> {
-  const reserved = new Set<string>();
-  for (const job of state.run.jobs) {
-    const spec = job.spec;
-    if ((spec.kind === "clean" || spec.kind === "repair" || spec.kind === "restore" || spec.kind === "strip") && spec.partUid) reserved.add(spec.partUid);
-    if (spec.kind === "assemble") for (const uid of Object.values(spec.partUids)) reserved.add(uid);
-  }
-  for (const spec of state.run.queue) {
-    if ((spec.kind === "clean" || spec.kind === "repair" || spec.kind === "restore" || spec.kind === "strip") && spec.partUid) reserved.add(spec.partUid);
-    if (spec.kind === "assemble") for (const uid of Object.values(spec.partUids)) reserved.add(uid);
-  }
-  return reserved;
+  const jobs = [...state.run.jobs, ...(state.run.pausedJobs ?? [])];
+  return new Set([...state.run.queue, ...jobs.map((job) => job.spec)].flatMap(jobPartUids));
 }
 
 export function vehicleBusy(state: GameState, vehicleUid: string): boolean {

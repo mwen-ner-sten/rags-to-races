@@ -47,7 +47,7 @@ export function changeBatonGuard(state: GameState, uid: string, keep: boolean): 
   }
   if (state.run.countyBaton?.qualified?.uid !== uid || !batonPartTag(state, part)) return "Win a qualifying Feature with this part before safeguarding it";
   if (state.run.queue.some((spec) => spec.kind === "strip" && spec.partUid === uid)
-    || state.run.jobs.some(({ spec }) => spec.kind === "strip" && spec.partUid === uid)) return "Cancel the strip job before safeguarding the baton";
+    || [...state.run.jobs, ...(state.run.pausedJobs ?? [])].some(({ spec }) => spec.kind === "strip" && spec.partUid === uid)) return "Cancel the strip job before safeguarding the baton";
   part.batonGuard = true;
   return null;
 }

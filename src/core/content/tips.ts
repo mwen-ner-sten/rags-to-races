@@ -84,7 +84,7 @@ export const TIPS: readonly TipDef[] = [
     id: "knowhow",
     title: "Know-how",
     lines: [
-      "New techniques and plans show up here once they'd be useful. Studying keeps your hands busy for a while, so queue a trip to start after it.",
+      "New techniques and plans show up here once they'd be useful. You can pause a study to free your hands and resume it with all your progress.",
       "Once learned, it's quicker to learn again in later Seasons.",
     ],
     when: revealed("knowhow"),
