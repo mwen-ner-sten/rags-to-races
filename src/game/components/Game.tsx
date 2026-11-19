@@ -8,7 +8,6 @@ import { getKnowhow } from "@/core/content/knowhow";
 import { motorPoolVisible } from "@/core/motorPool";
 import { capitalize, duration, num, ordinal, seasonClock } from "../format";
 import { useGame } from "../store";
-import { BuildPanel } from "./BuildPanel";
 import { CareerDesk, CareerFocus, type CareerJump } from "./CareerDesk";
 import { feedAge } from "./Feed";
 import { FeedToasts } from "./FeedToasts";
@@ -16,7 +15,6 @@ import { Guide } from "./Guide";
 import { JobsBoard } from "./JobsBoard";
 import { LegacyPanel } from "./LegacyPanel";
 import { NotebookPanel } from "./NotebookPanel";
-import { PartsPanel } from "./PartsPanel";
 import { RacePanel } from "./RacePanel";
 import { RaceReplay } from "./RaceReplay";
 import { SettingsPanel } from "./SettingsPanel";
@@ -25,11 +23,11 @@ import { promoterGate } from "@/core/promoter";
 import { OwnerPanel } from "./OwnerPanel";
 import { PromoterPanel } from "./PromoterPanel";
 import { clubGate } from "@/core/club";
-import { ServiceCounter } from "./ServiceCounter";
+import { GarageTab, garageSectionFor, openingGarageSection, type GarageSection } from "./GarageTab";
+import { serviceActionReady } from "./ServiceCounter";
 import { ClubPanel } from "./ClubPanel";
 import { CountyMatchPanel } from "./CountyMatchPanel";
-import { ManufacturerPanel, WorksDrawingWorkshop } from "./ManufacturerPanel";
-import { MotorPoolPanel } from "./MotorPoolPanel";
+import { ManufacturerPanel } from "./ManufacturerPanel";
 import { TeamPanel } from "./TeamPanel";
 import { TabNav } from "./TabNav";
 import { hasUnreadTip } from "./Tips";
@@ -266,6 +264,7 @@ export function Game() {
   const save = useGame((s) => s.save);
   const [tab, setTab] = useState<TabId>("trips");
   const [careerJump, setCareerJump] = useState<CareerJump | null>(null);
+  const [garageSection, setGarageSection] = useState<GarageSection | null>(null);
   const bootstrapped = useRef(false);
 
   useEffect(() => {
@@ -310,13 +309,17 @@ export function Game() {
   const jump = careerJump?.target.tab === active ? careerJump : null;
   const showTab = (next: TabId) => {
     setCareerJump(null);
+    // Fix the section on arrival, so the view doesn't change under the player when a vehicle is built or retired.
+    if (next === "garage" && !garageSection) setGarageSection(openingGarageSection(game));
     setTab(next);
   };
   const showCareerTarget = (target: CareerDestination) => {
     setCareerJump((previous) => ({ target, request: (previous?.request ?? 0) + 1 }));
+    if (target.tab === "garage") setGarageSection(garageSectionFor(target.section));
     setTab(target.tab);
   };
 
+  const jobReady = (id: TabId) => id === "garage" && serviceActionReady(game);
   return (
     <div className="game" data-era={era} style={teamStyle}>
       <Header />
@@ -326,7 +329,8 @@ export function Game() {
         tabs={tabs.map((t) => ({
           id: t.id,
           label: t.label,
-          unread: active !== t.id && hasUnreadTip(game, TAB_TIPS[t.id] ?? []),
+          unread: active !== t.id && (hasUnreadTip(game, TAB_TIPS[t.id] ?? []) || jobReady(t.id)),
+          unreadLabel: jobReady(t.id) ? "A customer job is ready" : undefined,
           badge: t.id === "garage" ? game.run.driveway.length : undefined,
           badgeLabel: `${game.run.driveway.length} on the driveway`,
         }))}
@@ -338,20 +342,7 @@ export function Game() {
           <CareerDesk key={active} game={game} active={active} onOpen={showCareerTarget} />
           <CareerFocus jump={jump} />
           {active === "trips" && <TripsPanel />}
-          {active === "garage" && (
-            <div className="panel">
-              {motorPoolVisible(game) && <div className="actions">
-                <button className="btn small" type="button" onClick={() => showCareerTarget({
-                  tab: "garage", section: game.motorPool?.claim ? "motor-pickup" : "motor-pool",
-                })}>{game.motorPool?.claim ? "Open depot pickup" : game.motorPool?.job ? "Check depot delivery" : "Open County Motor Pool"}</button>
-              </div>}
-              <PartsPanel />
-              <ServiceCounter game={game} />
-              <WorksDrawingWorkshop game={game} />
-              <MotorPoolPanel game={game} onManageParts={() => showCareerTarget({ tab: "garage", section: "parts" })} />
-              <BuildPanel />
-            </div>
-          )}
+          {active === "garage" && <GarageTab game={game} section={garageSection} onSection={setGarageSection} />}
           {active === "workshop" && <WorkshopPanel key={jump?.request} section={jump?.target.tab === "workshop" ? jump.target.section : undefined} vehicleUid={jump?.target.tab === "workshop" ? jump.target.vehicleUid : undefined} />}
           {active === "race" && <>
             <CountyMatchPanel game={game} />

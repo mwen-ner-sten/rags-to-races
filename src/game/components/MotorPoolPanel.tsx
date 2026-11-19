@@ -7,10 +7,11 @@ import { garageSpace } from "@/core/garage";
 import { jobBlocker } from "@/core/jobs";
 import { studyMs } from "@/core/knowhowEngine";
 import { MOTOR_ROUTES, MOTOR_ROUTE_IDS, motorBookBlocker, motorDuration, motorFitCandidates, motorLodgeBlocker, motorModel, motorPoolVisible, motorReclaimBlocker, motorTenderCandidates, motorWearSlot, type MotorRouteId } from "@/core/motorPool";
-import { partOriginLabel } from "@/core/provenance";
 import type { GameState, Vehicle } from "@/core/types";
 import { conditionName, duration } from "../format";
 import { useGame } from "../store";
+import { partChoice } from "./BuildSlotRow";
+import { ChoiceList } from "./ChoiceList";
 
 function RouteCard({ game, rig, route, onBooked }: { game: GameState; rig: Vehicle; route: MotorRouteId; onBooked: () => void }) {
   const [choice, setChoice] = useState("");
@@ -23,11 +24,7 @@ function RouteCard({ game, rig, route, onBooked }: { game: GameState; rig: Vehic
     <h3>{definition.name}</h3>
     <p id={`motor-terms-${route}`}>Give one Worn or better {definition.tender} and {definition.cost} Scrap Bucks. Receive a Worn {getPart(definition.reward).name}. Booking commits the fee and part, and the run wears the rig’s {motorWearSlot(rig, route).replace("_", " ")} one step.</p>
     <p>Travel time with {rig.name} · {duration(motorDuration(rig, route))}</p>
-    {stock && <label className="inline" htmlFor={`motor-tender-${route}`}>Part to deliver
-      <select id={`motor-tender-${route}`} value={stock.uid} onChange={(event) => setChoice(event.target.value)}>
-        {tenders.map((part) => <option key={part.uid} value={part.uid}>{conditionName(part.condition)} {getPart(part.partId).name} · {partOriginLabel(part)}</option>)}
-      </select>
-    </label>}
+    {stock && <ChoiceList id={`motor-tender-${route}`} label="Part to deliver" items={tenders.map((part) => partChoice(part))} value={stock.uid} onChange={setChoice} />}
     {issue && <p className="why">{issue}</p>}
     <button className="btn" type="button" aria-describedby={`motor-terms-${route}`} disabled={!!issue} onClick={() => {
       if (stock && dispatch({ type: "motorPool", move: { type: "book", route, tenderUid: stock.uid } })) onBooked();
@@ -46,11 +43,7 @@ function Equipment({ game, rig, slot }: { game: GameState; rig: Vehicle; slot: s
   return <li>
     <p>{label} · {current ? `${conditionName(current.condition)} ${getPart(current.partId).name}` : "Empty"}</p>
     {selected && !game.motorPool?.job && <div className="actions">
-      <label className="inline" htmlFor={`motor-fit-${slot}`}>Replace {label}
-        <select id={`motor-fit-${slot}`} value={selected.uid} onChange={(event) => setChoice(event.target.value)}>
-          {choices.map((part) => <option value={part.uid} key={part.uid}>{conditionName(part.condition)} {getPart(part.partId).name} · {partOriginLabel(part)}</option>)}
-        </select>
-      </label>
+      <ChoiceList id={`motor-fit-${slot}`} label={`Replace ${label}`} items={choices.map((part) => partChoice(part))} value={selected.uid} onChange={setChoice} />
       <button className="btn small" type="button" onClick={() => dispatch({ type: "motorPool", move: { type: "fit", slot, partUid: selected.uid } })}>Fit {label}</button>
     </div>}
   </li>;
@@ -91,11 +84,9 @@ export function MotorPoolPanel({ game, onManageParts }: { game: GameState; onMan
     </div>}
     {!custody ? <>
       <p id="motor-custody-terms">Leave a Riding Mower, Service Runabout, or Beater at the depot. The rig leaves your garage until you complete both routes. Its equipment, wear and race history carry through resets.</p>
-      {selected && <label className="inline" htmlFor="motor-rig">Rig to lodge
-        <select id="motor-rig" value={selected.uid} onChange={(event) => {setChosen(event.target.value); setConfirm(null);}}>
-          {garageRigs.map((rig) => <option value={rig.uid} key={rig.uid}>{rig.name} · {getVehicle(rig.vehicleId).name}</option>)}
-        </select>
-      </label>}
+      {selected && <ChoiceList id="motor-rig" label="Rig to lodge" compact value={selected.uid}
+        items={garageRigs.map((rig) => ({ id: rig.uid, title: rig.name, meta: getVehicle(rig.vehicleId).name }))}
+        onChange={(uid) => {setChosen(uid); setConfirm(null);}} />}
       {lodgeIssue && <p className="why">{lodgeIssue}</p>}
       {selected && <button className="btn" ref={custodyButton} type="button" aria-describedby="motor-custody-terms" disabled={!!lodgeIssue} onClick={() => {
         if (confirm !== lodgeKey) setConfirm(lodgeKey ?? null);

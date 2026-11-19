@@ -5,6 +5,8 @@ import "./globals.css";
 import "./feed.css";
 import "./race-extras.css";
 import "./garage-extras.css";
+import "./controls.css";
+import "./customers.css";
 
 // "Midnight Circuit": Orbitron for signage, Rajdhani for reading, Plex Mono for numbers.
 const orbitron = Orbitron({ variable: "--font-orbitron", subsets: ["latin"], weight: ["500", "700", "900"], display: "swap" });

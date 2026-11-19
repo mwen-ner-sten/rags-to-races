@@ -8,6 +8,9 @@ import { hasPerk } from "@/core/rules";
 import type { GameState, Vehicle } from "@/core/types";
 import { conditionName } from "../format";
 import { useGame } from "../store";
+import { Segmented } from "./Segmented";
+import { partChoice } from "./BuildSlotRow";
+import { ChoiceList } from "./ChoiceList";
 
 export function VehicleRetirement({ game, vehicle }: { game: GameState; vehicle: Vehicle }) {
   const dispatch = useGame((state) => state.dispatch);
@@ -31,22 +34,19 @@ export function VehicleRetirement({ game, vehicle }: { game: GameState; vehicle:
       {carry !== nextCarry && <p className="why">Haul capacity changes from {carry} to {nextCarry} parts.</p>}
       {losesJunkyard && <p className="why">Marisol&apos;s Junkyard trips need a replacement Riding Mower or Borrowed Trailer.</p>}
       {losesTow && game.run.habitSlots.length > 1 && <p className="why">The Riding Mower&apos;s extra Habit slot goes with it.</p>}
-      <label className="inline">
-        <span>Retirement route</span>
-        <select value={kind} onChange={(event) => setKind(event.target.value === "exchange" ? "exchange" : "dismantle")}>
-          <option value="dismantle">Dismantle and keep a part</option>
-          <option value="exchange">Trade for a Push Mower kit</option>
-        </select>
-      </label>
+      <Segmented label="Retirement route" value={kind} onChange={setKind} options={[
+        { value: "dismantle", label: "Dismantle and keep a part" },
+        { value: "exchange", label: "Trade for a Push Mower kit" },
+      ]} />
       {kind === "dismantle" ? (
         <>
-          <label className="inline">
-            <span>Installed part to keep</span>
-            <select value={keep?.uid ?? ""} onChange={(event) => setPicked(event.target.value)}>
-              {parts.length === 0 && <option value="">Nothing installed</option>}
-              {parts.map((part) => <option key={part.uid} value={part.uid}>{getPart(part.partId).name} · {conditionName(part.condition)}</option>)}
-            </select>
-          </label>
+          <ChoiceList
+            label="Installed part to keep"
+            emptyText="Nothing installed"
+            value={keep?.uid ?? ""}
+            onChange={setPicked}
+            items={parts.map((part) => partChoice(part, "Keeps its wear"))}
+          />
           <p>{materials.length > 0 ? `The remaining installed parts yield ${materials.join(", ")}.` : "Any other installed parts become materials."} The chosen part keeps its wear.</p>
         </>
       ) : (

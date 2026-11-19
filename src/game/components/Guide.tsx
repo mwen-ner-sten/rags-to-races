@@ -23,11 +23,11 @@ export function Guide({ tab, onShow, onOpen }: { tab: string; onShow: (tab: Guid
       </div>
       <p>{step.how(game)}</p>
       {workshopOpen && (
-        <p>You can also register a part, repair it, and hand it over to a paying customer. Three paid invoices and a hauler let you move the shop to a new Season.</p>
+        <p>You can also fix up a part for a paying customer. Three finished jobs and a hauler let you move the shop to a new Season.</p>
       )}
       <div className="guide-actions">
         {tab !== step.tab && (
-          <button className="btn small primary" onClick={() => onShow(step.tab)} aria-label="Show me where">
+          <button className="btn small primary" onClick={() => (step.garage ? onOpen({ tab: "garage", section: step.garage }) : onShow(step.tab))} aria-label="Show me where">
             Show me
           </button>
         )}

@@ -14,7 +14,9 @@ import { rallyRoute } from "@/core/rally";
 import type { GameState, RaceCall } from "@/core/types";
 import { capitalize, ordinal, pct } from "../format";
 import { useGame } from "../store";
+import { ChoiceList } from "./ChoiceList";
 import { ResetPlanner } from "./ResetPlanner";
+import { PACE_OPTIONS_SHORT, Segmented } from "./Segmented";
 
 function MeetingEntry({ game, season }: { game: GameState; season: ClubSeason }) {
   const dispatch = useGame((s) => s.dispatch);
@@ -34,25 +36,20 @@ function MeetingEntry({ game, season }: { game: GameState; season: ClubSeason })
       {course && <p>{course.name}. {course.brief}</p>}
       {stages && <p>Stage surfaces · {stages.map(capitalize).join(" · ")}</p>}
       {status ? <p role="status">{status === "racing" ? "On track." : "Signed up. Waiting for its turn in the race queue."}</p> : <>
-        <label className="inline" htmlFor="club-entrant">Club entry
-          <select id="club-entrant" value={vehicle?.uid ?? ""} onChange={(event) => setVehicle(event.target.value)}>
-            {!vehicle && <option value="">{getVehicle(stop.vehicleId).name} needed</option>}
-            {available.map(({ uid, name }) => <option key={uid} value={uid}>{name}</option>)}
-          </select>
-        </label>
-        <label className="inline" htmlFor="club-admission">Admission
-          <select id="club-admission" value={admission} onChange={(event) => setAdmission(event.target.value as ClubAdmission)}>
-            <option value="ticketed">Ticketed gates · {clubEntryPrice(stop, "ticketed", season.course)} Scrap Bucks</option>
-            <option value="public">Free gates · {clubEntryPrice(stop, "public", season.course)} Scrap Bucks</option>
-          </select>
-        </label>
+        <ChoiceList compact id="club-entrant" label="Club entry" value={vehicle?.uid ?? ""} onChange={setVehicle}
+          emptyText={`${getVehicle(stop.vehicleId).name} needed`}
+          items={available.map((car) => ({
+            id: car.uid,
+            title: car.name,
+            meta: `${getVehicle(car.vehicleId).name} · ${pct(winChance(game, car, stop.venueId, stop.event, call, undefined, undefined, season.course))} win odds`,
+          }))} />
+        <Segmented<ClubAdmission> id="club-admission" label="Admission" value={admission} onChange={setAdmission} options={[
+          { value: "ticketed", label: `Ticketed gates · ${clubEntryPrice(stop, "ticketed", season.course)} Scrap Bucks` },
+          { value: "public", label: `Free gates · ${clubEntryPrice(stop, "public", season.course)} Scrap Bucks` },
+        ]} />
         {vehicle && <p className="muted">Estimated pace {effectiveScore(game, vehicle, stop.venueId, call, undefined, stop.event, season.course).toFixed(1)} · {pct(winChance(game, vehicle, stop.venueId, stop.event, call, undefined, undefined, season.course))} win odds · {pct(dnfChance(game, vehicle, stop.venueId, stop.event, call, undefined, season.course))} DNF risk</p>}
         <p>{admission === "public" ? "A finish at free gates earns 2 Rep and counts toward the club’s public requirement." : `A ticketed podium earns ${ticketedGrant(stop)} extra Scrap Bucks.`}</p>
-        <label className="inline" htmlFor="club-call">Race pace
-          <select id="club-call" value={call} onChange={(event) => setCall(event.target.value as RaceCall)}>
-            <option value="nurse">Nurse</option><option value="push">Push</option>
-          </select>
-        </label>
+        <Segmented id="club-call" label="Race pace" value={call} options={PACE_OPTIONS_SHORT} onChange={setCall} />
         {issue && <p className="why">{issue}</p>}
         <button className="btn primary" type="button" disabled={!!issue} onClick={() => {
           if (vehicle) dispatch({ type: "club", move: { type: "enter", vehicleUid: vehicle.uid, call, admission } });

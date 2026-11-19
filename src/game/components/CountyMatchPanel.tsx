@@ -9,6 +9,9 @@ import { winChance } from "@/core/race";
 import type { GameState, RaceCall } from "@/core/types";
 import { ordinal, pct } from "../format";
 import { useGame } from "../store";
+import { getVehicle } from "@/core/content/vehicles";
+import { ChoiceList } from "./ChoiceList";
+import { PACE_OPTIONS_SHORT, Segmented } from "./Segmented";
 
 export function CountyMatchPanel({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
@@ -32,14 +35,13 @@ export function CountyMatchPanel({ game }: { game: GameState }) {
         : "Repair or change the build, then book another Sprint."}</p>}
       {status ? <p role="status">{status === "racing" ? "County match on track." : "County match signed up. Keep a local part installed."}</p> : <>
         {car && <>
-          <label className="inline" htmlFor="county-match-car">Local build
-            <select id="county-match-car" value={car.uid} onChange={(event) => setSelected(event.target.value)}>
-              {cars.map(({ uid, name }) => <option value={uid} key={uid}>{name}</option>)}
-            </select>
-          </label>
-          <label className="inline" htmlFor="county-match-pace">Race pace
-            <select id="county-match-pace" value={pace} onChange={(event) => setPace(event.target.value as RaceCall)}><option value="nurse">Nurse</option><option value="push">Push</option></select>
-          </label>
+          <ChoiceList compact id="county-match-car" label="Local build" value={car.uid} onChange={setSelected}
+            items={cars.map((entry) => ({
+              id: entry.uid,
+              title: entry.name,
+              meta: `${getVehicle(entry.vehicleId).name} · ${pct(winChance(game, entry, "backyard", "sprint", pace, undefined, undefined, undefined, id))} win odds`,
+            }))} />
+          <Segmented id="county-match-pace" label="Race pace" value={pace} options={PACE_OPTIONS_SHORT} onChange={setPace} />
           <p className="muted">Estimated event win odds {pct(winChance(game, car, "backyard", "sprint", pace, undefined, undefined, undefined, id))}</p>
         </>}
         {issue && <p className="why">{issue}</p>}
