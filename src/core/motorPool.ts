@@ -77,7 +77,7 @@ function roadworthy(rig: Vehicle): boolean {
 }
 
 export function motorLodgeBlocker(game: GameState, vehicleUid: string): string | null {
-  if (!motorPoolVisible(game)) return "Earn both service references and settle three customer invoices with a hauler.";
+  if (!motorPoolVisible(game)) return "Earn both service references and finish three customer jobs with a hauler.";
   if (game.motorPool?.custody) return "The depot already holds a rig.";
   if (game.motorPool?.lastLodgedSeason === game.meta.seasonsPlayed + 1) return "The depot takes one rig per Season.";
   const rig = game.run.vehicles.find(({ uid }) => uid === vehicleUid);
