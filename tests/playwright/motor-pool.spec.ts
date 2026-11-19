@@ -3,8 +3,12 @@ import { must } from "../../src/core";
 import { garageSpace } from "../../src/core/garage";
 import type { GameState } from "../../src/core/types";
 import { racer } from "../fixtures/rewrite";
+import { setExperimentalCareers } from "../../src/core/features";
 
 // Covers experimental side careers, which are hidden unless this browser preference is on.
+// Fixtures build experimental saves in Node, so the engine flag must be on here too.
+test.beforeAll(() => setExperimentalCareers(true));
+test.afterAll(() => setExperimentalCareers(false));
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
 });

@@ -84,8 +84,9 @@
   pointer-events: none;
 }
 
+/* Toasts are passing notes: clicks go through to the game underneath, except on the dismiss button. */
 .feed-toast {
-  pointer-events: auto;
+  pointer-events: none;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -102,6 +103,7 @@
 }
 
 .feed-toast .link-btn {
+  pointer-events: auto;
   color: var(--accent);
   min-width: 32px;
   min-height: 32px;
