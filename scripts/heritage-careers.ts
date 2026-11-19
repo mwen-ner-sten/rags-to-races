@@ -9,6 +9,10 @@ import { eligibleHistory, exhibitBlocker, heritageFit, type HeritageKind } from 
 import { Bot, SCHEDULES } from "../src/core/sim/bot";
 import type { GameState } from "../src/core/types";
 import { decodeGameState } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const DAY = 86_400_000;
 class Restorer extends Bot {

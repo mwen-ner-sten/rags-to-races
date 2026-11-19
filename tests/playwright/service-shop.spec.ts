@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { racer, saveText } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 test("the garage can close for a customer route with zero racing wins", async ({page}) => {
   const game=racer("service-browser","riding_mower");
   game.run.featureWins={};

@@ -3,6 +3,11 @@ import { expect, test } from "@playwright/test";
 import type { GameState } from "../../src/core/types";
 import { racer, saveText } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 function transferReady() {
   const earned = process.env.PLAYWRIGHT_SHOP_OPENING_SAVE;
   if (earned) return JSON.parse(Buffer.from(readFileSync(earned, "utf8"), "base64").toString("utf8")).game as GameState;

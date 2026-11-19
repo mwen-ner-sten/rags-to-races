@@ -11,6 +11,7 @@ import { ShopUpgrades } from "./ShopUpgrades";
 import { SwapMeet } from "./SwapMeet";
 import { Tips } from "./Tips";
 import { ToolsCounter } from "./ToolsCounter";
+import { experimentalCareers } from "@/core/features";
 
 const SECTIONS = ["Know-how", "Tools", "Parts counter", "Swap meet", "Shop upgrades", "Heritage"] as const;
 type WorkshopSection = (typeof SECTIONS)[number];
@@ -24,7 +25,7 @@ export function workshopSections(game: GameState): WorkshopSection[] {
     "Parts counter": revealed("tools"),
     "Swap meet": hasPerk(game, "swap_meet"),
     "Shop upgrades": game.era !== null,
-    Heritage: !!game.run.heritageProject || !!game.meta.heritageRegister?.length,
+    Heritage: experimentalCareers() && (!!game.run.heritageProject || !!game.meta.heritageRegister?.length),
   };
   return SECTIONS.filter((name) => open[name]);
 }

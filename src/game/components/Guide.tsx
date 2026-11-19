@@ -3,16 +3,18 @@
 import { GUIDE, type GuideTab, guideStep } from "@/core/guide";
 import type { CareerDestination } from "@/core/careerAdvice";
 import { useGame } from "../store";
+import { useExperimentalCareers } from "../useExperimental";
 
 /** The first-Season guide: one step at a time, with a way to jump to where it happens. */
 export function Guide({ tab, onShow, onOpen }: { tab: string; onShow: (tab: GuideTab) => void; onOpen: (target: CareerDestination) => void }) {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
+  const experimental = useExperimentalCareers();
   if (!game) return null;
   const current = guideStep(game);
   if (!current) return null;
   const { step, index } = current;
-  const workshopOpen = game.run.revealed.includes("bench");
+  const workshopOpen = experimental && game.run.revealed.includes("bench");
   return (
     <section className="guide" aria-labelledby="guide-h">
       <div className="guide-head">

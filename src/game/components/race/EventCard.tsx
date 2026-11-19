@@ -12,6 +12,7 @@ import type { EventKind, GameState, JobSpec, Vehicle } from "@/core/types";
 import { capitalize, duration, num, pct } from "../../format";
 import { useGame } from "../../store";
 import { eventStatus } from "./eventStatus";
+import { experimentalCareers } from "@/core/features";
 
 type RaceSpec = Extract<JobSpec, { kind: "race" }>;
 
@@ -80,10 +81,10 @@ export function EventCard({ game, vehicle, spec: entry, strip }: { game: GameSta
   const stages = game.era?.discipline === "rally" ? rallyRoute(spec.venueId, spec.event) : undefined;
   const showYellow = !!spec.call2 && game.era?.discipline === "dirt";
   const p = winChance(game, vehicle, spec.venueId, spec.event, spec.call, spec.call2);
-  const makers = spec.venueId === "county_fair" && spec.event === "feature" && !spec.regularity && ["go_kart", "beater_car"].includes(vehicle.vehicleId)
+  const makers = experimentalCareers() && spec.venueId === "county_fair" && spec.event === "feature" && !spec.regularity && ["go_kart", "beater_car"].includes(vehicle.vehicleId)
     ? WORKS_FAMILY_IDS.filter((id) => !game.manufacturer?.invites.includes(id)) : [];
   const watched = makers.filter((id) => worksFit(vehicle, id) >= 2);
-  const baton = spec.event === "feature" && batonRaceSetup(game, spec.venueId, vehicle, spec.regularity);
+  const baton = experimentalCareers() && spec.event === "feature" && batonRaceSetup(game, spec.venueId, vehicle, spec.regularity);
   return (
     <article className={`event-card ${status.kind}`}>
       <header className="event-head">

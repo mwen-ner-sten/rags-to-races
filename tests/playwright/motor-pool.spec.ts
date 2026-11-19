@@ -4,6 +4,11 @@ import { garageSpace } from "../../src/core/garage";
 import type { GameState } from "../../src/core/types";
 import { racer } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 const HOUR = 3_600_000;
 const RUNABOUT = "Elm Street Runner";
 const REGRESSION_WHEEL = "depot-fit-wheel";

@@ -5,6 +5,7 @@ import { enqueue, jobBlocker } from "./jobs";
 import { logSeason } from "./journal";
 import { nextUid } from "./rng";
 import type { EventKind, GameState, JobSpec, PartInstance, RaceCall, RaceResult, Vehicle } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 export interface WorksTest {
   venue: string;
@@ -138,6 +139,7 @@ export function worksSpecMatches(state: GameState, spec: RaceSpec, car?: Vehicle
 
 export function worksPlanBlocker(state: GameState, plan?: WorksFamily): string | null {
   if (plan === undefined) return null;
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   return state.manufacturer?.drawings.includes(plan) ? null : "Homologate that manufacturer’s article to use its drawing.";
 }
 
@@ -192,6 +194,7 @@ export function worksRecastBlocker(state: GameState, partUid?: string): string |
 }
 
 export function applyWorks(state: GameState, move: WorksMove): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   const works = state.manufacturer;
   switch (move.type) {
     case "sign": {
@@ -232,6 +235,7 @@ export function applyWorks(state: GameState, move: WorksMove): string | null {
 }
 
 export function recordWorksRace(state: GameState, spec: RaceSpec, result: RaceResult, paidEntry: number): void {
+  if (!experimentalCareers()) return;
   const vehicle = state.run.vehicles.find(({ uid }) => uid === result.vehicleUid);
   if (!vehicle || spec.vehicleUid !== result.vehicleUid) return;
   if (!spec.worksRound) {

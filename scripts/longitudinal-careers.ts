@@ -16,6 +16,10 @@ import { teamCheckpoint } from "../src/core/sim/teamCheckpoint";
 import { initialConfig } from "../src/core/state";
 import type { DisciplineId, GameState, HomeCounty } from "../src/core/types";
 import { decodeSave } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const DAY = 86_400_000;
 const origin = process.argv[2] ?? "race";

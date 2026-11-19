@@ -7,6 +7,7 @@ import { logSeason } from "./journal";
 import { nextUid } from "./rng";
 import { releaseVehicle } from "./vehicleArchive";
 import type { GameState, HallOfFameEntry, JobSpec, Vehicle } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 export type HeritageKind = "exhibit" | "special";
 export interface HeritageProject {
@@ -35,7 +36,7 @@ export type HeritageMove =
 export const HERITAGE_VENUES = ["backyard", "dirt", "county_fair", "regional", "state"];
 
 export function eligibleHistory(game: GameState, entry: HallOfFameEntry): boolean {
-  return entry.season <= game.meta.seasonsPlayed && entry.history.races > entry.history.dnfs &&
+  return experimentalCareers() && entry.season <= game.meta.seasonsPlayed && entry.history.races > entry.history.dnfs &&
     getVehicle(entry.vehicleId).slots.every((slot) => !slot.required || entry.parts.some((part) => part.slot === slot.slot && slot.accepts.includes(part.partId)));
 }
 
@@ -92,6 +93,7 @@ export function heritageClaimBlocker(game: GameState, kind: HeritageKind, model:
 }
 
 export function applyHeritage(game: GameState, move: HeritageMove): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   const project = game.run.heritageProject;
   if (move.type === "start") {
     if (project) return project.completed ? "A heritage project has already been completed this Season." : "Finish or release the active project.";
@@ -129,12 +131,12 @@ export function applyHeritage(game: GameState, move: HeritageMove): string | nul
 
 export function heritageRaceEntry(game: GameState, car: Vehicle, spec: Extract<JobSpec, { kind: "race" }>): string | undefined {
   const p = game.run.heritageProject;
-  if (!p || p.kind !== "special" || p.completed || spec.event !== "feature" || spec.venueId !== HERITAGE_VENUES[getVehicle(car.vehicleId).tier]) return;
+  if (!experimentalCareers() || !p || p.kind !== "special" || p.completed || spec.event !== "feature" || spec.venueId !== HERITAGE_VENUES[getVehicle(car.vehicleId).tier]) return;
   return heritageFit(p, car) === null ? p.uid : undefined;
 }
 export function heritageFinish(game: GameState, car: Vehicle, ticket: string | undefined, position: number, dnf: boolean) {
   const project = game.run.heritageProject;
-  if (ticket && project?.uid === ticket && !project.completed && !dnf && position <= 3) awardProject(game, project, car);
+  if (experimentalCareers() && ticket && project?.uid === ticket && !project.completed && !dnf && position <= 3) awardProject(game, project, car);
 }
 export function heritageReferencesValid(game: GameState): boolean {
   const register = game.meta.heritageRegister ?? [];

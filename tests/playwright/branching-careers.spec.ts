@@ -4,6 +4,11 @@ import { resolveRace } from "../../src/core/race";
 import type { GameState } from "../../src/core/types";
 import { saveText, teamRacer } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 async function importGarage(page: Page, game: GameState) {
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();

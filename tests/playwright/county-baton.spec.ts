@@ -8,6 +8,11 @@ import { archiveVehicle } from "../../src/core/vehicleArchive";
 import { clubCandidate } from "../fixtures/club";
 import { racer, saveText } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 function riverGarage(qualified: boolean) {
   const game = racer("baton-ui", "go_kart");
   game.config.homeCounty = "river";

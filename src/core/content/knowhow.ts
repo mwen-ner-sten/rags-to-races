@@ -2,6 +2,7 @@ import type { GameState } from "../types";
 import { hasPerk } from "../rules";
 import { PART_BY_ID } from "./parts";
 import { hasYardTowRig } from "./vehicles";
+import { experimentalCareers } from "../features";
 
 /**
  * Know-how: techniques, vehicle blueprints and places.
@@ -45,9 +46,9 @@ export const KNOWHOW: readonly KnowhowDef[] = [
   { id: "tech:wiring", name: "Wiring", kind: "technique", blurb: "Repairs harnesses and ECUs.", studyMs: 7 * HOUR, trigger: (s) => s.run.inventory.some((p) => partCategoryOf(p.partId) === "electronics"), hint: "Find any electronics" },
   { id: "tech:bodywork", name: "Bodywork", kind: "technique", blurb: "Turns a rotten shell into a car.", studyMs: 8 * HOUR, trigger: (s) => s.run.available.includes("blueprint:beater_car") || s.run.learned.includes("blueprint:beater_car") || s.run.inventory.some((p) => p.partId === "beater_shell") || s.run.vehicles.some((v) => v.vehicleId === "beater_car"), hint: "Find the Beater plans or buy a sedan shell" },
 
-  { id: "blueprint:riding_mower", name: "Riding Mower plans", kind: "blueprint", blurb: "Sit-down power. Tows a trailer.", studyMs: 4 * HOUR, trigger: (s) => featureWon(s, "backyard") || (s.run.serviceBook?.invoices.length ?? 0) >= 2, hint: "Win the Backyard Feature or fill two customer repair invoices" },
-  { id: "blueprint:service_runabout", name: "Service Runabout plans", kind: "blueprint", blurb: "Use the depot chassis and engine with a fuel source and separate front and rear wheels.", studyMs: 2 * HOUR, trigger: (s) => (s.run.depotReceipts?.length ?? 0) >= 2
-    || !!s.meta.seasonLog?.some(({ depotReceipts }) => (depotReceipts?.length ?? 0) >= 2)
+  { id: "blueprint:riding_mower", name: "Riding Mower plans", kind: "blueprint", blurb: "Sit-down power. Tows a trailer.", studyMs: 4 * HOUR, trigger: (s) => featureWon(s, "backyard") || (experimentalCareers() && (s.run.serviceBook?.invoices.length ?? 0) >= 2), hint: "Win the Backyard Feature" },
+  { id: "blueprint:service_runabout", name: "Service Runabout plans", kind: "blueprint", blurb: "Use the depot chassis and engine with a fuel source and separate front and rear wheels.", studyMs: 2 * HOUR, trigger: (s) => (experimentalCareers() && ((s.run.depotReceipts?.length ?? 0) >= 2
+    || !!s.meta.seasonLog?.some(({ depotReceipts }) => (depotReceipts?.length ?? 0) >= 2)))
     || (s.meta.knowhow["blueprint:service_runabout"] ?? 0) > 0, hint: "Collect both County Motor Pool deliveries in one Season" },
   { id: "blueprint:go_kart", name: "Go-Kart plans", kind: "blueprint", blurb: "A welded kart chassis and a real engine.", studyMs: 8 * HOUR, trigger: (s) => s.run.venuesOpen.includes("dirt") && s.run.learned.includes("tech:welding"), hint: "Open the Dirt Track and learn Welding" },
   { id: "blueprint:beater_car", name: "Beater plans", kind: "blueprint", blurb: "A whole car. The longest project of the Season.", studyMs: 8 * HOUR, trigger: (s) => ((s.run.tools.engine_hoist ?? 0) > 0 || hasPerk(s, "short_cut")) && owns(s, "go_kart"), hint: "Own a Go-Kart and an engine hoist" },

@@ -1,9 +1,14 @@
-import { expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it } from "vitest";
 import { racer } from "../../../tests/fixtures/rewrite";
 import { decodeGameState } from "../../game/save";
 import { apply, must } from "../index";
 import { resolveRace, rollRace, settleRace } from "../race";
 import type { GameState, JobSpec } from "../types";
+import { setExperimentalCareers } from "../features";
+
+// These systems are experimental and off by default; switch them on for this file only.
+beforeEach(() => setExperimentalCareers(true));
+afterEach(() => setExperimentalCareers(false));
 
 const sprint = { kind: "race", venueId: "backyard", event: "sprint", call: "nurse", vehicleUid: "fixture-vehicle" } as const;
 function nextSeason(state: GameState) {

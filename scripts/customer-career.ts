@@ -11,6 +11,10 @@ import { CUSTOMER_IDS, CUSTOMERS, customerLeads, serviceCandidates } from "../sr
 import { initialConfig } from "../src/core/state";
 import type { GameState, JobSpec, MaterialId } from "../src/core/types";
 import { decodeGameState } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const output = process.argv[3] ?? "test-results/service-careers";
 const trials = Number(process.argv[2] ?? 8);

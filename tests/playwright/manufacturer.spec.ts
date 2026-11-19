@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { racer, saveText } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 test("Manufacturer signs one real works entry and presents its next benchmark", async ({ page }) => {
   await page.clock.install();
   const game = racer("manufacturer-browser", "go_kart");

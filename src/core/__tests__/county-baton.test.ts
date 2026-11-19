@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { decodeGameState } from "../../game/save";
 import { racer } from "../../../tests/fixtures/rewrite";
 import { batonRaceSetup, batonTransferBlocker, FREIGHT_COST } from "../countyBaton";
@@ -8,6 +8,11 @@ import { apply, createGame, must } from "../index";
 import { nextSeasonPerkSlots, perkSlots, scrapAward, type ScrapChoices } from "../layers";
 import { settleRace } from "../race";
 import type { GameState, PartInstance, RaceRoll, Vehicle } from "../types";
+import { setExperimentalCareers } from "../features";
+
+// These systems are experimental and off by default; switch them on for this file only.
+beforeEach(() => setExperimentalCareers(true));
+afterEach(() => setExperimentalCareers(false));
 
 const STANDARD = { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, dare: null, hardships: [] } satisfies ScrapChoices;
 const WIN: RaceRoll = {

@@ -12,6 +12,7 @@ import { PROMOTER_CHARTERS, promoterBookingReason, promoterGate, promoterReport,
 import { serviceDelivery } from "@/core/serviceShop";
 import type { GameState } from "@/core/types";
 import { num, ordinal } from "./format";
+import { experimentalCareers } from "@/core/features";
 
 export interface AwayCareerReport {
   id: string;
@@ -112,7 +113,7 @@ function workshopUpdates(before: GameState, after: GameState, coveredFeedKeys: S
 
 export function awayCareer(before: GameState, after: GameState) {
   const coveredFeedKeys = new Set<string>();
-  const reports = workshopUpdates(before, after, coveredFeedKeys);
+  const reports = experimentalCareers() ? workshopUpdates(before, after, coveredFeedKeys) : [];
   const previousTour = before.owner?.tour;
   const tour = after.owner?.tour;
   if (tour && previousTour?.id === tour.id && tour.rounds.length > previousTour.rounds.length) {

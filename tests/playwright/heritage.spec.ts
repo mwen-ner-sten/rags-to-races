@@ -3,6 +3,11 @@ import { must } from "../../src/core";
 import { resolveRace } from "../../src/core/race";
 import { racer, saveText } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 test("a returning mechanic fits an archival component, approves a museum donation and finds it after reload", async ({ page }) => {
   const original = racer("museum-browser");
   const car = original.run.vehicles[0];

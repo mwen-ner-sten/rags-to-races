@@ -16,6 +16,7 @@ import { vehicleSprite } from "../sprites";
 import { useGame } from "../store";
 import { BuildSlotRow } from "./BuildSlotRow";
 import { VehicleRetirement } from "./VehicleRetirement";
+import { experimentalCareers } from "@/core/features";
 
 const TUNES: { id: TuneSetting; label: string }[] = [
   { id: "balanced", label: "Balanced" },
@@ -36,13 +37,13 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
   const busy = vehicleBusy(game, vehicle.uid);
   const reserved = reservedPartUids(game);
   const free = game.run.inventory.filter((p) => !reserved.has(p.uid));
-  const tuning = game.run.learned.includes("tech:tuning") || game.run.heritageSetups?.includes(vehicle.vehicleId);
+  const tuning = game.run.learned.includes("tech:tuning") || (experimentalCareers() && game.run.heritageSetups?.includes(vehicle.vehicleId));
   const discipline = game.era?.discipline ?? "dirt";
   const venues = enterable(game, def.tier);
   const venueId = venues.find((v) => v.id === picked)?.id ?? venues[venues.length - 1]?.id;
   const score = rawScore(vehicle, discipline, venueId);
   const challengeFit = venueId && game.run.challenge.completedAt === undefined ? challengeVehicleFit(game, venueId, vehicle) : null;
-  const baton = game.run.countyBaton;
+  const baton = experimentalCareers() ? game.run.countyBaton : undefined;
   const batonTarget = baton?.leg === "qualify" && !baton.qualified && vehicle.vehicleId === "go_kart" ? "dirt"
     : baton?.leg === "deliver" && baton.completedAt === undefined && vehicle.vehicleId === "beater_car" ? "county_fair" : undefined;
   const batonFit = batonTarget && batonRaceSetup(game, batonTarget, vehicle);

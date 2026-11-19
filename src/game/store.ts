@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { apply, createGame, type Action } from "@/core";
 import { awayCareer, type AwayCareerReport } from "./awayCareer";
 import { decodeSave } from "./save";
+import { applyExperimentalPref, readExperimentalPref } from "./experimentalPref";
 export { isGameState } from "./save";
 import type { FeedItem, FeedKind, GameState, RaceResult } from "@/core/types";
 
@@ -68,6 +69,8 @@ interface Store {
   /** Protect an unreadable original when browser storage could not keep a backup. */
   saveBlocked: boolean;
   dispatch: (action: Action) => boolean;
+  /** Turn the experimental side careers on or off (a browser preference, not part of the save). */
+  setExperimental: (on: boolean) => void;
   load: () => void;
   tick: () => void;
   save: () => void;
@@ -139,6 +142,8 @@ export const useGame = create<Store>((set, get) => ({
   lastTick: 0,
   saveBlocked: false,
 
+  setExperimental: (on) => applyExperimentalPref(on, true),
+
   dispatch: (action) => {
     const { game } = get();
     if (!game) return false;
@@ -161,6 +166,7 @@ export const useGame = create<Store>((set, get) => ({
   },
 
   load: () => {
+    applyExperimentalPref(readExperimentalPref(), false);
     let game: GameState | null = null;
     let savedAt = Date.now();
     let raw: string | null = null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { PIN_NAMES, possiblePins } from "@/core/careerPin";
+import { PIN_NAMES, possiblePins, selectedPin } from "@/core/careerPin";
 import { ProjectPin } from "./ProjectPin";
 import { careerOpportunities, type CareerDestination } from "@/core/careerAdvice";
 import type { GameState } from "@/core/types";
@@ -47,10 +47,11 @@ export function CareerFocus({ jump }: { jump: CareerJump | null }) {
 export function CareerDesk({ game, active, onOpen }: { game: GameState; active: string; onOpen: (target: CareerDestination) => void }) {
   if (!["trips", "legacy", "team", "owner"].includes(active)) return null;
   const opportunities = careerOpportunities(game);
-  if (!opportunities.length && !game.meta.careerPin && !possiblePins(game).length) return null;
+  const pin = selectedPin(game);
+  if (!opportunities.length && !pin && !possiblePins(game).length) return null;
   return (
-    <details className="section" open={active !== "trips" || !!game.meta.careerPin}>
-      <summary>Career opportunities{active === "trips" && (game.meta.careerPin ? " · " + PIN_NAMES[game.meta.careerPin] : opportunities[0] ? " · " + opportunities[0].title : "")}</summary>
+    <details className="section" open={active !== "trips" || !!pin}>
+      <summary>Career opportunities{active === "trips" && (pin ? " · " + PIN_NAMES[pin] : opportunities[0] ? " · " + opportunities[0].title : "")}</summary>
       <ProjectPin game={game} onOpen={onOpen} />
       {opportunities.map((item) => (
         <section key={item.id} aria-labelledby={`career-${item.id}`}>

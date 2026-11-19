@@ -16,6 +16,10 @@ import { salvageCarryCandidates } from "../src/core/salvageCarry";
 import { Bot, SCHEDULES } from "../src/core/sim/bot";
 import type { GameState, NeighborCounty, PartInstance, Vehicle } from "../src/core/types";
 import { decodeGameState } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const DAY = 86_400_000;
 const day = (time: number) => Number((time / DAY).toFixed(2));
