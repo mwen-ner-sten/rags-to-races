@@ -18,7 +18,8 @@ test("@smoke the opening: one button, then the garage", async ({ page }) => {
   // A curb trip takes 15 seconds; the scripted first find is a seized engine.
   await expect(page.getByRole("button", { name: "Garage" })).toBeVisible({ timeout: 25_000 });
   await page.getByRole("button", { name: "Garage" }).click();
-  await expect(page.getByText("Small Engine", { exact: true })).toBeVisible();
+  // The second carry slot is a random draw and can be another Small Engine.
+  await expect(page.getByText("Small Engine", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Clean up that engine" })).toBeVisible();
   await expect(page.getByText("Rusted", { exact: true }).first()).toBeVisible();
 });
