@@ -1,4 +1,4 @@
-/* Styles for this feature area. Use only tokens from globals.css; never hardcode a colour. */
+/* Styles for this feature area. Neon Midnight Circuit. Use only tokens from globals.css; never hardcode a colour. */
 
 /* ── Venue character, demand and rival ─────────────────────────────────── */
 
@@ -15,7 +15,6 @@
 
 .venue-character {
   color: var(--ink-2);
-  font-style: italic;
 }
 
 .demand {
@@ -31,16 +30,21 @@
   font-size: 0.72rem;
   padding: 1px 8px;
   border-radius: 999px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: var(--paper-2);
   color: var(--ink-2);
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .demand-more {
   border-color: var(--ok);
   color: var(--ok);
-  font-weight: 600;
+  font-weight: 700;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--ok) 50%, transparent);
 }
 
 .demand-less {
@@ -81,12 +85,13 @@
 
 .call2-options li {
   padding-left: 8px;
-  border-left: 3px solid var(--line);
+  border-left: 2px solid var(--line-strong);
 }
 
 .call2-options li.on {
   color: var(--ink);
   border-left-color: var(--accent);
+  box-shadow: -6px 0 12px -8px var(--accent);
 }
 
 .call2-yellow {
@@ -115,15 +120,15 @@
 .race-lines li.beat-caution:first-child {
   color: var(--ink);
   padding-left: 6px;
-  border-left: 4px solid var(--highlight);
-  background: color-mix(in srgb, var(--highlight) 30%, transparent);
+  border-left: 3px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
 }
 
 .race-lines li.beat-round:not(:first-child),
 .race-lines li.beat-round:first-child {
   color: var(--ink-2);
   padding-top: 2px;
-  border-top: 1px dashed var(--ink-3);
+  border-top: 1px solid var(--line-strong);
 }
 
 /* The position column holds "1st of 6", so it needs more room than a bare ordinal. */
@@ -186,8 +191,8 @@
 }
 
 .rally-car, .rally-ghost { position: absolute; }
-.rally-car { width: clamp(1.4rem, 5%, 2.8rem); aspect-ratio: 4/3; background-size: contain; background-repeat: no-repeat; filter: drop-shadow(0 0 1px white) drop-shadow(0 2px 2px #19170f); }
-.rally-ghost, .ghost-swatch { width: .9rem; height: .9rem; border: 2px dashed #fff; background: #176f78; border-radius: 50%; box-shadow: 0 0 0 1px #194859; }
+.rally-car { width: clamp(1.4rem, 5%, 2.8rem); aspect-ratio: 4/3; background-size: contain; background-repeat: no-repeat; filter: drop-shadow(0 0 3px var(--accent-2)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.7)); }
+.rally-ghost, .ghost-swatch { width: .9rem; height: .9rem; border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 30%, var(--paper)); border-radius: 50%; box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
 .rally-ghost { transform: translate(-50%, -50%); }
 .rally-key { display: flex; align-items: center; gap: .5rem; }
 .ghost-swatch { display: inline-block; flex-shrink: 0; }

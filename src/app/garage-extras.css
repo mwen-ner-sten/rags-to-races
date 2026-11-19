@@ -1,4 +1,4 @@
-/* Styles for this feature area. Use only tokens from globals.css; never hardcode a colour. */
+/* Styles for this feature area. Neon Midnight Circuit. Use only tokens from globals.css; never hardcode a colour. */
 
 /* Channel breakdowns: a value you can open to see what feeds it. */
 .channel-why {
@@ -24,6 +24,7 @@
   font-size: 0.75rem;
   color: var(--ink-3);
   text-decoration: underline dotted;
+  text-underline-offset: 3px;
 }
 
 .channel-why summary:focus-visible {
@@ -40,7 +41,7 @@
   min-width: min(240px, 100%);
   font-size: 0.82rem;
   background: var(--paper-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius);
 }
 
@@ -116,9 +117,11 @@
   align-items: center;
   padding: 4px 8px;
   background: var(--paper-2);
-  border-left: 3px solid var(--ok);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--ok);
   border-radius: var(--radius);
   color: var(--ink);
+  box-shadow: -6px 0 12px -8px var(--ok);
 }
 
 .build-better .btn {
@@ -161,4 +164,4 @@
 .opening-comparison { margin-block: 1rem; }
 .opening-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: .75rem; }
 .opening-table th, .opening-table td { text-align: left; vertical-align: top; padding: .45rem .35rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
-.opening-table th { font-weight: 600; }
+.opening-table th { font-family: var(--font-display); font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }

@@ -43,8 +43,10 @@ The pre-rebuild game is archived at the git tag `archive/pre-rebuild`. Design so
 # UI rules
 
 - Mobile breakpoint is `640px`, and the two-column layout collapses at `960px`. Check both sides of each.
-- One look per era via `data-era` on `.game`: `curb` (backyard notebook) and `shop` (race shop in the team's colours, `--team-a`/`--team-b`). All colours are tokens in `src/app/globals.css`, with dark mode under `prefers-color-scheme`. Never hardcode a colour in a component.
-- Fonts load once in `src/app/layout.tsx` (`--font-kalam`, `--font-barlow`, `--font-plex-sans`, `--font-plex-mono`).
+- One look, "Midnight Circuit": neon on near-black, dark only (no light mode). `data-era` on `.game` tunes it: `curb` is teal (`--accent`) with fuchsia (`--accent-2`) for emphasis; `shop` swaps both for the team's colours (`--team-a`/`--team-b`, lifted to a readable lightness). All colours are tokens at the top of `src/app/globals.css`. Never hardcode a colour in a component, and write `var(--accent)`, never a literal teal, so the Team era can recolour it.
+- Token names still come from the old notebook theme (`--paper`, `--ink`, `--card`, `--tape`, `--highlight`, `--font-hand`); the comment above the token block maps each to its role. Fuchsia is for emphasis (the player's own car, selected, guide notes), never for errors: `--ok`/`--warn`/`--bad` stay semantic.
+- Fonts load once in `src/app/layout.tsx` (`--font-orbitron`, `--font-rajdhani`, `--font-plex-mono`). Use `--font-display` (Orbitron: headings and small caps labels, 0.55–1.15rem, uppercase, letter-spaced), the body default (Rajdhani) for reading text, and `--font-num` for numbers.
+- Sprites sit in a dark well (`--well`); never filter or hue-shift an image. Art direction is moving to Blender-modelled neon sprites (samples in `docs/art/samples/midnight-circuit/`, built by `scripts/render_neon_samples.py`); the painted and photoreal sprites are the ones to replace. `docs/art/asset-audit-2026-11.md` lists every folder.
 - Era 1 reveals one system at a time (`src/core/reveal.ts`). Never show crew, disciplines, hardships or other Team-era systems before the player founds a team.
 - Z-index: sticky header 100, tabs 99, toast 10001. Dialogs use native `<dialog>.showModal()`.
 - Every disabled action shows why (`jobBlocker`, `canOpenPlace`, `counterBlocker` return the reason text).
