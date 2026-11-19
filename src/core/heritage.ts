@@ -1,3 +1,4 @@
+import { spend } from "./stats";
 import { getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
 import { venueName } from "./content/events";
@@ -105,7 +106,7 @@ export function applyHeritage(game: GameState, move: HeritageMove): string | nul
     const blocked = heritageClaimBlocker(game, move.kind, move.model);
     if (blocked) return blocked;
     if (move.kind === "exhibit") {
-      game.run.cash -= 12;
+      spend(game, 12);
       game.run.available.push(heritageManual(move.model));
     } else {
       game.run.materials.metal -= 1;

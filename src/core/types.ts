@@ -197,7 +197,7 @@ export interface RaceResult {
   wear: { slot: string; from: Condition; to: Condition }[];
 }
 
-export type FeedKind = "haul" | "driveway" | "bench" | "habit" | "place" | "knowhow" | "build" | "race" | "story";
+export type FeedKind = "haul" | "driveway" | "bench" | "habit" | "place" | "knowhow" | "build" | "race" | "story" | "achievement";
 
 /** Something that just happened, shown in the "Lately" list and as a passing toast. */
 export interface FeedItem {
@@ -242,6 +242,38 @@ export interface SeasonChallengeProgress {
   completedAt?: number;
 }
 
+export interface LifetimeStats {
+  /** Epoch ms the career began (older saves: the first time they were opened after stats existed). */
+  firstPlayedAt: number | null;
+  trips: number;
+  partsFound: number;
+  partsSold: number;
+  partsStripped: number;
+  partsCleaned: number;
+  partsRepaired: number;
+  partsRestored: number;
+  benchJobs: number;
+  vehiclesBuilt: number;
+  vehiclesBuiltBy: Record<string, number>;
+  /** Every Scrap Buck that came in (prizes, sales, grants), and every one paid out. */
+  cashEarned: number;
+  cashSpent: number;
+  prizeMoney: number;
+  racesEntered: number;
+  raceWins: number;
+  podiums: number;
+  dnfs: number;
+  featureWins: number;
+  featureWinsBy: Record<string, number>;
+  winStreak: number;
+  bestWinStreak: number;
+  dnfStreak: number;
+  bestDnfStreak: number;
+  winsOnScrapPart: number;
+  recordsBroken: number;
+  scrapResets: number;
+}
+
 export interface MetaState {
   careerPin?: import("./careerPin").CareerPin;
   serviceReferences?: import("./serviceShop").ServiceReferences;
@@ -281,6 +313,10 @@ export interface MetaState {
   totalTeamResets: number;
   /** Deepest milestone ever reached per venue (for tune-up first-ever bonuses). */
   milestonesEver: string[];
+  /** Lifetime counters, bumped by the engine where each event happens (see stats.ts). */
+  stats: LifetimeStats;
+  /** Achievement id to the epoch ms it unlocked (see achievements.ts). Cosmetic: no bonuses. */
+  achievements: Record<string, number>;
 }
 
 export interface ScrapLayerState {

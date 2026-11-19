@@ -1,3 +1,4 @@
+import { earn } from "./stats";
 import { channel } from "./channels";
 import { CONDITION_STAT, CONDITION_VALUE, REPAIR_COST, STRIP_YIELD, getPart } from "./content/parts";
 import { getVehicle, isWheelSlot } from "./content/vehicles";
@@ -88,8 +89,9 @@ export function sellParts(state: GameState, parts: PartInstance[]): number {
   const uids = new Set(parts.map((p) => p.uid));
   state.run.inventory = state.run.inventory.filter((p) => !uids.has(p.uid));
   state.run.driveway = state.run.driveway.filter((p) => !uids.has(p.uid));
-  state.run.cash += earned;
+  earn(state, earned);
   state.run.stats.partsSold += parts.length;
+  state.meta.stats.partsSold += parts.length;
   return earned;
 }
 
@@ -236,6 +238,7 @@ function clearDriveway(state: GameState): void {
     state.run.driveway = state.run.driveway.filter((p) => !uids.has(p.uid));
     said.push(`stripped ${partNames(strip)} for ${Object.entries(got).map(([m, n]) => `${n} ${m}`).join(", ")}`);
     tally.stripped = strip.length;
+    state.meta.stats.partsStripped += strip.length;
   }
   if (sell.length > 0) {
     const earned = sellParts(state, sell);

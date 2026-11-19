@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { SeasonLog } from "./SeasonLog";
 import { RallyCards } from "./RallyCards";
+import { Achievements, LifetimeStatsTable } from "./AchievementsStats";
 import { HeritageOffer } from "./HeritageDesk";
 import type { CareerDestination } from "@/core/careerAdvice";
 import { useState, type KeyboardEvent } from "react";
@@ -149,7 +150,7 @@ function Journal({ game }: { game: GameState }) {
   </>;
 }
 
-const SECTIONS = ["Journal", "Codex", "Rivals", "Hall of Fame", "Seasons", "Timecards"] as const;
+const SECTIONS = ["Journal", "Codex", "Rivals", "Hall of Fame", "Seasons", "Achievements", "Stats", "Timecards"] as const;
 
 export function NotebookPanel({ section, onOpen }: { section?: "Hall of Fame" | "Timecards"; onOpen?: (target: CareerDestination) => void }) {
   const game = useGame((s) => s.game);
@@ -181,6 +182,8 @@ export function NotebookPanel({ section, onOpen }: { section?: "Hall of Fame" | 
       {tab === "Rivals" && <Rivals game={game} />}
       {tab === "Hall of Fame" && <HallOfFame game={game} onOpen={onOpen} />}
       {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} contacts={game.countyRivals} />}
+      {tab === "Achievements" && <Achievements game={game} />}
+      {tab === "Stats" && <LifetimeStatsTable game={game} />}
       {tab === "Timecards" && <RallyCards cards={game.meta.rallyCards ?? []} />}
       </div>
     </section>

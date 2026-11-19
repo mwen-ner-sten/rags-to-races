@@ -1,3 +1,4 @@
+import { earn, spend } from "./stats";
 import { getVenue, venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { pushFeed } from "./feed";
@@ -466,7 +467,7 @@ export function applyOwner(state: GameState, move: OwnerMove): string | null {
         sponsorCar: rookie && { uid: rookie.uid, name: rookie.name, startsAtSigning: rookie.history.races },
         itinerary: move.itinerary,
       };
-      if (move.sponsor) state.run.cash -= TOUR_SPONSORS[move.sponsor].stake;
+      if (move.sponsor) spend(state, TOUR_SPONSORS[move.sponsor].stake);
       if (owner) {
         owner.records ??= ownerRecords(owner);
         owner.history.unshift(owner.tour);
@@ -589,7 +590,7 @@ function completeRound(state: GameState, finish: OwnerFinish | null): void {
   const sponsorship = sponsorProgress(tour);
   if (tour.sponsor && sponsorship) {
     const sponsor = TOUR_SPONSORS[tour.sponsor];
-    state.run.cash += sponsorship.payout;
+    earn(state, sponsorship.payout);
     pushFeed(state, "race", sponsorship.payout
       ? `${sponsor.name} paid ${sponsorship.payout} Scrap Bucks, including your returned stake.`
       : `${sponsor.name}'s target was missed. Your stake was forfeited.`, { key: `championship-sponsor:${tour.id}` });
@@ -597,7 +598,7 @@ function completeRound(state: GameState, finish: OwnerFinish | null): void {
   if (score.champion) {
     owner.titles += 1;
     owner.charterTitles[tour.charter] += 1;
-    state.run.cash += charter.purse;
+    earn(state, charter.purse);
     state.team.tp += charter.teamPoints;
     state.team.lifetimeTp += charter.teamPoints;
     if (!ownerCharterBlocker(state, "county_to_state")) {

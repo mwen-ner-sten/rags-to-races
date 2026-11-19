@@ -1,3 +1,4 @@
+import { spend } from "./stats";
 import { getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
 import { garageSpace, stripYield, vehicleBusy } from "./garage";
@@ -53,7 +54,7 @@ export function retireVehicle(state: GameState, vehicleUid: string, move: Retire
   if (typeof plan === "string") return plan;
   const { vehicle, retained, materials, cash } = plan;
   releaseVehicle(state, vehicle, move.kind);
-  state.run.cash -= cash;
+  spend(state, cash);
   for (const material of ["metal", "rubber", "wiring"] as const) state.run.materials[material] += materials[material] ?? 0;
   if (retained) state.run.inventory.push(retained);
   else {

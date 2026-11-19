@@ -118,6 +118,15 @@ const handover = z.discriminatedUnion("type", [
     venueId: known(VENUE_BY_ID).refine((venue) => venue !== "backyard"), discipline: z.enum(["dirt", "drag", "rally"]),
   }),
 ]);
+const lifetimeStats = z.object({
+  firstPlayedAt: amount.nullable(),
+  trips: count, partsFound: count, partsSold: count, partsStripped: count, partsCleaned: count, partsRepaired: count, partsRestored: count,
+  benchJobs: count, vehiclesBuilt: count, vehiclesBuiltBy: z.record(id, count),
+  cashEarned: amount, cashSpent: amount, prizeMoney: amount,
+  racesEntered: count, raceWins: count, podiums: count, dnfs: count, featureWins: count, featureWinsBy: z.record(id, count),
+  winStreak: count, bestWinStreak: count, dnfStreak: count, bestDnfStreak: count, winsOnScrapPart: count,
+  recordsBroken: count, scrapResets: count,
+});
 const meta = z.object({
   careerPin: z.enum(PIN_IDS).optional(),
   serviceReferences: z.object({ equipment: z.object({ tool: z.enum(TRANSFER_TOOLS), season: count.positive(), invoice }).optional(), referral: z.object({ season: count.positive(), invoice }).optional() }).optional(),
@@ -152,6 +161,7 @@ const meta = z.object({
   hardshipMastery: z.record(known(HARDSHIP_BY_ID), count), teamStateWon: z.boolean().optional(), stateWonEver: z.boolean(),
   journalSeen: z.array(id), journal: z.array(z.object({ id, season: count.positive(), seasonMs: amount, text: z.string() })),
   seasonsPlayed: count, totalTeamResets: count, milestonesEver: z.array(known(VENUE_BY_ID)),
+  stats: lifetimeStats, achievements: z.record(id, amount),
 });
 const run = z.object({
   depotReceipts: depotReceipts.optional(),
@@ -175,7 +185,7 @@ const run = z.object({
   saleSat: z.record(known(PART_BY_ID), z.object({ n: amount, at: amount })), purseSat: z.record(id, z.object({ n: amount, at: amount })).optional(), notices: z.array(z.string()), pushOnlyRaces: z.boolean(),
   feed: z.array(z.object({
     id, at: amount, text: z.string(), key: id.optional(), count: count.optional(), tally: z.record(id, number).optional(),
-    kind: z.enum(["haul", "driveway", "bench", "habit", "place", "knowhow", "build", "race", "story"]),
+    kind: z.enum(["haul", "driveway", "bench", "habit", "place", "knowhow", "build", "race", "story", "achievement"]),
   })),
 });
 const gameSchema = z.object({
@@ -193,7 +203,7 @@ const gameSchema = z.object({
 });
 // Only fields actually absent from older rewrite saves are optional. Missing core data is corruption.
 const compatibleSchema = gameSchema.extend({
-  meta: meta.extend({ tipsSeen: meta.shape.tipsSeen.optional(), challengeRecords: meta.shape.challengeRecords.optional() }),
+  meta: meta.extend({ tipsSeen: meta.shape.tipsSeen.optional(), challengeRecords: meta.shape.challengeRecords.optional(), stats: lifetimeStats.optional(), achievements: meta.shape.achievements.optional() }),
   run: run.extend({ driveway: run.shape.driveway.optional(), feed: run.shape.feed.optional(), challenge: run.shape.challenge.optional() }),
 });
 
@@ -301,7 +311,8 @@ export function decodeGameState(value: unknown): GameState | null {
   if (!parsed.success) return null;
   const game: GameState = {
     ...parsed.data,
-    meta: { ...parsed.data.meta, tipsSeen: parsed.data.meta.tipsSeen ?? [...parsed.data.run.revealed], challengeRecords: parsed.data.meta.challengeRecords ?? {} },
+    // Absent stats/achievements stay undefined here; upgradeSave backfills them.
+    meta: { ...parsed.data.meta, stats: parsed.data.meta.stats as GameState["meta"]["stats"], achievements: parsed.data.meta.achievements as GameState["meta"]["achievements"], tipsSeen: parsed.data.meta.tipsSeen ?? [...parsed.data.run.revealed], challengeRecords: parsed.data.meta.challengeRecords ?? {} },
     run: { ...parsed.data.run, driveway: parsed.data.run.driveway ?? [], feed: parsed.data.run.feed ?? [], challenge: parsed.data.run.challenge ?? {} },
   };
   return referencesValid(game) ? upgradeSave(game) : null;

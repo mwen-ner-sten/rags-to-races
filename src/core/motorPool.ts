@@ -1,3 +1,4 @@
+import { spend } from "./stats";
 import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "./clubTrack";
 import { COUNTY_RIVAL_IDS, countyLoanOrigin } from "./countyRivals";
 import { getPart } from "./content/parts";
@@ -169,7 +170,7 @@ export function applyMotorPool(game: GameState, move: MotorPoolMove): string | n
       if (pool.ledger.season !== season) pool.ledger = { season, booked: [] };
       pool.ledger.booked.push(move.route);
       game.run.inventory = game.run.inventory.filter(({ uid }) => uid !== tender.uid);
-      game.run.cash -= definition.cost;
+      spend(game, definition.cost);
       pool.job = { route: move.route, tender, duration, remaining: duration,
         part: { uid: nextUid(game, "p"), partId: definition.reward, condition: 2, origin: motorOrigin(move.route) } };
       return null;

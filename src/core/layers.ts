@@ -377,6 +377,7 @@ function commitSeason(state: GameState, layer: LayerId): void {
   for (const vehicle of state.run.vehicles) archiveVehicle(state, vehicle);
   const newThisEra = firstEverMilestones(state);
   for (const [venueId, at] of Object.entries(state.run.featureWins)) {
+    if (meta.records[venueId] !== undefined && at < meta.records[venueId]) meta.stats.recordsBroken += 1;
     meta.records[venueId] = Math.min(meta.records[venueId] ?? Infinity, at);
     if (!meta.milestonesEver.includes(venueId)) meta.milestonesEver.push(venueId);
   }
@@ -475,6 +476,7 @@ export function performReset(state: GameState, layerId: LayerId, choices: ScrapC
   archiveClubSeason(state);
   archiveWorks(state);
   commitSeason(state, layerId);
+  if (layerId === "scrap") state.meta.stats.scrapResets += 1;
   for (const scope of layer.clears) clearScope(state, scope);
   layer.apply(state, award, choices, before);
   startClubSeason(state);

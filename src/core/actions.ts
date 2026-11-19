@@ -1,3 +1,5 @@
+import { spend } from "./stats";
+import { evaluateAchievements } from "./achievements";
 /**
  * The single entry point for changing game state. Every action clones the
  * state, applies the change to the clone and returns it, so callers never see
@@ -93,6 +95,7 @@ export function apply(state: GameState, action: Action): ActionResult {
   if (error) return { state, error };
   dropOrphanSignUps(next);
   fillFromDriveway(next);
+  evaluateAchievements(next);
   return { state: next, error: null };
 }
 
@@ -229,7 +232,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!toolStocked(s, tool.id)) return "The counter doesn't stock that for you yet";
       if (s.run.cash < tool.cash) return `Needs ${tool.cash} Scrap Bucks`;
       for (const [m, n] of Object.entries(tool.materials)) if (s.run.materials[m as MaterialId] < (n ?? 0)) return "Not enough materials";
-      s.run.cash -= tool.cash;
+      spend(s, tool.cash);
       for (const [m, n] of Object.entries(tool.materials)) s.run.materials[m as MaterialId] -= n ?? 0;
       s.run.tools[tool.id] = owned + 1;
       afterChange(s);
@@ -239,7 +242,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "buyShell": {
       if (!s.run.placesOpen.includes("auction")) return "The Salvage Auction sells shells";
       if (s.run.cash < SHELL_PRICE) return `Needs ${SHELL_PRICE} Scrap Bucks`;
-      s.run.cash -= SHELL_PRICE;
+      spend(s, SHELL_PRICE);
       s.run.shellsBought += 1;
       s.run.inventory.push({ uid: nextUid(s, "p"), partId: "beater_shell", condition: 1, origin: "Salvage Auction" });
       afterChange(s);
@@ -248,7 +251,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "buyPart": {
       const blocker = counterBlocker(s, action.partId);
       if (blocker) return blocker;
-      s.run.cash -= counterPrice(s, action.partId);
+      spend(s, counterPrice(s, action.partId));
       s.run.stats.counterBuys = (s.run.stats.counterBuys ?? 0) + 1;
       s.run.inventory.push({ uid: nextUid(s, "p"), partId: action.partId, condition: 3, origin: "Parts counter" });
       afterChange(s);

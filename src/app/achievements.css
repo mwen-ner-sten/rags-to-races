@@ -1,0 +1,122 @@
+/* Achievements and lifetime stats (Notebook). Tokens only: --accent follows team-colour theming. */
+
+.ach-count {
+  margin: 0 0 10px;
+  color: var(--ink-2, #a3c3cf);
+}
+
+.ach-count strong {
+  color: var(--accent, #00e5ff);
+  font-size: 1.1rem;
+}
+
+.ach-group {
+  margin-bottom: 16px;
+}
+
+.ach-grid {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.ach-card {
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  background: var(--card, #07121b);
+  border: 1px solid var(--line, #143a4a);
+  border-radius: var(--radius, 3px);
+  overflow-wrap: anywhere;
+}
+
+.ach-card p {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-2, #a3c3cf);
+}
+
+.ach-card[data-state="locked"] {
+  opacity: 0.7;
+}
+
+.ach-card[data-state="locked"] strong {
+  color: var(--ink-3, #7397a6);
+}
+
+.ach-card[data-state="earned"] {
+  border-color: var(--accent, #00e5ff);
+  background: color-mix(in srgb, var(--accent, #00e5ff) 8%, var(--card, #07121b));
+}
+
+.ach-card[data-state="earned"] strong {
+  color: var(--accent, #00e5ff);
+}
+
+.ach-mark {
+  color: var(--ink-3, #7397a6);
+  text-align: center;
+}
+
+.ach-card[data-state="earned"] .ach-mark {
+  color: var(--ok, #3dffa8);
+}
+
+.ach-when {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+}
+
+.lately-item[data-kind="achievement"] { --kind: var(--ok, #3dffa8); }
+
+.lifetime-stats {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card, #07121b);
+  border: 1px solid var(--line, #143a4a);
+}
+
+.stat-table caption {
+  text-align: left;
+  padding: 6px 10px;
+  color: var(--accent, #00e5ff);
+}
+
+.stat-table th,
+.stat-table td {
+  padding: 5px 10px;
+  border-top: 1px solid var(--line, #143a4a);
+  font-weight: 500;
+  vertical-align: top;
+}
+
+.stat-table th {
+  text-align: left;
+  color: var(--ink-2, #a3c3cf);
+  overflow-wrap: anywhere;
+}
+
+.stat-table td {
+  text-align: right;
+  color: var(--ink, #d9eef4);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .ach-grid,
+  .lifetime-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
