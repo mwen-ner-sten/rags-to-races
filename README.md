@@ -1,71 +1,67 @@
 # Rags to Races
 
-An incremental game where you garbage-pick your way from a busted lawnmower to a racing empire.
+A browser incremental game about turning curbside junk into racing machines.
 
-## Overview
+## The game
 
-Rags to Races is a browser-based idle/incremental game built with Next.js. Start by scavenging parts from curbside trash, assemble them into ramshackle vehicles, and race your way up through increasingly competitive circuits — from backyard derbies to the world championship.
+You start as a kid with a wagon, a borrowed socket set and the family garage.
+Haul junk from the curb, clean and repair it, build a push mower, and race the
+neighbourhood. Wins pay **Scrap Bucks** and **Rep**; Rep opens better places to
+haul from and bigger venues to race at.
 
-**Core loop:** Scavenge → Build → Race → Upgrade → Prestige → Repeat
+- **Seasons and the Scrap Reset.** Win the County Fair Feature and you can end
+  the Season: the garage is scrapped, and you keep what you learned plus
+  Legacy Points for perks. Pick a short Sprint Season, a long Push, or a Dare.
+- **The Team layer.** Win the State Invitational and you found a team: hire
+  crew, choose a discipline (Dirt Oval, Drag or Stage Rally) and re-found the
+  team with a Team Reset.
+- **Owner, Circuit and Club** campaigns sit on top of the Team layer.
+- Jobs run in real time (the longest is 8 hours) and keep running while you
+  are away. Repeated jobs become Habits, so automation is earned.
 
-## Features
+Design references: [Era 1 and Team spec](docs/design/era-1-and-team.md),
+[Era 2 concept](docs/design/era-2-concept.md),
+[gameplay charter](docs/gameplay-charter.md).
 
-- **Progressive scavenging** — Unlock 6 locations from curbside trash to military scrapyards as your reputation grows
-- **Vehicle building** — Assemble parts into vehicles ranging from push mowers to full racing machines
-- **Racing simulation** — Compete on 7 circuits spanning T0–T6. Each circuit weights pace, grip, and reliability differently, every race is a contest (never a lock), and the post-race debrief tells you which part to fix
-- **Real build tradeoffs** — Parts carry power, grip, reliability, and weight; a heavy engine buys pace at the cost of cornering
-- **Workshop upgrades** — 30 upgrades across scavenging, building, racing, and maintenance, with Workshop sections revealed as the campaign reaches them
-- **Vehicle wear & repair** — A damaged car drives slower *and* breaks down more; repair or risk it
-- **Prestige system** — Scrap Reset for Legacy Points and permanent upgrades; the first reset is earned over an engaged 1–2 hours
-- **Idle from the first tick** — The garage scavenges and races on its own; manual play is the accelerator, and auto-race pauses below a condition floor you set
-- **15+ themes** — Swap between visual skins like grease, neon, prestige, and more
-- **Mobile-responsive** — Full bottom-nav mobile layout
-- **Persistent saves** — Game state auto-saves to localStorage
-
-## Getting Started
+## Getting started
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to play.
+Open <http://localhost:3000>.
 
-### Scripts
-
-| Command | Description |
+| Command | What it does |
 |---|---|
-| `npm run dev` | Start development server |
-| `npm run build` | Production build |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint |
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build and server |
+| `npm run typecheck` | TypeScript |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest unit tests |
+| `npm run test:e2e` | Playwright browser tests |
+| `npm run sim` | Headless simulator |
+| `npx tsx scripts/pacing-check.ts 8` | Pacing goals across 8 seeds |
 
-## Tech Stack
-
-- [Next.js](https://nextjs.org) 16 — React framework
-- [React](https://react.dev) 19 — UI library
-- [TypeScript](https://www.typescriptlang.org) — Type safety
-- [Zustand](https://zustand.docs.pmnd.rs) — State management with localStorage persistence
-- [Tailwind CSS](https://tailwindcss.com) 4 — Styling
-
-## Project Structure
+## Project structure
 
 ```
 src/
-├── app/            # Next.js App Router (main page + design showcase)
-├── components/     # UI panels (Junkyard, Garage, Race, Workshop, Shop, Settings, Admin)
-├── engine/         # Game logic (tick, scavenge, race, build, prestige)
-├── data/           # Content definitions (vehicles, parts, locations, circuits, upgrades, themes)
-├── state/          # Zustand store
-├── hooks/          # Custom React hooks
-└── utils/          # Formatting, RNG, save/load helpers
+├── app/    Next.js App Router entry
+├── core/   Pure game engine: state, jobs, races, resets (layers.ts), bonus channels
+│   ├── content/  Authored data: parts, places, venues, vehicles, perks, team
+│   └── sim/      The pacing bot
+└── game/   React UI, Zustand store, save codec (save.ts) and components/
+scripts/    Simulators and art tooling
+tests/      Playwright specs and fixtures
 ```
 
-## Project Guides
+Saves live in browser `localStorage` and can be exported and imported from
+Settings.
 
-- [Development and release workflow](docs/development-workflow.md)
-- [Gameplay charter](docs/gameplay-charter.md)
-- [Gameplay playtest plan](docs/playtest-plan.md)
+## Tech
+
+Next.js 16, React 19, TypeScript, Zustand, Tailwind CSS 4, Vitest, Playwright.
 
 ## License
 
