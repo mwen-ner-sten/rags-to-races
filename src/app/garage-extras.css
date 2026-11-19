@@ -165,3 +165,76 @@
 .opening-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: .75rem; }
 .opening-table th, .opening-table td { text-align: left; vertical-align: top; padding: .45rem .35rem; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .opening-table th { font-family: var(--font-display); font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+
+/* Sections inside a main tab (SubNav): badges sit inside the pill. */
+.subtabs button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.subtabs .tab-badge {
+  font-size: 0.62rem;
+  letter-spacing: 0;
+}
+
+.panel > .subtabs {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Swap-in list on a built vehicle's slot: every fitting part with its own Install button. */
+.swap-list {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.swap-list summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swap-list .choice-rows {
+  margin: 6px 0 0;
+  padding: 2px;
+  list-style: none;
+}
+
+.swap-list .choice-row {
+  align-items: center;
+  justify-content: space-between;
+  cursor: default;
+}
+
+.swap-list .choice-row:hover {
+  border-color: var(--line);
+}
+
+.swap-list .choice-row .btn {
+  flex: none;
+}
+
+/* A blueprint slot holds a ChoiceList, so it needs the full width rather than a name column. */
+.slot.slot-choice {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+/* An owned vehicle's slot actions use the whole card width, so an open swap list has room for its rows. */
+.build-slot .slot-actions {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+
+.build-slot .swap-list {
+  flex: 0 1 auto;
+}
+
+.build-slot .swap-list[open] {
+  flex: 1 1 100%;
+  order: 2;
+}

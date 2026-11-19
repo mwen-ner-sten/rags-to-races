@@ -133,12 +133,14 @@ test("the shop exposes the shared shelf when its Move gate opens", async ({ page
   game.run.inventory.push({ uid: "registered-tire", partId: "wheel_busted", condition: 2, origin: "Curbside" });
   await openGame(page, game);
   await page.getByRole("button", { name: /^Garage/ }).click();
-  await page.getByText(/Customer repairs · 2\/3 paid invoices/).click();
+  await page.getByRole("tab", { name: /^Customers/ }).click();
+  await expect(page.getByText(/2 of 3 jobs done/)).toBeVisible();
   await expect(page.getByText("Garage checkpoints", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Deliver part and collect payment" }).click();
+  await page.getByRole("button", { name: /^Hand over · / }).click();
+  await expect(page.getByText(/3 of 3 jobs done/)).toBeVisible();
   await page.getByText("Garage checkpoints", { exact: true }).click();
   await saveSlot(page, "After the third invoice");
-  await page.getByLabel("Take one thing with you").selectOption("Orchard grounds crew");
+  await page.getByRole("group", { name: "Take one thing with you" }).getByRole("radio", { name: /Orchard grounds crew/ }).check();
   await page.getByRole("checkbox", { name: "Close this garage and begin the next Season." }).check();
   await page.getByRole("button", { name: "Move the shop", exact: true }).click();
   await expect(page.getByText("Garage checkpoints", { exact: true })).toHaveCount(0);

@@ -4,6 +4,7 @@ import { DISCIPLINES } from "@/core/content/events";
 import { cautionChance } from "@/core/race";
 import type { GameState, JobSpec } from "@/core/types";
 import { pct } from "../../format";
+import { Segmented } from "../Segmented";
 
 export type Call2 = Extract<JobSpec, { kind: "race" }>["call2"];
 
@@ -34,14 +35,12 @@ export function DriversCall({ game, driver, value, onChange }: DriversCallProps)
   if (!driver) return <p className="why">No driver, so no second call. Put someone in the driver’s seat.</p>;
   return (
     <div className="call2">
-      <fieldset className="segmented">
-        <legend>Driver’s call</legend>
-        {options.map((o) => (
-          <button key={o.id} className={value === o.id ? "on" : ""} aria-pressed={value === o.id} onClick={() => onChange(value === o.id ? undefined : o.id)}>
-            {o.name}
-          </button>
-        ))}
-      </fieldset>
+      <Segmented<string>
+        label="Driver’s call"
+        value={value ?? ""}
+        options={options.map((o) => ({ value: o.id, label: o.name }))}
+        onChange={(id) => onChange(value === id ? undefined : options.find((o) => o.id === id)?.id)}
+      />
       <ul className="call2-options">
         {options.map((o) => (
           <li key={o.id} className={value === o.id ? "on" : ""}>

@@ -11,12 +11,19 @@ import {
 } from "@/core/ownership";
 import { dnfChance, winChance } from "@/core/race";
 import { resolveFlags } from "@/core/rules";
-import type { GameState, JobSpec } from "@/core/types";
+import type { GameState, JobSpec, Vehicle } from "@/core/types";
 import { capitalize, duration, num, ordinal, pct } from "../format";
 import { useGame } from "../store";
+import { ChoiceList, type ChoiceItem } from "./ChoiceList";
 import { DriversCall } from "./race/DriversCall";
+import { PACE_OPTIONS, Segmented } from "./Segmented";
 
 type RaceSpec = Extract<JobSpec, { kind: "race" }>;
+
+function modelMeta(car: Vehicle, extra?: string): string {
+  const model = getVehicle(car.vehicleId);
+  return [model.name, `Tier ${model.tier}`, extra].filter(Boolean).join(" · ");
+}
 
 function RoundEntry({ game, tour }: { game: GameState; tour: OwnerTour }) {
   const dispatch = useGame((state) => state.dispatch);
@@ -63,15 +70,14 @@ function RoundEntry({ game, tour }: { game: GameState; tour: OwnerTour }) {
         <>
           {cars.length > 0 && (
             <>
-              <label htmlFor="owner-car">Race car</label>
-              <select className="input" id="owner-car" value={selected?.uid ?? ""} onChange={(event) => setCarUid(event.target.value)}>
-                {cars.map((car, index) => <option value={car.uid} key={car.uid}>{car.name} · {getVehicle(car.vehicleId).name}{index === 0 ? " · Suggested" : ""}</option>)}
-              </select>
-              <fieldset className="segmented">
-                <legend>Pace</legend>
-                <button className={call === "nurse" ? "on" : ""} aria-pressed={call === "nurse"} onClick={() => setCall("nurse")}>Nurse it</button>
-                <button className={call === "push" ? "on" : ""} aria-pressed={call === "push"} onClick={() => setCall("push")}>Push</button>
-              </fieldset>
+              <ChoiceList compact id="owner-car" label="Race car" value={selected?.uid ?? ""} onChange={setCarUid}
+                items={cars.map((car, index): ChoiceItem => ({
+                  id: car.uid,
+                  title: car.name,
+                  meta: modelMeta(car, `${pct(winChance(field, car, stop.venueId, stop.event, call, driverCall))} to win`),
+                  tag: index === 0 ? "Suggested" : undefined,
+                }))} />
+              <Segmented label="Pace" value={call} options={PACE_OPTIONS} onChange={setCall} />
               {driver && <DriversCall game={game} driver={driver} value={call2} onChange={setCall2} />}
               {selected && !blocked && <p className="sub">{pct(winChance(field, selected, stop.venueId, stop.event, call, driverCall))} chance to win · {pct(dnfChance(field, selected, stop.venueId, stop.event, call, driverCall))} DNF risk</p>}
             </>
@@ -113,27 +119,11 @@ function TourEntryPlan({ game, tour }: { game: GameState; tour: OwnerTour }) {
     <details className="section" open={!!plan?.enabled}>
       <summary>Entry plan{plan && (plan.enabled ? " · Running" : " · Paused")}</summary>
       <p className="sub">Your team files one race entry at a time, including while you’re away, until this championship ends. The reserve car can take the round when the lead can’t enter. Withdraw a planned entry to pause the plan.</p>
-      <label className="inline">
-        <span>Lead car</span>
-        <select value={leadUid} onChange={(event) => setLeadUid(event.target.value)}>
-          <option value="">Choose a car</option>
-          {garage.map((car) => <option key={car.uid} value={car.uid}>{car.name} · {getVehicle(car.vehicleId).name}</option>)}
-        </select>
-      </label>
-      <label className="inline">
-        <span>Reserve car</span>
-        <select value={reserveUid} onChange={(event) => setReserveUid(event.target.value)}>
-          <option value="">None</option>
-          {garage.filter((car) => car.uid !== leadUid).map((car) => <option key={car.uid} value={car.uid}>{car.name} · {getVehicle(car.vehicleId).name}</option>)}
-        </select>
-      </label>
-      <label className="inline">
-        <span>Planned pace</span>
-        <select value={call} onChange={(event) => setCall(event.target.value === "push" ? "push" : "nurse")}>
-          <option value="nurse">Nurse it</option>
-          <option value="push">Push</option>
-        </select>
-      </label>
+      <ChoiceList compact id="owner-lead" label="Lead car" value={leadUid} onChange={setLeadUid}
+        items={[{ id: "", title: "Choose a car" }, ...garage.map((car): ChoiceItem => ({ id: car.uid, title: car.name, meta: modelMeta(car) }))]} />
+      <ChoiceList compact id="owner-reserve" label="Reserve car" value={reserveUid} onChange={setReserveUid}
+        items={[{ id: "", title: "None" }, ...garage.filter((car) => car.uid !== leadUid).map((car): ChoiceItem => ({ id: car.uid, title: car.name, meta: modelMeta(car) }))]} />
+      <Segmented label="Planned pace" value={call} options={PACE_OPTIONS} onChange={setCall} />
       <label className="inline">
         <span>Keep at least this many Scrap Bucks</span>
         <input type="number" min={0} step={1} value={cashFloor} onChange={(event) => setCashFloor(event.target.value)} />
@@ -190,20 +180,17 @@ export function OwnerPanel() {
           {!!owner?.titles && <p className="sub">Titles in any two disciplines unlock the all-Feature itinerary for that charter.</p>}
           {!!owner?.titles && (
             <>
-              <label htmlFor="owner-sponsor">Sponsorship</label>
-              <select className="input" id="owner-sponsor" value={sponsor ?? ""} onChange={(event) => setSponsor(SPONSOR_IDS.find((id) => id === event.target.value))}>
-                <option value="">Self-funded</option>
-                {SPONSOR_IDS.map((id) => <option key={id} value={id} disabled={!!sponsorshipBlocker(game, id)}>{TOUR_SPONSORS[id].name}</option>)}
-              </select>
+              <ChoiceList id="owner-sponsor" label="Sponsorship" value={sponsor ?? ""}
+                onChange={(id) => setSponsor(SPONSOR_IDS.find((sponsorId) => sponsorId === id))}
+                items={[{ id: "", title: "Self-funded" }, ...SPONSOR_IDS.map((id): ChoiceItem => {
+                  const blocker = sponsorshipBlocker(game, id);
+                  return { id, title: TOUR_SPONSORS[id].name, meta: `${TOUR_SPONSORS[id].term}. Stake ${num(TOUR_SPONSORS[id].stake)} Scrap Bucks`, disabled: !!blocker, reason: blocker ?? undefined };
+                })]} />
               {sponsor && <p className="sub">{TOUR_SPONSORS[sponsor].term}. Stake {num(TOUR_SPONSORS[sponsor].stake)} Scrap Bucks. Complete the contract to recover the stake and earn {num(TOUR_SPONSORS[sponsor].bonus)} more.</p>}
               {!rookies.length && <p className="hint">Development Seat needs a Go-Kart with at most {ROOKIE_KART_START_LIMIT} starts when you sign.</p>}
               {sponsor === "rookie_kart" && rookies.length > 0 && (
-                <label className="inline">
-                  <span>Nominate a rookie Go-Kart</span>
-                  <select value={sponsorVehicleUid ?? ""} onChange={(event) => setNomination(event.target.value)}>
-                    {rookies.map((car) => <option value={car.uid} key={car.uid}>{car.name} · {car.history.races} starts</option>)}
-                  </select>
-                </label>
+                <ChoiceList compact id="owner-rookie" label="Nominate a rookie Go-Kart" value={sponsorVehicleUid ?? ""} onChange={setNomination}
+                  items={rookies.map((car): ChoiceItem => ({ id: car.uid, title: car.name, meta: `${getVehicle(car.vehicleId).name} · ${car.history.races} starts` }))} />
               )}
             </>
           )}

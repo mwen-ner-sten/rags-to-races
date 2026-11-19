@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { getPart } from "@/core/content/parts";
 import type { installedService } from "@/core/actions";
 import { fittingParts, partSwapGain } from "@/core/buildPlanning";
@@ -10,9 +11,65 @@ import { partScoreAt } from "@/core/race";
 import type { DisciplineId, GameState, PartInstance, Vehicle } from "@/core/types";
 import { conditionName } from "../format";
 import { BatonGuardControls } from "./CountyBaton";
+import type { ChoiceItem } from "./ChoiceList";
 
 export function partOption(part: PartInstance, batonTag?: string): string {
   return `${getPart(part.partId).name} (${conditionName(part.condition)})${batonTag ? ` · ${batonTag}` : ""}`;
+}
+
+/** A part's name with its condition chip, for rows that show parts inline. */
+export function PartTitle({ part }: { part: PartInstance }) {
+  return (
+    <>
+      {getPart(part.partId).name} <span className={`cond c${part.condition}`}>{conditionName(part.condition)}</span>
+    </>
+  );
+}
+
+/** A part as a ChoiceList row: name and condition up front, origin underneath unless `meta` says otherwise. */
+export function partChoice(part: PartInstance, meta: ReactNode = partOriginLabel(part)): ChoiceItem {
+  return { id: part.uid, title: <PartTitle part={part} />, meta };
+}
+
+interface SwapListProps {
+  game: GameState;
+  label: string;
+  options: readonly PartInstance[];
+  gainFor: (part: PartInstance) => number;
+  onInstall: (partUid: string) => void;
+}
+
+const signedGain = (gain: number) => `${gain >= 0 ? "+" : ""}${gain.toFixed(1)}`;
+
+/** Every fitting part with its own Install button, best gain first. */
+function SwapList({ game, label, options, gainFor, onInstall }: SwapListProps) {
+  const rows = options.map((part) => ({ part, gain: gainFor(part) })).sort((a, b) => b.gain - a.gain);
+  return (
+    <details className="swap-list">
+      <summary>Swap in… ({rows.length})<span className="sr-only"> for {label}</span></summary>
+      <ul className="choice-rows">
+        {rows.map(({ part, gain }) => {
+          const tag = batonPartTag(game, part);
+          return (
+            <li key={part.uid} className="choice-row">
+              <span className="choice-text">
+                <span className="choice-title">
+                  <PartTitle part={part} />
+                  {tag && <span className="choice-tag">{tag}</span>}
+                </span>
+                <span className="choice-meta">
+                  <span className="num">{signedGain(gain)}</span> score · {partOriginLabel(part)}
+                </span>
+              </span>
+              <button type="button" className="btn small" aria-label={`Install ${getPart(part.partId).name}`} onClick={() => onInstall(part.uid)}>
+                Install
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
 }
 
 interface BuildSlotRowProps {
@@ -36,7 +93,6 @@ export function BuildSlotRow({ game, vehicle, slot, discipline, venueId, free, b
   const batonTag = installed && batonPartTag(game, installed);
   const worth = (part: PartInstance) => partScoreAt(part, discipline, venueId, slot.slot);
   const gainFor = (part: PartInstance) => partSwapGain(vehicle, slot.slot, part, discipline, venueId);
-  const signed = (gain: number) => `${gain >= 0 ? "+" : ""}${gain.toFixed(1)}`;
   const current = installed ? worth(installed) : 0;
   const options = fittingParts(free, slot);
   const best = options.reduce<PartInstance | null>((top, p) => (top === null || gainFor(p) > gainFor(top) ? p : top), null);
@@ -61,14 +117,7 @@ export function BuildSlotRow({ game, vehicle, slot, discipline, venueId, free, b
       ) : (
         <span className="slot-actions">
           {options.length > 0 && (
-            <select aria-label={`Swap ${slot.label ?? slot.slot}`} value="" onChange={(e) => e.target.value && onInstall(e.target.value)}>
-              <option value="">Swap in…</option>
-              {options.map((p) => (
-                <option key={p.uid} value={p.uid}>
-                    {partOption(p, batonPartTag(game, p))} · {signed(gainFor(p))} score · {partOriginLabel(p)}
-                </option>
-              ))}
-            </select>
+            <SwapList game={game} label={slot.label ?? slot.slot} options={options} gainFor={gainFor} onInstall={onInstall} />
           )}
           {installed && (
             <button className="link-btn" onClick={onPull}>

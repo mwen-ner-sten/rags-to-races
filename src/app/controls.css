@@ -1,0 +1,170 @@
+/* Shared choice controls (Segmented and friends). Neon Midnight Circuit. Use only tokens from globals.css; never hardcode a colour. */
+
+.segmented-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 4px 0;
+}
+
+.segmented-note {
+  margin: 4px 0 0;
+}
+
+.segmented button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--ink-3);
+  background: var(--paper);
+}
+
+.segmented button:disabled:hover {
+  color: var(--ink-3);
+  background: var(--paper);
+}
+
+@media (max-width: 640px) {
+  .segmented {
+    gap: 4px;
+    max-width: 100%;
+  }
+
+  .segmented button,
+  .segmented button + button,
+  .segmented button:first-of-type,
+  .segmented button:last-of-type {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    flex: 1 1 auto;
+    min-height: 40px;
+    max-width: 100%;
+  }
+
+  .segmented button.on {
+    border-color: var(--accent);
+  }
+}
+
+/* ChoiceList: pick one row from a list that shows what you are comparing. */
+.choice-list {
+  margin: 6px 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.choice-list legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  color: var(--ink-3);
+}
+
+.choice-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 264px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+
+.choice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.choice-row:hover {
+  border-color: var(--accent);
+}
+
+.choice-row.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.choice-row.off {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.choice-row.off:hover {
+  border-color: var(--line);
+}
+
+.choice-row.only {
+  cursor: default;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.choice-row.only:hover {
+  border-color: var(--line);
+}
+
+.choice-row input {
+  flex: none;
+  margin: 4px 0 0;
+  accent-color: var(--accent);
+}
+
+.choice-row:has(input:focus-visible) {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+
+.choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.choice-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.choice-meta {
+  font-size: 0.85rem;
+  color: var(--ink-3);
+}
+
+.choice-tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--accent-2);
+  border-radius: 3px;
+  font-family: var(--display);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  vertical-align: middle;
+}
+
+.choice-tag,
+.choice-row.only .link-btn {
+  white-space: nowrap;
+}
+
+.choice-row.only .link-btn {
+  flex: none;
+}
+
+.choice-title .cond {
+  margin-left: 4px;
+}
