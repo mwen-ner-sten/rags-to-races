@@ -1,19 +1,33 @@
+import { advancePromoter } from "./promoter";
+import { advanceMotorPool } from "./motorPool";
+import { clubHostingCost, clubSpecMatches } from "./club";
+import { worksSpecMatches } from "./manufacturer";
+import { countySpecMatches } from "./countyRivals";
 import { channel } from "./channels";
-import { DISCIPLINES, getVenue } from "./content/events";
+import { countyPlaceBlocker } from "./counties";
+import { customerLeads, recordService } from "./serviceShop";
+import { cardFor, tripmeterAvailable, usesRallyClassCard } from "./timecards";
+import { DISCIPLINES, getVenue, venueName } from "./content/events";
 import { REPAIR_MINUTES, REPAIR_TECHNIQUE, getPart } from "./content/parts";
 import { PLACE_BY_ID, getPlace } from "./content/places";
 import { CREW_BY_ID, crewLevel } from "./content/team";
 import { getVehicle } from "./content/vehicles";
-import { benchCost, conditionAfter, fillFromDriveway, reservedPartUids, stripYield, vehicleBusy } from "./garage";
+import { benchCost, conditionAfter, fillFromDriveway, nowhereToStow, reservedPartUids, stripYield, vehicleBusy } from "./garage";
 import { countRepetition, syncHabitSlots, templateBase } from "./habits";
 import { completeHaul } from "./haul";
-import { STORY, addJournal } from "./journal";
+import { pushFeed } from "./feed";
+import { STORY, addJournal, tell } from "./journal";
+import { CONDITION_NAMES } from "./content/parts";
 import { getKnowhow } from "./content/knowhow";
 import { isLearned, learn, refreshKnowhow, studyMs } from "./knowhowEngine";
 import { raceDurationMs, resolveRace, rollRace, settleRace } from "./race";
+import { nextRaceNightSpec } from "./raceNight";
 import { refreshReveals } from "./reveal";
 import { nextUid } from "./rng";
 import { hasPerk, resolveFlags } from "./rules";
+import { assignedRacingCrewIds, creditCrew, crewBusyRacing, crewEfficiency, crewTravelBlocker, racingCrewIds, teamOrganization } from "./crew";
+import { applyCrewHandover, crewCanApprentice } from "./crewLegacy";
+import { queueTourPlan } from "./ownership";
 import type { ActiveJob, Condition, CrewMember, EventKind, GameState, JobSpec, LaneId, MaterialId, PartInstance } from "./types";
 
 const MIN = 60_000;
@@ -54,11 +68,13 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "haul": {
       const place = PLACE_BY_ID[spec.placeId];
       if (!place) return "Unknown place";
+      const county = countyPlaceBlocker(state, spec.placeId);
+      if (county) return county;
       if (!state.run.placesOpen.includes(spec.placeId)) return "That place isn't open to you yet";
       const req = place.requires?.(state);
       if (req) return req;
       if (state.run.cash < place.fee) return `Needs ${place.fee} Scrap Bucks`;
-      if (spec.focus && !isLearned(state, "tech:scouting")) return "Learn Scouting to look for something specific";
+      if (spec.focus && spec.focus !== customerLeads(state) && !isLearned(state, "tech:scouting")) return "Learn Scouting to look for something specific";
       return null;
     }
     case "clean": {
@@ -90,8 +106,11 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       if (!hasMaterials(state, benchCost(part, "restore"))) return "Not enough materials";
       return null;
     }
-    case "strip":
-      return findAnyPart(state, spec.partUid) ? null : "Pick a part";
+    case "strip": {
+      const part = findAnyPart(state, spec.partUid);
+      if (!part) return "Pick a part";
+      return part.batonGuard ? "Release County Baton protection first." : null;
+    }
     case "study": {
       const def = getKnowhow(spec.knowhowId);
       if (def.kind === "place") return "Places are opened with Rep";
@@ -103,15 +122,18 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "assemble": {
       const def = getVehicle(spec.vehicleId);
       if (def.blueprint && !isLearned(state, def.blueprint)) return "You haven't drawn up these plans";
+      const offered = Object.entries(spec.partUids);
+      if (new Set(offered.map(([, uid]) => uid)).size !== offered.length) return "Choose a different physical part for each slot";
+      if (offered.some(([key]) => !def.slots.some(({ slot }) => slot === key))) return "Choose parts for slots on this build";
       for (const slot of def.slots) {
         const uid = spec.partUids[slot.slot];
         const part = findPart(state, uid);
         if (!part) {
-          if (slot.required) return `Missing ${slot.slot}`;
+          if (slot.required || uid !== undefined) return `Missing ${slot.label ?? slot.slot}`;
           continue;
         }
         if (!slot.accepts.includes(part.partId)) return `${getPart(part.partId).name} doesn't fit the ${slot.slot} slot`;
-        if (slot.minCondition !== undefined && part.condition < slot.minCondition) return `The ${slot.slot} must be at least Good`;
+        if (slot.minCondition !== undefined && part.condition < slot.minCondition) return `The ${slot.slot} must be at least ${CONDITION_NAMES[slot.minCondition]}`;
         if (part.condition === 0) return `${getPart(part.partId).name} is scrap; clean or replace it`;
       }
       if (state.run.cash < def.cash) return `Needs ${def.cash} Scrap Bucks`;
@@ -121,26 +143,72 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "race": {
       const vehicle = state.run.vehicles.find((v) => v.uid === spec.vehicleUid);
       if (!vehicle) return "Pick a vehicle";
+      if (spec.regularity && !usesRallyClassCard(spec)) return "Enter regularity through a standard Rally event.";
+      if (spec.clubRound && !clubSpecMatches(state, spec, vehicle)) return "That club sign-up is no longer current";
+      if (spec.worksRound && !worksSpecMatches(state, spec, vehicle)) return "That works sign-up needs the signed engine and three family parts";
+      if (spec.countyMatch && !countySpecMatches(state, spec)) return "That county sign-up needs the local Push Mower build";
       if (vehicleBusy(state, vehicle.uid) && !signUp) return "That vehicle is already racing";
       if (!state.run.venuesOpen.includes(spec.venueId)) return "That venue isn't open to you yet";
       const venue = getVenue(spec.venueId);
       const tier = getVehicle(vehicle.vehicleId).tier;
       if (tier < venue.tiers[0] || tier > venue.tiers[1]) return `Tier ${venue.tiers[0]}–${venue.tiers[1]} vehicles only`;
-      if (!(state.run.ladder[spec.venueId] ?? []).includes(spec.event)) return "Podium the previous event first";
+      if (!(state.run.ladder[spec.venueId] ?? []).includes(spec.event) && !(signUp && rungPending(state, spec.venueId, spec.event, spec.vehicleUid))) return "Podium the previous event first";
       const missing = getVehicle(vehicle.vehicleId).slots.find((sl) => sl.required && !vehicle.parts[sl.slot]);
       if (missing) return `The ${missing.slot} is out on the bench`;
       if (Object.values(vehicle.parts).some((p) => p && p.condition === 0)) return "A part is scrap. Fix it before racing";
+      if (spec.holdMarks && (!spec.regularity || !tripmeterAvailable(vehicle))) return "Use a Roadbook Special with Worn or better electronics in a regularity entry.";
+      if (spec.useLastPace && !spec.regularity) return "Choose a regularity entry to use a declared pace.";
+      if (spec.regularity && (state.era?.discipline !== "rally" || !cardFor(state, spec.venueId, spec.event, vehicle.vehicleId))) {
+        return "Set a class time on this standard Rally course before entering regularity.";
+      }
       if (spec.call2) {
-        const driver = state.era?.crew.some((c) => c.assignment.type === "driver");
+        if (spec.ownerDrive) return "This round’s contract calls for an unassisted owner-driver.";
+        const available = signUp ? assignedRacingCrewIds(state) : racingCrewIds(state);
+        const driver = state.era?.crew.some((c) => c.assignment.type === "driver" && available.includes(c.id));
         const calls = DISCIPLINES[resolveFlags(state).discipline].secondCall;
-        if (!driver) return "Only a driver can make that call";
+        if (!driver) return !signUp && state.era?.crew.some((c) => c.assignment.type === "driver" && crewBusyRacing(state, c.id))
+          ? "The driver is on track. This race will wait for them."
+          : "Only a driver can make that call";
         if (spec.call2 !== calls.a.id && spec.call2 !== calls.b.id) return "That call isn't part of this discipline";
       }
       const wait = nextEventInMs(state, spec.venueId, spec.event);
       if (wait > 0 && !signUp) return `Next ${spec.event} in ${formatWait(wait)}`;
-      if (state.run.cash < venue.events[spec.event].entry) return `Entry is ${venue.events[spec.event].entry} Scrap Bucks`;
+      const entry = venue.events[spec.event].entry + clubHostingCost(state, spec);
+      if (spec.tourReserve !== undefined && state.run.cash - entry < spec.tourReserve) {
+        return `The ${entry} Scrap Bucks entry would leave less than your ${spec.tourReserve} Scrap Bucks reserve.`;
+      }
+      if (state.run.cash < entry) return `Entry is ${entry} Scrap Bucks`;
       return null;
     }
+  }
+}
+
+const PREVIOUS_RUNG: Record<EventKind, EventKind | null> = { sprint: null, heat: "sprint", feature: "heat" };
+
+/**
+ * True when this event is the next rung up from the ladder's top and a race for that rung is
+ * already queued or running, so you can sign up for the whole night ahead. The sign-up only runs
+ * if that race podiums; otherwise it's dropped (see `dropOrphanSignUps`).
+ */
+export function rungPending(state: GameState, venueId: string, event: EventKind, vehicleUid: string): boolean {
+  const prev = PREVIOUS_RUNG[event];
+  if (!prev) return false;
+  const ladder = state.run.ladder[venueId] ?? [];
+  if (ladder.includes(event)) return false;
+  if (!ladder.includes(prev) && !rungPending(state, venueId, prev, vehicleUid)) return false;
+  const same = (spec: JobSpec) => spec.kind === "race" && spec.venueId === venueId && spec.event === prev && spec.vehicleUid === vehicleUid;
+  return state.run.queue.some(same) || state.run.jobs.some((j) => same(j.spec));
+}
+
+/** Drops queued races waiting on a rung that can no longer open (the race before it missed the podium or was cancelled). */
+export function dropOrphanSignUps(state: GameState): void {
+  const orphans = state.run.queue.filter((q) => q.kind === "race" && !(state.run.ladder[q.venueId] ?? []).includes(q.event) && !rungPending(state, q.venueId, q.event, q.vehicleUid));
+  if (orphans.length === 0) return;
+  state.run.queue = state.run.queue.filter((q) => !orphans.includes(q));
+  for (const q of orphans) {
+    if (q.kind !== "race") continue;
+    const venue = venueName(q.venueId, resolveFlags(state).discipline);
+    state.run.notices.push(`Your ${q.event} sign-up at ${venue} was dropped: the race before it didn't podium or was cancelled. No entry fee was charged.`);
   }
 }
 
@@ -230,7 +298,7 @@ function payForStart(state: GameState, spec: JobSpec): Paid {
       break;
     }
     case "race": {
-      paid.cash = getVenue(spec.venueId).events[spec.event].entry;
+      paid.cash = getVenue(spec.venueId).events[spec.event].entry + clubHostingCost(state, spec);
       const key = `${spec.venueId}:${spec.event}`;
       paid.lastEntered = { key, prev: state.run.lastEntered[key] };
       state.run.lastEntered[key] = state.run.seasonMs;
@@ -263,17 +331,23 @@ function startJob(state: GameState, lane: LaneId, spec: JobSpec, looping: boolea
   const duration = baseDuration(state, spec);
   const paid = payForStart(state, spec);
   const job: ActiveJob = { id: nextUid(state, "j"), lane, spec, duration, remaining: duration, looping, template, paid };
-  if (spec.kind === "race") job.race = rollRace(state, spec) ?? undefined;
+  if (spec.kind === "race") {
+    job.race = rollRace(state, spec) ?? undefined;
+    if (job.race && lane.startsWith("crew:")) job.race.crewIds = [...new Set([...(job.race.crewIds ?? []), lane.slice(5)])];
+  }
   state.run.jobs.push(job);
   return job;
 }
 
-function benchesInUse(state: GameState): number {
-  return state.run.jobs.filter((j) => isBenchKind(j.spec)).length;
-}
-
-function benchCapacity(state: GameState): number {
-  return Math.floor(channel(state, "benches"));
+function benchAvailable(state: GameState, lane?: LaneId): boolean {
+  const collective = teamOrganization(state) === "collective";
+  const dedicated = (candidate: LaneId | undefined) =>
+    collective && !!candidate?.startsWith("crew:") && CREW_BY_ID[candidate.slice(5)]?.role === "wrench";
+  const reserves = dedicated(lane);
+  const occupied = state.run.jobs.filter((job) =>
+    isBenchKind(job.spec) && dedicated(job.lane) === reserves,
+  ).length;
+  return occupied < (reserves ? 1 : Math.floor(channel(state, "benches")));
 }
 
 function laneBusy(state: GameState, lane: LaneId): boolean {
@@ -281,7 +355,8 @@ function laneBusy(state: GameState, lane: LaneId): boolean {
 }
 
 function activeCrew(state: GameState): CrewMember[] {
-  if (!state.era || resolveFlags(state).crewDisabled) return [];
+  const flags = resolveFlags(state);
+  if (!state.era || flags.crewDisabled || flags.habitsDisabled) return [];
   return state.era.crew;
 }
 
@@ -293,6 +368,8 @@ export function resolveTemplate(state: GameState, template: string): JobSpec | n
   if (base.startsWith("haul:")) {
     const [, placeId, focus] = template.split(":");
     const spec: JobSpec = { kind: "haul", placeId, focus: (focus as never) || undefined };
+    // A haul Habit waits rather than hauling straight into the driveway rule.
+    if (nowhereToStow(state)) return null;
     return jobBlocker(state, spec) ? null : spec;
   }
   if (base === "clean") {
@@ -324,16 +401,37 @@ export function dispatch(state: GameState): void {
   let progressed = true;
   while (progressed) {
     progressed = false;
+    const night = state.run.raceNight;
+    if (night) {
+      const upcoming = nextRaceNightSpec(state, night);
+      if (!upcoming) {
+        delete state.run.raceNight;
+      } else if (!laneBusy(state, "hands")) {
+        const blocker = jobBlocker(state, upcoming, true);
+        if (blocker) {
+          delete state.run.raceNight;
+          pushFeed(state, "race", `Race Night ended. ${blocker}.`);
+        } else if (nextEventInMs(state, upcoming.venueId, upcoming.event) === 0 && !jobBlocker(state, upcoming)) {
+          startJob(state, "hands", upcoming, false);
+          night.startsLeft -= 1;
+          if (night.startsLeft === 0) delete state.run.raceNight;
+        }
+      }
+    }
     state.run.queue = state.run.queue.filter((q) => !(q.kind === "study" && isLearned(state, q.knowhowId)));
     // Queue → hands and benches.
     for (let i = 0; i < state.run.queue.length; i++) {
       const spec = state.run.queue[i];
+      if (state.run.raceNight && HANDS_KINDS.has(spec.kind)) continue;
       const blocker = jobBlocker(state, spec);
       if (blocker) continue;
       if (isBenchKind(spec)) {
-        if (benchesInUse(state) >= benchCapacity(state)) continue;
-        // A crew member who is better at this than an unattended bench takes it.
-        const specialist = activeCrew(state).find((c) => c.assignment.type === "queue" && !laneBusy(state, `crew:${c.id}`) && crewAccepts(state, c, spec) && (CREW_BY_ID[c.id]?.speed[spec.kind] ?? 1) > 1);
+        // Send a job to an eligible specialist before using an ordinary bench.
+        const available = activeCrew(state).filter((c) => c.assignment.type === "queue" && !laneBusy(state, `crew:${c.id}`) && crewAccepts(state, c, spec));
+        const specialist = available.find((c) => crewCanApprentice(state, c.id, spec.kind)) ?? available.find((c) =>
+          (CREW_BY_ID[c.id]?.speed[spec.kind] ?? 1) > 1 || (teamOrganization(state) === "collective" && CREW_BY_ID[c.id]?.role === "wrench"),
+        );
+        if (!specialist && !benchAvailable(state)) continue;
         const lane = specialist ? `crew:${specialist.id}` : firstFreeBenchLane(state);
         state.run.queue.splice(i, 1);
         startJob(state, lane, spec, false);
@@ -364,8 +462,8 @@ export function dispatch(state: GameState): void {
         if (!template || laneBusy(state, lane)) return;
         if (!state.run.habitsKnown.includes(templateBase(template))) return;
         const spec = resolveTemplate(state, template);
-        if (!spec) return;
-        if (isBenchKind(spec) && benchesInUse(state) >= benchCapacity(state)) return;
+        if (!spec || (state.run.raceNight && spec.kind === "race")) return;
+        if (isBenchKind(spec) && !benchAvailable(state)) return;
         startJob(state, lane, spec, true, template);
         progressed = true;
       });
@@ -379,7 +477,6 @@ export function dispatch(state: GameState): void {
       if (!state.run.habitsKnown.includes(templateBase(template))) continue;
       const spec = resolveTemplate(state, template);
       if (!spec || !crewAccepts(state, member, spec)) continue;
-      if (isBenchKind(spec) && benchesInUse(state) >= benchCapacity(state)) continue;
       startJob(state, lane, spec, true, template);
       progressed = true;
     }
@@ -397,9 +494,11 @@ function firstFreeBenchLane(state: GameState): LaneId {
 function crewAccepts(state: GameState, member: CrewMember, spec: JobSpec): boolean {
   const def = CREW_BY_ID[member.id];
   if (!def) return false;
+  if (spec.kind === "race" && spec.ownerDrive) return false;
+  if (crewTravelBlocker(state, spec.kind)) return false;
   if (def.refuses.includes(spec.kind)) return false;
   if (spec.kind === "haul" && def.refusesPlace === spec.placeId) return false;
-  if (isBenchKind(spec) && benchesInUse(state) >= benchCapacity(state)) return false;
+  if (isBenchKind(spec) && !benchAvailable(state, `crew:${member.id}`)) return false;
   return true;
 }
 
@@ -414,7 +513,7 @@ export function jobRate(state: GameState, job: ActiveJob, away: boolean): number
     if (def && member) {
       rate *= def.speed[job.spec.kind] ?? 1;
       if (def.longTrip && job.spec.kind === "haul") rate *= job.duration >= def.longTrip.thresholdMs ? def.longTrip.longMult : def.longTrip.shortMult;
-      rate *= 0.6 + 0.4 * (member.morale / 100);
+      rate *= crewEfficiency(member);
       if (!def.noExperience) rate *= 1 + 0.05 * (crewLevel(member.jobsDone) - 1);
     }
   }
@@ -426,10 +525,20 @@ export function jobRate(state: GameState, job: ActiveJob, away: boolean): number
 function completeJob(state: GameState, job: ActiveJob): void {
   const spec = job.spec;
   const crewId = job.lane.startsWith("crew:") ? job.lane.slice(5) : undefined;
+  const raceCrew = spec.kind === "race" ? (job.race?.crewIds ?? racingCrewIds(state)) : [];
   switch (spec.kind) {
-    case "haul":
-      completeHaul(state, spec, crewId);
+    case "haul": {
+      const finds = completeHaul(state, spec, crewId);
+      const place = getPlace(spec.placeId).name;
+      const found = finds.map((p) => `${getPart(p.partId).name} (${CONDITION_NAMES[p.condition]})`).join(", ");
+      const who = laneName(state, job.lane);
+      pushFeed(state, "haul", `${who ? `${who}: ` : ""}${place} trip brought home ${found}.`, job.looping ? {
+        key: `haul:${spec.placeId}:${job.lane}`,
+        tally: { parts: finds.length },
+        merged: (t, count) => `${who ? `${who}: ` : ""}${count} trips to ${place}, ${t.parts} parts. Latest: ${found}.`,
+      } : {});
       break;
+    }
     case "clean":
     case "repair":
     case "restore": {
@@ -437,7 +546,10 @@ function completeJob(state: GameState, job: ActiveJob): void {
       const next = part ? conditionAfter(spec.kind, part.condition) : null;
       if (part && next !== null) {
         part.condition = next;
+        recordService(state, part);
         if (spec.kind === "clean") addJournal(state, "first_clean", STORY.first_clean);
+        if (spec.kind === "restore") tell(state, "first_restore");
+        benchFeed(state, job, `${getPart(part.partId).name} is now ${CONDITION_NAMES[next]}.`);
       }
       break;
     }
@@ -446,7 +558,9 @@ function completeJob(state: GameState, job: ActiveJob): void {
       if (part) {
         state.run.inventory = state.run.inventory.filter((p) => p.uid !== part.uid);
         state.run.driveway = state.run.driveway.filter((p) => p.uid !== part.uid);
-        for (const [m, n] of Object.entries(stripYield(part))) state.run.materials[m as MaterialId] += n ?? 0;
+        const got = stripYield(part);
+        for (const [m, n] of Object.entries(got)) state.run.materials[m as MaterialId] += n ?? 0;
+        benchFeed(state, job, `Stripped ${getPart(part.partId).name} for ${Object.entries(got).map(([m, n]) => `${n} ${m}`).join(", ")}.`);
       }
       break;
     }
@@ -457,15 +571,30 @@ function completeJob(state: GameState, job: ActiveJob): void {
       completeAssembly(state, spec);
       break;
     case "race":
-      if (job.race) settleRace(state, spec, job.race);
+      if (job.race) settleRace(state, spec, job.race, job.paid?.cash);
       else resolveRace(state, spec);
       break;
   }
+  if (job.duration >= MAX_JOB_MS) tell(state, "first_long_job");
   countRepetition(state, spec);
-  if (crewId && state.era) {
-    const member = state.era.crew.find((c) => c.id === crewId);
-    if (member) member.jobsDone += 1;
-  }
+  if (crewId && !raceCrew.includes(crewId)) creditCrew(state, [crewId], spec);
+}
+
+const BENCH_VERB: Record<string, string> = { clean: "cleaning", repair: "repair", restore: "restore", strip: "strip" };
+
+/** Who is doing a looping job, for the feed ("Habit", a crew member's name), or "" for your own hands and benches. */
+function laneName(state: GameState, lane: LaneId): string {
+  if (lane.startsWith("habit:")) return "Habit";
+  if (lane.startsWith("crew:")) return CREW_BY_ID[lane.slice(5)]?.name ?? "Crew";
+  return "";
+}
+
+function benchFeed(state: GameState, job: ActiveJob, text: string): void {
+  const who = laneName(state, job.lane);
+  pushFeed(state, "bench", `${who ? `${who}: ` : ""}${text}`, job.looping ? {
+    key: `bench:${job.spec.kind}:${job.lane}`,
+    merged: (_t, count) => `${who}: ${count} ${BENCH_VERB[job.spec.kind] ?? job.spec.kind} jobs done. Latest: ${text}`,
+  } : {});
 }
 
 function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "assemble" }>): void {
@@ -486,19 +615,22 @@ function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "asse
     history: { races: 0, wins: 0, dnfs: 0, bestFinish: null },
     builtAtSeasonMs: state.run.seasonMs,
   });
+  pushFeed(state, "build", `${spec.name || def.name} is built and ready to race.`);
   if (!state.run.stats.firstStartDone) {
     state.run.stats.firstStartDone = true;
     addJournal(state, "first_start", STORY.first_start);
   }
+  tell(state, `built_${def.id}`);
   syncHabitSlots(state);
 }
 
 /** Validates and queues a job. Returns an error message or null. */
 export function enqueue(state: GameState, spec: JobSpec): string | null {
+  if (spec.kind === "race" && state.run.raceNight?.vehicleUid === spec.vehicleUid) return "This vehicle is reserved for Race Night";
   const blocker = jobBlocker(state, spec, true);
   if (blocker) return blocker;
   if (spec.kind === "race" && signedUp(state, spec.venueId, spec.event)) return "You're already signed up for that";
-  if (spec.kind === "race" && state.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid)) return "That vehicle is already signed up for a race";
+  if (spec.kind === "race" && state.run.queue.some((q) => q.kind === "race" && q.vehicleUid === spec.vehicleUid) && !rungPending(state, spec.venueId, spec.event, spec.vehicleUid)) return "That vehicle is already signed up for a race";
   if ("partUid" in spec && spec.partUid && reservedPartUids(state).has(spec.partUid)) return "That part is already being worked on";
   if (spec.kind === "assemble") {
     const reserved = reservedPartUids(state);
@@ -531,6 +663,11 @@ export function cancelJob(state: GameState, jobId: string): void {
 /** Ms until a scheduled race that's waiting (queued or a Race Day Habit) can start; Infinity if none. */
 function nextGateMs(state: GameState): number {
   let gate = Infinity;
+  const night = !laneBusy(state, "hands") ? nextRaceNightSpec(state) : null;
+  if (night) {
+    const wait = nextEventInMs(state, night.venueId, night.event);
+    if (wait > 0) gate = wait;
+  }
   const consider = (template: string | null | undefined, lane: string) => {
     if (!template || !template.startsWith("race:") || laneBusy(state, lane)) return;
     const [, , venueId, event] = template.split(":");
@@ -557,19 +694,26 @@ function updateCrew(state: GameState, dt: number): void {
   if (!state.era) return;
   for (const member of state.era.crew) {
     const def = CREW_BY_ID[member.id];
-    if (state.run.seasonMs - member.windowStartMs >= MORALE_WINDOW) {
-      member.windowStartMs = state.run.seasonMs;
-      member.workedInWindowMs = 0;
-    }
-    const working = state.run.jobs.some((j) => j.lane === `crew:${member.id}`);
-    const hours = dt / HOUR;
-    if (working) {
-      member.workedInWindowMs += dt;
-      const stamina = (def?.staminaHours ?? 8) * HOUR;
-      const drain = (member.workedInWindowMs > stamina ? 6 : 1) * (def?.moraleDrainMult ?? 1);
-      member.morale = Math.max(0, member.morale - drain * hours);
-    } else {
-      member.morale = Math.min(100, member.morale + 8 * hours);
+    const working = state.run.jobs.some((j) => j.lane === `crew:${member.id}`) || crewBusyRacing(state, member.id);
+    let left = dt;
+    let at = state.run.seasonMs;
+    while (left > 0) {
+      if (at >= member.windowStartMs + MORALE_WINDOW) {
+        member.windowStartMs += Math.floor((at - member.windowStartMs) / MORALE_WINDOW) * MORALE_WINDOW;
+        member.workedInWindowMs = 0;
+      }
+      const chunk = Math.min(left, member.windowStartMs + MORALE_WINDOW - at);
+      if (working) {
+        const stamina = (def?.staminaHours ?? 8) * HOUR;
+        const normal = Math.max(0, Math.min(chunk, stamina - member.workedInWindowMs));
+        const drain = (normal + 6 * (chunk - normal)) / HOUR * (def?.moraleDrainMult ?? 1);
+        member.morale = Math.max(0, member.morale - drain);
+        member.workedInWindowMs += chunk;
+      } else {
+        member.morale = Math.min(100, member.morale + 8 * chunk / HOUR);
+      }
+      at += chunk;
+      left -= chunk;
     }
   }
 }
@@ -581,6 +725,7 @@ function updateCrew(state: GameState, dt: number): void {
 export function advance(state: GameState, ms: number, away = false): void {
   let left = ms;
   dispatch(state);
+  queueTourPlan(state);
   const hasCrew = (state.era?.crew.length ?? 0) > 0;
   let guard = 0;
   while (left > 0 && guard++ < 500_000) {
@@ -611,19 +756,25 @@ export function advance(state: GameState, ms: number, away = false): void {
       for (const job of done) completeJob(state, job);
       afterChange(state);
       dispatch(state);
+      queueTourPlan(state);
     } else if (gate <= dt) {
       dispatch(state);
     }
   }
+  if (state.promoter) advancePromoter(state, ms - left);
+  if (state.motorPool) advanceMotorPool(state, ms - left);
 }
 
 /** Re-evaluates triggers after anything changes. */
 export function afterChange(state: GameState): void {
+  dropOrphanSignUps(state);
   fillFromDriveway(state);
   refreshKnowhow(state);
+  applyCrewHandover(state);
   syncHabitSlots(state);
   refreshReveals(state);
   if (state.run.notices.length > 20) state.run.notices.splice(0, state.run.notices.length - 20);
+  state.run.feed ??= [];
 }
 
 export type { Condition };

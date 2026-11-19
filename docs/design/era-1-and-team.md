@@ -3,8 +3,10 @@
 Date: 2026-10-03. Status: draft for owner review. Companion to the
 [Era Plan](https://claude.ai/artifact/6ZTYnzo8NniibxsuTtSYib).
 
-All numbers here are starting tunables. They live in one tuning table and are
-checked by the pacing simulator. Treat them as hypotheses, not commitments.
+All numbers here are tunables. They live in `src/core/content/` and are checked
+by the pacing simulator. **Where this document and the code disagree, the code
+wins.** The tables below were refreshed against the code on 2026-11-10 (see §11
+for what that pass added).
 
 ## Owner decisions this spec follows (2026-10-03)
 
@@ -90,18 +92,19 @@ hand-written lists.
 | 4 | **Garage: Build** | A compatible engine and wheel | Which part goes in which slot |
 | 5 | **Race: Backyard Derby** | First vehicle runs (a staged first start) | Which event, and Push or Nurse it |
 | 6 | **Debrief and Codex** | First race | What to fix next |
-| 7 | **Neighbourhood Yards** | 5 Rep (ask permission) | Where to haul |
-| 8 | **Queue** (3 slots) | First job of 10 min or longer | What runs while you're away |
-| 9 | **Habits** | Any job done 10 times | What to automate |
+| 7 | **Neighbourhood Yards** | Shown at 3 Rep, opens for 5 (ask permission) | Where to haul |
+| 8 | **Queue** (3 slots) | Third trip | What runs while you're away |
+| 9 | **Habits** | Any job done 5 times (the panel shows progress) | What to automate |
 | 10 | **Know-how: Study** | First locked technique you meet | Learn now or work around it |
-| 11 | **Tools counter** | First 50 Scrap Bucks | Which tool first |
+| 11 | **Tools counter** | First 25 Scrap Bucks | Which tool first |
 | 12 | Riding Mower blueprint | Win the Backyard Feature | Build it, or keep improving the mower |
 | 13 | Dirt Track and Local Junkyard | Rep, plus the riding mower trailer | Longer hauls, bigger events |
 | 14 | Welding, then the Go-Kart | Study Welding | Fabricate versus find |
 | 15 | Salvage Auction | Rep. Weekly lots with a buy-in, better condition. | Spend Scrap Bucks to save time |
 | 16 | **The Beater project** | Rep, plus the Engine Hoist tool | A multi-stage restoration |
 | 17 | County Fair invite, and the **Scrap Reset preview** | Win the Dirt Track Feature | You can see the goal days ahead |
-| 18 | Regional Invitational, then State Invitational | Win the County Fair Feature | Push territory (see §5) |
+| 18 | Regional Invitational and the **Street Stock** plans | Win the County Fair Feature | Push territory (see §5) |
+| 19 | State Invitational | Win the Regional Feature, having also won it in an earlier Season | The Team gate |
 
 Era 1 never shows crew, disciplines, sponsors or any other later system.
 
@@ -116,18 +119,22 @@ The Dirt Track opens with Rep, not a Feature win, so the Race tab shows a sign-u
 
 | Kind | Examples | Duration |
 |---|---|---|
-| Haul | Curb / Yards / Junkyard / Auction lot / Long haul (bulk junkyard) | 15 s / 2 min / 10 min / 1 h / **8 h** |
-| Bench | Clean / patch tyre / rebuild carb / strip mower / weld bracket / strip car / engine rebuild | 1 min / 5 min / 20 min / 30 min / 45 min / 4 h / **8 h** |
-| Study | Rebuilding / Welding / Tuning / Wiring / Bodywork | 10 min / 1 h / 2 h / 4 h / 6 h |
-| Race | Sprint / Heat / Feature | Prep plus a 10–20 s replay. Events run **on a schedule** (Backyard every 2/5/15 min up to State every 2/8/24 h), like Friday night at the Dirt Track. This caps prize income and gives each visit a "race night" to plan around. |
+| Haul | Curb / Yards / Junkyard / Salvage Auction / Long Haul | 15 s / 2 min / 10 min / 1 h / **8 h** |
+| Bench | Clean / Repair / Restore / Strip | Clean 1 min × (1 + tier), doubled from Scrap. Repair by category (wheel 5 min up to body 6 h) × (1 + ½ tier). Restore 2 h × (1 + tier). Strip 30 s × (1 + tier). All capped at **8 h**. |
+| Study | Patching / Rebuilding / Sorting / Scouting / Haggling / Welding / Tuning / Wiring / Bodywork | 20 min / 45 min / 30 min / 45 min / 1 h / 6 h / 6 h / 7 h / 8 h. Plans: Riding Mower 4 h, Go-Kart 8 h, Beater 8 h, Street Stock 8 h. |
+| Build | Push Mower / Riding Mower / Go-Kart / Beater / Street Stock | 1 min / 1 h / 6 h / 8 h / 8 h |
+| Race | Sprint / Heat / Feature | 1 / 3 / 8 min on the track, watched live or replayed in about 14 s. Events run **on a schedule** (Backyard every 2/5/15 min, Dirt Track 10 min/45 min/3 h, County Fair 30 min/3 h/12 h, Regional 1/4/12 h, State 2/8/24 h), like Friday night at the Dirt Track. This caps prize income and gives each visit a "race night" to plan around. |
 
 No job exceeds 8 hours. When the queue empties, the game says so plainly. It
 never silently wastes the player's time.
 
 ### 3.4 Habits: automation you earn
 
-- Doing a job **10, 25 or 50 times** (depending on the job) turns it into a
-  Habit, like *Curb Route* or *Carb Kit*.
+- Doing a job enough times turns it into a Habit: 25 trips to the Curb or the
+  Yards, 15 to the Junkyard, 5 Long Hauls, 20 Cleans, 15 Repairs, 25 Strips,
+  12 races. The Salvage Auction never becomes a Habit.
+- A haul Habit pauses while the garage and driveway are both full, so it
+  never feeds the driveway rule on its own.
 - A Habit runs in a **Habit slot** at 60% of your manual speed. You start
   with 1 slot and gain one each at the Riding Mower, the Go-Kart and the
   Beater, for 4 by the end of Era 1.
@@ -186,19 +193,55 @@ This is how unlocks go from slow and manual to quick to automatic, without a
 - **Perks are bought and equipped in the same reset screen**, using the Legacy Points that reset awards.
 - **Scripted opening.** The first two trips ever find a seized engine and a busted wheel.
 
-Measured with `npm run sim` (4×15 min visits a day): Season 1 takes about 6.5–7 days. Later Sprint Seasons take 3–5 days, with high variance from the greedy bot. A push player founds a team in about 34 days.
+Pacing goals live in `scripts/pacing-check.ts` (`npx tsx scripts/pacing-check.ts 10`), which runs the sim bot and prints PASS/FAIL per goal. Measured 2026-10-29 on 10 seeds:
+
+- 4×15 min a day: Season 1 median 6.9 days (5.9–10.3).
+- 1×5 min a day: Season 1 median 20.9 days (18.4–23.4). Before this pass it didn't finish in 30.
+- 6×30 min a day: Season 1 median 4.9 days.
+- A push player founds a team in 16–21 days.
+
+What sets the daily player's pace: Rep comes only from races, so the Race habit (12 races) is the big unlock; race-night sign-ups save a visit per ladder rung; and timers of a few hours (builds, studies, Feature intervals) slow frequent players without touching daily ones, who sleep through them. Haul Habits pause when the garage and driveway are both full, so away time can't loop a 15 s trip into thousands of driveway sales.
+
+- **The purse shrinks for a repeat winner.** After four wins in a row at the same event its purse drops (to 30% at the lowest) and recovers when you race elsewhere for a while. Rep is not affected. Without this, a Race Day Habit at a venue you had outgrown printed tens of thousands of Scrap Bucks.
+- **Late-Season tools.** The Engine Stand, Torque Wrench and Parts Tumbler appear once you own a Go-Kart or a Beater, so there is something worth saving for after the Engine Hoist.
 
 ### 3.8 Vehicles do more than race
 
 Each vehicle in Era 1 also changes the economy. This makes cars part of your
 identity, and they don't become disposable tiers.
 
-- The **Riding Mower** tows a trailer, so carry goes to 5.
-- The **Go-Kart** cuts the travel time to the Dirt Track.
-- The **Beater**'s trunk raises carry to 10 and makes the long haul possible.
+- The **Riding Mower** tows a trailer, so carry goes to 5, and it opens the
+  Junkyard and the Dirt Track.
+- The **Go-Kart** adds a Habit slot and is what the Dirt Track Feature asks for.
+- The **Beater**'s trunk raises carry to 10 and makes the Long Haul possible.
+- The **Street Stock** (tier 4) is the push-leg project: a second sedan shell,
+  a Caged Chassis and tier-4 parts from the Long Haul, the Salvage Auction or
+  the Parts Counter. It is what wins the State Invitational.
 
 Every finished vehicle goes into the **Hall of Fame** with its history:
 where each part came from, its wins and its breakdowns.
+
+### 3.9 Parts, venues and rivals: why the garage has decisions
+
+- **Parts are authored, never random.** Most slots accept two or three parts
+  per tier with different strengths: the Four-Cylinder is sturdy and the
+  Motorcycle Twin is light, powerful and fragile; the Kart Slick turns and the
+  Dirt Tire survives. There are 43 parts across tiers 0–4.
+- **Each venue rewards a different build.** A venue weights power, handling
+  and reliability by its `demand` and says so in one line (`character`): the
+  Backyard is tight (handling), the Dirt Track is rough (reliability), the
+  County Fair has long straights (power), the Regional is technical
+  (handling), State is fast and long (power and reliability). A test enforces
+  that every alternative part is the better choice at some venue.
+- **The Garage shows it.** Each vehicle has a "Racing at" selector; every slot
+  shows what its part is worth there and offers a better spare when you own one.
+- **Rivals race their own way**, and the Race tab tells you how:
+  - **Dale** is the fastest thing in the yard, but his Snapper quits about
+    one race in five. Keep finishing.
+  - **Marisol** never breaks and never varies. Bring a better machine.
+  - **Big Ron** leans on anyone who makes a Nurse call. Push.
+  - **The Kessler Twins** run two fast cars. You have to beat both.
+- The first loss to each rival and the first win over them are Journal entries.
 
 ---
 
@@ -215,20 +258,28 @@ The UI shows each channel's breakdown wherever its rate is shown.
 | Channel | Era 1 sources | Team-era sources | Effect kind |
 |---|---|---|---|
 | Carry | Vehicle carrier | Tow Rig, Tow Hitch perk | Flat |
-| Haul time | Tune-up (Haul), Codex location level | Hauler crew | % |
+| Haul time | Tune-up (Haul), Codex location level | | % |
 | Find quality | Codex location level, Junkyard Eyes perk | One Yard mastery | Shifts the condition odds, and reveals |
 | Bench speed | Tools, tune-up (Wrench) | Hand Tools mastery | % |
+| Assembly speed | Tune-up (Build), Torque Wrench | | % |
+| Engine repair speed | Engine Stand | Drag mastery | % |
 | Bench parallelism | Benches bought, Second Bench perk | Second Bay | Capacity |
 | Storage | Shelving | Parts Room | Capacity |
-| Sell value | Haggling know-how, Swap Meet perk (convert) | | %, and conversion |
-| **Car performance** | Parts, condition, build tuning, circuit practice | Driver crew | **Intrinsic: no global % ever** |
-| Race payout | Event tier | Sponsor Board | Flat per event |
-| Rep gain | Rivals beaten, records | | Flat |
-| Automation | Habit slots, Kid Brother perk | Crew assignments | Capacity |
-| Unlock speed | Know-how tier | Scouting Network | Time, then automatic |
-| Away efficiency | Overnight jobs, Night Owl perk | Short Season mastery | % while offline |
-| Legacy gain | Milestones, records, dares | | Flat per milestone |
-| Wear and repair | Condition, Shade Tree perk | Rust Everything mastery, Dirt Oval mastery | Time and cost |
+| Sell value | Haggling know-how | | % |
+| **Car performance** | Parts, condition, build tuning, circuit practice, the venue's demand | Driver crew | **Intrinsic: no global % ever** |
+| Race payout | | Sponsor Board | % |
+| Automation | Habit slots (one per vehicle built) | Crew assignments replace Habit slots | Capacity |
+| Crew capacity | | Crew Quarters, Solo mastery | Capacity |
+| Unlock speed | Know-how tier, Old Notebook perk | Scouting Network | Time, then automatic |
+| Away efficiency | Night Owl perk | Short Season mastery | % while offline |
+| Legacy gain | | Rookie Plates mastery | % |
+| Part wear | Hot Shoe perk | Rust Everything mastery, Dirt Oval mastery | % |
+| Perk slots | Deep runs and Dare completion | Legacy Ledger, Rookie Plates mastery | Capacity |
+
+Not channels, on purpose: **rule changes** (perks such as Shade Tree, Coupon
+Book or Borrowed Trailer are flags read where the rule lives) and **the person
+doing a job** (a crew member's speed, carry or driving applies to the job in
+their lane, never to the whole shop).
 
 **Effect kinds used across the game.** The aim is variety, so no single kind
 should dominate the perk and upgrade lists:
@@ -295,8 +346,10 @@ No kind dominates. The pacing simulator must show:
 
 - **Owned perks** persist in meta. **Loadout slots** limit how many are
   active in a Season.
-- Slots start at 2. You gain a slot at your first Regional Feature win, your
-  first State Feature win, and after 5 dares completed.
+- Slots start at 2. You gain an era slot at your first Regional Feature win
+  and your first State Feature win. Completing every Dare (there are eight)
+  grants one permanent slot; it survives Team Resets because Dares are
+  once-ever achievements.
 - Choosing a sprint loadout versus a push loadout is a real decision every
   reset.
 - LP buys perks and their ranks (1–3, with costs rising per rank).
@@ -316,7 +369,18 @@ No kind dominates. The pacing simulator must show:
 | Underdog | Conditional | A lower-tier vehicle gets better odds in higher-tier events | Dare: *Mower Madness* (win the Dirt Feature with a Riding Mower) |
 | Early Bird | Milestone | The first race each Season pays triple | Dare: *Quick Season* (Fair Feature within 48 h) |
 | Scavenger's Map | Unlock | The Long Haul is open from the start | Push: first State win |
-| Old Notebook | Unlock speed | Familiar techniques study in 10% of the time | LP, after 10 techniques reach Familiar |
+| Old Notebook | Unlock speed | Familiar techniques study in 10% of the time | LP |
+| Borrowed Trailer | Rule bend | The Junkyard opens without a Riding Mower | LP |
+| Coupon Book | Rule bend | The Parts Counter charges double, not triple | Dare: *Penny Pincher* (win the Fair Feature without buying at the Parts Counter) |
+| Hot Shoe | Risk/reward | Parts wear 20% less in races | Dare: *Hot Lap* (win the Fair Feature on a Push call with every part Good or better) |
+| Local Hero | Milestone | Feature wins pay double Rep | Dare: *Clean Sweep* (win the Fair Feature without a DNF all Season) |
+| Short Cut | Unlock | The Beater plans don't need an engine hoist | Dare: *Kart to the Fair* (win the Fair Feature in a Go-Kart) |
+
+As built, three earlier rows differ from the table above: **Junkyard Eyes**
+means you never haul Scrap-condition parts; **Grudge Match** makes rivals 5%
+quicker and doubles the prize for beating one in a Feature; **Settle It** is
+"win the County Fair Feature without losing a race at the Fair"; and **Early
+Bird** triples the first race *win* of the Season.
 
 ### 5.5 Tune-up points
 
@@ -332,8 +396,13 @@ No kind dominates. The pacing simulator must show:
 | Season 1 to the County Fair Feature | 7–10 days |
 | Season 2 | 3–5 days |
 | A mature Sprint | about 1–1.5 days |
-| Push from the Fair to State | +3–6 days on top of the Fair, shrinking with perks |
-| First State win (Team gate) | about 3–5 weeks of total play |
+| Push from the Fair to the Regional | +3–4 days on top of the Fair, shrinking with perks |
+| First State win (Team gate) | about 3–5 weeks of total play, over at least two Seasons (State is invitation only) |
+
+Measured on 2026-11-10 with `npx tsx scripts/pacing-check.ts 8`: Season 1
+median 6.4 days mixed (5.5–6.7), 20.9 days daily (19.4–24.4), 5.3 days active;
+a push player founds a team in 17–19 days. The bot never hesitates or misreads
+a screen, so real players run slower than this.
 
 There are three player models:
 
@@ -347,7 +416,9 @@ There are three player models:
 
 ### 6.1 Gate and founding
 
-- **Gate**: win the State Invitational Feature in any Season.
+- **Gate**: win the State Invitational Feature in any Season. State invites
+  only drivers who won the Regional in an earlier Season, so every player
+  makes at least one Scrap Reset before founding a team.
 - A preview appears once the Regional Invitational opens.
 - The first Team Reset is **Founding**: you pick a team name, colours and a
   discipline. The interface switches to the Race Shop look in your team's
@@ -390,8 +461,8 @@ and **Drag**. Rally and Demolition follow.
 
 | Discipline | Rule changes | What becomes valuable | Mastery (meta, "while inactive" bonus) |
 |---|---|---|---|
-| **Dirt Oval** | Standard ladder; cautions; tyre wear matters | Handling, reliability, tyres | Wear and repair −X% in every discipline |
-| **Drag** | 1/8 and 1/4 mile; no handling stat; engines can blow up; many short races | Power, traction, weight; exhaust and drivetrain parts | Engine rebuild time −X% in every discipline |
+| **Dirt Oval** | A field of six over laps at five tracks that each reward a different build. Tyres wear 60% faster. Heats (35%) and Features (60%) can go yellow, and your driver decides beforehand: **pit** (fresh tyres, far less wear, restart a little further back) or **stay out** (track position, and the tyres pay). The call only matters if the yellow comes out. | Handling, reliability, tyres | Part wear −6% per level in every discipline |
+| **Drag** | Head-to-head eliminations: one round in a Sprint, two in a Heat, three in a Feature, the rival in the final. Cornering counts for nothing; power, tyre grip and weight decide it. A DNF costs the engine an extra condition step. Your driver picks the **launch**: leave hard (usually a jump, a 22% chance of wheelspin, harder on the engine) or feather it. | Power, traction, weight; exhaust and drivetrain parts | Engine repairs 8% faster per level in every discipline |
 | Rally (later) | Stages; damage carries forward between stages; Spotter calls the notes | Reliability, suspension | Haul time −X% |
 | Demolition (later) | Last car standing; your car is destroyed and its wreck is salvaged | Frame, weight | Strip yield +X% |
 
@@ -430,8 +501,8 @@ Raw time and race count never earn TP.
 
 - Optional flags you queue at a Scrap Reset for the next Season. Up to 2
   flags to start, and 4 later.
-- A hardship is completed by reaching the County Fair Feature under it. A
-  higher tier requires State.
+- A hardship is completed by winning the County Fair Feature under it.
+  Carrying it all the way to a State win counts it a second time.
 - Each hardship grants **mastery in its own channel**, stacking with
   diminishing returns. No hardship feeds a global multiplier.
 
@@ -441,11 +512,12 @@ Raw time and race count never earn TP.
 | One Yard | Only one haul location | Find quality |
 | Rookie Plates | No perks | One-time +1 loadout slot, then Legacy gain |
 | Rust Everything | Every part spawns one condition step worse | Wear and repair |
-| Solo | No crew | Automation (+1 Habit slot, once) |
+| Solo | No crew | Crew capacity (+1, once) |
 | Short Season | Must reach the Fair within 48 h | Away efficiency |
 
-Incompatible flags (for example, Solo with a crew-only dare) are declared in
-data and shown in the UI.
+Incompatible picks are declared in data (`conflicts`) and refused with the
+reason shown: Short Season can't be combined with the Quick Season dare,
+because it is the same 48-hour clock.
 
 ### 6.7 Team-era run choices
 

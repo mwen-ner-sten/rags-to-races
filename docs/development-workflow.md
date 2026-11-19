@@ -43,7 +43,7 @@ Feature integration and environment promotion have different history needs.
 
 | Target | Merge method | Why |
 | --- | --- | --- |
-| `dev` | Squash | One reviewable integration commit per feature or fix |
+| `dev` | Merge commit by default; squash for small, messy branches | Keep each branch's commits and its ancestry, so work stacked on it still lines up |
 | `uat` | Merge commit | Preserve the exact `dev` commits that entered acceptance |
 | `main` | Merge commit | Preserve the exact UAT ancestry that reached production |
 
@@ -51,12 +51,21 @@ Do not squash `dev` into `uat` or `uat` into `main`. Squashing the same release 
 each gate creates new unrelated commits and makes the branches appear to contain
 different work even when their files match.
 
+The same thing happens one level down. A squash into `dev` writes one new commit
+with no link to the branch it came from, so any branch or worktree built on top of
+that branch looks unmerged and conflicts on its next update. Use a merge commit
+into `dev` whenever the branch has clean commits or anything else is stacked on
+it. Squash only a small, single-purpose branch whose commits are work-in-progress
+noise and that nothing else builds on. (`dev` was squash-only until 2026-11-18,
+when the stacked `feat/daily-pacing`, `feat/era-one-depth` and
+`feat/overnight-racing-eras` branches made the cost clear: #139.)
+
 ## Normal Delivery
 
 1. Create a work branch from the latest `dev`.
 2. Open a pull request to `dev`.
 3. Let CI and the preview deployment complete.
-4. Squash-merge the completed slice into `dev`.
+4. Merge the completed slice into `dev` with a merge commit (or squash it, if it fits the exception above).
 5. Test the stable development deployment as needed.
 6. Open a release PR from `dev` to `uat`.
 7. Merge with a merge commit after CI and the UAT checklist pass.
@@ -107,8 +116,8 @@ The branch rules require this job to pass. No approval count is required for thi
 solo project; the PR, checks, and deployment are the learning checkpoints.
 
 **Up to date with the target branch.** Only `dev` requires this. `uat` and `main`
-do not, because `dev` keeps linear, squash-only history and so can never contain
-the merge commits that promotions create on `uat` and `main`. The `check` job on a
+do not, because work only ever flows from `dev` up to `uat` and `main`, so `dev`
+can never contain the merge commits that promotions create on them. The `check` job on a
 pull request already tests the merged result. (Before this changed, every
 `dev` -> `uat` promotion showed "behind" and needed an ours-strategy reconcile
 branch, as in #93, #100 and #128.)
@@ -118,8 +127,9 @@ not required. A newly published advisory shows up as a red `audit` check without
 blocking unrelated work. Dependabot security updates open the PRs that fix it.
 
 **Auto-merge.** When it's enabled for the repository, a PR can be queued with
-`gh pr merge <n> --squash --auto` (into `dev`) or `--merge --auto` (into `uat` and
-`main`), and it merges once `check` passes.
+`gh pr merge <n> --merge --auto` (or `--squash --auto` for the small-branch
+exception into `dev`), and it merges once `check` passes. The `dev` ruleset allows
+merge and squash; `uat` and `main` allow merge only.
 
 **Lockfiles on Windows.** Running `npm install` on Windows can drop optional
 dependencies that only Linux needs (for example `@emnapi/*` under sharp), and CI's

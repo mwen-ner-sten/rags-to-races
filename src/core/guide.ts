@@ -3,7 +3,7 @@ import { getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
 import type { GameState } from "./types";
 
-export type GuideTab = "trips" | "garage" | "race" | "notebook";
+export type GuideTab = "trips" | "garage" | "workshop" | "race";
 
 /** One step of the first-Season guide: what to do next, how, and where. */
 export interface GuideStep {
@@ -77,8 +77,8 @@ export const GUIDE: readonly GuideStep[] = [
   {
     id: "plans",
     title: "Study the Riding Mower plans",
-    how: () => "Open the Notebook, go to Know-how and press Study. It keeps your hands busy for a while, so queue a trip to start after it.",
-    tab: "notebook",
+    how: () => "Open the Workshop and press Study under Know-how. It keeps your hands busy for a while, so queue a trip to start after it.",
+    tab: "workshop",
     done: (s) => s.run.learned.includes("blueprint:riding_mower"),
   },
   {

@@ -30,11 +30,15 @@ export interface BeatInput {
   /** The Feature rival, if there is one. */
   rivalId?: string;
   rivalBeaten: boolean;
+  /** The rival's car quits partway through. */
+  rivalOut?: boolean;
+  /** A yellow flag at the end of this lap, with what you did about it. */
+  caution?: { lap: number; text: string };
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-function carName(state: GameState): string {
+export function carName(state: GameState): string {
   return `the #${CAR_NUMBERS[Math.floor(rand(state) * CAR_NUMBERS.length)]}`;
 }
 
@@ -88,12 +92,19 @@ export function buildBeats(state: GameState, input: BeatInput): RaceBeat[] {
   const dnfLap = dnf ? clamp(Math.round(laps * (0.45 + 0.4 * rand(state))), 1, laps) : null;
   const lastLap = dnfLap ?? laps;
   const target = dnf ? clamp(startPos + (rand(state) < 0.5 ? -1 : 1), 1, fieldSize) : input.position;
+  const rivalName = input.rivalId ? RIVAL_BY_ID[input.rivalId]?.name : undefined;
+  const rivalOutLap = input.rivalOut ? clamp(Math.round(lastLap * (0.3 + 0.4 * rand(state))), 1, Math.max(1, lastLap - 1)) : null;
   let pos = startPos;
   for (let k = 1; k <= lastLap; k++) {
     if (dnfLap === k) break;
     const to = plannedPosition(state, input, k, lastLap, target);
     tellLap(state, input, story, k, pos, to, lapMs * (k - 0.5), lapMs);
     pos = to;
+    if (input.caution?.lap === k && k < lastLap) story.beats.push({ at: lapMs * (k - 0.1), text: `Lap ${k}: ${input.caution.text}`, position: pos, kind: "caution" });
+    if (rivalOutLap === k && rivalName) {
+      story.rivalTold = true;
+      story.beats.push({ at: lapMs * (k - 0.3), text: `Lap ${k}: ${rivalName} pulled off trailing smoke. Out of the race.`, position: pos, kind: "rival" });
+    }
     if (!dnf && k === laps - 1 && laps >= 3) story.beats.push({ at: lapMs * k, text: `Last lap. You're P${pos}.`, position: pos, kind: "last_lap" });
   }
   if (dnfLap !== null) {

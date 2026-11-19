@@ -1,5 +1,7 @@
 import type { GameState } from "../types";
+import { hasPerk } from "../rules";
 import { PART_BY_ID } from "./parts";
+import { hasYardTowRig } from "./vehicles";
 
 /**
  * Know-how: techniques, vehicle blueprints and places.
@@ -38,18 +40,25 @@ export const KNOWHOW: readonly KnowhowDef[] = [
   { id: "tech:haggling", name: "Haggling", kind: "technique", blurb: "Sell parts for 15% more.", studyMs: 1 * HOUR, trigger: (s) => s.run.stats.partsSold >= 20, hint: "Sell 20 parts" },
   { id: "tech:sorting", name: "Sorting", kind: "technique", blurb: "Choose what happens to finds when the driveway overflows.", studyMs: 30 * MIN, trigger: (s) => (s.run.stats.drivewayOverflows ?? 0) > 0, hint: "Let the driveway overflow" },
   { id: "tech:scouting", name: "Scouting", kind: "technique", blurb: "Pick a part category to look for on each trip.", studyMs: 45 * MIN, trigger: (s) => s.run.stats.hauls >= 30, hint: "Make 30 trips" },
-  { id: "tech:welding", name: "Welding", kind: "technique", blurb: "Repairs frames and exhausts. Kart chassis need it.", studyMs: 4 * HOUR, trigger: (s) => (s.run.tools.welder ?? 0) > 0, hint: "Buy a welder" },
+  { id: "tech:welding", name: "Welding", kind: "technique", blurb: "Repairs frames and exhausts. Kart chassis need it.", studyMs: 6 * HOUR, trigger: (s) => (s.run.tools.welder ?? 0) > 0, hint: "Buy a welder" },
   { id: "tech:tuning", name: "Tuning", kind: "technique", blurb: "Set a build for power or reliability, and restore parts past Good.", studyMs: 6 * HOUR, trigger: (s) => s.run.races.some((r) => r.position === 1 && !r.dnf), hint: "Win a race" },
   { id: "tech:wiring", name: "Wiring", kind: "technique", blurb: "Repairs harnesses and ECUs.", studyMs: 7 * HOUR, trigger: (s) => s.run.inventory.some((p) => partCategoryOf(p.partId) === "electronics"), hint: "Find any electronics" },
-  { id: "tech:bodywork", name: "Bodywork", kind: "technique", blurb: "Turns a rotten shell into a car.", studyMs: 8 * HOUR, trigger: (s) => s.run.inventory.some((p) => p.partId === "beater_shell") || s.run.vehicles.some((v) => v.vehicleId === "beater_car"), hint: "Buy a sedan shell" },
+  { id: "tech:bodywork", name: "Bodywork", kind: "technique", blurb: "Turns a rotten shell into a car.", studyMs: 8 * HOUR, trigger: (s) => s.run.available.includes("blueprint:beater_car") || s.run.learned.includes("blueprint:beater_car") || s.run.inventory.some((p) => p.partId === "beater_shell") || s.run.vehicles.some((v) => v.vehicleId === "beater_car"), hint: "Find the Beater plans or buy a sedan shell" },
 
-  { id: "blueprint:riding_mower", name: "Riding Mower plans", kind: "blueprint", blurb: "Sit-down power. Tows a trailer.", studyMs: 2 * HOUR, trigger: (s) => featureWon(s, "backyard"), hint: "Win the Backyard Feature" },
-  { id: "blueprint:go_kart", name: "Go-Kart plans", kind: "blueprint", blurb: "A welded kart chassis and a real engine.", studyMs: 6 * HOUR, trigger: (s) => s.run.venuesOpen.includes("dirt") && s.run.learned.includes("tech:welding"), hint: "Open the Dirt Track and learn Welding" },
-  { id: "blueprint:beater_car", name: "Beater plans", kind: "blueprint", blurb: "A whole car. The longest project of the Season.", studyMs: 8 * HOUR, trigger: (s) => (s.run.tools.engine_hoist ?? 0) > 0 && owns(s, "go_kart"), hint: "Own a Go-Kart and an engine hoist" },
+  { id: "blueprint:riding_mower", name: "Riding Mower plans", kind: "blueprint", blurb: "Sit-down power. Tows a trailer.", studyMs: 4 * HOUR, trigger: (s) => featureWon(s, "backyard") || (s.run.serviceBook?.invoices.length ?? 0) >= 2, hint: "Win the Backyard Feature or fill two customer repair invoices" },
+  { id: "blueprint:service_runabout", name: "Service Runabout plans", kind: "blueprint", blurb: "Use the depot chassis and engine with a fuel source and separate front and rear wheels.", studyMs: 2 * HOUR, trigger: (s) => (s.run.depotReceipts?.length ?? 0) >= 2
+    || !!s.meta.seasonLog?.some(({ depotReceipts }) => (depotReceipts?.length ?? 0) >= 2)
+    || (s.meta.knowhow["blueprint:service_runabout"] ?? 0) > 0, hint: "Collect both County Motor Pool deliveries in one Season" },
+  { id: "blueprint:go_kart", name: "Go-Kart plans", kind: "blueprint", blurb: "A welded kart chassis and a real engine.", studyMs: 8 * HOUR, trigger: (s) => s.run.venuesOpen.includes("dirt") && s.run.learned.includes("tech:welding"), hint: "Open the Dirt Track and learn Welding" },
+  { id: "blueprint:beater_car", name: "Beater plans", kind: "blueprint", blurb: "A whole car. The longest project of the Season.", studyMs: 8 * HOUR, trigger: (s) => ((s.run.tools.engine_hoist ?? 0) > 0 || hasPerk(s, "short_cut")) && owns(s, "go_kart"), hint: "Own a Go-Kart and an engine hoist" },
+  { id: "blueprint:roadbook_special", name: "Roadbook Special plans", kind: "blueprint", blurb: "Build a rally sedan with a calibrated tripmeter for regularity events.", studyMs: 5 * HOUR, trigger: (s) => !!s.meta.rallyLicences?.county_fair && Object.keys(s.meta.rallyLicences).length >= 2, hint: "Earn regularity Feature certificates at County Forest and one other venue" },
+  { id: "blueprint:street_stock", name: "Street Stock plans", kind: "blueprint", blurb: "A caged sedan for the Invitationals. Needs a second shell and a Caged Chassis.", studyMs: 8 * HOUR, trigger: (s) => featureWon(s, "county_fair") && owns(s, "beater_car"), hint: "Win the County Fair Feature and own a Beater" },
 
   { id: "place:yards", name: "Neighbourhood Yards", kind: "place", blurb: "Ask the neighbours if you can look around.", studyMs: 0, trigger: () => true, hint: "" },
-  { id: "place:junkyard", name: "Marisol's Junkyard", kind: "place", blurb: "Membership card and a promise not to pet the dog.", studyMs: 0, trigger: (s) => owns(s, "riding_mower"), hint: "Own a Riding Mower" },
-  { id: "place:auction", name: "Salvage Auction", kind: "place", blurb: "A bidder number with your name on it.", studyMs: 0, trigger: (s) => s.run.venuesOpen.includes("dirt"), hint: "Open the Dirt Track" },
+  { id: "place:junkyard", name: "Marisol's Junkyard", kind: "place", blurb: "Membership card and a promise not to pet the dog.", studyMs: 0, trigger: (s) => hasYardTowRig(s) || hasPerk(s, "borrowed_trailer"), hint: "Own a Riding Mower or Service Runabout" },
+  { id: "place:floodplain", name: "Floodplain Lots", kind: "place", blurb: "Permission to collect from River County's trailer lots.", studyMs: 0, trigger: () => true, hint: "" },
+  { id: "place:quarry_breakers", name: "Quarry Breakers", kind: "place", blurb: "Buy a permit for the Quarry County breakers.", studyMs: 0, trigger: (s) => hasYardTowRig(s) || hasPerk(s, "borrowed_trailer"), hint: "Own a Riding Mower or Service Runabout" },
+  { id: "place:auction", name: "Salvage Auction", kind: "place", blurb: "A bidder number with your name on it.", studyMs: 0, trigger: (s) => s.run.venuesOpen.includes("dirt") || hasPerk(s, "auction_bidder"), hint: "Open the Dirt Track" },
   { id: "place:long_haul", name: "The Long Haul", kind: "place", blurb: "The county yard lets you in if you can carry it out.", studyMs: 0, trigger: (s) => owns(s, "beater_car") || s.config.perks.includes("scavengers_map"), hint: "Finish the Beater" },
   { id: "place:dirt", name: "Dirt Track entry", kind: "place", blurb: "Your name on the sign-up sheet at the Dirt Track.", studyMs: 0, trigger: (s) => owns(s, "riding_mower"), hint: "Own a Riding Mower" },
 ];
@@ -66,6 +75,8 @@ export function getKnowhow(id: string): KnowhowDef {
 export const PLACE_REP: Record<string, number> = {
   "place:yards": 5,
   "place:junkyard": 40,
+  "place:floodplain": 5,
+  "place:quarry_breakers": 20,
   "place:auction": 90,
   "place:long_haul": 60,
   "place:dirt": 20,

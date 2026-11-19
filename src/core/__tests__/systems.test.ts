@@ -57,6 +57,46 @@ describe("races", () => {
     expect(result.beats).toEqual(roll.beats);
   });
 
+  it("signs up for a whole race night: the Heat waits on a Sprint podium, then runs", () => {
+    let { s } = withVehicle("night", "push_mower", { engine: "engine_lawn", wheel: "wheel_basic" }, 4);
+    s.run.cash = 50;
+    const sprint = { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } as const;
+    const heat = { ...sprint, event: "heat" } as const;
+    expect(apply(s, { type: "enqueue", spec: heat }).error).toMatch(/Podium the previous event/);
+    s = must(s, { type: "enqueue", spec: sprint });
+    s = must(s, { type: "enqueue", spec: heat });
+    expect(s.run.queue.some((q) => q.kind === "race" && q.event === "heat")).toBe(true);
+    s = must(s, { type: "advance", ms: 10 * 60_000 });
+    const sprintResult = s.run.races.find((r) => r.event === "sprint")!;
+    const podium = !sprintResult.dnf && sprintResult.position <= 3;
+    if (podium) expect(s.run.races.some((r) => r.event === "heat")).toBe(true);
+    else expect(s.run.notices.some((n) => /sign-up .* was dropped/.test(n))).toBe(true);
+    expect(s.run.queue.some((q) => q.kind === "race" && q.event === "heat")).toBe(false);
+  });
+
+  it("a race night belongs to one vehicle: another car can't take the next rung on its Sprint", () => {
+    let { s } = withVehicle("night-own", "push_mower", { engine: "engine_lawn", wheel: "wheel_basic" }, 4);
+    s.run.cash = 50;
+    s.run.vehicles.push({ ...structuredClone(s.run.vehicles[0]), uid: "v2" });
+    s = must(s, { type: "enqueue", spec: { kind: "haul", placeId: "curb" } });
+    s = must(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } });
+    expect(apply(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v2", venueId: "backyard", event: "heat", call: "nurse" } }).error).toMatch(/Podium the previous event/);
+  });
+
+  it("drops a next-rung sign-up, without charging entry, when the race before it can't run", () => {
+    let { s } = withVehicle("night-drop", "push_mower", { engine: "engine_lawn", wheel: "wheel_basic" }, 4);
+    s.run.cash = 50;
+    s = must(s, { type: "enqueue", spec: { kind: "haul", placeId: "curb" } }); // hands busy, so the races queue
+    s = must(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "sprint", call: "nurse" } });
+    s = must(s, { type: "enqueue", spec: { kind: "race", vehicleUid: "v1", venueId: "backyard", event: "heat", call: "nurse" } });
+    const cash = s.run.cash;
+    const sprintIndex = s.run.queue.findIndex((q) => q.kind === "race" && q.event === "sprint");
+    s = must(s, { type: "cancelQueued", index: sprintIndex });
+    expect(s.run.queue.some((q) => q.kind === "race")).toBe(false);
+    expect(s.run.notices.some((n) => /heat sign-up .* was dropped/.test(n))).toBe(true);
+    expect(s.run.cash).toBe(cash);
+  });
+
   it("a better car has better odds, and Push beats Nurse on pace", () => {
     const weak = withVehicle("odds", "push_mower", { engine: "engine_small", wheel: "wheel_busted" }, 1);
     const strong = withVehicle("odds", "push_mower", { engine: "engine_lawn", wheel: "wheel_basic" }, 4);
@@ -146,7 +186,7 @@ describe("driveway", () => {
     expect(s.run.driveway.some((p) => p.uid === "a" || p.uid === "w")).toBe(false);
     expect(s.run.driveway.some((p) => p.uid === "v")).toBe(true);
     expect(s.run.materials.metal).toBe(metal + 1);
-    expect(s.run.notices[0]).toMatch(/stripped Old Seat .*sold Busted Wheel/);
+    expect(s.run.feed.find((f) => f.kind === "driveway")?.text).toMatch(/stripped Old Seat .*sold Busted Wheel/);
     expect(s.run.stats.drivewayOverflows).toBe(1);
   });
 
@@ -159,7 +199,7 @@ describe("driveway", () => {
     stowFinds(s, Array.from({ length: 8 }, (_, i) => find(`d${i}`, "engine_lawn")));
     expect(s.run.driveway.map((p) => p.uid)).toEqual(["d0", "d1", "d2", "d3", "d4", "d5"]);
     expect(s.run.cash).toBe(cash);
-    expect(s.run.notices[0]).toMatch(/left .* at the curb/);
+    expect(s.run.feed.find((f) => f.kind === "driveway")?.text).toMatch(/left .* at the curb/);
   });
 
   it("waiting parts move into the garage as soon as space frees up", () => {
