@@ -4,10 +4,11 @@ import { useState } from "react";
 import { venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import { WORKS_FAMILIES, WORKS_FAMILY_IDS, WORKS_MAX_ATTEMPTS, trialEntry, worksEnterBlocker, worksEntryStatus, worksFit, worksRecastBlocker, worksReport, worksSignBlocker, worksStock, type WorksDeal, type WorksFamily, type WorksTest } from "@/core/manufacturer";
-import { partOriginLabel } from "@/core/provenance";
 import type { GameState } from "@/core/types";
-import { capitalize, conditionName, ordinal } from "../format";
+import { capitalize, ordinal } from "../format";
 import { useGame } from "../store";
+import { ChoiceList } from "./ChoiceList";
+import { partChoice } from "./BuildSlotRow";
 
 function DrawingTerms({ id }: { id: WorksFamily }) {
   const { drawing } = WORKS_FAMILIES[id];
@@ -46,11 +47,7 @@ export function WorksDrawingWorkshop({ game }: { game: GameState }) {
     <h2 id="works-workshop-h">{WORKS_FAMILIES[id].name} drawing</h2>
     <DrawingTerms id={id} />
     {used ? <p role="status">Drawing used this Season.</p> : <>
-      {candidates.length > 0 && <label className="inline" htmlFor="works-stock">Workshop stock
-        <select id="works-stock" value={selected?.uid ?? ""} onChange={(event) => setChoice(event.target.value)}>
-          {candidates.map((stock) => <option value={stock.uid} key={stock.uid}>{conditionName(stock.condition)} · {partOriginLabel(stock)}</option>)}
-        </select>
-      </label>}
+      {candidates.length > 0 && selected && <ChoiceList id="works-stock" label="Workshop stock" items={candidates.map((stock) => partChoice(stock))} value={selected.uid} onChange={setChoice} />}
       {blocker && <p className="why">{blocker}</p>}
       <button className="btn primary" type="button" disabled={!!blocker} onClick={() => {
         if (selected) dispatch({ type: "works", move: { type: "recast", partUid: selected.uid } });
@@ -77,11 +74,8 @@ function Offer({ game, id }: { game: GameState; id: WorksFamily }) {
     <details><summary>Family parts</summary><p>{family.parts.map((partId) => getPart(partId).name).join(" · ")}</p></details>
     <ol className="plain">{family.tests.map((trial) => <li key={trial.venue}><TrialTerms trial={trial} game={game} /></li>)}</ol>
     <p>{family.fee} Scrap Bucks inspection fee · {family.budget} trial budget · up to {WORKS_MAX_ATTEMPTS} starts.</p>
-    {cars.length > 0 && <label className="inline" htmlFor={`works-article-${id}`}>Proof article
-      <select id={`works-article-${id}`} value={selected?.uid ?? ""} onChange={(event) => setChoice(event.target.value)}>
-        {cars.map((car) => <option key={car.uid} value={car.uid}>{car.name} · {worksFit(car, id)} family parts</option>)}
-      </select>
-    </label>}
+    {cars.length > 0 && selected && <ChoiceList id={`works-article-${id}`} label="Proof article" value={selected.uid} onChange={setChoice}
+      items={cars.map((car) => ({ id: car.uid, title: car.name, meta: `${worksFit(car, id)} family parts` }))} />}
     {blocked && <p className="why">{blocked}</p>}
     <button className="btn primary" type="button" disabled={!!blocked} onClick={() => {
       if (selected) dispatch({ type: "works", move: { type: "sign", family: id, vehicleUid: selected.uid } });

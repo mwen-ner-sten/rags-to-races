@@ -18,6 +18,8 @@ import { OnTrack } from "./race/OnTrack";
 import { finishText } from "./race/resultText";
 import { VenueInfo } from "./race/VenueInfo";
 import { DirtSignup, LockedVenue } from "./race/VenueCards";
+import { ChoiceList } from "./ChoiceList";
+import { PACE_OPTIONS, Segmented } from "./Segmented";
 import { Tips } from "./Tips";
 import { RaceNightPlanner } from "./RaceNightPlanner";
 
@@ -70,11 +72,11 @@ function Results({ game }: { game: GameState }) {
             {venues.map((id) => <option key={id} value={id}>{venueName(id, discipline)}</option>)}
           </select>
         </label>
-        <label className="archive-field">Race outcome
-          <select value={outcome} onChange={(event) => { setOutcome(event.target.value); setLimit(12); }}>
-            <option value="">All results</option><option value="win">Wins</option><option value="dnf">DNFs</option>
-          </select>
-        </label>
+        <Segmented label="Race outcome" value={outcome} onChange={(value) => { setOutcome(value); setLimit(12); }} options={[
+          { value: "", label: "All results" },
+          { value: "win", label: "Wins" },
+          { value: "dnf", label: "DNFs" },
+        ]} />
       </div>
       {!races.length && <p role="status">No matching races this season.</p>}
       <ul className={`results${races.some((r) => r.rounds !== undefined) ? " wide" : ""}`}>
@@ -130,25 +132,18 @@ export function RacePanel({ initialVenue }: { initialVenue?: string }) {
           {game.era ? `${discipline.name}. ` : ""}Each event runs every few minutes. Sign up any time: if it isn’t running yet, you’ll start as soon as it is.
         </p>
         <div className="toolbar">
-          <label>
-            <span>Vehicle</span>
-            <select value={vehicle.uid} onChange={(e) => setVehicleUid(e.target.value)}>
-              {vehicles.map((v) => (
-                <option key={v.uid} value={v.uid} disabled={vehicleBusy(game, v.uid)}>
-                  {v.name} (T{getVehicle(v.vehicleId).tier})
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="segmented">
-            <legend>Call</legend>
-            <button className={call === "push" ? "on" : ""} aria-pressed={call === "push"} onClick={() => setCall("push")}>
-              Push
-            </button>
-            <button className={call === "nurse" ? "on" : ""} aria-pressed={call === "nurse"} onClick={() => setCall("nurse")}>
-              Nurse it
-            </button>
-          </fieldset>
+          <ChoiceList compact id="race-vehicle" label="Vehicle" value={vehicle.uid} onChange={setVehicleUid}
+            items={vehicles.map((v) => {
+              const busy = vehicleBusy(game, v.uid);
+              return {
+                id: v.uid,
+                title: v.name,
+                meta: `${getVehicle(v.vehicleId).name} · Tier ${getVehicle(v.vehicleId).tier}`,
+                disabled: busy,
+                reason: busy ? "Already signed up or racing." : undefined,
+              };
+            })} />
+          <Segmented label="Call" value={call} options={[...PACE_OPTIONS].reverse()} onChange={setCall} />
         </div>
         <p className="hint">Push is faster but wears parts and risks a DNF. Nurse it is safer and slower. The odds below change with your call.</p>
         <DriversCall game={game} driver={driver} value={call2} onChange={setCall2} />

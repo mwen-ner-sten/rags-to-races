@@ -30,7 +30,7 @@ test("the Club tab opens an optional real Scrap plan and signs a grassroots race
   prepared = must(prepared, { type: "advance", ms: 120_000 });
   await importGarage(page, prepared);
   await page.getByRole("button", { name: "Club", exact: true }).click();
-  await page.getByLabel("Admission").selectOption("public");
+  await page.getByRole("group", { name: "Admission" }).getByRole("button", { name: /^Free gates/ }).click();
   await page.getByRole("button", { name: "Sign up for club meeting" }).click();
   await expect(page.getByText("On track.")).toBeVisible();
   await page.clock.fastForward(90_000);
@@ -44,10 +44,10 @@ test("a certified club can choose a new track and carry one earned workshop loan
   await page.getByRole("button", { name: "Club", exact: true }).click();
   await page.getByRole("button", { name: "Plan a Club Season" }).click();
   await page.getByRole("radio", { name: /Fast Straight/ }).check();
-  await page.getByLabel("Workshop loan").selectOption("tight_infield");
+  await page.getByRole("group", { name: "Workshop loan" }).getByRole("radio", { name: /Tight Infield/ }).check();
   await page.getByRole("button", { name: "End the Season: Scrap Reset" }).click();
   await expect(page.getByText("Fast Straight · 0/2 Push podiums")).toBeVisible();
-  await expect(page.getByRole("option", { name: "Ticketed gates · 3 Scrap Bucks" })).toHaveCount(1);
+  await expect(page.getByRole("group", { name: "Admission" }).getByRole("button", { name: "Ticketed gates · 3 Scrap Bucks" })).toHaveCount(1);
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("rags-to-races:v2")!).game.config.clubLoan), { timeout: 12_000 }).toBe("tight_infield");
   await page.reload();
   await page.getByRole("button", { name: "Club", exact: true }).click();

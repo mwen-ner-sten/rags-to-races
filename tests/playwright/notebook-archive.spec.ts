@@ -57,7 +57,7 @@ test("rival replay controls and race history expose earlier races without resett
   await page.getByRole("button", { name: "Watch meeting" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Pause replay" }).click();
-  await dialog.getByLabel("Replay speed").selectOption("2");
+  await dialog.getByRole("group", { name: "Replay speed" }).getByRole("button", { name: "2×" }).click();
   await dialog.getByRole("slider", { name: "Race progress" }).fill("540");
   await expect(dialog.getByRole("button", { name: "Resume replay" })).toBeVisible();
   await dialog.getByRole("button", { name: "Skip to the flag" }).click();
@@ -67,6 +67,6 @@ test("rival replay controls and race history expose earlier races without resett
   await expect(results.getByRole("button", { name: "Watch", exact: true })).toHaveCount(12);
   await results.getByRole("button", { name: "Show older races" }).click();
   await expect(results.getByRole("button", { name: "Watch", exact: true })).toHaveCount(14);
-  await results.getByLabel("Race outcome").selectOption("win");
+  await results.getByRole("group", { name: "Race outcome" }).getByRole("button", { name: "Wins" }).click();
   await expect(results.getByRole("button", { name: "Watch", exact: true })).toHaveCount(Math.min(12,game.run.races.filter((r) => !r.dnf && r.position === 1).length));
 });

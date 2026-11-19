@@ -7,6 +7,8 @@ export interface NavTab<T extends string> {
   label: string;
   /** An unread tip lives on this tab (never set for the active tab). */
   unread: boolean;
+  /** What the unread dot means when it isn't a tip. */
+  unreadLabel?: string;
   /** Small count badge, e.g. parts waiting on the driveway. */
   badge?: number;
   badgeLabel?: string;
@@ -31,7 +33,7 @@ interface Edges {
 function TabMarks<T extends string>({ tab }: { tab: NavTab<T> }) {
   return (
     <>
-      {tab.unread && <span className="tab-dot" aria-label="New tip" />}
+      {tab.unread && <span className="tab-dot" aria-label={tab.unreadLabel ?? "New tip"} />}
       {tab.badge !== undefined && tab.badge > 0 && (
         <span className="tab-badge num" aria-label={tab.badgeLabel ?? `${tab.badge}`}>
           {tab.badge}

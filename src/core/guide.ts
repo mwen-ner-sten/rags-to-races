@@ -11,6 +11,8 @@ export interface GuideStep {
   title: string;
   how: (state: GameState) => string;
   tab: GuideTab;
+  /** Which part of the Garage the step happens in. */
+  garage?: "parts" | "build";
   done: (state: GameState) => boolean;
 }
 
@@ -37,6 +39,7 @@ export const GUIDE: readonly GuideStep[] = [
     title: "Clean up that engine",
     how: () => "In the Garage, press Clean on the Small Engine. A Rusted part only gives 60% of its stats. Cleaning runs on the bench by itself, so take another trip while it works.",
     tab: "garage",
+    garage: "parts",
     done: (s) => s.meta.journalSeen.includes("first_clean") || hasVehicle(s),
   },
   {
@@ -49,8 +52,9 @@ export const GUIDE: readonly GuideStep[] = [
   {
     id: "build",
     title: "Build a Push Mower",
-    how: () => "In the Garage, scroll down to Build. The best parts you own are picked for you: press Assemble.",
+    how: () => "In the Garage, open Vehicles. The best parts you own are picked for you: press Assemble.",
     tab: "garage",
+    garage: "build",
     done: hasVehicle,
   },
   {
@@ -86,6 +90,7 @@ export const GUIDE: readonly GuideStep[] = [
     title: "Build the Riding Mower",
     how: () => `It needs an engine, a wheel and a frame, plus ${buildCost("riding_mower")}. Strip a spare part for metal. Mower decks turn up in the Neighbourhood Yards.`,
     tab: "garage",
+    garage: "build",
     done: (s) => owns(s, "riding_mower"),
   },
   {

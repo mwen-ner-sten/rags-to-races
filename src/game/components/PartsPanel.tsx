@@ -14,6 +14,7 @@ import { partSprite } from "../sprites";
 import { useGame } from "../store";
 import { ChannelWhy } from "./ChannelWhy";
 import { useStrongAt } from "./GarageStrongAt";
+import { Segmented } from "./Segmented";
 import { Tips } from "./Tips";
 import { BatonGuardControls } from "./CountyBaton";
 
@@ -233,16 +234,14 @@ function RulePicker({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   if (!game.run.learned.includes("tech:sorting")) return null;
   return (
-    <label className="rule-picker">
-      <span>When the driveway overflows:</span>
-      <select value={drivewayRule(game)} onChange={(e) => dispatch({ type: "setDrivewayRule", rule: e.target.value as DrivewayRule })}>
-        {DRIVEWAY_RULES.map((r) => (
-          <option key={r.id} value={r.id}>
-            {r.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="rule-picker">
+      <Segmented<DrivewayRule>
+        label="When the driveway overflows:"
+        value={drivewayRule(game)}
+        options={DRIVEWAY_RULES.map((r) => ({ value: r.id, label: r.name }))}
+        onChange={(rule) => dispatch({ type: "setDrivewayRule", rule })}
+      />
+    </div>
   );
 }
 
