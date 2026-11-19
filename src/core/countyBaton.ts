@@ -5,6 +5,7 @@ import { reservedPartUids, vehicleBusy } from "./garage";
 import { logSeason } from "./journal";
 import { salvageCarryCandidates } from "./salvageCarry";
 import type { GameState, HomeCounty, NeighborCounty, PartInstance, Vehicle } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 export const FREIGHT_COST = 8;
 export const BATON_PART = { river: "wheel_river", quarry: "engine_quarry" } as const;
@@ -45,6 +46,7 @@ export function changeBatonGuard(state: GameState, uid: string, keep: boolean): 
     delete part.batonGuard;
     return null;
   }
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   if (state.run.countyBaton?.qualified?.uid !== uid || !batonPartTag(state, part)) return "Win a qualifying Feature with this part before safeguarding it";
   if (state.run.queue.some((spec) => spec.kind === "strip" && spec.partUid === uid)
     || state.run.jobs.some(({ spec }) => spec.kind === "strip" && spec.partUid === uid)) return "Cancel the strip job before safeguarding the baton";
@@ -87,6 +89,7 @@ export function batonRaceSetup(state: GameState, venueId: string, car: Vehicle, 
 
 export function batonChoicesBlocker(state: GameState, choice: BatonChoice | undefined, county: HomeCounty, retainedPartUid: string | undefined, dare: string | null, freight: boolean): string | null {
   if (!choice) return null;
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   if (!batonUnlocked(state)) return "Complete Parts With a Past twice and earn your county permit";
   if (dare) return "Choose County Baton or another Season objective";
   if (choice === "start") return county === "home" ? "Start County Baton in River or Quarry County" : null;
@@ -103,6 +106,7 @@ export function freightEligible(state: GameState, county: HomeCounty, part: Pick
 }
 
 export function freightBlocker(state: GameState, county: HomeCounty, retainedPartUid: string | undefined): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   const part = salvageCarryCandidates(state).find(({ part }) => part.uid === retainedPartUid)?.part;
   return freightEligible(state, county, part) ? null : "Choose a foreign county component covered by your freight permit";
 }
@@ -118,7 +122,7 @@ export function batonPartOn(state: GameState, venueId: string, vehicle: Vehicle)
 
 export function recordBatonWin(state: GameState, venueId: string, vehicle: Vehicle): void {
   const progress = state.run.countyBaton;
-  if (!progress) return;
+  if (!experimentalCareers() || !progress) return;
   const part = batonPartOn(state, venueId, vehicle);
   if (!part) return;
   if (progress.leg === "qualify") {

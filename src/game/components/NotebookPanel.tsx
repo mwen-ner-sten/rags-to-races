@@ -17,6 +17,7 @@ import { partOriginLabel } from "@/core/provenance";
 import { useGame } from "../store";
 import { partSprite, vehicleSprite } from "../sprites";
 import { Tips } from "./Tips";
+import { experimentalCareers } from "@/core/features";
 
 function Codex({ game }: { game: GameState }) {
   const [filter, setFilter] = useState("");
@@ -92,7 +93,7 @@ function HallOfFame({ game, onOpen }: { game: GameState; onOpen?: (target: Caree
     `${entry.name} ${getVehicle(entry.vehicleId).name} Season ${entry.season}`.toLowerCase().includes(query)
   );
   return <>
-    {game.run.heritageProject && <div className="notice" role="status">
+    {experimentalCareers() && game.run.heritageProject && <div className="notice" role="status">
       <p>{game.run.heritageProject.originalName} is being {game.run.heritageProject.kind === "exhibit" ? "recreated" : "rebuilt as a period special"}. Work on it in the Workshop, under Heritage.</p>
       {onOpen && <button className="btn small" onClick={() => onOpen({ tab: "workshop", section: "Heritage" })}>Open Heritage in the Workshop</button>}
     </div>}
@@ -112,7 +113,7 @@ function HallOfFame({ game, onOpen }: { game: GameState; onOpen?: (target: Caree
           <ul className="plain">{entry.parts.map((part) => <li key={part.slot}>
             <strong>{getPart(part.partId).name}</strong> · {conditionName(part.condition)} · {partOriginLabel(part)}
           </li>)}</ul>
-          <HeritageOffer game={game} entry={entry} />
+          {experimentalCareers() && <HeritageOffer game={game} entry={entry} />}
         </details>
       </li>)}
     </ul>

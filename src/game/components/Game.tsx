@@ -37,6 +37,8 @@ import { TabNav } from "./TabNav";
 import { hasUnreadTip } from "./Tips";
 import { TripsPanel } from "./TripsPanel";
 import { WorkshopPanel, workshopSections } from "./WorkshopPanel";
+import { selectedPin } from "@/core/careerPin";
+import { useExperimentalCareers } from "../useExperimental";
 
 type TabId = "trips" | "garage" | "workshop" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "manufacturer" | "settings";
 
@@ -266,6 +268,7 @@ export function Game() {
   const load = useGame((s) => s.load);
   const tick = useGame((s) => s.tick);
   const save = useGame((s) => s.save);
+  const experimental = useExperimentalCareers();
   const [tab, setTab] = useState<TabId>("trips");
   const [careerJump, setCareerJump] = useState<CareerJump | null>(null);
   const bootstrapped = useRef(false);
@@ -301,10 +304,10 @@ export function Game() {
     if (t.id === "owner") return !!game.owner || ownerGate(game).ok;
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
     if (t.id === "club") return !clubGate(game);
-    if (t.id === "manufacturer") return !!game.manufacturer?.invites.length;
-    if (t.id === "garage" && motorPoolVisible(game)) return true;
+    if (t.id === "manufacturer") return experimental && !!game.manufacturer?.invites.length;
+    if (t.id === "garage" && motorPoolVisible(game)) return true; // false unless experimental
     if (t.id === "team" && (game.era || LAYERS.team.gate(game).ok)) return true;
-    if (t.id === "legacy" && (game.run.countyBaton || LAYERS.scrap.gate(game).ok)) return true;
+    if (t.id === "legacy" && ((experimental && game.run.countyBaton) || LAYERS.scrap.gate(game).ok)) return true;
     if (t.id === "race" && game.run.vehicles.length > 0) return true;
     return !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0);
   });
@@ -333,8 +336,8 @@ export function Game() {
           badgeLabel: `${game.run.driveway.length} on the driveway`,
         }))}
       />
-      {!game.meta.careerPin && <Guide tab={active} onShow={showTab} onOpen={showCareerTarget} />}
-      <GoalStrip guideVisible={!game.meta.careerPin && guideStep(game) !== null} canShow={(t) => tabs.some((x) => x.id === t)} onShow={showTab} />
+      {!selectedPin(game) && <Guide tab={active} onShow={showTab} onOpen={showCareerTarget} />}
+      <GoalStrip guideVisible={!selectedPin(game) && guideStep(game) !== null} canShow={(t) => tabs.some((x) => x.id === t)} onShow={showTab} />
       <div className="layout">
         <main className="main">
           <Notices />
@@ -349,9 +352,9 @@ export function Game() {
                 })}>{game.motorPool?.claim ? "Open depot pickup" : game.motorPool?.job ? "Check depot delivery" : "Open County Motor Pool"}</button>
               </div>}
               <PartsPanel />
-              <ServiceCounter game={game} />
-              <WorksDrawingWorkshop game={game} />
-              <MotorPoolPanel game={game} onManageParts={() => showCareerTarget({ tab: "garage", section: "parts" })} />
+              {experimental && <ServiceCounter game={game} />}
+              {experimental && <WorksDrawingWorkshop game={game} />}
+              {experimental && <MotorPoolPanel game={game} onManageParts={() => showCareerTarget({ tab: "garage", section: "parts" })} />}
               <BuildPanel />
             </div>
           )}
@@ -366,7 +369,7 @@ export function Game() {
           {active === "owner" && <OwnerPanel />}
           {active === "promoter" && <PromoterPanel />}
           {active === "club" && <ClubPanel />}
-          {active === "manufacturer" && <ManufacturerPanel />}
+          {active === "manufacturer" && experimental && <ManufacturerPanel />}
           {active === "settings" && <SettingsPanel />}
         </main>
         <JobsBoard />

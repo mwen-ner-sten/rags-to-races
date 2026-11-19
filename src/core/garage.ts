@@ -6,6 +6,7 @@ import { pushFeed } from "./feed";
 import { hasPerk } from "./rules";
 import { STORY, addJournal } from "./journal";
 import type { Condition, DrivewayRule, GameState, MaterialId, PartInstance, TuneSetting, Vehicle } from "./types";
+import { batonGuarded } from "./features";
 
 export interface Stats {
   power: number;
@@ -200,7 +201,7 @@ export function fillFromDriveway(state: GameState): void {
 /** The garage part a swap would send out to the driveway: the cheapest one not on the bench. */
 export function swapOutCandidate(state: GameState): PartInstance | null {
   const reserved = reservedPartUids(state);
-  return state.run.inventory.filter((p) => !p.protected && !p.batonGuard && !reserved.has(p.uid)).sort((a, b) => partSellValue(state, a) - partSellValue(state, b))[0] ?? null;
+  return state.run.inventory.filter((p) => !p.protected && !batonGuarded(p) && !reserved.has(p.uid)).sort((a, b) => partSellValue(state, a) - partSellValue(state, b))[0] ?? null;
 }
 
 function partNames(parts: PartInstance[]): string {
@@ -215,7 +216,7 @@ function clearDriveway(state: GameState): void {
   addJournal(state, "first_overflow", STORY.first_overflow);
   const rule = drivewayRule(state);
   const reserved = reservedPartUids(state);
-  const disposable = state.run.driveway.filter((p) => !p.protected && !p.batonGuard && !reserved.has(p.uid));
+  const disposable = state.run.driveway.filter((p) => !p.protected && !batonGuarded(p) && !reserved.has(p.uid));
   if (rule === "leave") {
     const left = disposable.slice(-over);
     state.run.driveway = state.run.driveway.filter((part) => !left.includes(part));

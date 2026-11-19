@@ -13,6 +13,10 @@ import { rawScore } from "../src/core/race";
 import { shopFoundingReady } from "../src/core/serviceShop";
 import type { GameState, JobSpec, MaterialId } from "../src/core/types";
 import { decodeSave } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const checkpoint = process.argv[2] ?? "test-results/service-careers/charter-ready.txt";
 const save = decodeSave(Buffer.from(readFileSync(checkpoint, "utf8").trim(), "base64").toString("utf8"));

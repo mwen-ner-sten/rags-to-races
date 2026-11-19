@@ -3,6 +3,11 @@ import { garageSpace } from "../../src/core/garage";
 import type { GameState } from "../../src/core/types";
 import { HOUR, pendingBaton, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../fixtures/workshopAway";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 async function returnFromAbsence(page: Page, game: GameState) {
   const now = new Date("2026-11-01T18:00:00Z");
   await page.clock.install({ time: now });

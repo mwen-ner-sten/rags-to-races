@@ -4,6 +4,10 @@ import { WORKS_FAMILIES, WORKS_FAMILY_IDS, worksRecastBlocker, worksReport, work
 import { Bot, SCHEDULES } from "../src/core/sim/bot";
 import type { GameState, PartInstance } from "../src/core/types";
 import { decodeGameState } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const SEED = "manufacturer-natural-0";
 const HOUR = 3_600_000;

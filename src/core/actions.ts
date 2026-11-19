@@ -38,6 +38,7 @@ import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, Materia
 import { applyShopOrder, type ShopMove } from "./serviceShop";
 
 import { possiblePins, type CareerPin } from "./careerPin";
+import { batonGuarded, experimentalCareers } from "./features";
 
 export type Action =
   | { type: "pinCareer"; pin: CareerPin | null }
@@ -184,7 +185,7 @@ function applyMut(s: GameState, action: Action): string | null {
       const uids = new Set(action.partUids);
       const parts = [...s.run.inventory, ...s.run.driveway].filter((p) => uids.has(p.uid));
       if (parts.length === 0) return "Nothing to sell";
-      if (parts.some((p) => p.batonGuard)) return BATON_RELEASE_REQUIRED;
+      if (parts.some(batonGuarded)) return BATON_RELEASE_REQUIRED;
       if (parts.some((p) => reserved.has(p.uid))) return "A part is being worked on";
       sellParts(s, parts);
       afterChange(s);
@@ -290,7 +291,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "setTune": {
       const vehicle = s.run.vehicles.find((v) => v.uid === action.vehicleUid);
       if (!vehicle) return "No such vehicle";
-      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning") && !s.run.heritageSetups?.includes(vehicle.vehicleId)) return "Learn Tuning or set up this model’s heritage jig.";
+      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning") && !(experimentalCareers() && s.run.heritageSetups?.includes(vehicle.vehicleId))) return "Learn Tuning or set up this model’s heritage jig.";
       vehicle.tune = action.tune;
       return null;
     }
@@ -450,7 +451,7 @@ export function swapMeetBlocker(s: GameState, partUids: string[], partId: string
   const reserved = reservedPartUids(s);
   const parts = s.run.inventory.filter((p) => partUids.includes(p.uid));
   if (parts.length !== 3 || parts.some((p) => reserved.has(p.uid))) return "Pick 3 free parts";
-  if (parts.some((p) => p.batonGuard)) return BATON_RELEASE_REQUIRED;
+  if (parts.some(batonGuarded)) return BATON_RELEASE_REQUIRED;
   if ((s.meta.codex.parts[partId] ?? 0) < 1) return "Pick a part you've seen before";
   const maxTier = Math.max(...parts.map((p) => getPart(p.partId).tier));
   if (getPart(partId).tier > maxTier) return "Trade at least one part of that tier";

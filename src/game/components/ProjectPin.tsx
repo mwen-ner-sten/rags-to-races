@@ -1,12 +1,12 @@
 "use client";
-import { careerPinStep, PIN_NAMES, possiblePins, type CareerPin } from "@/core/careerPin";
+import { careerPinStep, PIN_NAMES, possiblePins, selectedPin, type CareerPin } from "@/core/careerPin";
 import type { CareerDestination } from "@/core/careerAdvice";
 import type { GameState } from "@/core/types";
 import { useGame } from "../store";
 
 export function ProjectPin({ game, onOpen }: { game: GameState; onOpen: (target: CareerDestination) => void }) {
   const dispatch = useGame((s) => s.dispatch);
-  const selected = game.meta.careerPin;
+  const selected = selectedPin(game);
   const options = possiblePins(game);
   if (selected && !options.includes(selected)) options.push(selected);
   if (!options.length) return null;

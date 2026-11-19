@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { decodeGameState } from "@/game/save";
 import { apply, must } from "../actions";
 import { blueprintPlan, partSwapGain } from "../buildPlanning";
@@ -12,6 +12,11 @@ import { nextUid } from "../rng";
 import { createGame } from "../index";
 import { initialConfig } from "../state";
 import type { GameState, JobSpec, PartInstance } from "../types";
+import { setExperimentalCareers } from "../features";
+
+// These systems are experimental and off by default; switch them on for this file only.
+beforeEach(() => setExperimentalCareers(true));
+afterEach(() => setExperimentalCareers(false));
 
 const runabout = getVehicle("service_runabout");
 const blueprint = runabout.blueprint!;

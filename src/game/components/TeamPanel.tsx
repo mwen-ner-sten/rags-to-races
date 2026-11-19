@@ -17,6 +17,7 @@ import { habitLabel, habitOptions } from "../labels";
 import { useGame } from "../store";
 import { ResetPlanner } from "./ResetPlanner";
 import { Tips } from "./Tips";
+import { experimentalCareers } from "@/core/features";
 
 function assignmentValue(a: CrewMember["assignment"]): string {
   return a.type === "habit" ? `habit:${a.template}` : a.type;
@@ -138,7 +139,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
       <section className="section" aria-labelledby="team-h">
         <h2 id="team-h">Lou&apos;s back bay</h2>
         <p className="sub">
-          A State Invitational win opens Lou’s back bay to either team. The service counter can also sponsor a Workshop Collective when both business references are on file, all three current invoices are paid, and you have a hauler. Founding a team ends Era 1: you pick a discipline, hire crew who work in parallel, and earn Team Points. Your Legacy Points and perk slots start over; everything you know and everything in your Notebook stays.
+          A State Invitational win opens Lou’s back bay to either team. {experimentalCareers() && "The service counter can also sponsor a Workshop Collective when both business references are on file, all three current invoices are paid, and you have a hauler. "}Founding a team ends Era 1: you pick a discipline, hire crew who work in parallel, and earn Team Points. Your Legacy Points and perk slots start over; everything you know and everything in your Notebook stays.
         </p>
         <p>
           Founding now would give <strong className="num">{num(teamAward(game))}</strong> Team Points.

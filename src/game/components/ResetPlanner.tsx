@@ -29,6 +29,7 @@ import { freightBlocker, FREIGHT_COST, locateBatonPart, otherCounty, type BatonC
 import { scrapResetLegacyBudget } from "@/core/layers";
 import { CountyBatonPlanner } from "./CountyBaton";
 import { ResetCommitments } from "./ResetCommitments";
+import { experimentalCareers } from "@/core/features";
 
 const SKILLS: { id: SkillId; label: string }[] = [
   { id: "haul", label: "Haul (trip speed)" },
@@ -60,7 +61,8 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
   const [clubCourse, setClubCourse] = useState<ClubCourseId | undefined>();
   const [clubLoan, setClubLoan] = useState<ClubCourseId | CountyRivalId | undefined>();
   const [worksPlan, setWorksPlan] = useState<WorksFamily | undefined>();
-  const activeBaton = game.run.countyBaton;
+  const experimental = experimentalCareers();
+  const activeBaton = experimental ? game.run.countyBaton : undefined;
   const handoff = !isTeam && baton === "carry" && activeBaton?.leg === "qualify" && activeBaton.qualified
     ? { uid: activeBaton.qualified.uid, county: otherCounty(activeBaton.from) } : undefined;
   const retainedPartUid = handoff?.uid ?? plannedPartUid;
@@ -225,7 +227,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
         setFreight(false);
       }} />}
       {!isTeam && (canFreight || freight) && <label className="check"><input type="checkbox" checked={freight} onChange={(event) => setFreight(event.target.checked)} /> Pay {FREIGHT_COST} Legacy Points for freight and keep all perk slots</label>}
-      {!isTeam && <CountyBatonPlanner game={game} choice={baton} onChoose={(choice) => {
+      {!isTeam && experimental && <CountyBatonPlanner game={game} choice={baton} onChoose={(choice) => {
         setForfeitBaton(false);
         setBaton(choice);
         if (choice) setDare(null);
@@ -244,7 +246,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
         </label>)}
       </fieldset>}
       {!isTeam && club && <ClubTrackOptions game={game} course={clubCourse} loan={clubLoan} onCourse={setClubCourse} onLoan={setClubLoan} />}
-      {!isTeam && <WorksDrawingPicker game={game} value={worksPlan} onChange={setWorksPlan} />}
+      {!isTeam && experimental && <WorksDrawingPicker game={game} value={worksPlan} onChange={setWorksPlan} />}
 
       <fieldset>
         <legend>Builder loadouts</legend>

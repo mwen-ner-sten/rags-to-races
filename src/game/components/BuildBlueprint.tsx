@@ -12,6 +12,11 @@ import { num, pct } from "../format";
 import { vehicleSprite } from "../sprites";
 import { useGame } from "../store";
 import { partOption } from "./BuildSlotRow";
+import { experimentalCareers } from "@/core/features";
+
+function shownBatonTag(game: GameState, part: Parameters<typeof batonPartTag>[1]): string | undefined {
+  return experimentalCareers() ? batonPartTag(game, part) : undefined;
+}
 
 export function Blueprint({ game, def }: { game: GameState; def: VehicleDef }) {
   const dispatch = useGame((s) => s.dispatch);
@@ -44,11 +49,11 @@ export function Blueprint({ game, def }: { game: GameState; def: VehicleDef }) {
                   <option value="">{options.length ? "None" : `Needs ${slot.accepts.map((id) => getPart(id).name).join(" or ")}`}</option>
                   {options.map((p) => (
                     <option key={p.uid} value={p.uid}>
-                      {partOption(p, batonPartTag(game, p))}
+                      {partOption(p, shownBatonTag(game, p))}
                     </option>
                   ))}
                 </select>
-                {options.length === 0 && fixable.length > 0 && <span className="why">On hand but needs bench work · {fixable.map((part) => partOption(part, batonPartTag(game, part))).join(", ")}</span>}
+                {options.length === 0 && fixable.length > 0 && <span className="why">On hand but needs bench work · {fixable.map((part) => partOption(part, shownBatonTag(game, part))).join(", ")}</span>}
                 {sources.length > 0 && <span className="hint">Per random find: {sources.map(({ place, chance }) => `${place.name} ${pct(chance)}`).join(" · ")}</span>}
               </label>
             );

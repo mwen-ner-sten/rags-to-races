@@ -10,6 +10,7 @@ import { partScoreAt } from "@/core/race";
 import type { DisciplineId, GameState, PartInstance, Vehicle } from "@/core/types";
 import { conditionName } from "../format";
 import { BatonGuardControls } from "./CountyBaton";
+import { experimentalCareers } from "@/core/features";
 
 export function partOption(part: PartInstance, batonTag?: string): string {
   return `${getPart(part.partId).name} (${conditionName(part.condition)})${batonTag ? ` · ${batonTag}` : ""}`;
@@ -33,7 +34,7 @@ interface BuildSlotRowProps {
 /** One slot of an owned vehicle: what is in it, what it's worth at the chosen venue, and a better option if the garage has one. */
 export function BuildSlotRow({ game, vehicle, slot, discipline, venueId, free, busy, service, onInstall, onPull, onService }: BuildSlotRowProps) {
   const installed = vehicle.parts[slot.slot];
-  const batonTag = installed && batonPartTag(game, installed);
+  const batonTag = installed && experimentalCareers() && batonPartTag(game, installed);
   const worth = (part: PartInstance) => partScoreAt(part, discipline, venueId, slot.slot);
   const gainFor = (part: PartInstance) => partSwapGain(vehicle, slot.slot, part, discipline, venueId);
   const signed = (gain: number) => `${gain >= 0 ? "+" : ""}${gain.toFixed(1)}`;
@@ -65,7 +66,7 @@ export function BuildSlotRow({ game, vehicle, slot, discipline, venueId, free, b
               <option value="">Swap in…</option>
               {options.map((p) => (
                 <option key={p.uid} value={p.uid}>
-                    {partOption(p, batonPartTag(game, p))} · {signed(gainFor(p))} score · {partOriginLabel(p)}
+                    {partOption(p, experimentalCareers() ? batonPartTag(game, p) : undefined)} · {signed(gainFor(p))} score · {partOriginLabel(p)}
                 </option>
               ))}
             </select>

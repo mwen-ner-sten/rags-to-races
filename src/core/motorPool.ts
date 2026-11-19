@@ -10,6 +10,7 @@ import { nextUid } from "./rng";
 import { shopFoundingReady } from "./serviceShop";
 import { detachGarageVehicle } from "./vehicleArchive";
 import type { Condition, GameState, PartInstance, Vehicle } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 const MINUTE = 60_000;
 
@@ -58,7 +59,7 @@ export type MotorPoolMove =
   | { type: "reclaim" };
 
 export function motorPoolVisible(game: GameState): boolean {
-  return !!game.motorPool || shopFoundingReady(game);
+  return experimentalCareers() && (!!game.motorPool || shopFoundingReady(game));
 }
 
 export function motorModel(vehicle: Vehicle): boolean {
@@ -144,6 +145,7 @@ export function motorReclaimBlocker(game: GameState): string | null {
 }
 
 export function applyMotorPool(game: GameState, move: MotorPoolMove): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   if (move.type === "lodge") {
     const issue = motorLodgeBlocker(game, move.vehicleUid);
     if (issue) return issue;
@@ -209,7 +211,7 @@ export function applyMotorPool(game: GameState, move: MotorPoolMove): string | n
 
 export function advanceMotorPool(game: GameState, elapsed: number): void {
   const pool = game.motorPool;
-  if (!pool?.job || !pool.custody || !Number.isFinite(elapsed) || elapsed <= 0) return;
+  if (!experimentalCareers() || !pool?.job || !pool.custody || !Number.isFinite(elapsed) || elapsed <= 0) return;
   const job = pool.job;
   if (elapsed < job.remaining) {
     job.remaining -= elapsed;

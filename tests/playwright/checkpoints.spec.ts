@@ -4,6 +4,11 @@ import { CHECKPOINT_PREFIX } from "../../src/game/checkpoints";
 import { createGame } from "../../src/core";
 import { racer } from "../fixtures/rewrite";
 
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
+
 const LIVE = "rags-to-races:v2";
 const SLOT = CHECKPOINT_PREFIX + "1";
 const NOW = new Date("2026-11-01T18:00:00Z");

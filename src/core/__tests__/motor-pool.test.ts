@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { decodeGameState } from "@/game/save";
 import { apply, must } from "../actions";
 import { getVehicle } from "../content/vehicles";
@@ -9,6 +9,11 @@ import { nextUid } from "../rng";
 import { initialConfig, newGame } from "../state";
 import type { GameState, PartInstance, Vehicle } from "../types";
 import { vehicleForReplay } from "../vehicleArchive";
+import { setExperimentalCareers } from "../features";
+
+// These systems are experimental and off by default; switch them on for this file only.
+beforeEach(() => setExperimentalCareers(true));
+afterEach(() => setExperimentalCareers(false));
 
 const HOUR = 3_600_000;
 const teamChoices = { ...initialConfig(), teamName: "County Garage", colors: ["#777", "#eee"], discipline: "dirt", organization: "collective" } satisfies TeamChoices;

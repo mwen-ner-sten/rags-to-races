@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGame, must } from "@/core";
+import { setExperimentalCareers } from "@/core/features";
 import type { GameState } from "@/core/types";
 import { pendingCircuitFinal, pendingOwnerFinal, racer, saveText, swapMeetGame, teamRacer } from "../../../tests/fixtures/rewrite";
 import { HOUR, pendingBaton, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../../../tests/fixtures/workshopAway";
@@ -42,6 +43,13 @@ function returnAfter(game: GameState, elapsed: number) {
 }
 
 describe("workshop and branch catch-up", () => {
+  // The workshop and branch careers are experimental: the browser preference is on for these.
+  beforeEach(() => {
+    storage.setItem("rags-to-races:experimental-careers", "on");
+    setExperimentalCareers(true);
+  });
+  afterEach(() => setExperimentalCareers(false));
+
   it("prioritizes newly arrived stock and an actionable invoice, preserving both through reload until collected", () => {
     const pending = pendingDepotAndRepair();
     const arrival = pending.motorPool!.job!;

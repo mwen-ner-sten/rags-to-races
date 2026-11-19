@@ -6,6 +6,7 @@ import { pushFeed } from "./feed";
 import { reservedPartUids } from "./garage";
 import { logSeason } from "./journal";
 import type { Condition, GameState, PartInstance } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 export const CUSTOMERS = {
   marina: {
@@ -62,17 +63,20 @@ export type ShopMove =
   { type: "register"; client: CustomerId; partUid: string } | { type: "release" } | { type: "deliver" };
 
 export function customerLeads(game: GameState) {
+  if (!experimentalCareers()) return undefined;
   return game.config.shopLegacy?.type === "client" ? CUSTOMERS[game.config.shopLegacy.client].category : undefined;
 }
 
 export function shopMoveReady(game: GameState) {
   return (
+    experimentalCareers() &&
     game.run.serviceBook?.invoices.length === CUSTOMER_IDS.length &&
     game.run.vehicles.some((car) => getVehicle(car.vehicleId).tier >= 1)
   );
 }
 
 export function depotCharter(game: GameState): boolean {
+  if (!experimentalCareers()) return false;
   const receipts = game.run.depotReceipts;
   return !!receipts?.includes("ramp") && receipts.includes("pump");
 }
@@ -123,6 +127,7 @@ export function stockedServiceClient(game: GameState, clients = unpaidServiceCli
 }
 
 export function recordService(game: GameState, part: PartInstance) {
+  if (!experimentalCareers()) return;
   const order = game.run.serviceBook?.ticket;
   if (order?.partUid === part.uid) order.worked = true;
 }
@@ -140,6 +145,7 @@ export function serviceDelivery(game: GameState) {
 }
 
 export function applyShopOrder(game: GameState, move: ShopMove): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   const book = (game.run.serviceBook ??= { invoices: [] });
   if (move.type === "register") {
     if (book.ticket) return "Release or deliver the current part first.";

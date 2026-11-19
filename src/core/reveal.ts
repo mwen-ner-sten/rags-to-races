@@ -1,5 +1,6 @@
 import { getPart } from "./content/parts";
 import type { GameState } from "./types";
+import { experimentalCareers } from "./features";
 
 /**
  * What the UI shows. Each key reveals once its predicate holds in a Season
@@ -19,7 +20,7 @@ export const REVEALS: readonly { key: string; label: string; when: (s: GameState
   { key: "tools", label: "Tools", when: (s) => s.run.cash >= 25 || Object.keys(s.run.tools).length > 0 },
   { key: "materials", label: "Materials", when: (s) => Object.values(s.run.materials).some((n) => n > 0) },
   { key: "legacy", label: "Legacy", when: (s) => s.run.venuesOpen.includes("county_fair") || s.scrap.resets > 0 || s.era !== null },
-  { key: "team", label: "Team", when: (s) => s.era !== null || s.meta.stateWonEver || !!s.meta.serviceReferences?.equipment || !!s.meta.serviceReferences?.referral || s.run.venuesOpen.includes("regional") },
+  { key: "team", label: "Team", when: (s) => s.era !== null || s.meta.stateWonEver || (experimentalCareers() && (!!s.meta.serviceReferences?.equipment || !!s.meta.serviceReferences?.referral)) || s.run.venuesOpen.includes("regional") },
   { key: "crew", label: "Crew", when: (s) => s.era !== null },
 ];
 

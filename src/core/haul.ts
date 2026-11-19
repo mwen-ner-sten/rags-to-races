@@ -9,6 +9,7 @@ import { findProvenance } from "./provenance";
 import { CUSTOMERS } from "./serviceShop";
 import { resolveFlags } from "./rules";
 import type { Condition, GameState, JobSpec, PartInstance } from "./types";
+import { experimentalCareers } from "./features";
 
 type HaulSpec = Extract<JobSpec, { kind: "haul" }>;
 
@@ -55,7 +56,7 @@ export function completeHaul(state: GameState, spec: HaulSpec, crewId?: string):
     if (quality >= 0.5 && condition < 1) condition = 1; // Junkyard Eyes floor
     condition = Math.max(0, Math.min(4, condition));
     const part: PartInstance = { uid: nextUid(state, "p"), partId, condition: condition as Condition, origin: place.name, provenance };
-    const lead = state.config.shopLegacy;
+    const lead = experimentalCareers() ? state.config.shopLegacy : undefined;
     if (lead?.type === "client" && spec.focus === CUSTOMERS[lead.client].category && getPart(partId).category === spec.focus) part.referral = lead.client;
     finds.push(part);
     state.meta.codex.parts[partId] = (state.meta.codex.parts[partId] ?? 0) + 1;

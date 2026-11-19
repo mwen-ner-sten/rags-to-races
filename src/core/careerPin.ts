@@ -5,6 +5,7 @@ import { eligibleHistory } from "./heritage";
 import { worksReport, WORKS_FAMILIES } from "./manufacturer";
 import { CUSTOMERS, shopFoundingReady, shopMoveReady, stockedServiceClient } from "./serviceShop";
 import type { GameState } from "./types";
+import { experimentalCareers } from "./features";
 
 export const PIN_IDS = ["first-fair", "paid-work", "heritage", "manufacturer", "regularity"] as const;
 export type CareerPin = (typeof PIN_IDS)[number];
@@ -20,13 +21,22 @@ interface Step {
   label: string;
   destination: CareerDestination;
 }
+/** Pins that only exist while the experimental careers are switched on. */
+const EXPERIMENTAL_PINS: readonly CareerPin[] = ["paid-work", "heritage", "manufacturer"];
+
+/** The saved pin, unless it belongs to a hidden experimental career. */
+export function selectedPin(game: GameState): CareerPin | undefined {
+  const pin = game.meta.careerPin;
+  return pin && !experimentalCareers() && EXPERIMENTAL_PINS.includes(pin) ? undefined : pin;
+}
 export function possiblePins(game: GameState): CareerPin[] {
   const result: CareerPin[] = [];
+  const experimental = experimentalCareers();
   if (game.run.vehicles.length || game.meta.seasonsPlayed) result.push("first-fair");
-  if (game.run.revealed.includes("bench") || game.meta.seasonsPlayed) result.push("paid-work");
-  if (game.meta.hallOfFame.some((entry) => eligibleHistory(game, entry)) || game.meta.heritageRegister?.length)
+  if (experimental && (game.run.revealed.includes("bench") || game.meta.seasonsPlayed)) result.push("paid-work");
+  if (experimental && (game.meta.hallOfFame.some((entry) => eligibleHistory(game, entry)) || game.meta.heritageRegister?.length))
     result.push("heritage");
-  if (game.manufacturer || game.run.vehicles.some((v) => getVehicle(v.vehicleId).tier >= 2))
+  if (experimental && (game.manufacturer || game.run.vehicles.some((v) => getVehicle(v.vehicleId).tier >= 2)))
     result.push("manufacturer");
   if (game.era?.discipline === "rally" || game.meta.rallyCards?.length) result.push("regularity");
   return result;

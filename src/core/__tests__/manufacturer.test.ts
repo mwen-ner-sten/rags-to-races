@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { racer } from "../../../tests/fixtures/rewrite";
 import { clubCandidate } from "../../../tests/fixtures/club";
 import { decodeGameState } from "@/game/save";
@@ -9,6 +9,11 @@ import { vehicleStats } from "../garage";
 import { WORKS_FAMILIES, worksEnterBlocker, worksReport, type WorksFamily } from "../manufacturer";
 import type { ScrapChoices } from "../layers";
 import type { GameState } from "../types";
+import { setExperimentalCareers } from "../features";
+
+// These systems are experimental and off by default; switch them on for this file only.
+beforeEach(() => setExperimentalCareers(true));
+afterEach(() => setExperimentalCareers(false));
 
 const HOUR = 3_600_000;
 const choices: ScrapChoices = { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, hardships: [], dare: null };
