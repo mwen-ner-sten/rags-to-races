@@ -142,7 +142,7 @@ function applyMut(s: GameState, action: Action): string | null {
         return "Enter touring rounds from the Owner calendar";
       }
       if (action.spec.kind === "race" && action.spec.clubRound !== undefined) return "Enter club rounds from the Club calendar";
-      if (action.spec.kind === "race" && action.spec.worksRound !== undefined) return "Enter works trials from the Manufacturer desk";
+      if (action.spec.kind === "race" && action.spec.worksRound !== undefined) return "Enter works trials from Garage → Suppliers";
       if (action.spec.kind === "race" && action.spec.countyMatch !== undefined) return "Enter the county matchup from the Race screen";
       return enqueue(s, action.spec);
     case "batchClean": {

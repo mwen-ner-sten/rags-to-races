@@ -81,7 +81,7 @@ export interface ManufacturerState {
 
 export type WorksMove =
   | { type: "sign"; family: WorksFamily; vehicleUid: string }
-  | { type: "enter" }
+  | { type: "enter"; call?: RaceCall }
   | { type: "archive" }
   | { type: "recast"; partUid: string };
 
@@ -135,7 +135,7 @@ export function worksSpecMatches(state: GameState, spec: RaceSpec, car?: Vehicle
   const vehicle = car ?? state.run.vehicles.find(({ uid }) => uid === spec.vehicleUid);
   return Boolean(!report.failed && report.next && vehicle?.vehicleId === "go_kart" && vehicle.uid === deal.vehicleUid
     && (!checkFittedArticle || (vehicle.parts.engine?.uid === deal.engineUid && eligibleArticle(vehicle, deal.family)))
-    && spec.venueId === report.next.venue && spec.event === report.next.event && spec.call === report.next.call);
+    && spec.venueId === report.next.venue && spec.event === report.next.event && (spec.call === "push" || spec.call === "nurse"));
 }
 
 export function worksPlanBlocker(state: GameState, plan?: WorksFamily): string | null {
@@ -147,23 +147,24 @@ export function worksPlanBlocker(state: GameState, plan?: WorksFamily): string |
 export function worksSignBlocker(state: GameState, family: WorksFamily, vehicle?: Vehicle): string | null {
   if (!state.manufacturer?.invites.includes(family)) return "Earn this invitation with a County Fair Feature podium and two family parts.";
   if (state.manufacturer.active) return "File your current works deal before signing another.";
+  if (state.manufacturer.drawings.includes(family)) return "This supplier’s drawing is already earned.";
   if (!vehicle || !eligibleArticle(vehicle, family)) return "Choose a Go-Kart with an engine and three fitted family parts.";
   if (vehicleBusy(state, vehicle.uid)) return "Wait for this car’s current race to finish.";
   if (state.run.cash < WORKS_FAMILIES[family].fee) return `Inspection costs ${WORKS_FAMILIES[family].fee} Scrap Bucks.`;
   return null;
 }
 
-function officialSpec(deal: WorksDeal, next: WorksTest): RaceSpec {
-  return { kind: "race", venueId: next.venue, event: next.event, call: next.call, vehicleUid: deal.vehicleUid, worksRound: worksToken(deal) };
+function officialSpec(deal: WorksDeal, next: WorksTest, call = next.call): RaceSpec {
+  return { kind: "race", venueId: next.venue, event: next.event, call, vehicleUid: deal.vehicleUid, worksRound: worksToken(deal) };
 }
 
-export function worksEnterBlocker(state: GameState): string | null {
+export function worksEnterBlocker(state: GameState, call?: RaceCall): string | null {
   const deal = state.manufacturer?.active;
   if (!deal) return "Sign a works deal first.";
   const { next, failed } = worksReport(deal);
   if (!next || failed) return "The deal has finished. File the report.";
   if (worksEntryStatus(state)) return "An official works start is already booked.";
-  const spec = officialSpec(deal, next);
+  const spec = officialSpec(deal, next, call);
   if (!worksSpecMatches(state, spec)) return "Fit the signed engine and three family parts to this article.";
   return jobBlocker(state, spec, true);
 }
@@ -208,10 +209,10 @@ export function applyWorks(state: GameState, move: WorksMove): string | null {
       return null;
     }
     case "enter": {
-      const reason = worksEnterBlocker(state);
+      const reason = worksEnterBlocker(state, move.call);
       if (reason) return reason;
       const deal = works!.active!;
-      return enqueue(state, officialSpec(deal, worksReport(deal).next!));
+      return enqueue(state, officialSpec(deal, worksReport(deal).next!, move.call));
     }
     case "archive":
       if (worksEntryStatus(state)) return "Withdraw the queued sign-up or wait for the flag before filing the report.";
@@ -245,7 +246,7 @@ export function recordWorksRace(state: GameState, spec: RaceSpec, result: RaceRe
         if (worksFit(vehicle, family) < 2 || state.manufacturer?.invites.includes(family)) continue;
         const works = state.manufacturer ??= { active: null, invites: [], drawings: [], history: [] };
         works.invites.push(family);
-        logSeason(state, `works:invite:${family}`, `${WORKS_FAMILIES[family].name} invited ${vehicle.name} to commission a proof article. Open Manufacturer to see the contract.`);
+        logSeason(state, `works:invite:${family}`, `${WORKS_FAMILIES[family].name} invited ${vehicle.name} to commission a proof article. See the offer under Garage → Suppliers.`);
       }
     }
     return;

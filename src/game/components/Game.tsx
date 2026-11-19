@@ -29,7 +29,6 @@ import { GarageTab, garageSectionFor, openingGarageSection, type GarageSection }
 import { serviceActionReady } from "./ServiceCounter";
 import { ClubPanel } from "./ClubPanel";
 import { CountyMatchPanel } from "./CountyMatchPanel";
-import { ManufacturerPanel } from "./ManufacturerPanel";
 import { TeamPanel } from "./TeamPanel";
 import { TabNav } from "./TabNav";
 import { hasUnreadTip } from "./Tips";
@@ -38,7 +37,7 @@ import { WorkshopPanel, workshopSections } from "./WorkshopPanel";
 import { selectedPin } from "@/core/careerPin";
 import { useExperimentalCareers } from "../useExperimental";
 
-type TabId = "trips" | "garage" | "workshop" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "manufacturer" | "settings";
+type TabId = "trips" | "garage" | "workshop" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "settings";
 
 /** Tips that live on each tab; an unread one puts a dot on the tab. */
 const TAB_TIPS: Partial<Record<TabId, readonly string[]>> = {
@@ -61,7 +60,6 @@ const TABS: { id: TabId; label: string; reveal: string | null }[] = [
   { id: "owner", label: "Owner", reveal: "owner" },
   { id: "promoter", label: "Circuit", reveal: "promoter" },
   { id: "club", label: "Club", reveal: "club" },
-  { id: "manufacturer", label: "Manufacturer", reveal: "manufacturer" },
   { id: "settings", label: "Settings", reveal: null },
 ];
 
@@ -303,8 +301,7 @@ export function Game() {
     if (t.id === "owner") return !!game.owner || ownerGate(game).ok;
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
     if (t.id === "club") return !clubGate(game);
-    if (t.id === "manufacturer") return experimental && !!game.manufacturer?.invites.length;
-    if (t.id === "garage" && motorPoolVisible(game)) return true; // false unless experimental
+    if (t.id === "garage" && (motorPoolVisible(game) || (experimental && !!game.manufacturer?.invites.length))) return true; // false unless experimental
     if (t.id === "team" && (game.era || LAYERS.team.gate(game).ok)) return true;
     if (t.id === "legacy" && ((experimental && game.run.countyBaton) || LAYERS.scrap.gate(game).ok)) return true;
     if (t.id === "race" && game.run.vehicles.length > 0) return true;
@@ -360,7 +357,6 @@ export function Game() {
           {active === "owner" && <OwnerPanel />}
           {active === "promoter" && <PromoterPanel />}
           {active === "club" && <ClubPanel />}
-          {active === "manufacturer" && experimental && <ManufacturerPanel />}
           {active === "settings" && <SettingsPanel />}
         </main>
         <JobsBoard />

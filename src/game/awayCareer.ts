@@ -79,11 +79,11 @@ function workshopUpdates(before: GameState, after: GameState, coveredFeedKeys: S
     const attempt = deal.attempts[deal.attempts.length - 1];
     if (result.homologated) coveredFeedKeys.add(`works:honors:${deal.id}`);
     reports.push({
-      id: "works-proof", tab: "manufacturer", destination: { tab: "manufacturer", section: "deal" }, action: "Open Works report",
+      id: "works-proof", tab: "garage", destination: { tab: "garage", section: "works-deal" }, action: "Open Works report",
       title: result.homologated ? "Works article homologated" : attempt.passed ? "Works benchmark passed" : "Works benchmark missed",
       detail: `${deal.article} for ${family.name} · ${result.step}/${family.tests.length} benchmarks passed.`,
       next: result.homologated ? `The ${num(family.grant)} Scrap Bucks grant was paid. File the report and use the drawing at a future Scrap Reset.`
-        : result.failed ? "The deal is out of starts or budget. File the Works report." : "Review the remaining benchmark and entry terms in Manufacturer.",
+        : result.failed ? "The deal is out of starts or budget. File the Works report." : "Review the remaining benchmark and entry terms under Garage → Suppliers.",
     });
   }
 

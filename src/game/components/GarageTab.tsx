@@ -5,7 +5,7 @@ import type { CareerDestination } from "@/core/careerAdvice";
 import { motorPoolVisible } from "@/core/motorPool";
 import type { GameState } from "@/core/types";
 import { BuildPanel } from "./BuildPanel";
-import { WorksDrawingWorkshop } from "./ManufacturerPanel";
+import { ManufacturerPanel } from "./ManufacturerPanel";
 import { MotorPoolPanel } from "./MotorPoolPanel";
 import { PartsPanel } from "./PartsPanel";
 import { ServiceCounter, serviceActionReady, serviceCounterVisible } from "./ServiceCounter";
@@ -17,6 +17,8 @@ export type GarageSection = "vehicles" | "parts" | "customers" | "depot" | "work
 type GarageJump = Extract<CareerDestination, { tab: "garage" }>["section"];
 
 const JUMP_SECTION: Record<GarageJump, GarageSection> = {
+  works: "works",
+  "works-deal": "works",
   build: "vehicles",
   parts: "parts",
   service: "customers",
@@ -61,7 +63,7 @@ function garageSections(game: GameState): SubNavItem<GarageSection>[] {
       dot: !!game.motorPool?.claim,
       dotLabel: "A depot pickup is waiting",
     },
-    experimentalCareers() && !!game.config.worksPlan && { id: "works", label: "Works drawing" },
+    experimentalCareers() && !!game.manufacturer?.invites.length && { id: "works", label: "Suppliers" },
   ];
   return items.filter((item): item is SubNavItem<GarageSection> => !!item);
 }
@@ -95,7 +97,7 @@ export function GarageTab({ game, section, onSection }: GarageTabProps) {
         {active === "parts" && <PartsPanel />}
         {active === "customers" && <ServiceCounter game={game} />}
         {active === "depot" && <MotorPoolPanel game={game} onManageParts={() => onSection("parts")} />}
-        {active === "works" && <WorksDrawingWorkshop game={game} />}
+        {active === "works" && <ManufacturerPanel game={game} />}
       </div>
     </div>
   );

@@ -15,9 +15,8 @@ import type { DisciplineId, GameState, SeasonChallengeId } from "./types";
 
 export type CareerDestination =
   | { tab: "legacy"; objective?: SeasonChallengeId; section?: "baton" }
-  | { tab: "garage"; section: "service" | "build" | "service-delivery" | "motor-pickup" | "motor-pool" | "parts" }
+  | { tab: "garage"; section: "service" | "build" | "service-delivery" | "motor-pickup" | "motor-pool" | "parts" | "works" | "works-deal" }
   | { tab: "trips" }
-  | { tab: "manufacturer"; section?: "deal" }
   | { tab: "notebook"; section: "Hall of Fame" }
   | { tab: "notebook"; section: "Timecards" }
   | { tab: "workshop"; section: "Heritage"; vehicleUid?: string }
