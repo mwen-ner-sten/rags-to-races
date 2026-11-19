@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { CheckpointShelf } from "./CheckpointShelf";
 import { useGame } from "../store";
 
 export function SettingsPanel() {
   const exportSave = useGame((s) => s.exportSave);
+  const exportBackup = useGame((s) => s.exportBackup);
+  const saveBlocked = useGame((s) => s.saveBlocked);
   const importSave = useGame((s) => s.importSave);
   const reset = useGame((s) => s.reset);
   const game = useGame((s) => s.game);
@@ -13,8 +16,12 @@ export function SettingsPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
 
-  const copy = async () => {
-    const data = exportSave();
+  const copy = async (backup = false) => {
+    const data = backup ? exportBackup() : exportSave();
+    if (!data) {
+      setMessage("No browser backup is available.");
+      return;
+    }
     setText(data);
     try {
       await navigator.clipboard.writeText(data);
@@ -28,10 +35,12 @@ export function SettingsPanel() {
     <section className="section" aria-labelledby="settings-h">
       <h2 id="settings-h">Settings</h2>
       <p className="sub">Your game saves to this browser every few seconds. Export it to move it somewhere else.</p>
+      {saveBlocked && <p className="notice" role="alert">Automatic saving is paused to protect the original save. Export browser backup to keep a copy. A successful import or new game will turn saving back on.</p>}
       <div className="actions">
-        <button className="btn" onClick={copy}>
+        <button className="btn" onClick={() => copy()}>
           Export save
         </button>
+        <button className="btn" onClick={() => copy(true)}>Export browser backup</button>
         <button
           className="btn"
           onClick={() => {
@@ -66,19 +75,21 @@ export function SettingsPanel() {
           Show tips again
         </button>
       </div>
+      <CheckpointShelf />
       <h3 className="label">Start over</h3>
-      <p className="sub">Wipes this browser’s save, including your Notebook. This can’t be undone.</p>
+      <p className="sub">Starts a fresh game and Notebook. Your garage checkpoints stay saved. Export browser backup keeps your previous browser save until another backup replaces it.</p>
       {confirmWipe ? (
         <div className="actions">
           <button
             className="btn danger"
             onClick={() => {
-              reset();
-              setConfirmWipe(false);
-              setMessage("New game started.");
+              if (reset()) {
+                setConfirmWipe(false);
+                setMessage("New game started. Your previous save is available through Export browser backup.");
+              }
             }}
           >
-            Yes, wipe everything
+            Yes, start a new game
           </button>
           <button className="btn" onClick={() => setConfirmWipe(false)}>
             Keep my game

@@ -12,6 +12,14 @@
  *   config — choices made at the last reset, fixed for the Season
  */
 
+import type { OwnerState } from "./ownership";
+import type { ClubAdmission, ClubCharter, ClubState } from "./club";
+import type { ClubCourseId } from "./clubTrack";
+import type { CountyContact, CountyMatchResult, CountyRivalId } from "./countyRivals";
+import type { ManufacturerState, WorksFamily } from "./manufacturer";
+import type { MotorPoolState } from "./motorPool";
+import type { PromoterState } from "./promoter";
+
 export type Scope = "run" | "scrap" | "era" | "config";
 
 export type PartCategory =
@@ -29,7 +37,7 @@ export type PartCategory =
 export type Condition = 0 | 1 | 2 | 3 | 4;
 
 export type SkillId = "haul" | "wrench" | "build" | "race";
-export type DisciplineId = "dirt" | "drag";
+export type DisciplineId = "dirt" | "drag" | "rally";
 export type EventKind = "sprint" | "heat" | "feature";
 export type RaceCall = "push" | "nurse";
 export type TuneSetting = "balanced" | "power" | "reliable";
@@ -45,6 +53,25 @@ export interface PartInstance {
   condition: Condition;
   /** Where it was found, for the Hall of Fame history. */
   origin: string;
+  provenance?: PartProvenance;
+  protected?: boolean;
+  batonGuard?: true;
+  referral?: import("./serviceShop").CustomerId;
+  /** This physical part has already crossed one Scrap Reset. */
+  inherited?: true;
+}
+
+export type HomeCounty = "home" | "river" | "quarry";
+export type NeighborCounty = Exclude<HomeCounty, "home">;
+
+export type BatonProgress =
+  | { leg: "qualify"; from: NeighborCounty; qualified?: { uid: string; at: number } }
+  | { leg: "deliver"; from: NeighborCounty; qualified: { uid: string; at: number }; completedAt?: number };
+
+export interface PartProvenance {
+  readonly county: HomeCounty;
+  readonly placeId: string;
+  readonly season: number;
 }
 
 export interface VehicleHistory {
@@ -75,7 +102,7 @@ export type JobSpec =
   | { kind: "strip"; partUid?: string }
   | { kind: "study"; knowhowId: string }
   | { kind: "assemble"; vehicleId: string; partUids: Record<string, string>; name: string }
-  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" };
+  | { kind: "race"; vehicleUid: string; venueId: string; event: EventKind; call: RaceCall; regularity?: true; useLastPace?: true; holdMarks?: true; tourRound?: string; tourReserve?: number; ownerDrive?: true; clubRound?: { token: string; admission: ClubAdmission }; worksRound?: string; countyMatch?: CountyRivalId; call2?: "pit" | "stay" | "launch_hard" | "launch_soft" | "cut" | "recce" };
 
 export type LaneId = string; // "hands" | "bench:0" | "habit:1" | "crew:<id>"
 
@@ -96,7 +123,7 @@ export interface ActiveJob {
   race?: RaceRoll;
 }
 
-export type RaceBeatKind = "start" | "pass" | "passed" | "hold" | "wear" | "rival" | "last_lap" | "dnf" | "finish";
+export type RaceBeatKind = "start" | "pass" | "passed" | "hold" | "wear" | "rival" | "last_lap" | "dnf" | "finish" | "caution" | "round";
 
 export interface RaceBeat {
   /** Ms into the race. */
@@ -109,12 +136,31 @@ export interface RaceBeat {
 
 /** Everything about a race decided at the green flag. */
 export interface RaceRoll {
+  heritageEntry?: string;
+  rallyClock?: import("./timecards").RallyClock;
+  course?: ClubCourseId;
+  /** Crew committed at race entry, including any crew member running the job. Older saves omit this. */
+  crewIds?: string[];
   position: number;
   fieldSize: number;
   dnf: boolean;
   margin: number;
   rivalBeaten: boolean;
+  /** You actually raced the rival (in a Drag bracket, only if you reached the final). Older saves: assume yes. */
+  rivalFaced?: boolean;
+  /** The rival's own car quit. */
+  rivalOut?: boolean;
+  /** The yellow flag came out (Team-era ovals). */
+  caution?: boolean;
+  /** Drag: elimination rounds in this event. */
+  rounds?: number;
+  /** Finished well enough to open the next event (older saves: top three). */
+  advanced?: boolean;
+  /** Every installed part was Good or better at the green flag. */
+  cleanBuild?: boolean;
   weakestSlot: string | null;
+  /** The part at race entry, so a later swap cannot rewrite the debrief. */
+  weakestPart?: PartInstance;
   /** Condition steps each installed slot loses, applied at the flag. */
   wearSteps: Record<string, number>;
   laps: number;
@@ -123,6 +169,9 @@ export interface RaceRoll {
 }
 
 export interface RaceResult {
+  countyMeeting?: CountyMatchResult;
+  rallyClock?: import("./timecards").RallyClock;
+  course?: ClubCourseId;
   id: string;
   seasonMs: number;
   vehicleUid: string;
@@ -135,13 +184,32 @@ export interface RaceResult {
   prize: number;
   rep: number;
   rival?: { id: string; beaten: boolean };
+  rivalOut?: boolean;
+  caution?: boolean;
+  rounds?: number;
   margin: number;
   weakestSlot: string | null;
+  weakestPart?: PartInstance;
   beats: RaceBeat[];
   /** Laps run and race length (older saves don't have them). */
   laps?: number;
   durationMs?: number;
   wear: { slot: string; from: Condition; to: Condition }[];
+}
+
+export type FeedKind = "haul" | "driveway" | "bench" | "habit" | "place" | "knowhow" | "build" | "race" | "story";
+
+/** Something that just happened, shown in the "Lately" list and as a passing toast. */
+export interface FeedItem {
+  id: string;
+  /** Season ms when it happened (or last happened, for a merged item). */
+  at: number;
+  kind: FeedKind;
+  text: string;
+  /** Repeats of the same thing (a Habit's trips, driveway overflows) merge into one item. */
+  key?: string;
+  count?: number;
+  tally?: Record<string, number>;
 }
 
 export interface JournalEntry {
@@ -156,10 +224,31 @@ export interface HallOfFameEntry {
   vehicleId: string;
   name: string;
   history: VehicleHistory;
-  parts: { slot: string; partId: string; condition: Condition; origin: string }[];
+  parts: ({ slot: string } & Pick<PartInstance, "partId" | "condition" | "origin" | "provenance">)[];
+  retirement?: { kind: "dismantle" | "exchange" | "exhibit"; vehicleUid: string; seasonMs: number };
+}
+
+export type SeasonChallengeId = "homebuilt_relay" | "parts_with_a_past" | "hand_me_down";
+
+export interface SeasonChallengeRecord {
+  completions: number;
+  bestSeasonMs: number;
+  bestVehicleName: string;
+}
+
+export interface SeasonChallengeProgress {
+  relay?: { vehicleUid: string; frameUid: string }[];
+  handMeDownEngines?: string[];
+  completedAt?: number;
 }
 
 export interface MetaState {
+  careerPin?: import("./careerPin").CareerPin;
+  serviceReferences?: import("./serviceShop").ServiceReferences;
+  heritageRegister?: import("./heritage").HeritageAward[];
+  rallyLicences?: Record<string, number>;
+  rallyCards?: import("./timecards").RallyCard[];
+  seasonLog?: SeasonResult[];
   /** Handled-count per part id and haul-count per place id. */
   codex: { parts: Record<string, number>; places: Record<string, number> };
   /** Seasons in which each know-how id was learned/opened. */
@@ -180,8 +269,11 @@ export interface MetaState {
   /** The player hid the first-Season guide. */
   guideOff?: boolean;
   daresCompleted: string[];
+  challengeRecords: Partial<Record<SeasonChallengeId, SeasonChallengeRecord>>;
+  countyFreight?: Partial<Record<NeighborCounty, number>>;
   disciplineMastery: Record<string, number>;
   hardshipMastery: Record<string, number>;
+  teamStateWon?: boolean;
   stateWonEver: boolean;
   journalSeen: string[];
   journal: JournalEntry[];
@@ -208,6 +300,7 @@ export interface TeamLayerState {
 }
 
 export interface CrewMember {
+  service?: import("./crewLegacy").CrewService;
   id: string; // roster id
   assignment: { type: "queue" } | { type: "habit"; template: JobTemplate } | { type: "driver" } | { type: "spotter" } | { type: "rest" };
   morale: number; // 0..100
@@ -217,6 +310,8 @@ export interface CrewMember {
 }
 
 export interface EraState {
+  organization?: import("./content/team").TeamOrganization;
+  handover?: import("./crewLegacy").CrewHandover;
   discipline: DisciplineId;
   teamName: string;
   colors: [string, string];
@@ -228,6 +323,11 @@ export interface EraState {
 }
 
 export interface RunState {
+  depotReceipts?: import("./motorPool").MotorRouteId[];
+  serviceBook?: import("./serviceShop").ServiceBook;
+  heritageSetups?: string[];
+  heritageProject?: import("./heritage").HeritageProject;
+  regularityFeatures?: Record<string, number>;
   seasonMs: number;
   cash: number;
   rep: number;
@@ -253,25 +353,65 @@ export interface RunState {
   /** Season ms when each "venue:event" was last entered (events run on a schedule). */
   lastEntered: Record<string, number>;
   featureWins: Record<string, number>; // venue → season ms of first Feature win
+  challenge: SeasonChallengeProgress;
+  countyBaton?: BatonProgress;
+  raceNight?: { vehicleUid: string; venueId: string; call: RaceCall; startsLeft: number; stopOnFeature: boolean };
   races: RaceResult[];
-  stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number };
+  stats: { partsSold: number; hauls: number; racesLost: Record<string, number>; firstStartDone: boolean; drivewayOverflows?: number; dnfs?: number; counterBuys?: number };
   revealed: string[];
   candidates: string[]; // crew candidates this Season (team era)
   shellsBought: number;
   /** Dealer saturation per part id, decaying 1 per hour (see garage.partSellValue). */
   saleSat: Record<string, { n: number; at: number }>;
+  /** Recent wins per "venue:event", decaying over time: keep winning the same event and its purse shrinks (see race.purseFactor). */
+  purseSat?: Record<string, { n: number; at: number }>;
   notices: string[];
+  /** Recent happenings, newest last (see feed.ts). */
+  feed: FeedItem[];
   pushOnlyRaces: boolean;
 }
 
 export interface RunConfig {
+  shopLegacy?: import("./serviceShop").ShopLegacy;
+  donor?: Pick<PartInstance, "partId" | "condition" | "origin" | "provenance">;
+  homeCounty?: HomeCounty;
+  countyFreight?: true;
   perks: string[]; // equipped this Season
   tuneUp: Record<SkillId, number>;
   dare: string | null;
   hardships: string[];
+  /** The crate carrying a part takes one perk slot for this Season. */
+  salvageSlot?: true;
+  club?: ClubCharter;
+  clubCourse?: ClubCourseId;
+  clubLoan?: ClubCourseId;
+  clubVisitor?: CountyRivalId;
+  worksPlan?: WorksFamily;
+}
+
+export interface SeasonResult {
+  depotReceipts?: import("./motorPool").MotorRouteId[];
+  serviceInvoices?: import("./serviceShop").Invoice[];
+  regularityFeatures?: Record<string, number>;
+  organization?: import("./content/team").TeamOrganization;
+  season: number;
+  endedBy: "scrap" | "team" | "shop";
+  teamName: string | null;
+  discipline: DisciplineId;
+  setup: RunConfig;
+  durationMs: number;
+  featureWins: Record<string, number>;
+  builds: number;
+  hauls: number;
 }
 
 export interface GameState {
+  motorPool?: MotorPoolState;
+  countyRivals?: Partial<Record<CountyRivalId, CountyContact>>;
+  manufacturer?: ManufacturerState;
+  club?: ClubState;
+  owner?: OwnerState;
+  promoter?: PromoterState;
   version: 1;
   seed: string;
   rng: number;

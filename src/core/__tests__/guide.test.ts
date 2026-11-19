@@ -18,7 +18,7 @@ describe("first-Season guide", () => {
     const s = createGame("guide2");
     for (const step of GUIDE) {
       expect(step.how(s).length, step.id).toBeGreaterThan(20);
-      expect(["trips", "garage", "race", "notebook"]).toContain(step.tab);
+      expect(["trips", "garage", "workshop", "race"]).toContain(step.tab);
     }
     expect(new Set(GUIDE.map((g) => g.id)).size).toBe(GUIDE.length);
   });

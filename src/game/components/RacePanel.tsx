@@ -2,46 +2,24 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { DISCIPLINES, EVENT_KINDS, RIVAL_BY_ID, VENUES, getVenue, venueName } from "@/core/content/events";
+import { DISCIPLINES, EVENT_KINDS, VENUES, getVenue, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
 import { vehicleBusy } from "@/core/garage";
-import { canOpenPlace, placeRepCost } from "@/core/knowhowEngine";
 import { practiceBonus, weakestSlot } from "@/core/race";
-import type { GameState, JobSpec, RaceCall, Vehicle } from "@/core/types";
-import { capitalize, conditionName, num, ordinal, pct } from "../format";
+import { retiredVehicle } from "@/core/vehicleArchive";
+import type { GameState, RaceCall, Vehicle } from "@/core/types";
+import { capitalize, conditionName, num, pct } from "../format";
 import { venueSprite } from "../sprites";
 import { useGame } from "../store";
+import { DriversCall, type Call2 } from "./race/DriversCall";
 import { EventCard } from "./race/EventCard";
 import { OnTrack } from "./race/OnTrack";
+import { finishText } from "./race/resultText";
+import { VenueInfo } from "./race/VenueInfo";
+import { DirtSignup, LockedVenue } from "./race/VenueCards";
 import { Tips } from "./Tips";
-
-type Call2 = Extract<JobSpec, { kind: "race" }>["call2"];
-
-/** The Dirt Track opens with Rep rather than a Feature win, so it gets a sign-up card once it's within reach. */
-function DirtSignup({ game }: { game: GameState }) {
-  const dispatch = useGame((s) => s.dispatch);
-  if (game.run.venuesOpen.includes("dirt") || game.run.featureWins.backyard === undefined) return null;
-  const venue = getVenue("dirt");
-  const blocker = canOpenPlace(game, "place:dirt");
-  return (
-    <article className="card venue locked">
-      <Image src={venueSprite(venue.id)} alt="" width={120} height={64} />
-      <div className="card-body">
-        <h3>{venue.name}</h3>
-        <p className="blurb">
-          {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}.
-        </p>
-        <div className="actions">
-          <button className="btn" disabled={!!blocker} title={blocker ?? undefined} onClick={() => dispatch({ type: "openPlace", knowhowId: "place:dirt" })}>
-            Sign up · {placeRepCost(game, "place:dirt")} Rep
-          </button>
-          {blocker && <span className="why">{blocker}</span>}
-        </div>
-      </div>
-    </article>
-  );
-}
+import { RaceNightPlanner } from "./RaceNightPlanner";
 
 /** The part most likely to wear or fail, called out before you race. */
 function WeakPart({ vehicle }: { vehicle: Vehicle }) {
@@ -73,18 +51,40 @@ function Ladder({ game, venueId }: { game: GameState; venueId: string }) {
 
 function Results({ game }: { game: GameState }) {
   const showReplay = useGame((s) => s.showReplay);
-  const races = [...game.run.races].reverse().slice(0, 12);
-  if (races.length === 0) return null;
+  const [venue, setVenue] = useState("");
+  const [outcome, setOutcome] = useState("");
+  const [limit, setLimit] = useState(12);
+  const all = [...game.run.races].reverse();
+  const venues = [...new Set(all.map((race) => race.venueId))];
+  const races = all.filter((race) => (!venue || race.venueId === venue) &&
+    (!outcome || (outcome === "dnf" ? race.dnf : race.position === 1 && !race.dnf)));
+  if (all.length === 0) return null;
   const discipline = game.era?.discipline ?? "dirt";
   return (
     <section className="section" aria-labelledby="results-h">
       <h2 id="results-h">Results</h2>
-      <ul className="results">
-        {races.map((r) => (
+      <div className="archive-filters">
+        <label className="archive-field">Results venue
+          <select value={venue} onChange={(event) => { setVenue(event.target.value); setLimit(12); }}>
+            <option value="">All venues</option>
+            {venues.map((id) => <option key={id} value={id}>{venueName(id, discipline)}</option>)}
+          </select>
+        </label>
+        <label className="archive-field">Race outcome
+          <select value={outcome} onChange={(event) => { setOutcome(event.target.value); setLimit(12); }}>
+            <option value="">All results</option><option value="win">Wins</option><option value="dnf">DNFs</option>
+          </select>
+        </label>
+      </div>
+      {!races.length && <p role="status">No matching races this season.</p>}
+      <ul className={`results${races.some((r) => r.rounds !== undefined) ? " wide" : ""}`}>
+        {races.slice(0, limit).map((r) => (
           <li key={r.id} className={r.position === 1 && !r.dnf ? "win" : r.dnf ? "dnf" : ""}>
-            <span className="pos num">{r.dnf ? "DNF" : ordinal(r.position)}</span>
+            <span className="pos num">{finishText(r)}</span>
             <span>
               {venueName(r.venueId, discipline)} {capitalize(r.event)}
+              {retiredVehicle(game, r.vehicleUid) && <span className="muted"> · {retiredVehicle(game, r.vehicleUid)!.name}</span>}
+              {game.motorPool?.custody?.rig.uid === r.vehicleUid && <span className="muted"> · {game.motorPool.custody.rig.name} at the depot</span>}
             </span>
             <span className="num muted">
               +{num(r.prize)} Scrap Bucks · +{r.rep} Rep
@@ -95,13 +95,21 @@ function Results({ game }: { game: GameState }) {
           </li>
         ))}
       </ul>
+      {races.length > limit && <button className="btn" onClick={() => setLimit(limit + 12)}>Show older races</button>}
     </section>
   );
 }
 
-export function RacePanel() {
+export function RacePanel({ initialVenue }: { initialVenue?: string }) {
   const game = useGame((s) => s.game);
-  const [vehicleUid, setVehicleUid] = useState<string>("");
+  const [vehicleUid, setVehicleUid] = useState(() => {
+    if (!initialVenue || !game) return "";
+    const [minimum, maximum] = getVenue(initialVenue).tiers;
+    return game.run.vehicles.findLast((car) => {
+      const tier = getVehicle(car.vehicleId).tier;
+      return tier >= minimum && tier <= maximum && !vehicleBusy(game, car.uid);
+    })?.uid ?? "";
+  });
   const [call, setCall] = useState<RaceCall>("nurse");
   const [call2, setCall2] = useState<Call2>(undefined);
   if (!game) return null;
@@ -110,7 +118,7 @@ export function RacePanel() {
   const discipline = DISCIPLINES[game.era?.discipline ?? "dirt"];
   const driver = game.era?.crew.some((c) => c.assignment.type === "driver") ?? false;
   const activeCall2 = driver ? call2 : undefined;
-  if (!vehicle) return <p className="empty">Build something that runs first.</p>;
+  if (!vehicle) return <><p className="empty">Build something that runs first.</p><Results game={game} /></>;
   const tier = getVehicle(vehicle.vehicleId).tier;
   return (
     <div className="panel">
@@ -141,26 +149,16 @@ export function RacePanel() {
               Nurse it
             </button>
           </fieldset>
-          {driver && (
-            <fieldset className="segmented">
-              <legend>Driver’s call</legend>
-              <button className={call2 === discipline.secondCall.a.id ? "on" : ""} onClick={() => setCall2(call2 === discipline.secondCall.a.id ? undefined : discipline.secondCall.a.id)}>
-                {discipline.secondCall.a.name}
-              </button>
-              <button className={call2 === discipline.secondCall.b.id ? "on" : ""} onClick={() => setCall2(call2 === discipline.secondCall.b.id ? undefined : discipline.secondCall.b.id)}>
-                {discipline.secondCall.b.name}
-              </button>
-            </fieldset>
-          )}
         </div>
         <p className="hint">Push is faster but wears parts and risks a DNF. Nurse it is safer and slower. The odds below change with your call.</p>
+        <DriversCall game={game} driver={driver} value={call2} onChange={setCall2} />
         <WeakPart vehicle={vehicle} />
+        <RaceNightPlanner game={game} vehicle={vehicle} call={call} />
         <div className="venues">
           {VENUES.filter((v) => game.run.venuesOpen.includes(v.id)).map((venue) => {
             const allowed = tier >= venue.tiers[0] && tier <= venue.tiers[1];
-            const rival = RIVAL_BY_ID[venue.rival];
             return (
-              <article key={venue.id} className="card venue">
+              <article key={venue.id} className="card venue" id={`race-venue-${venue.id}`}>
                 <Image src={venueSprite(venue.id)} alt="" width={120} height={64} />
                 <div className="card-body">
                   <h3>
@@ -168,8 +166,9 @@ export function RacePanel() {
                     {game.run.featureWins[venue.id] !== undefined && <span className="chip win">Feature won</span>}
                   </h3>
                   <p className="blurb">
-                    {venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}. Feature rival: {rival?.name}. Practice +{pct(practiceBonus(game, venue.id))}.
+                    {discipline.id === "dirt" && venue.blurb} Tier {venue.tiers[0]}–{venue.tiers[1]}. Practice +{pct(practiceBonus(game, venue.id))}.
                   </p>
+                  <VenueInfo game={game} venue={venue} />
                   <Ladder game={game} venueId={venue.id} />
                   {allowed ? (
                     <div className="event-grid">
@@ -185,6 +184,7 @@ export function RacePanel() {
             );
           })}
           <DirtSignup game={game} />
+          <LockedVenue game={game} />
         </div>
       </section>
       <Results game={game} />
