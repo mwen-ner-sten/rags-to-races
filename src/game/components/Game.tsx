@@ -23,29 +23,33 @@ import { promoterGate } from "@/core/promoter";
 import { OwnerPanel } from "./OwnerPanel";
 import { PromoterPanel } from "./PromoterPanel";
 import { clubGate } from "@/core/club";
-import { GarageTab, garageSectionFor, type GarageSection } from "./GarageTab";
+import { GarageTab, garageSectionFor, openingGarageSection, type GarageSection } from "./GarageTab";
 import { serviceActionReady } from "./ServiceCounter";
 import { ClubPanel } from "./ClubPanel";
 import { CountyMatchPanel } from "./CountyMatchPanel";
 import { ManufacturerPanel } from "./ManufacturerPanel";
 import { TeamPanel } from "./TeamPanel";
+import { TabNav } from "./TabNav";
 import { hasUnreadTip } from "./Tips";
 import { TripsPanel } from "./TripsPanel";
+import { WorkshopPanel, workshopSections } from "./WorkshopPanel";
 
-type TabId = "trips" | "garage" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "manufacturer" | "settings";
+type TabId = "trips" | "garage" | "workshop" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "manufacturer" | "settings";
 
 /** Tips that live on each tab; an unread one puts a dot on the tab. */
 const TAB_TIPS: Partial<Record<TabId, readonly string[]>> = {
-  trips: ["places", "tools"],
+  trips: ["places"],
   garage: ["garage", "materials", "driveway", "build", "venues", "street_stock"],
   race: ["race"],
-  notebook: ["codex", "knowhow"],
+  workshop: ["knowhow", "tools"],
+  notebook: ["codex"],
   team: ["crew"],
 };
 
 const TABS: { id: TabId; label: string; reveal: string | null }[] = [
   { id: "trips", label: "Trips", reveal: null },
   { id: "garage", label: "Garage", reveal: "garage" },
+  { id: "workshop", label: "Workshop", reveal: null },
   { id: "race", label: "Race", reveal: "race" },
   { id: "notebook", label: "Notebook", reveal: "codex" },
   { id: "legacy", label: "Legacy", reveal: "legacy" },
@@ -290,6 +294,7 @@ export function Game() {
   const era = game.era ? "shop" : "curb";
   const teamStyle = game.era ? ({ "--team-a": game.era.colors[0], "--team-b": game.era.colors[1] } as React.CSSProperties) : undefined;
   const tabs = TABS.filter((t) => {
+    if (t.id === "workshop") return workshopSections(game).length > 0;
     if (t.id === "owner") return !!game.owner || ownerGate(game).ok;
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
     if (t.id === "club") return !clubGate(game);
@@ -304,6 +309,8 @@ export function Game() {
   const jump = careerJump?.target.tab === active ? careerJump : null;
   const showTab = (next: TabId) => {
     setCareerJump(null);
+    // Fix the section on arrival, so the view doesn't change under the player when a vehicle is built or retired.
+    if (next === "garage" && !garageSection) setGarageSection(openingGarageSection(game));
     setTab(next);
   };
   const showCareerTarget = (target: CareerDestination) => {
@@ -312,23 +319,22 @@ export function Game() {
     setTab(target.tab);
   };
 
+  const jobReady = (id: TabId) => id === "garage" && serviceActionReady(game);
   return (
     <div className="game" data-era={era} style={teamStyle}>
       <Header />
-      <nav className="tabs" aria-label="Sections">
-        {tabs.map((t) => (
-          <button key={t.id} className={active === t.id ? "on" : ""} aria-current={active === t.id ? "page" : undefined} onClick={() => showTab(t.id)}>
-            {t.label}
-            {active !== t.id && hasUnreadTip(game, TAB_TIPS[t.id] ?? []) && <span className="tab-dot" aria-label="New tip" />}
-            {active !== t.id && t.id === "garage" && serviceActionReady(game) && <span className="tab-dot" aria-label="A customer job is ready" />}
-            {t.id === "garage" && game.run.driveway.length > 0 && (
-              <span className="tab-badge num" aria-label={`${game.run.driveway.length} on the driveway`}>
-                {game.run.driveway.length}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
+      <TabNav
+        active={active}
+        onShow={showTab}
+        tabs={tabs.map((t) => ({
+          id: t.id,
+          label: t.label,
+          unread: active !== t.id && (hasUnreadTip(game, TAB_TIPS[t.id] ?? []) || jobReady(t.id)),
+          unreadLabel: jobReady(t.id) ? "A customer job is ready" : undefined,
+          badge: t.id === "garage" ? game.run.driveway.length : undefined,
+          badgeLabel: `${game.run.driveway.length} on the driveway`,
+        }))}
+      />
       {!game.meta.careerPin && <Guide tab={active} onShow={showTab} onOpen={showCareerTarget} />}
       <div className="layout">
         <main className="main">
@@ -337,11 +343,12 @@ export function Game() {
           <CareerFocus jump={jump} />
           {active === "trips" && <TripsPanel />}
           {active === "garage" && <GarageTab game={game} section={garageSection} onSection={setGarageSection} />}
+          {active === "workshop" && <WorkshopPanel key={jump?.request} section={jump?.target.tab === "workshop" ? jump.target.section : undefined} vehicleUid={jump?.target.tab === "workshop" ? jump.target.vehicleUid : undefined} />}
           {active === "race" && <>
             <CountyMatchPanel game={game} />
             <RacePanel key={jump?.request} initialVenue={jump?.target.tab === "race" ? jump.target.venueId : undefined} />
           </>}
-          {active === "notebook" && <NotebookPanel key={jump?.request} section={jump?.target.tab === "notebook" ? jump.target.section : undefined} vehicleUid={jump?.target.tab === "notebook" && "vehicleUid" in jump.target ? jump.target.vehicleUid : undefined} />}
+          {active === "notebook" && <NotebookPanel key={jump?.request} section={jump?.target.tab === "notebook" ? jump.target.section : undefined} onOpen={showCareerTarget} />}
           {active === "legacy" && <LegacyPanel key={jump?.request} initialObjective={jump?.target.tab === "legacy" ? jump.target.objective : undefined} />}
           {active === "team" && <TeamPanel key={jump?.request} plannedDiscipline={jump?.target.tab === "team" && "discipline" in jump.target ? jump.target.discipline : undefined} />}
           {active === "owner" && <OwnerPanel />}

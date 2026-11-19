@@ -3,84 +3,20 @@
 import Image from "next/image";
 import { SeasonLog } from "./SeasonLog";
 import { RallyCards } from "./RallyCards";
-import { HeritageDesk, HeritageOffer } from "./HeritageDesk";
-import { useState, type KeyboardEvent } from "react";
+import { HeritageOffer } from "./HeritageDesk";
+import type { CareerDestination } from "@/core/careerAdvice";
+import { useState } from "react";
+import { SubNav } from "./SubNav";
 import { RIVALS, venueName } from "@/core/content/events";
-import { KNOWHOW } from "@/core/content/knowhow";
 import { PARTS, getPart } from "@/core/content/parts";
-import { PLACES, codexLevel, CODEX_LEVELS } from "@/core/content/places";
+import { PLACES } from "@/core/content/places";
 import { getVehicle } from "@/core/content/vehicles";
-import { habitThreshold } from "@/core/habits";
-import { jobBlocker } from "@/core/jobs";
-import { knowhowTier, studyMs } from "@/core/knowhowEngine";
 import type { GameState } from "@/core/types";
-import { conditionName, duration, num, seasonClock } from "../format";
+import { conditionName, num, seasonClock } from "../format";
 import { partOriginLabel } from "@/core/provenance";
-import { habitLabel } from "../labels";
 import { useGame } from "../store";
 import { partSprite, vehicleSprite } from "../sprites";
 import { Tips } from "./Tips";
-
-const TIER_TEXT = { learning: "Learning", familiar: "Familiar", second_nature: "Second Nature" } as const;
-
-function KnowhowList({ game }: { game: GameState }) {
-  const dispatch = useGame((s) => s.dispatch);
-  const rows = KNOWHOW.filter((k) => k.kind !== "place");
-  return (
-    <div>
-      <p className="sub">
-        The first time, you work it out yourself: a long study job. Next Season it’s Familiar and takes a quarter of the time. After three Seasons it’s Second Nature and you just know it when the moment comes.
-      </p>
-      <ul className="knowhow">
-        {rows.map((k) => {
-          const learned = game.run.learned.includes(k.id);
-          const available = game.run.available.includes(k.id);
-          const tier = knowhowTier(game, k.id);
-          const blocker = jobBlocker(game, { kind: "study", knowhowId: k.id });
-          return (
-            <li key={k.id} className={learned ? "learned" : available ? "ready" : "locked"}>
-              <div>
-                <strong>{k.name}</strong> <span className="chip">{TIER_TEXT[tier]}</span>
-                <p className="blurb">{k.blurb}</p>
-                {!learned && !available && <p className="why">{k.hint}</p>}
-              </div>
-              {learned ? (
-                <span className="chip win">Known</span>
-              ) : available ? (
-                <div className="row-action">
-                  <button className="btn small primary" disabled={!!blocker} onClick={() => dispatch({ type: "enqueue", spec: { kind: "study", knowhowId: k.id } })}>
-                    Study · {duration(studyMs(game, k.id))}
-                  </button>
-                  {blocker && <span className="why">{blocker}</span>}
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function Habits({ game }: { game: GameState }) {
-  const templates = [...new Set([...Object.keys(game.run.reps), ...game.run.habitsKnown])];
-  if (templates.length === 0) return <p className="empty">Do anything enough times and it becomes a Habit.</p>;
-  return (
-    <ul className="plain">
-      {templates.map((t) => {
-        const need = habitThreshold(game, t);
-        const n = game.run.reps[t] ?? 0;
-        const known = game.run.habitsKnown.includes(t);
-        return (
-          <li key={t} className="mini-progress">
-            <span>{habitLabel(game, t)}</span>
-            <span className="num muted">{known ? "Habit" : `${Math.min(n, need)}/${need}`}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
 
 function Codex({ game }: { game: GameState }) {
   const [filter, setFilter] = useState("");
@@ -91,24 +27,8 @@ function Codex({ game }: { game: GameState }) {
   const sources = selected ? PLACES.filter((place) => game.meta.codex.places[place.id] && place.finds.some((find) => find.partId === selected.id)) : [];
   return (
     <div className="codex">
-      <h3 className="label">Places</h3>
-      <ul className="plain">
-        {PLACES.filter((p) => (game.meta.codex.places[p.id] ?? 0) > 0).map((p) => {
-          const n = game.meta.codex.places[p.id] ?? 0;
-          const level = codexLevel(n);
-          const next = CODEX_LEVELS[level + 1];
-          return (
-            <li key={p.id} className="mini-progress">
-              <span>
-                {p.name} · Lv {level}
-              </span>
-              <span className="num muted">{next ? `${n}/${next} trips` : `${n} trips`}</span>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="hint">Each Codex level makes trips there 5% faster and finds a little less rusty.</p>
       <h3 className="label">Parts seen</h3>
+      {seen.length === 0 && <p className="empty">Parts you find on trips are written up here.</p>}
       {seen.length > 0 && <>
         <label className="archive-field">Find a part
           <input type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Part name or category" />
@@ -163,7 +83,7 @@ function Rivals({ game }: { game: GameState }) {
   );
 }
 
-function HallOfFame({ game, vehicleUid }: { game: GameState; vehicleUid?: string }) {
+function HallOfFame({ game, onOpen }: { game: GameState; onOpen?: (target: CareerDestination) => void }) {
   const [filter, setFilter] = useState("");
   const [limit, setLimit] = useState(12);
   if (!game.meta.hallOfFame.length) return <p className="empty">Vehicles appear here after retirement or at the end of a Season.</p>;
@@ -172,7 +92,10 @@ function HallOfFame({ game, vehicleUid }: { game: GameState; vehicleUid?: string
     `${entry.name} ${getVehicle(entry.vehicleId).name} Season ${entry.season}`.toLowerCase().includes(query)
   );
   return <>
-    <HeritageDesk game={game} vehicleUid={vehicleUid} />
+    {game.run.heritageProject && <div className="notice" role="status">
+      <p>{game.run.heritageProject.originalName} is being {game.run.heritageProject.kind === "exhibit" ? "recreated" : "rebuilt as a period special"}. Work on it in the Workshop, under Heritage.</p>
+      {onOpen && <button className="btn small" onClick={() => onOpen({ tab: "workshop", section: "Heritage" })}>Open Heritage in the Workshop</button>}
+    </div>}
     <label className="archive-field">Find a retired vehicle
       <input type="search" value={filter} onChange={(event) => { setFilter(event.target.value); setLimit(12); }} placeholder="Name, model or season" />
     </label>
@@ -227,39 +150,23 @@ function Journal({ game }: { game: GameState }) {
   </>;
 }
 
-const SECTIONS = ["Journal", "Know-how", "Habits", "Codex", "Rivals", "Hall of Fame", "Seasons", "Timecards"] as const;
+const SECTIONS = ["Journal", "Codex", "Rivals", "Hall of Fame", "Seasons", "Timecards"] as const;
 
-export function NotebookPanel({ section, vehicleUid }: { section?: "Hall of Fame" | "Timecards"; vehicleUid?: string }) {
+export function NotebookPanel({ section, onOpen }: { section?: "Hall of Fame" | "Timecards"; onOpen?: (target: CareerDestination) => void }) {
   const game = useGame((s) => s.game);
   const [tab, setTab] = useState<(typeof SECTIONS)[number]>(section ?? "Journal");
   if (!game) return null;
-  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (step === 0) return;
-    e.preventDefault();
-    const next = sections[(sections.indexOf(tab) + step + sections.length) % sections.length];
-    setTab(next);
-    document.getElementById(`nb-tab-${next}`)?.focus();
-  };
   const sections = SECTIONS.filter((name) => name !== "Timecards" || game.era?.discipline === "rally" || !!game.meta.rallyCards?.length);
   return (
     <section className="section" aria-labelledby="notebook-h">
       <h2 id="notebook-h">Notebook</h2>
-      <Tips ids={["codex", "knowhow"]} />
-      <div className="subtabs" role="tablist" aria-label="Notebook sections" onKeyDown={onTabKey}>
-        {sections.map((s) => (
-          <button key={s} role="tab" id={`nb-tab-${s}`} aria-controls="nb-panel" aria-selected={tab === s} tabIndex={tab === s ? 0 : -1} className={tab === s ? "on" : ""} onClick={() => setTab(s)}>
-            {s}
-          </button>
-        ))}
-      </div>
+      <Tips ids={["codex"]} />
+      <SubNav idPrefix="nb" label="Notebook sections" items={sections.map((id) => ({ id, label: id }))} value={tab} onChange={setTab} />
       <div role="tabpanel" id="nb-panel" aria-labelledby={`nb-tab-${tab}`}>
       {tab === "Journal" && <Journal game={game} />}
-      {tab === "Know-how" && <KnowhowList game={game} />}
-      {tab === "Habits" && <Habits game={game} />}
       {tab === "Codex" && <Codex game={game} />}
       {tab === "Rivals" && <Rivals game={game} />}
-      {tab === "Hall of Fame" && <HallOfFame game={game} vehicleUid={vehicleUid} />}
+      {tab === "Hall of Fame" && <HallOfFame game={game} onOpen={onOpen} />}
       {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} contacts={game.countyRivals} />}
       {tab === "Timecards" && <RallyCards cards={game.meta.rallyCards ?? []} />}
       </div>

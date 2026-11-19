@@ -30,7 +30,7 @@ export function HeritageDesk({ game, vehicleUid }: { game: GameState; vehicleUid
   const exhibit = project?.kind === "exhibit";
   const issue = project && car && (exhibit ? exhibitBlocker(game, project, car) : heritageFit(project, car));
   return <section className="section" aria-labelledby="heritage-register-h">
-    <h3 id="heritage-register-h">Heritage register</h3>
+    <h2 id="heritage-register-h">Heritage register</h2>
     {project && <>
       <p><strong>{project.originalName}</strong> · Season {project.oldSeason} · {getVehicle(project.model).name}</p>
       {project.completed ? <p>{project.completed} entered the register this Season.</p> : <>

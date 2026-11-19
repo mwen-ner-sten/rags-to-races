@@ -48,7 +48,9 @@ The pre-rebuild game is archived at the git tag `archive/pre-rebuild`. Design so
 - Fonts load once in `src/app/layout.tsx` (`--font-orbitron`, `--font-rajdhani`, `--font-plex-mono`). Use `--font-display` (Orbitron: headings and small caps labels, 0.55–1.15rem, uppercase, letter-spaced), the body default (Rajdhani) for reading text, and `--font-num` for numbers.
 - Sprites sit in a dark well (`--well`); never filter or hue-shift an image. Art direction is moving to Blender-modelled neon sprites (samples in `docs/art/samples/midnight-circuit/`, built by `scripts/render_neon_samples.py`); the painted and photoreal sprites are the ones to replace. `docs/art/asset-audit-2026-11.md` lists every folder.
 - Era 1 reveals one system at a time (`src/core/reveal.ts`). Never show crew, disciplines, hardships or other Team-era systems before the player founds a team.
-- Z-index: sticky header 100, tabs 99, toast 10001. Dialogs use native `<dialog>.showModal()`.
+- Navigation is `TabNav.tsx`. With a mouse it's a top tab bar that shows edge fades and chevrons when it overflows. Under `(max-width: 640px), (hover: none) and (pointer: coarse)` it becomes a fixed bottom bar (first four tabs plus a More sheet) so it stays in thumb reach: never put navigation at the top on touch layouts. `.game` reserves the bar's height; toasts are lifted above it.
+- The **Notebook** tab holds records only (Journal, Codex, Rivals, Hall of Fame, Seasons, Timecards). Anything the player learns, buys or works on goes in the **Workshop** tab as a sub-tab (`workshopSections()` in `WorkshopPanel.tsx`).
+- Z-index: sticky header 100, top tabs 99, bottom tab bar 1000, More sheet 1001, toast 10001. Dialogs use native `<dialog>.showModal()`.
 - Every disabled action shows why (`jobBlocker`, `canOpenPlace`, `counterBlocker` return the reason text).
 - Never put a paywall, ad or premium hook in the game. It's free and open source.
 

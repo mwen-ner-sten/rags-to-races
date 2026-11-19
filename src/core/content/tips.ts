@@ -77,7 +77,7 @@ export const TIPS: readonly TipDef[] = [
   {
     id: "codex",
     title: "Your Notebook",
-    lines: ["The Journal keeps your story. Know-how is what you can study. The Codex lists every part and place you've come across."],
+    lines: ["This is the record of what's happened. The Journal keeps your story, the Codex lists every part you've come across, and Rivals, Seasons and the Hall of Fame keep the scores."],
     when: revealed("codex"),
   },
   {

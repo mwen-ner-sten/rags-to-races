@@ -3,7 +3,7 @@
 import type { CareerDestination } from "@/core/careerAdvice";
 import { motorPoolVisible } from "@/core/motorPool";
 import type { GameState } from "@/core/types";
-import { BuildPanel, PartsSupply } from "./BuildPanel";
+import { BuildPanel } from "./BuildPanel";
 import { WorksDrawingWorkshop } from "./ManufacturerPanel";
 import { MotorPoolPanel } from "./MotorPoolPanel";
 import { PartsPanel } from "./PartsPanel";
@@ -65,6 +65,11 @@ function garageSections(game: GameState): SubNavItem<GarageSection>[] {
   return items.filter((item): item is SubNavItem<GarageSection> => !!item);
 }
 
+/** Where the Garage opens: until there is a vehicle to look at, the parts are the garage. */
+export function openingGarageSection(game: GameState): GarageSection {
+  return game.run.vehicles.length > 0 ? "vehicles" : "parts";
+}
+
 interface GarageTabProps {
   game: GameState;
   /** The section the player last chose, or null to open on the first one. */
@@ -72,10 +77,10 @@ interface GarageTabProps {
   onSection: (section: GarageSection) => void;
 }
 
-/** The Garage: one job per section, with the vehicles first. */
+/** The Garage: one job per section. It opens on your vehicles once you have one. */
 export function GarageTab({ game, section, onSection }: GarageTabProps) {
   const items = garageSections(game);
-  const active = items.some((item) => item.id === section) && section ? section : items[0].id;
+  const active = section && items.some((item) => item.id === section) ? section : openingGarageSection(game);
   const showNav = items.length > 1;
   return (
     <div className="panel">
@@ -86,12 +91,7 @@ export function GarageTab({ game, section, onSection }: GarageTabProps) {
         aria-labelledby={showNav ? subNavTabId(ID_PREFIX, active) : undefined}
       >
         {active === "vehicles" && <BuildPanel />}
-        {active === "parts" && (
-          <>
-            <PartsPanel />
-            <PartsSupply />
-          </>
-        )}
+        {active === "parts" && <PartsPanel />}
         {active === "customers" && <ServiceCounter game={game} />}
         {active === "depot" && <MotorPoolPanel game={game} onManageParts={() => onSection("parts")} />}
         {active === "works" && <WorksDrawingWorkshop game={game} />}

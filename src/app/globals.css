@@ -250,19 +250,95 @@ input[type="range"] {
   color: var(--ink);
 }
 
+/* Section nav (TabNav). Top mode: sticky bar that may scroll sideways, with edge fades
+   and chevrons. Bottom mode (phones / touchscreens): see the media block at the end. */
+.tabnav {
+  position: sticky;
+  top: var(--topbar-h, 60px);
+  z-index: 99;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+
 .tabs {
   display: flex;
   gap: 0;
   overflow-x: auto;
   padding: 0 16px;
-  border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: blur(6px);
-  position: sticky;
-  top: var(--topbar-h, 60px);
-  z-index: 99;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
+}
+
+.tabnav::before,
+.tabnav::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.tabnav::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--paper), transparent);
+}
+
+.tabnav::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--paper), transparent);
+}
+
+.tabnav[data-edge-start="true"]::before,
+.tabnav[data-edge-end="true"]::after {
+  opacity: 1;
+}
+
+.tabs-chev {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
+}
+
+.tabs-chev.start {
+  left: 0;
+}
+
+.tabs-chev.end {
+  right: 0;
+}
+
+.tabs-chev:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.tabs-chev:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tab-more,
+.tab-sheet {
+  display: none;
+}
+
+.tab-sub {
+  display: none;
 }
 
 .tabs button {
@@ -329,9 +405,6 @@ textarea:focus-visible {
 @media (max-width: 640px) {
   .topbar {
     position: static;
-  }
-  .tabs {
-    top: 0;
   }
   .brand h1 {
     font-size: 1rem;
@@ -2236,3 +2309,191 @@ dialog.replay {
 .organization-choice > span { padding: 0 .7rem; }
 .organization-choice img { width: 100%; height: auto; display: block; background: var(--paper); border-bottom: 1px solid var(--line); }
 .team-garage-view { width: min(100%, 40rem); height: auto; display: block; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--paper); margin: .5rem 0 .85rem; }
+
+/* ── Bottom navigation (phones and touchscreens) ───────────────────────────
+   Fixed 56px bar (+ safe area) at z-index 1000; the More sheet sits at 1001.
+   The space is reserved on .game, the outermost scroll container. Dialogs use the
+   top layer, so they still cover the bar. Keep the media query in sync with nothing
+   else: TabNav has no JS breakpoint. */
+@media (max-width: 640px), (hover: none) and (pointer: coarse) {
+  .game {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tabnav {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    box-sizing: border-box;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-top: 1px solid var(--line-strong);
+    border-bottom: none;
+    background: color-mix(in srgb, var(--paper) 94%, transparent);
+    box-shadow: 0 -1px 0 color-mix(in srgb, var(--accent) 30%, transparent), 0 -6px 24px rgba(0, 0, 0, 0.6);
+  }
+
+  .tabnav::before,
+  .tabnav::after,
+  .tabs-chev {
+    display: none;
+  }
+
+  .tabs {
+    height: 56px;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .tabs button {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px;
+    border-top: 2px solid transparent;
+    border-bottom: none;
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+  }
+
+  .tabs button.on {
+    border-top-color: var(--accent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 80%);
+    box-shadow: 0 -2px 10px -2px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+
+  .tabs button[data-overflow="true"] {
+    display: none;
+  }
+
+  .tabs .tab-label,
+  .tabs .tab-sub {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tabs .tab-sub {
+    font-size: 0.5rem;
+    letter-spacing: 0.02em;
+    color: var(--ink-2);
+  }
+
+  .tabs .tab-dot,
+  .tabs .tab-badge {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    margin: 0;
+  }
+
+  .tabs .tab-badge {
+    top: 3px;
+    right: 4px;
+    min-width: 16px;
+    font-size: 0.62rem;
+  }
+
+  .tabs .tab-more {
+    display: flex;
+  }
+
+  .tab-sheet {
+    position: absolute;
+    right: 8px;
+    bottom: calc(100% + 8px);
+    left: 8px;
+    z-index: 1001;
+    display: grid;
+    gap: 2px;
+    max-height: min(60vh, 28rem);
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--card-2), var(--card));
+    box-shadow: var(--glow), 0 10px 30px rgba(0, 0, 0, 0.6);
+    animation: tab-sheet-in 160ms ease-out;
+  }
+
+  .tab-sheet[hidden] {
+    display: none;
+  }
+
+  .tab-sheet button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 48px;
+    padding: 0 14px;
+    border: none;
+    border-left: 3px solid transparent;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--ink-2);
+    cursor: pointer;
+    font-family: var(--display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .tab-sheet button.on {
+    border-left-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    text-shadow: var(--glow-text);
+  }
+
+  .tab-sheet button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  .tab-sheet .tab-dot,
+  .tab-sheet .tab-badge {
+    margin-left: auto;
+  }
+
+  .toast {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .toast.race-toast {
+    bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .board {
+    top: calc(var(--topbar-h, 60px) + 12px);
+  }
+}
+
+@keyframes tab-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Very narrow phones: keep the longest tab label (Workshop) from truncating. */
+@media (max-width: 360px) {
+  .tabs button {
+    font-size: 0.5rem;
+    letter-spacing: 0;
+  }
+}
