@@ -114,6 +114,18 @@
 .ticker[data-kind="race"] { --kind: var(--bad); }
 .ticker[data-kind="story"],
 .ticker[data-kind="achievement"] { --kind: var(--accent-2); }
+.ticker[data-kind="radio"] { --kind: var(--accent); }
+
+/* Radio chatter fades in gently and reads as an aside. */
+.ticker[data-kind="radio"] .ticker-text {
+  font-style: italic;
+  animation: ticker-fade 600ms ease-out;
+}
+
+@keyframes ticker-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 .ticker-kind {
   flex: none;
@@ -136,7 +148,20 @@
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+}
+
+.ticker-run {
+  display: inline-block;
+}
+
+/* A line too long for the window scrolls across, rests, and scrolls back (lengths set in Ticker.tsx). */
+.ticker-text[data-run] .ticker-run {
+  animation: ticker-run var(--run-ms, 8s) linear infinite alternate;
+}
+
+@keyframes ticker-run {
+  0%, 18% { transform: translateX(0); }
+  82%, 100% { transform: translateX(var(--run, 0)); }
 }
 
 .ticker[data-fresh] .ticker-text {
@@ -161,8 +186,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker[data-fresh] .ticker-text {
+  .ticker[data-fresh] .ticker-text,
+  .ticker[data-kind="radio"] .ticker-text,
+  .ticker-text[data-run] .ticker-run {
     animation: none;
+  }
+
+  /* No scrolling: a long line ends in an ellipsis instead. */
+  .ticker-run {
+    display: inline;
+  }
+
+  .ticker-text {
+    text-overflow: ellipsis;
   }
 }
 
