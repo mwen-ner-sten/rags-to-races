@@ -377,6 +377,8 @@ export interface RunState {
   habitsKnown: JobTemplate[];
   habitSlots: (JobTemplate | null)[];
   jobs: ActiveJob[];
+  /** Manual jobs set aside until the player resumes them. Older saves omit this. */
+  pausedJobs?: Omit<ActiveJob, "lane">[];
   queue: JobSpec[];
   idleLanes: LaneId[];
   practice: Record<string, number>; // venue → races run

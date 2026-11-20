@@ -118,6 +118,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
       if (def.kind === "place") return "Places are opened with Rep";
       if (isLearned(state, spec.knowhowId)) return "Already learned";
       if (state.run.jobs.some((j) => j.spec.kind === "study" && j.spec.knowhowId === spec.knowhowId)) return "You're already studying that";
+      if (state.run.pausedJobs?.some((j) => j.spec.kind === "study" && j.spec.knowhowId === spec.knowhowId)) return "Resume the paused study";
       if (!state.run.available.includes(spec.knowhowId)) return def.hint;
       return null;
     }
@@ -319,6 +320,10 @@ export function dropJob(state: GameState, jobId: string): void {
   const job = state.run.jobs.find((j) => j.id === jobId);
   if (!job) return;
   state.run.jobs = state.run.jobs.filter((j) => j.id !== jobId);
+  refundJob(state, job);
+}
+
+function refundJob(state: GameState, job: Pick<ActiveJob, "paid">): void {
   const paid = job.paid;
   if (!paid) return;
   refund(state, paid.cash);
@@ -327,6 +332,29 @@ export function dropJob(state: GameState, jobId: string): void {
     if (paid.lastEntered.prev === undefined) delete state.run.lastEntered[paid.lastEntered.key];
     else state.run.lastEntered[paid.lastEntered.key] = paid.lastEntered.prev;
   }
+}
+
+export function pauseJob(state: GameState, jobId: string): string | null {
+  const index = state.run.jobs.findIndex((job) => job.id === jobId);
+  const job = state.run.jobs[index];
+  if (!job || job.looping || job.spec.kind === "race") return "Pick a running manual job to pause";
+  const { id, spec, duration, remaining, paid } = job;
+  state.run.jobs.splice(index, 1);
+  (state.run.pausedJobs ??= []).push({ id, spec, duration, remaining, paid, looping: false });
+  return null;
+}
+
+export function resumeJob(state: GameState, jobId: string): string | null {
+  const paused = state.run.pausedJobs;
+  const index = paused?.findIndex((job) => job.id === jobId) ?? -1;
+  if (!paused || index < 0) return "Pick a paused job to resume";
+  const job = paused[index];
+  if (state.run.raceNight && HANDS_KINDS.has(job.spec.kind)) return "Race Night has reserved your hands";
+  const lane = queueLane(state, job.spec);
+  if (!lane) return "Pause a job or wait for a free slot to resume";
+  paused.splice(index, 1);
+  state.run.jobs.push({ ...job, lane });
+  return null;
 }
 
 function startJob(state: GameState, lane: LaneId, spec: JobSpec, looping: boolean, template?: string): ActiveJob {
@@ -427,33 +455,12 @@ export function dispatch(state: GameState): void {
       if (state.run.raceNight && HANDS_KINDS.has(spec.kind)) continue;
       const blocker = jobBlocker(state, spec);
       if (blocker) continue;
-      if (isBenchKind(spec)) {
-        // Send a job to an eligible specialist before using an ordinary bench.
-        const available = activeCrew(state).filter((c) => c.assignment.type === "queue" && !laneBusy(state, `crew:${c.id}`) && crewAccepts(state, c, spec));
-        const specialist = available.find((c) => crewCanApprentice(state, c.id, spec.kind)) ?? available.find((c) =>
-          (CREW_BY_ID[c.id]?.speed[spec.kind] ?? 1) > 1 || (teamOrganization(state) === "collective" && CREW_BY_ID[c.id]?.role === "wrench"),
-        );
-        if (!specialist && !benchAvailable(state)) continue;
-        const lane = specialist ? `crew:${specialist.id}` : firstFreeBenchLane(state);
-        state.run.queue.splice(i, 1);
-        startJob(state, lane, spec, false);
-        progressed = true;
-        break;
-      }
-      if (HANDS_KINDS.has(spec.kind) && !laneBusy(state, "hands")) {
-        state.run.queue.splice(i, 1);
-        startJob(state, "hands", spec, false);
-        progressed = true;
-        break;
-      }
-      // Crew on "queue" take hands-kind jobs too.
-      const crew = activeCrew(state).find((c) => c.assignment.type === "queue" && !laneBusy(state, `crew:${c.id}`) && crewAccepts(state, c, spec));
-      if (crew) {
-        state.run.queue.splice(i, 1);
-        startJob(state, `crew:${crew.id}`, spec, false);
-        progressed = true;
-        break;
-      }
+      const lane = queueLane(state, spec);
+      if (!lane) continue;
+      state.run.queue.splice(i, 1);
+      startJob(state, lane, spec, false);
+      progressed = true;
+      break;
     }
     if (progressed) continue;
 
@@ -483,6 +490,18 @@ export function dispatch(state: GameState): void {
       progressed = true;
     }
   }
+}
+
+function queueLane(state: GameState, spec: JobSpec): LaneId | null {
+  if (HANDS_KINDS.has(spec.kind) && !laneBusy(state, "hands")) return "hands";
+  const available = activeCrew(state).filter((c) => c.assignment.type === "queue" && !laneBusy(state, `crew:${c.id}`) && crewAccepts(state, c, spec));
+  if (!isBenchKind(spec)) return available[0] ? `crew:${available[0].id}` : null;
+  // Send a bench job to an eligible specialist before using an ordinary bench.
+  const specialist = available.find((c) => crewCanApprentice(state, c.id, spec.kind)) ?? available.find((c) =>
+    (CREW_BY_ID[c.id]?.speed[spec.kind] ?? 1) > 1 || (teamOrganization(state) === "collective" && CREW_BY_ID[c.id]?.role === "wrench"),
+  );
+  if (specialist) return `crew:${specialist.id}`;
+  return benchAvailable(state) ? firstFreeBenchLane(state) : null;
 }
 
 function firstFreeBenchLane(state: GameState): LaneId {
@@ -672,7 +691,14 @@ export function signedUp(state: GameState, venueId: string, event: EventKind): b
 
 /** Cancels a running job and refunds its start cost; parts stay where they are. */
 export function cancelJob(state: GameState, jobId: string): void {
-  dropJob(state, jobId);
+  const paused = state.run.pausedJobs;
+  const index = paused?.findIndex((job) => job.id === jobId) ?? -1;
+  if (paused && index >= 0) {
+    const [job] = paused.splice(index, 1);
+    refundJob(state, job);
+  } else {
+    dropJob(state, jobId);
+  }
   dispatch(state);
 }
 

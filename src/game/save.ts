@@ -24,6 +24,7 @@ import { perkSlots } from "@/core/layers";
 import { countyChoiceBlocker, countyPlaceBlocker } from "@/core/counties";
 import { RACE_NIGHT_STARTS } from "@/core/raceNight";
 import { freightEligible, isCarryableSalvage, salvageCarryUnlocked } from "@/core/salvageCarry";
+import { jobPartUids } from "@/core/garage";
 import type { GameState, JobSpec } from "@/core/types";
 
 const number = z.number().finite();
@@ -167,7 +168,7 @@ const run = z.object({
   placesOpen: z.array(known(PLACE_BY_ID)), venuesOpen: z.array(known(VENUE_BY_ID)), ladder: z.record(known(VENUE_BY_ID), z.array(event)),
   tools: z.record(known(TOOL_BY_ID), count), learned: z.array(known(KNOWHOW_BY_ID)), available: z.array(known(KNOWHOW_BY_ID)),
   reps: z.record(template, count), habitsKnown: z.array(template), habitSlots: z.array(template.nullable()),
-  jobs: z.array(job), queue: z.array(jobSpec), idleLanes: z.array(id), practice: z.record(known(VENUE_BY_ID), amount),
+  jobs: z.array(job), pausedJobs: z.array(job.omit({ lane: true })).optional(), queue: z.array(jobSpec), idleLanes: z.array(id), practice: z.record(known(VENUE_BY_ID), amount),
   lastEntered: z.record(id, amount), featureWins: z.record(known(VENUE_BY_ID), amount), races: z.array(result),
   challenge: z.object({ relay: z.array(z.object({ vehicleUid: id, frameUid: id })).optional(), handMeDownEngines: z.array(id).optional(), completedAt: amount.optional() }),
   raceNight: z.object({ vehicleUid: id, venueId: known(VENUE_BY_ID), call, startsLeft: count.min(1).max(RACE_NIGHT_STARTS), stopOnFeature: z.boolean() }).optional(),
@@ -269,6 +270,24 @@ function referencesValid(game: GameState): boolean {
     && (!job.lane.startsWith("crew:") || game.era?.crew.some((member) => member.id === job.lane.slice(5)))
     && (!job.race?.crewIds || job.race.crewIds.every((id) => game.era?.crew.some((member) => member.id === id)))
     && (!job.race || job.race.position <= job.race.fieldSize))) return false;
+  const paused = game.run.pausedJobs ?? [];
+  const jobIds = new Set(game.run.jobs.map(({ id }) => id));
+  const pending = [...game.run.queue, ...game.run.jobs.map(({ spec }) => spec)];
+  const startedStudies = new Set(pending.flatMap((spec) => spec.kind === "study" ? [spec.knowhowId] : []));
+  const reservedParts = new Set(pending.flatMap(jobPartUids));
+  for (const job of paused) {
+    if (jobIds.has(job.id) || job.looping || job.template || job.race || job.spec.kind === "race"
+      || job.paid?.lastEntered || job.remaining <= 0 || job.remaining > job.duration || !specValid(job.spec)) return false;
+    jobIds.add(job.id);
+    const parts = jobPartUids(job.spec);
+    if (parts.some((uid) => reservedParts.has(uid))) return false;
+    for (const uid of parts) reservedParts.add(uid);
+    if (job.spec.kind === "study") {
+      const id = job.spec.knowhowId;
+      if (KNOWHOW_BY_ID[id].kind === "place" || !game.run.available.includes(id) || game.run.learned.includes(id) || startedStudies.has(id)) return false;
+      startedStudies.add(id);
+    }
+  }
   if (game.run.races.some((race) => race.position > race.fieldSize || race.beats.some((beat) => beat.position > race.fieldSize))) return false;
   if (Object.entries(game.meta.perks).some(([id, rank]) => rank > PERK_BY_ID[id].maxRank)
     || Object.entries(game.run.tools).some(([id, rank]) => rank > TOOL_BY_ID[id].max)

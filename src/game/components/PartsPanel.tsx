@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { CONDITION_STAT, getPart } from "@/core/content/parts";
 import { CUSTOMERS } from "@/core/serviceShop";
 import { partOriginLabel } from "@/core/provenance";
-import { type BenchKind, DRIVEWAY_RULES, DRIVEWAY_SPACE, benchCost, conditionAfter, drivewayRule, garageSpace, partSellValue, reservedPartUids, saleQuote, stripYield, swapOutCandidate } from "@/core/garage";
+import { type BenchKind, DRIVEWAY_RULES, DRIVEWAY_SPACE, benchCost, conditionAfter, drivewayRule, garageSpace, jobPartUids, partSellValue, reservedPartUids, saleQuote, stripYield, swapOutCandidate } from "@/core/garage";
 import { baseDuration, jobBlocker, jobRate } from "@/core/jobs";
 import type { Condition, DrivewayRule, GameState, JobSpec, MaterialId, PartInstance } from "@/core/types";
 import { capitalize, conditionName, duration, num, pct } from "../format";
@@ -70,11 +70,13 @@ function upgradeHint(game: GameState, part: PartInstance): string | null {
 
 /** What's happening to a part that's tied up in a job. */
 function partWork(game: GameState, uid: string): { label: string; done: number; left: string | null } {
-  const job = game.run.jobs.find((j) => ("partUid" in j.spec && j.spec.partUid === uid) || (j.spec.kind === "assemble" && Object.values(j.spec.partUids).includes(uid)));
+  const job = game.run.jobs.find(({ spec }) => jobPartUids(spec).includes(uid));
   if (job) {
     const rate = jobRate(game, job, false);
     return { label: WORKING[job.spec.kind] ?? "Busy", done: 1 - job.remaining / job.duration, left: duration(job.remaining / Math.max(rate, 0.01)) };
   }
+  const paused = game.run.pausedJobs?.find(({ spec }) => jobPartUids(spec).includes(uid));
+  if (paused) return { label: "Paused · resume in On the go", done: 1 - paused.remaining / paused.duration, left: null };
   return { label: "Queued, waiting for a free bench", done: 0, left: null };
 }
 
@@ -116,7 +118,7 @@ function BusyStatus({ game, part }: { game: GameState; part: PartInstance }) {
         <span>{work.label}</span>
         {work.left && <span className="num muted">{work.left} left</span>}
       </div>
-      {work.left && (
+      {(work.left || work.done > 0) && (
         <div className="bar" role="progressbar" aria-label={work.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(work.done * 100)}>
           <span style={{ width: `${Math.min(100, work.done * 100)}%` }} />
         </div>

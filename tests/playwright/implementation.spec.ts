@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { must } from "../../src/core";
+import { createGame, must } from "../../src/core";
 import { racer, saveText, swapMeetGame, teamRacer } from "../fixtures/rewrite";
 
 async function importGame(page: Page, game: unknown): Promise<void> {
@@ -9,6 +9,28 @@ async function importGame(page: Page, game: unknown): Promise<void> {
   await page.getByRole("button", { name: "Import save", exact: true }).click();
   await expect(page.getByText("Save loaded. Your previous game is kept as a backup in this browser.")).toBeVisible();
 }
+
+test("pauses a long study from the jobs board and resumes it in the Workshop after reload", async ({ page }) => {
+  const game = createGame("browser-study-pause");
+  game.run.available.push("tech:bodywork");
+  const running = must(game, { type: "enqueue", spec: { kind: "study", knowhowId: "tech:bodywork" } });
+  await importGame(page, must(running, { type: "advance", ms: 2 * 3_600_000 }));
+
+  const board = page.getByRole("complementary", { name: "Work in progress" });
+  const progress = board.getByRole("progressbar", { name: "Study: Bodywork" });
+  await expect(progress).toHaveAttribute("aria-valuenow", "25");
+  await board.getByRole("button", { name: "Pause Study: Bodywork" }).click();
+  await expect(board.getByRole("heading", { name: "Paused jobs" })).toBeVisible();
+  await page.reload();
+  await expect(progress).toHaveAttribute("aria-valuenow", "25");
+
+  await page.getByRole("button", { name: /^Workshop/ }).click();
+  await page.getByRole("tab", { name: "Know-how" }).click();
+  await page.getByRole("button", { name: "Resume Bodywork", exact: true }).click();
+  await expect(board.getByRole("heading", { name: "Paused jobs" })).toHaveCount(0);
+  await expect(progress).toHaveAttribute("aria-valuenow", "25");
+  await expect(page.getByRole("button", { name: "Pause Bodywork", exact: true })).toBeVisible();
+});
 
 test("trades at the earned Swap Meet and preserves the result after reload", async ({ page }) => {
   await importGame(page, swapMeetGame());
