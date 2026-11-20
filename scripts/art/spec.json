@@ -1,0 +1,9 @@
+{
+  "parts":         { "size": [288, 288],  "kind": "object", "script": "render_parts.py",         "shown": "Parts list 40x40, Notebook 144x144" },
+  "vehicles":      { "size": [360, 240],  "kind": "object", "script": "render_vehicles.py",      "shown": "Build cards 120x80, race track marker" },
+  "rally":         { "size": [160, 120],  "kind": "object", "script": "render_rally.py",         "shown": "Rally stage marker, top-down, rotated", "padding": 0.04 },
+  "venues":        { "size": [480, 256],  "kind": "scene",  "script": "render_venues.py",        "shown": "Race tab and venue cards 120x64" },
+  "places":        { "size": [384, 256],  "kind": "scene",  "script": "render_places.py",        "shown": "Trips tab 96x64" },
+  "organizations": { "size": [880, 495],  "kind": "scene",  "script": "render_organizations.py", "shown": "Team tab up to 640 wide" },
+  "stages":        { "size": [1152, 480], "kind": "scene",  "script": "render_stages.py",        "shown": "Rally stage map, full panel width" }
+}
