@@ -10,7 +10,7 @@ import { capitalize, duration, num, ordinal, seasonClock } from "../format";
 import { useGame } from "../store";
 import { CareerDesk, CareerFocus, type CareerJump } from "./CareerDesk";
 import { feedAge } from "./Feed";
-import { FeedToasts } from "./FeedToasts";
+import { FeedSheet, Ticker, TickerClock } from "./Ticker";
 import { guideStep } from "@/core/guide";
 import { GoalStrip } from "./GoalStrip";
 import { Guide } from "./Guide";
@@ -66,7 +66,7 @@ const TABS: { id: TabId; label: string; reveal: string | null }[] = [
 const TICK_MS = 500;
 const SAVE_MS = 5000;
 
-function Header() {
+function Header({ onOpenFeed }: { onOpenFeed: () => void }) {
   const game = useGame((s) => s.game);
   if (!game) return null;
   const r = game.run;
@@ -79,6 +79,7 @@ function Header() {
           {game.era ? `${game.era.teamName} · ` : ""}Season {game.meta.seasonsPlayed + 1} · {seasonClock(r.seasonMs)}
         </span>
       </div>
+      <Ticker placement="inline" onOpen={onOpenFeed} />
       <dl className="resources">
         <div>
           <dt>Scrap Bucks</dt>
@@ -266,6 +267,7 @@ export function Game() {
   const save = useGame((s) => s.save);
   const experimental = useExperimentalCareers();
   const [tab, setTab] = useState<TabId>("trips");
+  const [feedOpen, setFeedOpen] = useState(false);
   const [careerJump, setCareerJump] = useState<CareerJump | null>(null);
   const [garageSection, setGarageSection] = useState<GarageSection | null>(null);
   const bootstrapped = useRef(false);
@@ -324,7 +326,8 @@ export function Game() {
   const jobReady = (id: TabId) => id === "garage" && serviceActionReady(game);
   return (
     <div className="game" data-era={era} style={teamStyle}>
-      <Header />
+      <Header onOpenFeed={() => setFeedOpen(true)} />
+      <Ticker placement="strip" onOpen={() => setFeedOpen(true)} />
       <TabNav
         active={active}
         onShow={showTab}
@@ -365,7 +368,8 @@ export function Game() {
       <AwayDialog onShow={showCareerTarget} />
       <RaceFinished onRaceTab={active === "race"} />
       <Toast />
-      <FeedToasts />
+      <TickerClock />
+      <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} />
     </div>
   );
 }
