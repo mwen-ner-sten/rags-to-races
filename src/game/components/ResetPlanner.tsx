@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { organizationSprite } from "../sprites";
 
 import { useMemo, useState } from "react";
 import { DARES, PERK_BY_ID, SEASON_CHALLENGES, SEASON_CHALLENGE_IDS, challengeMastery, findChallengePerk, isSeasonChallenge, seasonObjectiveConflict } from "@/core/content/modifiers";
@@ -154,7 +155,7 @@ export function ResetPlanner({ layer, onDone, initialClub, initialObjective, ini
             <div className="organization-options">
             {TEAM_ORGANIZATION_IDS.map((id) => (
               <label className="organization-choice" key={id}>
-                <Image src={`/sprites/organizations/${id}.webp`} width={880} height={495} sizes="(max-width: 600px) 90vw, 340px" alt="" />
+                <Image src={organizationSprite(id)} width={880} height={495} sizes="(max-width: 600px) 90vw, 340px" alt="" />
                 <span><input type="radio" name="team-organization" disabled={workshopCharter && id !== "collective"} checked={organization === id} onChange={() => setOrganization(id)} /> <strong>{TEAM_ORGANIZATIONS[id].name}</strong></span>
                 <span>{TEAM_ORGANIZATIONS[id].description}</span>
               </label>

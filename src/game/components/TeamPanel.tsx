@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { organizationSprite } from "../sprites";
 
 import { depotCharter } from "@/core/serviceShop";
 import { useState } from "react";
@@ -160,7 +161,7 @@ export function TeamPanel({ plannedDiscipline }: { plannedDiscipline?: Disciplin
     <div className="panel">
       <section className="section" aria-labelledby="team-h">
         <h2 id="team-h">{era.teamName}</h2>
-        <Image className="team-garage-view" src={`/sprites/organizations/${teamOrganization(game)}.webp`} width={880} height={495} sizes="(max-width: 600px) 92vw, 640px" alt={organization.name} />
+        <Image className="team-garage-view" src={organizationSprite(teamOrganization(game))} width={880} height={495} sizes="(max-width: 600px) 92vw, 640px" alt={organization.name} />
         <p className="sub">
           {DISCIPLINES[era.discipline].name}. {DISCIPLINES[era.discipline].blurb}
         </p>
