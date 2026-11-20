@@ -14,6 +14,7 @@ import { CLUB_COURSES } from "@/core/clubTrack";
 import { COUNTY_RIVALS } from "@/core/countyRivals";
 import { WORKS_FAMILIES } from "@/core/manufacturer";
 import { conditionName, duration } from "../format";
+import { experimentalCareers } from "@/core/features";
 
 function Loadout({ season, contacts }: { season: SeasonResult; contacts?: GameState["countyRivals"] }) {
   const { setup } = season;
@@ -32,11 +33,11 @@ function Loadout({ season, contacts }: { season: SeasonResult; contacts?: GameSt
     {setup.clubCourse && <p>Course · {CLUB_COURSES[setup.clubCourse].name}</p>}
     {setup.clubLoan && <p>Track workshop loan · {getPart(CLUB_COURSES[setup.clubLoan].loanPart).name}</p>}
     {visitor && <p>Visiting workshop · {getPart(visitor.part).name} from {visitor.name}, {HOME_COUNTIES[visitor.county].name}{contact && ` · earned in Season ${contact.season}`}</p>}
-    {setup.worksPlan && <p>Works drawing · {WORKS_FAMILIES[setup.worksPlan].name}</p>}
+    {experimentalCareers() && setup.worksPlan && <p>Works drawing · {WORKS_FAMILIES[setup.worksPlan].name}</p>}
     {season.regularityFeatures && <p>Certified stages · {Object.keys(season.regularityFeatures).map((id) => venueName(id, "rally")).join(", ")}</p>}
-    {!!season.depotReceipts?.length && <p>Motor Pool receipts · {season.depotReceipts.map((r) => r === "ramp" ? "Ramp depot" : "Pump station").join(", ")}</p>}
-    {setup.shopLegacy && <p>Workshop transfer · {shopLegacyName(setup.shopLegacy)}</p>}
-    {!!season.serviceInvoices?.length && <p>Paid work · {season.serviceInvoices.map((r) => CUSTOMERS[r.client].name).join(", ")}</p>}
+    {experimentalCareers() && !!season.depotReceipts?.length && <p>Motor Pool receipts · {season.depotReceipts.map((r) => r === "ramp" ? "Ramp depot" : "Pump station").join(", ")}</p>}
+    {experimentalCareers() && setup.shopLegacy && <p>Workshop transfer · {shopLegacyName(setup.shopLegacy)}</p>}
+    {experimentalCareers() && !!season.serviceInvoices?.length && <p>Paid work · {season.serviceInvoices.map((r) => CUSTOMERS[r.client].name).join(", ")}</p>}
     {setup.homeCounty && <p>Home county · {HOME_COUNTIES[setup.homeCounty].name}</p>}
     {setup.donor && <p>Donor · {conditionName(setup.donor.condition)} {getPart(setup.donor.partId).name} from {partOriginLabel(setup.donor)}</p>}
     {objective && <p>Objective · {objective.name}</p>}

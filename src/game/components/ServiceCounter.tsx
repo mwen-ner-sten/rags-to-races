@@ -1,13 +1,14 @@
 "use client";
 
+import { experimentalCareers } from "@/core/features";
 import { useState } from "react";
 import { getPart } from "@/core/content/parts";
-import { locateBatonPart } from "@/core/countyBaton";
 import { TOOL_BY_ID } from "@/core/content/tools";
-import { reservedPartUids } from "@/core/garage";
+import { benchCost, partSellValue, reservedPartUids } from "@/core/garage";
 import { jobBlocker } from "@/core/jobs";
 import { scrapAward, SHOP_LAYER } from "@/core/layers";
 import {
+  depotCharter,
   CUSTOMER_IDS,
   CUSTOMERS,
   TRANSFER_TOOLS,
@@ -46,14 +47,7 @@ function Transfer({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const [choice, setChoice] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const gate = SHOP_LAYER.gate(game);
-  if (!gate.ok)
-    return (
-      <section className="customer-block">
-        <h3>Move the shop</h3>
-        <p>{gate.reason}</p>
-      </section>
-    );
+  if (!SHOP_LAYER.gate(game).ok) return null;
   const options: ShopLegacy[] = [
     ...TRANSFER_TOOLS.filter((tool) => (game.run.tools[tool] ?? 0) > 0).map((tool): ShopLegacy => ({
       type: "tool",
@@ -64,9 +58,6 @@ function Transfer({ game }: { game: GameState }) {
   const legacy = options.find((option) => shopLegacyName(option) === choice);
   const choices = { ...initialConfig(), shopLegacy: legacy };
   const blocker = SHOP_LAYER.validate(game, choices);
-  const baton = game.run.countyBaton;
-  const abandonsBaton = baton && (baton.leg === "qualify" || baton.completedAt === undefined);
-  const guardedBaton = baton?.qualified && locateBatonPart(game, baton.qualified.uid).part;
   return (
     <section className="customer-block">
       <h3>Move the shop</h3>
@@ -89,11 +80,9 @@ function Transfer({ game }: { game: GameState }) {
       {legacy && (
         <>
           <ResetCommitments game={game} />
-          {abandonsBaton && <p className="why">This move ends the unfinished County Baton attempt. Earned freight permits and Parts With a Past records stay.</p>}
-          {guardedBaton?.batonGuard && <p className="why">The safeguarded {getPart(guardedBaton.partId).name} will be scrapped.</p>}
           <label>
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> Close this
-            garage and begin the next Season.{guardedBaton?.batonGuard && " I’m ready to scrap the safeguarded part."}
+            garage and begin the next Season.
           </label>
           <button
             className="btn primary"
@@ -115,6 +104,7 @@ function Transfer({ game }: { game: GameState }) {
 
 /** Customer work shows once the bench is open, or whenever this shop already has service history. */
 export function serviceCounterVisible(game: GameState): boolean {
+  if (!experimentalCareers()) return false;
   return game.run.revealed.includes("bench") || !!game.run.serviceBook || !!game.config.shopLegacy;
 }
 
@@ -164,11 +154,7 @@ function ActiveJob({ game, client }: JobCardProps) {
   const busy = !!part && reservedPartUids(game).has(part.uid);
   const workWhy = busy ? "Booked on the bench." : task ? jobBlocker(game, task) : null;
   const delivery = serviceDelivery(game);
-  const deliverWhy = part?.batonGuard
-    ? "Release County Baton protection in the Garage to hand this part over."
-    : typeof delivery === "string"
-      ? delivery
-      : null;
+  const deliverWhy = typeof delivery === "string" ? delivery : null;
   return (
     <article className="customer-card active">
       <header className="customer-head">
@@ -251,6 +237,13 @@ function OpenJob({ game, client }: JobCardProps) {
       {!otherActive && part && (
         <div className="customer-actions">
           <PartPicker parts={candidates} value={part.uid} onChange={setPicked} />
+          <p className="muted">
+            Dealer offer today · {partSellValue(game, part)} Scrap Bucks as is.
+            {" "}For this job, {request.threshold === 2 ? "clean to Worn" : (
+              (part.condition < 2 ? "clean to Worn, then repair" : "repair") + " with " +
+              Object.entries(benchCost(part, "repair")).map(([name, count]) => count + " " + name).join(" and ")
+            )}.
+          </p>
           <button
             className="btn small primary"
             onClick={() => dispatch({ type: "service", move: { type: "register", client, partUid: part.uid } })}
@@ -283,10 +276,8 @@ function Progress({ game }: { game: GameState }) {
         <p className="muted">Two jobs done and the grounds crew shares the Riding Mower plans for your study bench.</p>
       )}
       {shopMoveReady(game) ? (
-        <p className="muted">Three jobs done and a hauler ready: you can move the shop (below).</p>
-      ) : (
-        <p className="muted">Three jobs done and a Riding Mower or larger hauler let you move the shop to a new Season.</p>
-      )}
+        <p className="muted">Your customer book is full. Stay and race, or move the shop to start a new Season.</p>
+      ) : null}
     </>
   );
 }
@@ -305,9 +296,9 @@ function Charter({ game }: { game: GameState }) {
         </li>
       </ul>
       <p>
-        {shopFoundingReady(game)
+        {(shopFoundingReady(game) || depotCharter(game))
           ? "The committee signed your charter. Open Team to found the Workshop Collective."
-          : "Both references carry across Seasons. Bring them to a shop with three finished jobs and a Riding Mower or larger hauler to found a team."}
+          : "One signed reference and a depot rig open the County Motor Pool. Collect both freight deliveries in one Season for a charter. You can also qualify with both references, three paid jobs this Season and a hauler."}
       </p>
     </section>
   );

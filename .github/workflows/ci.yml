@@ -17,6 +17,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - name: Check sprites against the art bible
+        run: pip install --quiet pillow && python scripts/art/check_sprites.py
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Run focused E2E smoke suite

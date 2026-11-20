@@ -22,6 +22,7 @@ import { ChoiceList } from "./ChoiceList";
 import { PACE_OPTIONS, Segmented } from "./Segmented";
 import { Tips } from "./Tips";
 import { RaceNightPlanner } from "./RaceNightPlanner";
+import { experimentalCareers } from "@/core/features";
 
 /** The part most likely to wear or fail, called out before you race. */
 function WeakPart({ vehicle }: { vehicle: Vehicle }) {
@@ -86,7 +87,7 @@ function Results({ game }: { game: GameState }) {
             <span>
               {venueName(r.venueId, discipline)} {capitalize(r.event)}
               {retiredVehicle(game, r.vehicleUid) && <span className="muted"> · {retiredVehicle(game, r.vehicleUid)!.name}</span>}
-              {game.motorPool?.custody?.rig.uid === r.vehicleUid && <span className="muted"> · {game.motorPool.custody.rig.name} at the depot</span>}
+              {experimentalCareers() && game.motorPool?.custody?.rig.uid === r.vehicleUid && <span className="muted"> · {game.motorPool.custody.rig.name} at the depot</span>}
             </span>
             <span className="num muted">
               +{num(r.prize)} Scrap Bucks · +{r.rep} Rep

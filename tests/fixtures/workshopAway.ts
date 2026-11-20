@@ -1,6 +1,5 @@
 import { must } from "../../src/core";
 import { getVehicle } from "../../src/core/content/vehicles";
-import { BATON_PART } from "../../src/core/countyBaton";
 import type { GameState, PartInstance } from "../../src/core/types";
 import { racer } from "./rewrite";
 
@@ -84,32 +83,4 @@ export function pendingHeritage(kind: "exhibit" | "special"): GameState {
   if (kind === "special") game.run.vehicles.find((v) => v.uid === car.uid)!.parts.wheel!.partId = "wheel_knobby";
   game.run.ladder.backyard = ["sprint", "heat", "feature"];
   return must(game, { type: "enqueue", spec: { ...sprint, event: kind === "exhibit" ? "sprint" : "feature", vehicleUid: car.uid } });
-}
-
-export function pendingBaton(leg: "qualify" | "deliver"): GameState {
-  let game = racer("baton-away-setup");
-  game.meta.knowhow["tech:scouting"] = 1;
-  game.meta.codex.places = { curb: 8, floodplain: 4, junkyard: 3 };
-  game.meta.challengeRecords.parts_with_a_past = { completions: 2, bestSeasonMs: 1, bestVehicleName: "Parts racer" };
-  game.run.featureWins.county_fair = 0;
-  game = must(game, { type: "reset", layer: "scrap", choices: { ...game.config, countyBaton: "start", homeCounty: "river" } });
-  game.run.cash = 100;
-  const kart = addCar(game, "go_kart", "baton-kart");
-  kart.parts.engine!.partId = "engine_v4";
-  kart.parts.wheel = { uid: "baton-tire", partId: BATON_PART.river, condition: 4, origin: "Floodplain Lots",
-    provenance: { placeId: "floodplain", county: "river", season: game.meta.seasonsPlayed + 1 } };
-  game.run.venuesOpen.push("dirt");
-  game.run.ladder.dirt = ["sprint", "heat", "feature"];
-  game = must(game, { type: "enqueue", spec: { kind: "race", vehicleUid: kart.uid, venueId: "dirt", event: "feature", call: "nurse" } });
-  if (leg === "qualify") return game;
-  game = must(game, { type: "advance", ms: HOUR });
-  game.run.featureWins.county_fair = game.run.seasonMs;
-  game = must(game, { type: "reset", layer: "scrap", choices: { ...game.config, countyBaton: "carry", homeCounty: "quarry", retainedPartUid: "baton-tire" } });
-  game.run.cash = 100;
-  const beater = addCar(game, "beater_car", "baton-beater");
-  beater.parts.engine!.partId = "engine_v6";
-  game = must(game, { type: "install", vehicleUid: beater.uid, slot: "wheel", partUid: "baton-tire" });
-  game.run.venuesOpen.push("county_fair");
-  game.run.ladder.county_fair = ["sprint", "heat", "feature"];
-  return must(game, { type: "enqueue", spec: { kind: "race", vehicleUid: beater.uid, venueId: "county_fair", event: "feature", call: "nurse" } });
 }

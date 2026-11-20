@@ -9,6 +9,10 @@ import { eligibleHistory, exhibitBlocker, heritageFit, type HeritageKind } from 
 import { Bot, SCHEDULES } from "../src/core/sim/bot";
 import type { GameState } from "../src/core/types";
 import { decodeGameState } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const DAY = 86_400_000;
 class Restorer extends Bot {
@@ -89,7 +93,11 @@ for (let i = 0; i < seeds; i++) {
     const g = must(next, { type: "heritage", move: { type: "start", archiveIndex, kind: route } });
     const player = new Restorer(g, route);
     player.run(SCHEDULES.mixed, 40 * DAY);
-    if (!decodeGameState(player.state)) throw Error("Invalid result");
+    if (player.awardAt === undefined || !player.heldReset) throw Error("Restorer missed its dedication or Scrap Reset");
+    const returned = decodeGameState(must(player.state, player.heldReset));
+    const plaque = returned?.meta.heritageRegister?.[0];
+    if (!returned || plaque?.kind !== route || plaque.originalName !== next.meta.hallOfFame[archiveIndex].name ||
+        eligibleHistory(returned, returned.meta.hallOfFame[archiveIndex])) throw Error("Dedication lost across reset");
     const result = {
       seed: i,
       route,

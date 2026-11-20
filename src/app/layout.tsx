@@ -5,6 +5,8 @@ import "./globals.css";
 import "./feed.css";
 import "./race-extras.css";
 import "./garage-extras.css";
+import "./goals.css";
+import "./achievements.css";
 import "./controls.css";
 import "./customers.css";
 

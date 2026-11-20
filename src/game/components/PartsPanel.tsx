@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { CONDITION_STAT, getPart } from "@/core/content/parts";
-import { batonPartTag } from "@/core/countyBaton";
 import { CUSTOMERS } from "@/core/serviceShop";
 import { partOriginLabel } from "@/core/provenance";
 import { type BenchKind, DRIVEWAY_RULES, DRIVEWAY_SPACE, benchCost, conditionAfter, drivewayRule, garageSpace, jobPartUids, partSellValue, reservedPartUids, saleQuote, stripYield, swapOutCandidate } from "@/core/garage";
@@ -16,7 +15,7 @@ import { ChannelWhy } from "./ChannelWhy";
 import { useStrongAt } from "./GarageStrongAt";
 import { Segmented } from "./Segmented";
 import { Tips } from "./Tips";
-import { BatonGuardControls } from "./CountyBaton";
+import { experimentalCareers } from "@/core/features";
 
 const UPGRADES: { kind: Exclude<BenchKind, "strip">; label: string }[] = [
   { kind: "clean", label: "Clean" },
@@ -163,10 +162,8 @@ function PartActions({ game, part, onDriveway }: PartProps) {
           onClick={() => enqueue({ kind: upgrade.kind, partUid: part.uid })}
         />
       )}
-      {part.batonGuard ? <span className="hint">Safeguarded from sale and stripping</span> : <>
-        <ActionButton label="Strip" time={time("strip")} detail={`get ${strip}`} title="Break it down for materials. The part is gone." onClick={() => enqueue({ kind: "strip", partUid: part.uid })} />
-        <ActionButton label="Sell" time="now" detail={`get ${num(sell)} Scrap Bucks`} title="Sell it to the dealer right now" onClick={() => dispatch({ type: "sell", partUids: [part.uid] })} />
-      </>}
+      <ActionButton label="Strip" time={time("strip")} detail={`get ${strip}`} title="Break it down for materials. The part is gone." onClick={() => enqueue({ kind: "strip", partUid: part.uid })} />
+      <ActionButton label="Sell" time="now" detail={`get ${num(sell)} Scrap Bucks`} title="Sell it to the dealer right now" onClick={() => dispatch({ type: "sell", partUids: [part.uid] })} />
       <button className={`btn small${part.protected ? " primary" : ""}`} aria-pressed={part.protected ?? false} title="Protect this part from automatic disposal and garage swaps" onClick={() => dispatch({ type: "protectPart", partUid: part.uid, keep: !part.protected })}>Keep</button>
     </div>
   );
@@ -174,7 +171,6 @@ function PartActions({ game, part, onDriveway }: PartProps) {
 
 function PartRow({ game, part, reserved, onDriveway, strongAt }: PartProps & { reserved: boolean }) {
   const def = getPart(part.partId);
-  const batonTag = batonPartTag(game, part);
   const hint = reserved || onDriveway || nextUpgrade(game, part) ? null : upgradeHint(game, part);
   return (
     <li className={`part ${reserved ? "busy" : ""}`}>
@@ -187,14 +183,12 @@ function PartRow({ game, part, reserved, onDriveway, strongAt }: PartProps & { r
         <div className="part-meta muted">
           <span>{capitalize(def.category)}</span>
           <span>Tier {def.tier}</span>
-          <span>from {partOriginLabel(part)}{part.referral && " · lead from " + CUSTOMERS[part.referral].name}</span>
+          <span>from {partOriginLabel(part)}{experimentalCareers() && part.referral && " · lead from " + CUSTOMERS[part.referral].name}</span>
           {part.inherited && <span>Carried from last Season</span>}
-          {batonTag && <span className="chip">{batonTag}</span>}
         </div>
         <PartStats part={part} />
         {strongAt && <div className="garage-strong">{strongAt}</div>}
         {hint && <div className="why">{hint}</div>}
-        {batonTag && <BatonGuardControls game={game} part={part} />}
       </div>
       {reserved ? <BusyStatus game={game} part={part} /> : <PartActions game={game} part={part} onDriveway={onDriveway} />}
     </li>

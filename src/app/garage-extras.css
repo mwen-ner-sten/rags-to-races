@@ -94,14 +94,6 @@
   grid-column: 2;
 }
 
-.build-slot .baton-protection {
-  grid-column: 1 / -1;
-}
-
-.baton-protection {
-  margin-top: 6px;
-}
-
 @media (max-width: 560px) {
   .milestones.challenge-records li {
     grid-template-columns: minmax(0, 1fr);

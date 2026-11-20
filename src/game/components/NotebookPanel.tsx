@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { SeasonLog } from "./SeasonLog";
 import { RallyCards } from "./RallyCards";
-import { HeritageOffer } from "./HeritageDesk";
+import { Achievements, LifetimeStatsTable } from "./AchievementsStats";
+import { eligibleHistory } from "@/core/heritage";
 import type { CareerDestination } from "@/core/careerAdvice";
 import { useState } from "react";
 import { SubNav } from "./SubNav";
@@ -17,6 +18,7 @@ import { partOriginLabel } from "@/core/provenance";
 import { useGame } from "../store";
 import { partSprite, vehicleSprite } from "../sprites";
 import { Tips } from "./Tips";
+import { experimentalCareers } from "@/core/features";
 
 function Codex({ game }: { game: GameState }) {
   const [filter, setFilter] = useState("");
@@ -92,10 +94,21 @@ function HallOfFame({ game, onOpen }: { game: GameState; onOpen?: (target: Caree
     `${entry.name} ${getVehicle(entry.vehicleId).name} Season ${entry.season}`.toLowerCase().includes(query)
   );
   return <>
-    {game.run.heritageProject && <div className="notice" role="status">
-      <p>{game.run.heritageProject.originalName} is being {game.run.heritageProject.kind === "exhibit" ? "recreated" : "rebuilt as a period special"}. Work on it in the Workshop, under Heritage.</p>
-      {onOpen && <button className="btn small" onClick={() => onOpen({ tab: "workshop", section: "Heritage" })}>Open Heritage in the Workshop</button>}
-    </div>}
+    {experimentalCareers() && !!game.meta.heritageRegister?.length && <section aria-label="Museum collection">
+      <h3>Museum collection</h3>
+      <ul className="plain">{game.meta.heritageRegister.map((award) => <li key={award.model + award.kind}>
+        <article className="part-study">
+          <Image src={vehicleSprite(award.model)} alt={getVehicle(award.model).name} width={96} height={64} />
+          <div>
+            <h4>{award.carName}</h4>
+            <p>{getVehicle(award.model).name} · {award.kind === "exhibit" ? "Museum exhibit" : "Period special"}</p>
+            <p>In tribute to {award.originalName} · Dedicated in Season {award.season}</p>
+          </div>
+        </article>
+      </li>)}</ul>
+    </section>}
+    {experimentalCareers() && onOpen && (game.run.heritageProject || game.meta.hallOfFame.some((entry) => eligibleHistory(game, entry))) &&
+      <button className="btn small" onClick={() => onOpen({ tab: "workshop", section: "Heritage" })}>Open Heritage in the Workshop</button>}
     <label className="archive-field">Find a retired vehicle
       <input type="search" value={filter} onChange={(event) => { setFilter(event.target.value); setLimit(12); }} placeholder="Name, model or season" />
     </label>
@@ -112,7 +125,6 @@ function HallOfFame({ game, onOpen }: { game: GameState; onOpen?: (target: Caree
           <ul className="plain">{entry.parts.map((part) => <li key={part.slot}>
             <strong>{getPart(part.partId).name}</strong> · {conditionName(part.condition)} · {partOriginLabel(part)}
           </li>)}</ul>
-          <HeritageOffer game={game} entry={entry} />
         </details>
       </li>)}
     </ul>
@@ -150,7 +162,7 @@ function Journal({ game }: { game: GameState }) {
   </>;
 }
 
-const SECTIONS = ["Journal", "Codex", "Rivals", "Hall of Fame", "Seasons", "Timecards"] as const;
+const SECTIONS = ["Journal", "Codex", "Rivals", "Hall of Fame", "Seasons", "Achievements", "Stats", "Timecards"] as const;
 
 export function NotebookPanel({ section, onOpen }: { section?: "Hall of Fame" | "Timecards"; onOpen?: (target: CareerDestination) => void }) {
   const game = useGame((s) => s.game);
@@ -168,6 +180,8 @@ export function NotebookPanel({ section, onOpen }: { section?: "Hall of Fame" | 
       {tab === "Rivals" && <Rivals game={game} />}
       {tab === "Hall of Fame" && <HallOfFame game={game} onOpen={onOpen} />}
       {tab === "Seasons" && <SeasonLog log={game.meta.seasonLog ?? []} contacts={game.countyRivals} />}
+      {tab === "Achievements" && <Achievements game={game} />}
+      {tab === "Stats" && <LifetimeStatsTable game={game} />}
       {tab === "Timecards" && <RallyCards cards={game.meta.rallyCards ?? []} />}
       </div>
     </section>

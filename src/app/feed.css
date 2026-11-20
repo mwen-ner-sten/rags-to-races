@@ -70,46 +70,113 @@
   box-shadow: -6px 0 12px -8px var(--accent-2);
 }
 
-/* ── Passing toasts ──────────────────────────────────────────────────── */
+/* ── Ticker ──────────────────────────────────────────────────────────── */
 
-.feed-toasts {
-  position: fixed;
-  left: 50%;
-  bottom: calc(124px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 10001;
-  display: grid;
-  gap: 6px;
-  width: min(420px, calc(100vw - 32px));
-  pointer-events: none;
-}
-
-.feed-toast {
-  pointer-events: auto;
+/* One line of race radio. Desktop: inside the sticky header row. Phones and touchscreens:
+   a thin sticky strip under the header. It never floats over the game. */
+.ticker {
+  --kind: var(--ink-3);
   display: flex;
-  gap: 10px;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--card-2);
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-  border-left: 3px solid var(--accent-2);
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow), var(--glow-2);
-  font-size: 0.9rem;
-  animation: feed-toast-in 220ms ease-out;
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
 }
 
-.feed-toast .link-btn {
+.ticker:hover,
+.ticker:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink-2);
+}
+
+.ticker[data-fresh] {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--kind) 70%, transparent);
+  box-shadow: 0 0 12px -4px var(--kind);
+}
+
+.ticker[data-kind="haul"] { --kind: var(--ok); }
+.ticker[data-kind="driveway"] { --kind: var(--warn); }
+.ticker[data-kind="bench"] { --kind: var(--c4); }
+.ticker[data-kind="habit"] { --kind: var(--accent); }
+.ticker[data-kind="place"] { --kind: var(--c1); }
+.ticker[data-kind="knowhow"] { --kind: var(--c2); }
+.ticker[data-kind="build"] { --kind: var(--c4); }
+.ticker[data-kind="race"] { --kind: var(--bad); }
+.ticker[data-kind="story"],
+.ticker[data-kind="achievement"] { --kind: var(--accent-2); }
+.ticker[data-kind="radio"] { --kind: var(--accent); }
+
+/* Radio chatter fades in gently and reads as an aside. */
+.ticker[data-kind="radio"] .ticker-text {
+  font-style: italic;
+  animation: ticker-fade 600ms ease-out;
+}
+
+@keyframes ticker-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ticker-kind {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--kind);
+  opacity: 0.6;
+}
+
+.ticker[data-fresh] .ticker-kind {
+  opacity: 1;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--kind) 55%, transparent);
+}
+
+.ticker-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ticker-run {
+  display: inline-block;
+}
+
+/* A line too long for the window scrolls across, rests, and scrolls back (lengths set in Ticker.tsx). */
+.ticker-text[data-run] .ticker-run {
+  animation: ticker-run var(--run-ms, 8s) linear infinite alternate;
+}
+
+@keyframes ticker-run {
+  0%, 18% { transform: translateX(0); }
+  82%, 100% { transform: translateX(var(--run, 0)); }
+}
+
+.ticker[data-fresh] .ticker-text {
+  animation: ticker-in 260ms ease-out;
+}
+
+.ticker-more {
+  flex: none;
+  font-size: 0.74rem;
   color: var(--accent);
-  min-width: 32px;
-  min-height: 32px;
 }
 
-@keyframes feed-toast-in {
+@keyframes ticker-in {
   from {
-    transform: translateY(12px);
+    transform: translateY(60%);
     opacity: 0;
   }
   to {
@@ -119,9 +186,64 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .feed-toast {
+  .ticker[data-fresh] .ticker-text,
+  .ticker[data-kind="radio"] .ticker-text,
+  .ticker-text[data-run] .ticker-run {
     animation: none;
   }
+
+  /* No scrolling: a long line ends in an ellipsis instead. */
+  .ticker-run {
+    display: inline;
+  }
+
+  .ticker-text {
+    text-overflow: ellipsis;
+  }
+}
+
+.ticker-inline {
+  flex: 1 1 0;
+  max-width: 520px;
+}
+
+.ticker-strip {
+  display: none;
+}
+
+/* Touch layout (same query as the bottom tab bar): the header scrolls away, the strip stays. */
+@media (max-width: 640px), (hover: none) and (pointer: coarse) {
+  .topbar {
+    position: static;
+  }
+
+  .ticker-inline {
+    display: none;
+  }
+
+  .ticker-strip {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+    min-height: 34px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    padding: 6px 16px;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(6px);
+  }
+}
+
+dialog.feed-sheet .lately {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+dialog.feed-sheet .lately-list {
+  max-height: 60vh;
 }
 
 .away-items {
@@ -136,12 +258,5 @@
     max-height: calc(100dvh - var(--topbar-h, 60px) - 68px);
     overflow-y: auto;
     overscroll-behavior: contain;
-  }
-}
-
-/* Clear the fixed bottom navigation (56px) in phone / touchscreen mode. */
-@media (max-width: 640px), (hover: none) and (pointer: coarse) {
-  .feed-toasts {
-    bottom: calc(180px + env(safe-area-inset-bottom, 0px));
   }
 }

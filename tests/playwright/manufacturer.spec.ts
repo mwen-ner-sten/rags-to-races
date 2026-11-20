@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { racer, saveText } from "../fixtures/rewrite";
+import { setExperimentalCareers } from "../../src/core/features";
+
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+// Fixtures build experimental saves in Node, so the engine flag must be on here too.
+test.beforeAll(() => setExperimentalCareers(true));
+test.afterAll(() => setExperimentalCareers(false));
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
 
 test("Manufacturer signs one real works entry and presents its next benchmark", async ({ page }) => {
   await page.clock.install();
@@ -17,9 +26,11 @@ test("Manufacturer signs one real works entry and presents its next benchmark", 
   await page.getByLabel("Save text").fill(saveText(game));
   await page.getByRole("button", { name: "Import save", exact: true }).click();
   await expect(page.getByText("Save loaded. Your previous game is kept as a backup in this browser.")).toBeVisible();
-  await page.getByRole("button", { name: "Manufacturer", exact: true }).click();
+  await page.getByRole("button", { name: /^Garage/ }).click();
+  await page.getByRole("tab", { name: "Suppliers" }).click();
   await page.getByRole("button", { name: "Sign Redwheel Works deal" }).click();
   await expect(page.getByRole("heading", { name: "Redwheel Works · Copper Comet" })).toBeVisible();
+  await page.getByLabel("Trial pace").selectOption("nurse");
   await page.getByRole("button", { name: "Sign up for works trial" }).click();
   await expect(page.getByText("On track.")).toBeVisible();
   await expect(page.getByText(/0\/2 benchmarks passed/)).toBeVisible();

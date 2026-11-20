@@ -11,6 +11,10 @@ import { CUSTOMER_IDS, CUSTOMERS, customerLeads, serviceCandidates } from "../sr
 import { initialConfig } from "../src/core/state";
 import type { GameState, JobSpec, MaterialId } from "../src/core/types";
 import { decodeGameState } from "../src/game/save";
+import { setExperimentalCareers } from "../src/core/features";
+
+// These routes exercise the experimental side careers, which are off by default.
+setExperimentalCareers(true);
 
 const output = process.argv[3] ?? "test-results/service-careers";
 const trials = Number(process.argv[2] ?? 8);
@@ -117,6 +121,11 @@ for (let i = 0; i < trials; i++) {
     next = must(next, { type: "advance", ms: 60_000, away: true });
     if (!decodeGameState(next) || next.meta.seasonLog?.at(-1)?.endedBy !== "shop") throw Error("Invalid transfer");
     const second = fillBook(next);
+    if (i === 0 && route === "tool")
+      writeFileSync(
+        join(output, "depot-ready.txt"),
+        Buffer.from(JSON.stringify({ game: second, savedAt: Date.now() })).toString("base64"),
+      );
     const opposite =
       route === "tool"
         ? ({ type: "client", client: "orchard" } as const)

@@ -2,6 +2,15 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import type { GameState } from "../../src/core/types";
 import { racer, saveText } from "../fixtures/rewrite";
+import { setExperimentalCareers } from "../../src/core/features";
+
+// Covers experimental side careers, which are hidden unless this browser preference is on.
+// Fixtures build experimental saves in Node, so the engine flag must be on here too.
+test.beforeAll(() => setExperimentalCareers(true));
+test.afterAll(() => setExperimentalCareers(false));
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rags-to-races:experimental-careers", "on"));
+});
 
 function transferReady() {
   const earned = process.env.PLAYWRIGHT_SHOP_OPENING_SAVE;

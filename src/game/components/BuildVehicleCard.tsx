@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useState } from "react";
 import { installedService } from "@/core/actions";
 import { challengeVehicleFit } from "@/core/challenges";
-import { batonRaceSetup } from "@/core/countyBaton";
 import { VENUES, getVenue, venueName } from "@/core/content/events";
 import { getVehicle } from "@/core/content/vehicles";
 import { reservedPartUids, vehicleBusy, vehicleStats } from "@/core/garage";
@@ -17,6 +16,7 @@ import { useGame } from "../store";
 import { BuildSlotRow } from "./BuildSlotRow";
 import { Segmented } from "./Segmented";
 import { VehicleRetirement } from "./VehicleRetirement";
+import { experimentalCareers } from "@/core/features";
 
 const TUNES: { id: TuneSetting; label: string; effect: string }[] = [
   { id: "balanced", label: "Balanced", effect: "No trade-off." },
@@ -37,16 +37,12 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
   const busy = vehicleBusy(game, vehicle.uid);
   const reserved = reservedPartUids(game);
   const free = game.run.inventory.filter((p) => !reserved.has(p.uid));
-  const tuning = game.run.learned.includes("tech:tuning") || game.run.heritageSetups?.includes(vehicle.vehicleId);
+  const tuning = game.run.learned.includes("tech:tuning") || (experimentalCareers() && game.run.heritageSetups?.includes(vehicle.vehicleId));
   const discipline = game.era?.discipline ?? "dirt";
   const venues = enterable(game, def.tier);
   const venueId = venues.find((v) => v.id === picked)?.id ?? venues[venues.length - 1]?.id;
   const score = rawScore(vehicle, discipline, venueId);
   const challengeFit = venueId && game.run.challenge.completedAt === undefined ? challengeVehicleFit(game, venueId, vehicle) : null;
-  const baton = game.run.countyBaton;
-  const batonTarget = baton?.leg === "qualify" && !baton.qualified && vehicle.vehicleId === "go_kart" ? "dirt"
-    : baton?.leg === "deliver" && baton.completedAt === undefined && vehicle.vehicleId === "beater_car" ? "county_fair" : undefined;
-  const batonFit = batonTarget && batonRaceSetup(game, batonTarget, vehicle);
   const facts = [
     ["Power", stats.power],
     ["Handling", stats.handling],
@@ -97,12 +93,10 @@ export function BuildVehicleCard({ game, vehicle }: { game: GameState; vehicle: 
         )}
         {busy && <p className="chip">Out racing</p>}
         {challengeFit && <p className={challengeFit.ready ? "hint" : "why"}>Challenge setup · {challengeFit.text}</p>}
-        {batonFit && <p className={batonFit.ready ? "hint" : "why"}>County Baton · {batonFit.text}</p>}
         <div className="slots">
           {def.slots.map((slot) => (
             <BuildSlotRow
               key={slot.slot}
-              game={game}
               vehicle={vehicle}
               slot={slot}
               discipline={discipline}

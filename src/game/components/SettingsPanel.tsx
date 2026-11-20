@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckpointShelf } from "./CheckpointShelf";
 import { useGame } from "../store";
+import { useExperimentalCareers } from "../useExperimental";
 
 export function SettingsPanel() {
   const exportSave = useGame((s) => s.exportSave);
@@ -12,6 +13,8 @@ export function SettingsPanel() {
   const reset = useGame((s) => s.reset);
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
+  const setExperimental = useGame((s) => s.setExperimental);
+  const experimental = useExperimentalCareers();
   const [text, setText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
@@ -75,6 +78,12 @@ export function SettingsPanel() {
           Show tips again
         </button>
       </div>
+      <h3 className="label">Experimental</h3>
+      <label className="check">
+        <input type="checkbox" checked={experimental} onChange={(e) => setExperimental(e.target.checked)} />
+        Experimental careers — unbalanced, may change
+      </label>
+      <p className="sub">Shows the Manufacturer works deals, the Service counter and Shop Move, the County Motor Pool, Heritage and county freight. They are unfinished side careers that have not been playtested. This is a setting for this browser, not part of your save, so turning it off only hides them.</p>
       <CheckpointShelf />
       <h3 className="label">Start over</h3>
       <p className="sub">Starts a fresh game and Notebook. Your garage checkpoints stay saved. Export browser backup keeps your previous browser save until another backup replaces it.</p>

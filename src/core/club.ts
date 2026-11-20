@@ -1,3 +1,4 @@
+import { earn } from "./stats";
 import { getVenue } from "./content/events";
 import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "./clubTrack";
 import { COUNTY_RIVALS, countyLoanOrigin, countyLoanProvenance, countyVisitorLoanBlocker, type CountyRivalId } from "./countyRivals";
@@ -177,13 +178,13 @@ export function recordClubRace(state: GameState, spec: RaceSpec, result: RaceRes
   const stop = CLUB_CHARTERS[season.charter].stops[season.rounds.length];
   season.rounds.push({ raceId: result.id, vehicle: car.name, admission, position: result.position, fieldSize: result.fieldSize, dnf: result.dnf, ...(season.course && { call: spec.call }) });
   if (!result.dnf && admission === "public") state.run.rep += 2;
-  if (!result.dnf && result.position <= 3 && admission === "ticketed") state.run.cash += ticketedGrant(stop);
+  if (!result.dnf && result.position <= 3 && admission === "ticketed") earn(state, ticketedGrant(stop));
   const tally = clubScore(season);
   if (!tally.complete) return;
   const charter = CLUB_CHARTERS[season.charter];
   if (tally.certified) {
     state.club!.hasCertifiedClub = true;
-    state.run.cash += charter.grant;
+    earn(state, charter.grant);
     state.run.rep += charter.rep;
   }
   if (tally.trackCertified && season.course) {
@@ -229,7 +230,7 @@ export function startClubSeason(state: GameState): void {
   if (charter === "yard_co_op") {
     for (const partId of ["engine_lawn", "wheel_basic"]) addClubPart(state, partId, 2, "Backyard Co-op");
   } else {
-    state.run.cash += 120;
+    earn(state, 120);
     state.run.materials.metal += 3;
     state.run.materials.rubber += 2;
   }

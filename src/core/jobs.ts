@@ -16,6 +16,8 @@ import { benchCost, conditionAfter, fillFromDriveway, nowhereToStow, reservedPar
 import { countRepetition, syncHabitSlots, templateBase } from "./habits";
 import { completeHaul } from "./haul";
 import { pushFeed } from "./feed";
+import { evaluateAchievements } from "./achievements";
+import { refund, spend } from "./stats";
 import { STORY, addJournal, tell } from "./journal";
 import { CONDITION_NAMES } from "./content/parts";
 import { getKnowhow } from "./content/knowhow";
@@ -109,7 +111,7 @@ export function jobBlocker(state: GameState, spec: JobSpec, signUp = false): str
     case "strip": {
       const part = findAnyPart(state, spec.partUid);
       if (!part) return "Pick a part";
-      return part.batonGuard ? "Release County Baton protection first." : null;
+      return null;
     }
     case "study": {
       const def = getKnowhow(spec.knowhowId);
@@ -308,7 +310,7 @@ function payForStart(state: GameState, spec: JobSpec): Paid {
     default:
       break;
   }
-  state.run.cash -= paid.cash;
+  spend(state, paid.cash);
   payMaterials(state, paid.materials);
   return paid;
 }
@@ -324,7 +326,7 @@ export function dropJob(state: GameState, jobId: string): void {
 function refundJob(state: GameState, job: Pick<ActiveJob, "paid">): void {
   const paid = job.paid;
   if (!paid) return;
-  state.run.cash += paid.cash;
+  refund(state, paid.cash);
   for (const [m, n] of Object.entries(paid.materials)) state.run.materials[m as MaterialId] += n ?? 0;
   if (paid.lastEntered) {
     if (paid.lastEntered.prev === undefined) delete state.run.lastEntered[paid.lastEntered.key];
@@ -388,6 +390,17 @@ function activeCrew(state: GameState): CrewMember[] {
   return state.era.crew;
 }
 
+/** Part ids that would fill an empty required slot on a vehicle the player owns. */
+function partIdsForEmptyRequiredSlots(state: GameState): Set<string> {
+  const ids = new Set<string>();
+  for (const vehicle of state.run.vehicles) {
+    for (const slot of getVehicle(vehicle.vehicleId).slots) {
+      if (slot.required && !vehicle.parts[slot.slot]) slot.accepts.forEach((id) => ids.add(id));
+    }
+  }
+  return ids;
+}
+
 /** Picks a concrete target for a habit/crew bench job, or null when there's nothing to do. */
 export function resolveTemplate(state: GameState, template: string): JobSpec | null {
   const reserved = reservedPartUids(state);
@@ -412,7 +425,9 @@ export function resolveTemplate(state: GameState, template: string): JobSpec | n
     return null;
   }
   if (base === "strip") {
-    const junk = free.find((p) => getPart(p.partId).category === "junk") ?? free.find((p) => p.condition === 0);
+    // Junk first, then Scrap parts, but never one an owned vehicle needs to run.
+    const needed = partIdsForEmptyRequiredSlots(state);
+    const junk = free.find((p) => getPart(p.partId).category === "junk") ?? free.find((p) => p.condition === 0 && !needed.has(p.partId));
     return junk ? { kind: "strip", partUid: junk.uid } : null;
   }
   if (base === "race") {
@@ -566,6 +581,7 @@ function completeJob(state: GameState, job: ActiveJob): void {
       if (part && next !== null) {
         part.condition = next;
         recordService(state, part);
+        countBench(state, spec.kind);
         if (spec.kind === "clean") addJournal(state, "first_clean", STORY.first_clean);
         if (spec.kind === "restore") tell(state, "first_restore");
         benchFeed(state, job, `${getPart(part.partId).name} is now ${CONDITION_NAMES[next]}.`);
@@ -578,6 +594,7 @@ function completeJob(state: GameState, job: ActiveJob): void {
         state.run.inventory = state.run.inventory.filter((p) => p.uid !== part.uid);
         state.run.driveway = state.run.driveway.filter((p) => p.uid !== part.uid);
         const got = stripYield(part);
+        countBench(state, "strip");
         for (const [m, n] of Object.entries(got)) state.run.materials[m as MaterialId] += n ?? 0;
         benchFeed(state, job, `Stripped ${getPart(part.partId).name} for ${Object.entries(got).map(([m, n]) => `${n} ${m}`).join(", ")}.`);
       }
@@ -597,6 +614,16 @@ function completeJob(state: GameState, job: ActiveJob): void {
   if (job.duration >= MAX_JOB_MS) tell(state, "first_long_job");
   countRepetition(state, spec);
   if (crewId && !raceCrew.includes(crewId)) creditCrew(state, [crewId], spec);
+}
+
+/** Counts one finished bench job (clean, repair, restore or strip) in the lifetime stats. */
+function countBench(state: GameState, kind: "clean" | "repair" | "restore" | "strip"): void {
+  const s = state.meta.stats;
+  s.benchJobs += 1;
+  if (kind === "clean") s.partsCleaned += 1;
+  else if (kind === "repair") s.partsRepaired += 1;
+  else if (kind === "restore") s.partsRestored += 1;
+  else s.partsStripped += 1;
 }
 
 const BENCH_VERB: Record<string, string> = { clean: "cleaning", repair: "repair", restore: "restore", strip: "strip" };
@@ -625,6 +652,8 @@ function completeAssembly(state: GameState, spec: Extract<JobSpec, { kind: "asse
   }
   const used = new Set(Object.values(parts).map((p) => p.uid));
   state.run.inventory = state.run.inventory.filter((p) => !used.has(p.uid));
+  state.meta.stats.vehiclesBuilt += 1;
+  state.meta.stats.vehiclesBuiltBy[def.id] = (state.meta.stats.vehiclesBuiltBy[def.id] ?? 0) + 1;
   state.run.vehicles.push({
     uid: nextUid(state, "v"),
     vehicleId: def.id,
@@ -801,6 +830,7 @@ export function afterChange(state: GameState): void {
   refreshReveals(state);
   if (state.run.notices.length > 20) state.run.notices.splice(0, state.run.notices.length - 20);
   state.run.feed ??= [];
+  evaluateAchievements(state);
 }
 
 export type { Condition };

@@ -1,6 +1,8 @@
 import type { GameState, MetaState, RunConfig, RunState, ScrapLayerState, TeamLayerState } from "./types";
 import { refreshPerkUnlocks } from "./perks";
 import { assignedRacingCrewIds } from "./crew";
+import { initialStats } from "./stats";
+import { evaluateAchievements } from "./achievements";
 
 export function initialMeta(): MetaState {
   return {
@@ -24,6 +26,8 @@ export function initialMeta(): MetaState {
     totalTeamResets: 0,
     milestonesEver: [],
     tipsSeen: [],
+    stats: initialStats(),
+    achievements: {},
   };
 }
 
@@ -112,5 +116,20 @@ export function upgradeSave(game: GameState): GameState {
     if (!job.race.weakestPart && part) job.race.weakestPart = { ...part };
   }
   refreshPerkUnlocks(next);
+  if (!next.meta.stats) {
+    // Counters that already exist elsewhere carry over; the rest start from zero.
+    next.meta.stats = {
+      ...initialStats(),
+      firstPlayedAt: Date.now(),
+      trips: Object.values(next.meta.codex.places).reduce((a, b) => a + b, 0),
+      partsFound: Object.values(next.meta.codex.parts).reduce((a, b) => a + b, 0),
+      scrapResets: next.scrap.resets,
+    };
+  }
+  if (!next.meta.achievements) {
+    // Quietly credit what an older save has already earned: no toasts, no feed spam.
+    next.meta.achievements = {};
+    evaluateAchievements(next, { silent: true });
+  }
   return next;
 }

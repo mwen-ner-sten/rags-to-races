@@ -1,3 +1,4 @@
+import { spend } from "./stats";
 import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "./clubTrack";
 import { COUNTY_RIVAL_IDS, countyLoanOrigin } from "./countyRivals";
 import { getPart } from "./content/parts";
@@ -6,9 +7,10 @@ import { garageSpace, reservedPartUids, vehicleBusy, vehicleStats } from "./gara
 import { logSeason } from "./journal";
 import { WORKS_FAMILIES, WORKS_FAMILY_IDS } from "./manufacturer";
 import { nextUid } from "./rng";
-import { shopFoundingReady } from "./serviceShop";
+import { hasServiceReference } from "./serviceShop";
 import { detachGarageVehicle } from "./vehicleArchive";
 import type { Condition, GameState, PartInstance, Vehicle } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 const MINUTE = 60_000;
 
@@ -57,7 +59,7 @@ export type MotorPoolMove =
   | { type: "reclaim" };
 
 export function motorPoolVisible(game: GameState): boolean {
-  return !!game.motorPool || shopFoundingReady(game);
+  return experimentalCareers() && (!!game.motorPool || (hasServiceReference(game) && game.run.vehicles.some(motorModel)));
 }
 
 export function motorModel(vehicle: Vehicle): boolean {
@@ -69,7 +71,7 @@ export function motorWearSlot(rig: Vehicle, route: MotorRouteId): string {
 }
 
 export function motorOwnStock(part: PartInstance): boolean {
-  return !part.inherited && !part.batonGuard && !TEMPORARY_ORIGINS.has(part.origin);
+  return !part.inherited && !TEMPORARY_ORIGINS.has(part.origin);
 }
 
 function roadworthy(rig: Vehicle): boolean {
@@ -77,7 +79,7 @@ function roadworthy(rig: Vehicle): boolean {
 }
 
 export function motorLodgeBlocker(game: GameState, vehicleUid: string): string | null {
-  if (!motorPoolVisible(game)) return "Earn both service references and finish three customer jobs with a hauler.";
+  if (!motorPoolVisible(game)) return "Earn a customer reference in a relocated shop and build a depot rig.";
   if (game.motorPool?.custody) return "The depot already holds a rig.";
   if (game.motorPool?.lastLodgedSeason === game.meta.seasonsPlayed + 1) return "The depot takes one rig per Season.";
   const rig = game.run.vehicles.find(({ uid }) => uid === vehicleUid);
@@ -87,7 +89,6 @@ export function motorLodgeBlocker(game: GameState, vehicleUid: string): string |
   if (game.owner?.tour.status === "active" && game.owner.tour.rounds.some((result) => result?.vehicleUid === vehicleUid)) return "Finish this rig’s active Owner tour first.";
   if (game.manufacturer?.active?.vehicleUid === vehicleUid) return "File the rig’s works deal before lodging it.";
   if (game.promoter?.meet?.guest.uid === vehicleUid) return "Close the Circuit calendar using this guest first.";
-  if (Object.values(rig.parts).some((part) => part?.batonGuard)) return "Pull the safeguarded County Baton part before lodging the rig.";
   if (Object.values(rig.parts).some((part) => part && !motorOwnStock(part))) return "Remove inherited, drawing, or loaned parts first. Only wholly owned stock can cross through the depot.";
   return null;
 }
@@ -138,11 +139,12 @@ export function motorReclaimBlocker(game: GameState): string | null {
   const pool = game.motorPool;
   if (!pool?.custody) return "There is no rig to reclaim.";
   if (pool.job || pool.claim) return "Finish the current run and collect its stock first.";
-  if (!MOTOR_ROUTE_IDS.every((route) => pool.custody!.completed.includes(route))) return "Complete both depot routes before reclaiming the rig.";
+  if (pool.lastLodgedSeason !== game.meta.seasonsPlayed + 1 && !MOTOR_ROUTE_IDS.every((route) => pool.custody!.completed.includes(route))) return "Complete both depot routes before reclaiming the rig.";
   return null;
 }
 
 export function applyMotorPool(game: GameState, move: MotorPoolMove): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   if (move.type === "lodge") {
     const issue = motorLodgeBlocker(game, move.vehicleUid);
     if (issue) return issue;
@@ -169,7 +171,7 @@ export function applyMotorPool(game: GameState, move: MotorPoolMove): string | n
       if (pool.ledger.season !== season) pool.ledger = { season, booked: [] };
       pool.ledger.booked.push(move.route);
       game.run.inventory = game.run.inventory.filter(({ uid }) => uid !== tender.uid);
-      game.run.cash -= definition.cost;
+      spend(game, definition.cost);
       pool.job = { route: move.route, tender, duration, remaining: duration,
         part: { uid: nextUid(game, "p"), partId: definition.reward, condition: 2, origin: motorOrigin(move.route) } };
       return null;
@@ -208,7 +210,7 @@ export function applyMotorPool(game: GameState, move: MotorPoolMove): string | n
 
 export function advanceMotorPool(game: GameState, elapsed: number): void {
   const pool = game.motorPool;
-  if (!pool?.job || !pool.custody || !Number.isFinite(elapsed) || elapsed <= 0) return;
+  if (!experimentalCareers() || !pool?.job || !pool.custody || !Number.isFinite(elapsed) || elapsed <= 0) return;
   const job = pool.job;
   if (elapsed < job.remaining) {
     job.remaining -= elapsed;

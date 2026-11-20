@@ -1,3 +1,4 @@
+import { spend } from "./stats";
 import { getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
 import { garageSpace, stripYield, vehicleBusy } from "./garage";
@@ -25,7 +26,6 @@ export function retirementPlan(state: GameState, vehicleUid: string, move: Retir
     return "Finish or remove this mower's race sign-ups first";
   }
   const parts = Object.values(vehicle.parts).filter((part) => part !== undefined);
-  if (parts.some((part) => part.batonGuard && (move.kind === "exchange" || move.keepUid !== part.uid))) return "Pull or keep the safeguarded County Baton part before retiring this mower.";
   const room = garageSpace(state) - state.run.inventory.length;
   if (move.kind === "exchange") {
     if (getVehicle(vehicle.vehicleId).slots.some((slot) => slot.required && !vehicle.parts[slot.slot])) return "Fit every required part before exchanging the mower";
@@ -53,7 +53,7 @@ export function retireVehicle(state: GameState, vehicleUid: string, move: Retire
   if (typeof plan === "string") return plan;
   const { vehicle, retained, materials, cash } = plan;
   releaseVehicle(state, vehicle, move.kind);
-  state.run.cash -= cash;
+  spend(state, cash);
   for (const material of ["metal", "rubber", "wiring"] as const) state.run.materials[material] += materials[material] ?? 0;
   if (retained) state.run.inventory.push(retained);
   else {

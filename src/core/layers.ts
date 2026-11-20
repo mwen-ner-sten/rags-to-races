@@ -5,7 +5,6 @@
  */
 import { channel } from "./channels";
 import { countyChoiceBlocker } from "./counties";
-import { batonChoicesBlocker, freightBlocker, FREIGHT_COST, type BatonChoice } from "./countyBaton";
 import type { CountyRivalId } from "./countyRivals";
 import { CREW, BASE_CREW_CAP, TEAM_ORGANIZATIONS, crewLevel, type TeamOrganization } from "./content/team";
 import { crewTravelBlocker, teamOrganization } from "./crew";
@@ -25,7 +24,7 @@ import type { ClubCourseId } from "./clubTrack";
 import { archiveWorks, worksPlanBlocker, type WorksFamily } from "./manufacturer";
 import { nextUid } from "./rng";
 import { hasPerk } from "./rules";
-import { salvageCarryBlocker, salvageCarryCandidates } from "./salvageCarry";
+import { FREIGHT_COST, freightBlocker, salvageCarryBlocker, salvageCarryCandidates } from "./salvageCarry";
 import { initialConfig, initialRun, initialScrap } from "./state";
 import { archiveVehicle } from "./vehicleArchive";
 import type { DisciplineId, EraState, GameState, HomeCounty, PartInstance, RunConfig, Scope, SkillId } from "./types";
@@ -44,7 +43,6 @@ export interface ScrapChoices {
   hardships: string[];
   retainedPartUid?: string;
   homeCounty?: HomeCounty;
-  countyBaton?: BatonChoice;
   countyFreight?: true;
   club?: ClubCharter;
   clubCourse?: ClubCourseId;
@@ -232,8 +230,6 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
   validate: (s, c) => {
     if (c.shopLegacy && !sameShopLegacy(c.shopLegacy, s.config.shopLegacy)) return "Transfer your business through a Shop Move.";
     const county = c.homeCounty ?? s.config.homeCounty ?? "home";
-    const baton = batonChoicesBlocker(s, c.countyBaton, county, c.retainedPartUid, c.dare, !!c.countyFreight);
-    if (baton) return baton;
     const budget = scrapResetLegacyBudget(s, !!c.countyFreight);
     if (c.countyFreight) {
       const freight = freightBlocker(s, county, c.retainedPartUid);
@@ -254,16 +250,10 @@ export const SCRAP_LAYER: LayerDef<ScrapChoices> = {
     s.scrap.resets += 1;
     buyPerks(s, choices.buy ?? []);
     s.config = toConfig({ ...choices, homeCounty: choices.homeCounty ?? before.config.homeCounty });
-    if (choices.countyBaton === "start" && s.config.homeCounty && s.config.homeCounty !== "home") s.run.countyBaton = { leg: "qualify", from: s.config.homeCounty };
-    if (choices.countyBaton === "carry" && before.run.countyBaton?.leg === "qualify" && before.run.countyBaton.qualified) {
-      const { from, qualified } = before.run.countyBaton;
-      s.run.countyBaton = { leg: "deliver", from, qualified: { ...qualified } };
-    }
     if (choices.retainedPartUid) {
       const retained = salvageCarryCandidates(before).find(({ part }) => part.uid === choices.retainedPartUid)!.part;
       s.config.donor = { partId: retained.partId, condition: retained.condition, origin: retained.origin, ...(retained.provenance && { provenance: { ...retained.provenance } }) };
       const carried = { ...retained, inherited: true as const };
-      if (choices.countyBaton !== "carry") delete carried.batonGuard;
       s.run.inventory.push(carried);
     }
   },
@@ -280,7 +270,7 @@ export const TEAM_LAYER: LayerDef<TeamChoices> = {
   },
   award: teamAward,
   validate: (s, c) => {
-    if (c.countyBaton || c.countyFreight) return "County Baton and freight are available at Scrap Reset";
+    if (c.countyFreight) return "County freight is available at Scrap Reset";
     if (c.shopLegacy && !sameShopLegacy(c.shopLegacy, s.config.shopLegacy)) return "Transfer your business through a Shop Move.";
     if (workshopCharterOnly(s) && c.organization !== "collective") return "The customer jobs charter founds a Workshop Collective.";
     if (c.organization !== undefined && !Object.hasOwn(TEAM_ORGANIZATIONS, c.organization)) return "Pick a team organization";
@@ -349,8 +339,8 @@ export const SHOP_LAYER: LayerDef<ScrapChoices> = {
   clears: ["run", "config"],
   gate: (game) => shopMoveReady(game) ? { ok: true, reason: null } : { ok: false, reason: "Finish all three customer jobs and build a Riding Mower or larger hauler." },
   award: () => 0,
-  validate: (game, choices) => choices.countyBaton || choices.countyFreight
-    ? "County Baton and freight are available at Scrap Reset"
+  validate: (game, choices) => choices.countyFreight
+    ? "County freight is available at Scrap Reset"
     : transferBlocker(game, choices.shopLegacy),
   apply: (game, _award, choices, before) => {
     const legacy = choices.shopLegacy!;
@@ -377,6 +367,7 @@ function commitSeason(state: GameState, layer: LayerId): void {
   for (const vehicle of state.run.vehicles) archiveVehicle(state, vehicle);
   const newThisEra = firstEverMilestones(state);
   for (const [venueId, at] of Object.entries(state.run.featureWins)) {
+    if (meta.records[venueId] !== undefined && at < meta.records[venueId]) meta.stats.recordsBroken += 1;
     meta.records[venueId] = Math.min(meta.records[venueId] ?? Infinity, at);
     if (!meta.milestonesEver.includes(venueId)) meta.milestonesEver.push(venueId);
   }
@@ -475,6 +466,7 @@ export function performReset(state: GameState, layerId: LayerId, choices: ScrapC
   archiveClubSeason(state);
   archiveWorks(state);
   commitSeason(state, layerId);
+  if (layerId === "scrap") state.meta.stats.scrapResets += 1;
   for (const scope of layer.clears) clearScope(state, scope);
   layer.apply(state, award, choices, before);
   startClubSeason(state);

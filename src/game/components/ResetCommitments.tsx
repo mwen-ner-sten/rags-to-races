@@ -3,14 +3,16 @@ import { WORKS_FAMILIES, worksReport } from "@/core/manufacturer";
 import { CHARTERS, TOUR_SPONSORS, ownerTourActive } from "@/core/ownership";
 import type { GameState } from "@/core/types";
 import { num } from "../format";
+import { experimentalCareers } from "@/core/features";
 
 export function ResetCommitments({ game }: { game: GameState }) {
   const tour = ownerTourActive(game) ? game.owner?.tour : undefined;
   const sponsor = tour?.sponsor && TOUR_SPONSORS[tour.sponsor];
-  const works = game.manufacturer?.active;
+  const experimental = experimentalCareers();
+  const works = experimental ? game.manufacturer?.active : undefined;
   const report = works && worksReport(works);
   const club = game.club?.active;
-  const heritage = game.run.heritageProject;
+  const heritage = experimental ? game.run.heritageProject : undefined;
   return (
     <>
       {tour && <p className="why">This reset retires the {CHARTERS[tour.charter].name}{tour.entryPlan?.enabled ? " and stops its entry plan." : "."} {sponsor && `You lose the ${num(sponsor.stake)} Scrap Bucks stake with ${sponsor.name} and the chance at its payout. `}Recorded rounds and earned titles stay.</p>}

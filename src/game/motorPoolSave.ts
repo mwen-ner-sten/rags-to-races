@@ -1,3 +1,4 @@
+import { hasServiceReference } from "@/core/serviceShop";
 import { z } from "zod";
 import { getPart } from "@/core/content/parts";
 import { getVehicle } from "@/core/content/vehicles";
@@ -23,7 +24,7 @@ export function motorPoolReferencesValid(game: GameState): boolean {
   const pool = game.motorPool;
   if (!pool) return true;
   const season = game.meta.seasonsPlayed + 1;
-  if (!game.meta.serviceReferences?.equipment || !game.meta.serviceReferences.referral || pool.lastLodgedSeason > season || pool.ledger.season > season) return false;
+  if (!hasServiceReference(game) || pool.lastLodgedSeason > season || pool.ledger.season > season) return false;
   if (new Set(pool.ledger.booked).size !== pool.ledger.booked.length || (pool.job && pool.claim)) return false;
   if (!pool.custody) return !pool.job && !pool.claim;
   const { rig, completed } = pool.custody;

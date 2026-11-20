@@ -10,7 +10,9 @@ import { capitalize, duration, num, ordinal, seasonClock } from "../format";
 import { useGame } from "../store";
 import { CareerDesk, CareerFocus, type CareerJump } from "./CareerDesk";
 import { feedAge } from "./Feed";
-import { FeedToasts } from "./FeedToasts";
+import { FeedSheet, Ticker, TickerClock } from "./Ticker";
+import { guideStep } from "@/core/guide";
+import { GoalStrip } from "./GoalStrip";
 import { Guide } from "./Guide";
 import { JobsBoard } from "./JobsBoard";
 import { LegacyPanel } from "./LegacyPanel";
@@ -27,14 +29,15 @@ import { GarageTab, garageSectionFor, openingGarageSection, type GarageSection }
 import { serviceActionReady } from "./ServiceCounter";
 import { ClubPanel } from "./ClubPanel";
 import { CountyMatchPanel } from "./CountyMatchPanel";
-import { ManufacturerPanel } from "./ManufacturerPanel";
 import { TeamPanel } from "./TeamPanel";
 import { TabNav } from "./TabNav";
 import { hasUnreadTip } from "./Tips";
 import { TripsPanel } from "./TripsPanel";
 import { WorkshopPanel, workshopSections } from "./WorkshopPanel";
+import { selectedPin } from "@/core/careerPin";
+import { useExperimentalCareers } from "../useExperimental";
 
-type TabId = "trips" | "garage" | "workshop" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "manufacturer" | "settings";
+type TabId = "trips" | "garage" | "workshop" | "race" | "notebook" | "legacy" | "team" | "owner" | "promoter" | "club" | "settings";
 
 /** Tips that live on each tab; an unread one puts a dot on the tab. */
 const TAB_TIPS: Partial<Record<TabId, readonly string[]>> = {
@@ -57,14 +60,13 @@ const TABS: { id: TabId; label: string; reveal: string | null }[] = [
   { id: "owner", label: "Owner", reveal: "owner" },
   { id: "promoter", label: "Circuit", reveal: "promoter" },
   { id: "club", label: "Club", reveal: "club" },
-  { id: "manufacturer", label: "Manufacturer", reveal: "manufacturer" },
   { id: "settings", label: "Settings", reveal: null },
 ];
 
 const TICK_MS = 500;
 const SAVE_MS = 5000;
 
-function Header() {
+function Header({ onOpenFeed }: { onOpenFeed: () => void }) {
   const game = useGame((s) => s.game);
   if (!game) return null;
   const r = game.run;
@@ -77,6 +79,7 @@ function Header() {
           {game.era ? `${game.era.teamName} · ` : ""}Season {game.meta.seasonsPlayed + 1} · {seasonClock(r.seasonMs)}
         </span>
       </div>
+      <Ticker placement="inline" onOpen={onOpenFeed} />
       <dl className="resources">
         <div>
           <dt>Scrap Bucks</dt>
@@ -262,7 +265,9 @@ export function Game() {
   const load = useGame((s) => s.load);
   const tick = useGame((s) => s.tick);
   const save = useGame((s) => s.save);
+  const experimental = useExperimentalCareers();
   const [tab, setTab] = useState<TabId>("trips");
+  const [feedOpen, setFeedOpen] = useState(false);
   const [careerJump, setCareerJump] = useState<CareerJump | null>(null);
   const [garageSection, setGarageSection] = useState<GarageSection | null>(null);
   const bootstrapped = useRef(false);
@@ -298,10 +303,9 @@ export function Game() {
     if (t.id === "owner") return !!game.owner || ownerGate(game).ok;
     if (t.id === "promoter") return !!game.promoter || promoterGate(game);
     if (t.id === "club") return !clubGate(game);
-    if (t.id === "manufacturer") return !!game.manufacturer?.invites.length;
-    if (t.id === "garage" && motorPoolVisible(game)) return true;
+    if (t.id === "garage" && (motorPoolVisible(game) || (experimental && !!game.manufacturer?.invites.length))) return true; // false unless experimental
     if (t.id === "team" && (game.era || LAYERS.team.gate(game).ok)) return true;
-    if (t.id === "legacy" && (game.run.countyBaton || LAYERS.scrap.gate(game).ok)) return true;
+    if (t.id === "legacy" && LAYERS.scrap.gate(game).ok) return true;
     if (t.id === "race" && game.run.vehicles.length > 0) return true;
     return !t.reveal || game.run.revealed.includes(t.reveal) || (t.id === "notebook" && game.meta.journal.length > 0);
   });
@@ -322,7 +326,8 @@ export function Game() {
   const jobReady = (id: TabId) => id === "garage" && serviceActionReady(game);
   return (
     <div className="game" data-era={era} style={teamStyle}>
-      <Header />
+      <Header onOpenFeed={() => setFeedOpen(true)} />
+      <Ticker placement="strip" onOpen={() => setFeedOpen(true)} />
       <TabNav
         active={active}
         onShow={showTab}
@@ -335,7 +340,8 @@ export function Game() {
           badgeLabel: `${game.run.driveway.length} on the driveway`,
         }))}
       />
-      {!game.meta.careerPin && <Guide tab={active} onShow={showTab} onOpen={showCareerTarget} />}
+      {!selectedPin(game) && <Guide tab={active} onShow={showTab} onOpen={showCareerTarget} />}
+      <GoalStrip guideVisible={!selectedPin(game) && guideStep(game) !== null} canShow={(t) => tabs.some((x) => x.id === t)} onShow={showTab} />
       <div className="layout">
         <main className="main">
           <Notices />
@@ -354,7 +360,6 @@ export function Game() {
           {active === "owner" && <OwnerPanel />}
           {active === "promoter" && <PromoterPanel />}
           {active === "club" && <ClubPanel />}
-          {active === "manufacturer" && <ManufacturerPanel />}
           {active === "settings" && <SettingsPanel />}
         </main>
         <JobsBoard />
@@ -363,7 +368,8 @@ export function Game() {
       <AwayDialog onShow={showCareerTarget} />
       <RaceFinished onRaceTab={active === "race"} />
       <Toast />
-      <FeedToasts />
+      <TickerClock />
+      <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} />
     </div>
   );
 }

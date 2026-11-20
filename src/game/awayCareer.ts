@@ -1,10 +1,8 @@
 import { getVenue, venueName } from "@/core/content/events";
 import { getPart } from "@/core/content/parts";
 import type { CareerDestination } from "@/core/careerAdvice";
-import { HOME_COUNTIES } from "@/core/counties";
-import { BATON_PART, otherCounty } from "@/core/countyBaton";
 import { garageSpace } from "@/core/garage";
-import { exhibitBlocker, heritageClaimBlocker } from "@/core/heritage";
+import { exhibitBlocker } from "@/core/heritage";
 import { WORKS_FAMILIES, worksReport } from "@/core/manufacturer";
 import { MOTOR_ROUTES } from "@/core/motorPool";
 import { CHARTERS, finishPoints, ownerCharterBlocker, sponsorProgress, TOUR_SPONSORS, tourCalendar, tourScore } from "@/core/ownership";
@@ -12,6 +10,7 @@ import { PROMOTER_CHARTERS, promoterBookingReason, promoterGate, promoterReport,
 import { serviceDelivery } from "@/core/serviceShop";
 import type { GameState } from "@/core/types";
 import { num, ordinal } from "./format";
+import { experimentalCareers } from "@/core/features";
 
 export interface AwayCareerReport {
   id: string;
@@ -60,12 +59,11 @@ function workshopUpdates(before: GameState, after: GameState, coveredFeedKeys: S
       });
     } else if (project.kind === "special" && project.completed) {
       coveredFeedKeys.add(`heritage:${project.uid}`);
-      const blocked = heritageClaimBlocker(after, project.kind, project.model);
       reports.push({
         id: "heritage-special", tab: "workshop", destination: { tab: "workshop", section: "Heritage" },
         action: "Open the Heritage Register", title: "Period special entered in the Heritage Register",
-        detail: `${project.completed} unlocked a tuning jig based on ${project.originalName}.`,
-        next: blocked ?? "Make the jig in the Workshop’s Heritage register to unlock early tuning for this model.",
+        detail: `${project.completed} earned a Hall of Fame display in tribute to ${project.originalName}.`,
+        next: "Find its permanent display in the Hall of Fame.",
       });
     }
   }
@@ -78,41 +76,19 @@ function workshopUpdates(before: GameState, after: GameState, coveredFeedKeys: S
     const attempt = deal.attempts[deal.attempts.length - 1];
     if (result.homologated) coveredFeedKeys.add(`works:honors:${deal.id}`);
     reports.push({
-      id: "works-proof", tab: "manufacturer", destination: { tab: "manufacturer", section: "deal" }, action: "Open Works report",
+      id: "works-proof", tab: "garage", destination: { tab: "garage", section: "works-deal" }, action: "Open Works report",
       title: result.homologated ? "Works article homologated" : attempt.passed ? "Works benchmark passed" : "Works benchmark missed",
       detail: `${deal.article} for ${family.name} · ${result.step}/${family.tests.length} benchmarks passed.`,
       next: result.homologated ? `The ${num(family.grant)} Scrap Bucks grant was paid. File the report and use the drawing at a future Scrap Reset.`
-        : result.failed ? "The deal is out of starts or budget. File the Works report." : "Review the remaining benchmark and entry terms in Manufacturer.",
+        : result.failed ? "The deal is out of starts or budget. File the Works report." : "Review the remaining benchmark and entry terms under Garage → Suppliers.",
     });
-  }
-
-  const baton = after.run.countyBaton;
-  const previousBaton = before.run.countyBaton;
-  if (baton && previousBaton?.from === baton.from) {
-    const countyName = HOME_COUNTIES[otherCounty(baton.from)].name;
-    if (baton.leg === "qualify" && previousBaton.leg === "qualify" && baton.qualified && baton.qualified.uid !== previousBaton.qualified?.uid) {
-      coveredFeedKeys.add("county-baton-qualified");
-      reports.push({
-        id: "baton-qualified", tab: "legacy", destination: { tab: "legacy", section: "baton" }, action: "Open County Baton",
-        title: "County Baton qualified", detail: `Your ${getPart(BATON_PART[baton.from]).name} earned the first leg.`,
-        next: `Carry that exact part to ${countyName} using the County Baton option at Scrap Reset.`,
-      });
-    }
-    if (baton.leg === "deliver" && previousBaton.leg === "deliver" && baton.completedAt !== undefined && previousBaton.completedAt === undefined) {
-      coveredFeedKeys.add("county-baton-delivered");
-      reports.push({
-        id: "baton-delivered", tab: "legacy", destination: { tab: "legacy", section: "baton" }, action: "Open County Baton",
-        title: "County Baton delivered", detail: `The Fair win with your inherited part earned a ${countyName} freight permit.`,
-        next: "Use the permit at a future Scrap Reset into that county.",
-      });
-    }
   }
   return reports;
 }
 
 export function awayCareer(before: GameState, after: GameState) {
   const coveredFeedKeys = new Set<string>();
-  const reports = workshopUpdates(before, after, coveredFeedKeys);
+  const reports = experimentalCareers() ? workshopUpdates(before, after, coveredFeedKeys) : [];
   const previousTour = before.owner?.tour;
   const tour = after.owner?.tour;
   if (tour && previousTour?.id === tour.id && tour.rounds.length > previousTour.rounds.length) {

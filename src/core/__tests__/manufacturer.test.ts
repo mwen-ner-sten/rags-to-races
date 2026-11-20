@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { racer } from "../../../tests/fixtures/rewrite";
 import { clubCandidate } from "../../../tests/fixtures/club";
 import { decodeGameState } from "@/game/save";
@@ -9,6 +9,11 @@ import { vehicleStats } from "../garage";
 import { WORKS_FAMILIES, worksEnterBlocker, worksReport, type WorksFamily } from "../manufacturer";
 import type { ScrapChoices } from "../layers";
 import type { GameState } from "../types";
+import { setExperimentalCareers } from "../features";
+
+// These systems are experimental and off by default; switch them on for this file only.
+beforeEach(() => setExperimentalCareers(true));
+afterEach(() => setExperimentalCareers(false));
 
 const HOUR = 3_600_000;
 const choices: ScrapChoices = { perks: [], tuneUp: { haul: 0, wrench: 0, build: 0, race: 0 }, hardships: [], dare: null };
@@ -47,7 +52,7 @@ function invite(family: WorksFamily): GameState {
 }
 
 describe("Manufacturer careers", () => {
-  it.each(["redwheel", "longhaul"] as const)("%s can earn, sign, homologate, reload and repeat without an Owner or Circuit certificate", (family) => {
+  it.each(["redwheel", "longhaul"] as const)("%s can earn, sign, homologate, reload and retire the offer without an Owner or Circuit certificate", (family) => {
     let game = invite(family);
     expect(game.era).toBeNull();
     expect(game.promoter).toBeUndefined();
@@ -76,9 +81,26 @@ describe("Manufacturer careers", () => {
     expect(game.manufacturer?.drawings).toEqual([family]);
     game = must(game, { type: "works", move: { type: "archive" } });
     expect(game.manufacturer?.history[0]).toMatchObject({ family, article: seat.name, status: "homologated" });
-    game = must(game, { type: "works", move: { type: "sign", family, vehicleUid: seat.uid } });
-    expect(game.manufacturer?.active?.attempts).toEqual([]);
+    expect(apply(game, { type: "works", move: { type: "sign", family, vehicleUid: seat.uid } }).error).toMatch(/already earned/);
     expect(decodeGameState(JSON.parse(JSON.stringify(game)))).not.toBeNull();
+  });
+
+  it("finishes a previously signed repeat deal and reloads a non-default pace", () => {
+    let game = invite("redwheel");
+    const vehicleUid = game.run.vehicles[0].uid;
+    game = must(game, { type: "works", move: { type: "sign", family: "redwheel", vehicleUid } });
+    // Older versions allowed signing again after earning the drawing.
+    game.manufacturer!.drawings.push("redwheel");
+    game = decodeGameState(JSON.parse(JSON.stringify(game)))!;
+    game = must(game, { type: "works", move: { type: "enter", call: "nurse" } });
+    game = decodeGameState(JSON.parse(JSON.stringify(game)))!;
+    game = must(game, { type: "advance", ms: HOUR, away: true });
+    expect(game.run.races.at(-1)?.call).toBe("nurse");
+    expect(decodeGameState(JSON.parse(JSON.stringify(game)))).toBeTruthy();
+    game = must(game, { type: "works", move: { type: "enter" } });
+    game = must(game, { type: "advance", ms: HOUR, away: true });
+    expect(worksReport(game.manufacturer!.active!).homologated).toBe(true);
+    expect(game.manufacturer!.drawings).toEqual(["redwheel"]);
   });
 
   it("treats standard races as practice, requires the signed physical engine, and rejects fabricated or exhausted proofs", () => {
@@ -98,7 +120,7 @@ describe("Manufacturer careers", () => {
     const authoritative = JSON.parse(JSON.stringify(game));
     authoritative.run.jobs.find(({ id }: typeof official) => id === official.id).spec.worksRound = "forged-token";
     expect(decodeGameState(authoritative)).toBeNull();
-    expect(apply(game, { type: "enqueue", spec: official.spec }).error).toMatch(/Manufacturer desk/);
+    expect(apply(game, { type: "enqueue", spec: official.spec }).error).toMatch(/Suppliers/);
     game = must(game, { type: "advance", ms: HOUR });
     game.manufacturer!.active!.attempts = Array.from({ length: 3 }, (_, i) => ({ raceId: `failed-${i}`, step: 0, position: 6, dnf: false, wear: 0, spent: 10, passed: false }));
     expect(worksReport(game.manufacturer!.active!).failed).toBe(true);

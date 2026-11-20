@@ -3,8 +3,10 @@ import { venueName } from "./content/events";
 import { getVehicle } from "./content/vehicles";
 import { eligibleHistory } from "./heritage";
 import { worksReport, WORKS_FAMILIES } from "./manufacturer";
-import { CUSTOMERS, shopFoundingReady, shopMoveReady, stockedServiceClient } from "./serviceShop";
+import { motorPoolVisible } from "./motorPool";
+import { depotCharter, CUSTOMERS, shopFoundingReady, shopMoveReady, stockedServiceClient } from "./serviceShop";
 import type { GameState } from "./types";
+import { experimentalCareers } from "./features";
 
 export const PIN_IDS = ["first-fair", "paid-work", "heritage", "manufacturer", "regularity"] as const;
 export type CareerPin = (typeof PIN_IDS)[number];
@@ -20,13 +22,22 @@ interface Step {
   label: string;
   destination: CareerDestination;
 }
+/** Pins that only exist while the experimental careers are switched on. */
+const EXPERIMENTAL_PINS: readonly CareerPin[] = ["paid-work", "heritage", "manufacturer"];
+
+/** The saved pin, unless it belongs to a hidden experimental career. */
+export function selectedPin(game: GameState): CareerPin | undefined {
+  const pin = game.meta.careerPin;
+  return pin && !experimentalCareers() && EXPERIMENTAL_PINS.includes(pin) ? undefined : pin;
+}
 export function possiblePins(game: GameState): CareerPin[] {
   const result: CareerPin[] = [];
+  const experimental = experimentalCareers();
   if (game.run.vehicles.length || game.meta.seasonsPlayed) result.push("first-fair");
-  if (game.run.revealed.includes("bench") || game.meta.seasonsPlayed) result.push("paid-work");
-  if (game.meta.hallOfFame.some((entry) => eligibleHistory(game, entry)) || game.meta.heritageRegister?.length)
+  if (experimental && (game.run.revealed.includes("bench") || game.meta.seasonsPlayed)) result.push("paid-work");
+  if (experimental && (game.meta.hallOfFame.some((entry) => eligibleHistory(game, entry)) || game.meta.heritageRegister?.length))
     result.push("heritage");
-  if (game.manufacturer || game.run.vehicles.some((v) => getVehicle(v.vehicleId).tier >= 2))
+  if (experimental && (game.manufacturer || game.run.vehicles.some((v) => getVehicle(v.vehicleId).tier >= 2)))
     result.push("manufacturer");
   if (game.era?.discipline === "rally" || game.meta.rallyCards?.length) result.push("regularity");
   return result;
@@ -63,11 +74,17 @@ function raceStep(game: GameState, target: string, detail: string): Step {
 export function careerPinStep(game: GameState, pin: CareerPin): Step {
   const hall: CareerDestination = { tab: "notebook", section: "Hall of Fame" };
   if (pin === "paid-work") {
-    if (!game.era && shopFoundingReady(game))
+    if (!game.era && (shopFoundingReady(game) || depotCharter(game)))
       return {
-        detail: "Both references are signed. Found your Workshop Collective with this Season’s finished customer jobs and hauler.",
+        detail: "Your workshop charter is ready. Found your Workshop Collective.",
         label: "Draft the team",
         destination: { tab: "team", discipline: "dirt", focus: "organization" },
+      };
+    if (!game.era && motorPoolVisible(game) && (game.motorPool?.custody || game.motorPool?.lastLodgedSeason !== game.meta.seasonsPlayed + 1))
+      return {
+        detail: "Collect the ramp and pump deliveries in one Season to earn your Workshop Collective charter.",
+        label: "Open the depot",
+        destination: { tab: "garage", section: "motor-pool" },
       };
     if (!game.run.revealed.includes("bench") && !game.config.shopLegacy && !game.run.serviceBook)
       return {
@@ -89,22 +106,14 @@ export function careerPinStep(game: GameState, pin: CareerPin): Step {
   }
   if (pin === "heritage") {
     const p = game.run.heritageProject;
-    // Working a project (or claiming earned awards) happens at the Workshop's Heritage desk;
-    // only choosing a retired car to start one sends the player to the Notebook record.
-    if (p || game.meta.heritageRegister?.length)
-      return {
-        detail: p
-          ? p.completed
-            ? p.completed + " entered the register. Your earned workshop privileges are filed in the Workshop, under Heritage."
-            : "Inspect the " + getVehicle(p.model).name + " against " + p.originalName + "’s original parts."
-          : "Your earned workshop privileges are filed in the Workshop, under Heritage.",
-        label: "Open Heritage in the Workshop",
-        destination: { tab: "workshop", section: "Heritage" },
-      };
+    if (p?.completed || (!p && !game.meta.hallOfFame.some((entry) => eligibleHistory(game, entry)))) {
+      return { detail: "Your museum collection is on display in the Hall of Fame.", label: "Open Hall of Fame", destination: hall };
+    }
     return {
-      detail: "Choose a previous Season’s race-finished car and register a museum recreation or a period special.",
-      label: "Open Hall of Fame",
-      destination: hall,
+      detail: p ? "Inspect the " + getVehicle(p.model).name + " against " + p.originalName + "’s original parts."
+        : "Choose a previous Season’s racer to honour with a rebuild.",
+      label: "Open Heritage in the Workshop",
+      destination: { tab: "workshop", section: "Heritage" },
     };
   }
   if (pin === "manufacturer") {
@@ -116,7 +125,7 @@ export function careerPinStep(game: GameState, pin: CareerPin): Step {
         : m.drawings.length
           ? "Your homologated drawings are on file. Choose one on a Scrap Reset."
           : "An invitation is waiting. Bring a Go-Kart with three parts from the same family.";
-      return { detail, label: "Open Manufacturer", destination: { tab: "manufacturer" } };
+      return { detail, label: "Open suppliers", destination: { tab: "garage", section: "works" } };
     }
     return raceStep(
       game,

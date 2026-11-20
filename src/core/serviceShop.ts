@@ -1,3 +1,4 @@
+import { earn } from "./stats";
 import { getPart } from "./content/parts";
 import { getVehicle } from "./content/vehicles";
 import { TOOL_BY_ID } from "./content/tools";
@@ -5,6 +6,7 @@ import { pushFeed } from "./feed";
 import { reservedPartUids } from "./garage";
 import { logSeason } from "./journal";
 import type { Condition, GameState, PartInstance } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 export const CUSTOMERS = {
   marina: {
@@ -61,17 +63,20 @@ export type ShopMove =
   { type: "register"; client: CustomerId; partUid: string } | { type: "release" } | { type: "deliver" };
 
 export function customerLeads(game: GameState) {
+  if (!experimentalCareers()) return undefined;
   return game.config.shopLegacy?.type === "client" ? CUSTOMERS[game.config.shopLegacy.client].category : undefined;
 }
 
 export function shopMoveReady(game: GameState) {
   return (
+    experimentalCareers() &&
     game.run.serviceBook?.invoices.length === CUSTOMER_IDS.length &&
     game.run.vehicles.some((car) => getVehicle(car.vehicleId).tier >= 1)
   );
 }
 
 export function depotCharter(game: GameState): boolean {
+  if (!experimentalCareers()) return false;
   const receipts = game.run.depotReceipts;
   return !!receipts?.includes("ramp") && receipts.includes("pump");
 }
@@ -79,6 +84,11 @@ export function depotCharter(game: GameState): boolean {
 export function workshopCharterOnly(game: GameState): boolean {
   if (!game.era) return !game.meta.stateWonEver && (shopFoundingReady(game) || depotCharter(game));
   return depotCharter(game) && game.run.featureWins.county_fair === undefined && game.run.regularityFeatures?.county_fair === undefined;
+}
+
+export function hasServiceReference(game: GameState): boolean {
+  const refs = game.meta.serviceReferences;
+  return !!(refs?.equipment || refs?.referral);
 }
 
 export function shopFoundingReady(game: GameState) {
@@ -109,7 +119,7 @@ export function shopLegacyName(choice: ShopLegacy) {
 export function serviceCandidates(game: GameState, client: CustomerId) {
   const request = CUSTOMERS[client];
   return game.run.inventory.filter(
-    (p) => getPart(p.partId).category === request.category && p.condition < request.threshold && !p.inherited && !p.batonGuard,
+    (p) => getPart(p.partId).category === request.category && p.condition < request.threshold && !p.inherited,
   );
 }
 
@@ -122,6 +132,7 @@ export function stockedServiceClient(game: GameState, clients = unpaidServiceCli
 }
 
 export function recordService(game: GameState, part: PartInstance) {
+  if (!experimentalCareers()) return;
   const order = game.run.serviceBook?.ticket;
   if (order?.partUid === part.uid) order.worked = true;
 }
@@ -133,12 +144,12 @@ export function serviceDelivery(game: GameState) {
   const client = CUSTOMERS[ticket.client];
   if (!part || getPart(part.partId).category !== client.category || !ticket.worked || part.condition < client.threshold)
     return "Fix the part up to the condition the customer wants first.";
-  if (part.batonGuard) return "Release County Baton protection first.";
   if (reservedPartUids(game).has(part.uid)) return "Finish the booked bench work first.";
   return { ticket, part, client };
 }
 
 export function applyShopOrder(game: GameState, move: ShopMove): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   const book = (game.run.serviceBook ??= { invoices: [] });
   if (move.type === "register") {
     if (book.ticket) return "Release or deliver the current part first.";
@@ -193,7 +204,7 @@ export function applyShopOrder(game: GameState, move: ShopMove): string | null {
       );
     }
   }
-  game.run.cash += client.cash;
+  earn(game, client.cash);
   game.run.rep += 2;
   delete book.ticket;
   pushFeed(

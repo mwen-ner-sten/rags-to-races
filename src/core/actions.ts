@@ -1,3 +1,5 @@
+import { spend } from "./stats";
+import { evaluateAchievements } from "./achievements";
 /**
  * The single entry point for changing game state. Every action clones the
  * state, applies the change to the clone and returns it, so callers never see
@@ -12,7 +14,6 @@ import { applyCountyMatch, type CountyMatchMove } from "./countyRivals";
 import { applyMotorPool, type MotorPoolMove } from "./motorPool";
 import { channel } from "./channels";
 import { COUNTY_PARTS, HOME_COUNTIES } from "./counties";
-import { BATON_RELEASE_REQUIRED, changeBatonGuard } from "./countyBaton";
 import { CONDITION_NAMES, getPart } from "./content/parts";
 import { PERK_BY_ID } from "./content/modifiers";
 import { CREW_BY_ID, TEAM_UPGRADE_BY_ID } from "./content/team";
@@ -36,6 +37,7 @@ import type { CrewMember, DrivewayRule, GameState, JobSpec, JobTemplate, Materia
 import { applyShopOrder, type ShopMove } from "./serviceShop";
 
 import { possiblePins, type CareerPin } from "./careerPin";
+import { experimentalCareers } from "./features";
 
 export type Action =
   | { type: "pinCareer"; pin: CareerPin | null }
@@ -60,7 +62,6 @@ export type Action =
   | { type: "resumeJob"; jobId: string }
   | { type: "sell"; partUids: string[] }
   | { type: "protectPart"; partUid: string; keep: boolean }
-  | { type: "guardBaton"; partUid: string; keep: boolean }
   | { type: "swapIn"; partUid: string }
   | { type: "setDrivewayRule"; rule: DrivewayRule }
   | { type: "openPlace"; knowhowId: string }
@@ -95,6 +96,7 @@ export function apply(state: GameState, action: Action): ActionResult {
   if (error) return { state, error };
   dropOrphanSignUps(next);
   fillFromDriveway(next);
+  evaluateAchievements(next);
   return { state: next, error: null };
 }
 
@@ -140,7 +142,7 @@ function applyMut(s: GameState, action: Action): string | null {
         return "Enter touring rounds from the Owner calendar";
       }
       if (action.spec.kind === "race" && action.spec.clubRound !== undefined) return "Enter club rounds from the Club calendar";
-      if (action.spec.kind === "race" && action.spec.worksRound !== undefined) return "Enter works trials from the Manufacturer desk";
+      if (action.spec.kind === "race" && action.spec.worksRound !== undefined) return "Enter works trials from Garage → Suppliers";
       if (action.spec.kind === "race" && action.spec.countyMatch !== undefined) return "Enter the county matchup from the Race screen";
       return enqueue(s, action.spec);
     case "batchClean": {
@@ -190,14 +192,11 @@ function applyMut(s: GameState, action: Action): string | null {
       const uids = new Set(action.partUids);
       const parts = [...s.run.inventory, ...s.run.driveway].filter((p) => uids.has(p.uid));
       if (parts.length === 0) return "Nothing to sell";
-      if (parts.some((p) => p.batonGuard)) return BATON_RELEASE_REQUIRED;
       if (parts.some((p) => reserved.has(p.uid))) return "A part is being worked on";
       sellParts(s, parts);
       afterChange(s);
       return null;
     }
-    case "guardBaton":
-      return changeBatonGuard(s, action.partUid, action.keep);
     case "protectPart": {
       const part = s.run.inventory.find((candidate) => candidate.uid === action.partUid)
         ?? s.run.driveway.find((candidate) => candidate.uid === action.partUid);
@@ -238,7 +237,7 @@ function applyMut(s: GameState, action: Action): string | null {
       if (!toolStocked(s, tool.id)) return "The counter doesn't stock that for you yet";
       if (s.run.cash < tool.cash) return `Needs ${tool.cash} Scrap Bucks`;
       for (const [m, n] of Object.entries(tool.materials)) if (s.run.materials[m as MaterialId] < (n ?? 0)) return "Not enough materials";
-      s.run.cash -= tool.cash;
+      spend(s, tool.cash);
       for (const [m, n] of Object.entries(tool.materials)) s.run.materials[m as MaterialId] -= n ?? 0;
       s.run.tools[tool.id] = owned + 1;
       afterChange(s);
@@ -248,7 +247,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "buyShell": {
       if (!s.run.placesOpen.includes("auction")) return "The Salvage Auction sells shells";
       if (s.run.cash < SHELL_PRICE) return `Needs ${SHELL_PRICE} Scrap Bucks`;
-      s.run.cash -= SHELL_PRICE;
+      spend(s, SHELL_PRICE);
       s.run.shellsBought += 1;
       s.run.inventory.push({ uid: nextUid(s, "p"), partId: "beater_shell", condition: 1, origin: "Salvage Auction" });
       afterChange(s);
@@ -257,7 +256,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "buyPart": {
       const blocker = counterBlocker(s, action.partId);
       if (blocker) return blocker;
-      s.run.cash -= counterPrice(s, action.partId);
+      spend(s, counterPrice(s, action.partId));
       s.run.stats.counterBuys = (s.run.stats.counterBuys ?? 0) + 1;
       s.run.inventory.push({ uid: nextUid(s, "p"), partId: action.partId, condition: 3, origin: "Parts counter" });
       afterChange(s);
@@ -296,7 +295,7 @@ function applyMut(s: GameState, action: Action): string | null {
     case "setTune": {
       const vehicle = s.run.vehicles.find((v) => v.uid === action.vehicleUid);
       if (!vehicle) return "No such vehicle";
-      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning") && !s.run.heritageSetups?.includes(vehicle.vehicleId)) return "Learn Tuning or set up this model’s heritage jig.";
+      if (action.tune !== "balanced" && !isLearned(s, "tech:tuning") && !(experimentalCareers() && s.run.heritageSetups?.includes(vehicle.vehicleId))) return "Learn Tuning first.";
       vehicle.tune = action.tune;
       return null;
     }
@@ -456,7 +455,6 @@ export function swapMeetBlocker(s: GameState, partUids: string[], partId: string
   const reserved = reservedPartUids(s);
   const parts = s.run.inventory.filter((p) => partUids.includes(p.uid));
   if (parts.length !== 3 || parts.some((p) => reserved.has(p.uid))) return "Pick 3 free parts";
-  if (parts.some((p) => p.batonGuard)) return BATON_RELEASE_REQUIRED;
   if ((s.meta.codex.parts[partId] ?? 0) < 1) return "Pick a part you've seen before";
   const maxTier = Math.max(...parts.map((p) => getPart(p.partId).tier));
   if (getPart(partId).tier > maxTier) return "Trade at least one part of that tier";

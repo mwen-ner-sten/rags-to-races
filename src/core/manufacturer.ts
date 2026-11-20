@@ -1,3 +1,4 @@
+import { earn, spend } from "./stats";
 import { CLUB_COURSES, clubLoanOrigin, type ClubCourseId } from "./clubTrack";
 import { getVenue } from "./content/events";
 import { reservedPartUids, vehicleBusy } from "./garage";
@@ -5,6 +6,7 @@ import { enqueue, jobBlocker } from "./jobs";
 import { logSeason } from "./journal";
 import { nextUid } from "./rng";
 import type { EventKind, GameState, JobSpec, PartInstance, RaceCall, RaceResult, Vehicle } from "./types";
+import { EXPERIMENTAL_OFF, experimentalCareers } from "./features";
 
 export interface WorksTest {
   venue: string;
@@ -79,7 +81,7 @@ export interface ManufacturerState {
 
 export type WorksMove =
   | { type: "sign"; family: WorksFamily; vehicleUid: string }
-  | { type: "enter" }
+  | { type: "enter"; call?: RaceCall }
   | { type: "archive" }
   | { type: "recast"; partUid: string };
 
@@ -133,34 +135,36 @@ export function worksSpecMatches(state: GameState, spec: RaceSpec, car?: Vehicle
   const vehicle = car ?? state.run.vehicles.find(({ uid }) => uid === spec.vehicleUid);
   return Boolean(!report.failed && report.next && vehicle?.vehicleId === "go_kart" && vehicle.uid === deal.vehicleUid
     && (!checkFittedArticle || (vehicle.parts.engine?.uid === deal.engineUid && eligibleArticle(vehicle, deal.family)))
-    && spec.venueId === report.next.venue && spec.event === report.next.event && spec.call === report.next.call);
+    && spec.venueId === report.next.venue && spec.event === report.next.event && (spec.call === "push" || spec.call === "nurse"));
 }
 
 export function worksPlanBlocker(state: GameState, plan?: WorksFamily): string | null {
   if (plan === undefined) return null;
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   return state.manufacturer?.drawings.includes(plan) ? null : "Homologate that manufacturer’s article to use its drawing.";
 }
 
 export function worksSignBlocker(state: GameState, family: WorksFamily, vehicle?: Vehicle): string | null {
   if (!state.manufacturer?.invites.includes(family)) return "Earn this invitation with a County Fair Feature podium and two family parts.";
   if (state.manufacturer.active) return "File your current works deal before signing another.";
+  if (state.manufacturer.drawings.includes(family)) return "This supplier’s drawing is already earned.";
   if (!vehicle || !eligibleArticle(vehicle, family)) return "Choose a Go-Kart with an engine and three fitted family parts.";
   if (vehicleBusy(state, vehicle.uid)) return "Wait for this car’s current race to finish.";
   if (state.run.cash < WORKS_FAMILIES[family].fee) return `Inspection costs ${WORKS_FAMILIES[family].fee} Scrap Bucks.`;
   return null;
 }
 
-function officialSpec(deal: WorksDeal, next: WorksTest): RaceSpec {
-  return { kind: "race", venueId: next.venue, event: next.event, call: next.call, vehicleUid: deal.vehicleUid, worksRound: worksToken(deal) };
+function officialSpec(deal: WorksDeal, next: WorksTest, call = next.call): RaceSpec {
+  return { kind: "race", venueId: next.venue, event: next.event, call, vehicleUid: deal.vehicleUid, worksRound: worksToken(deal) };
 }
 
-export function worksEnterBlocker(state: GameState): string | null {
+export function worksEnterBlocker(state: GameState, call?: RaceCall): string | null {
   const deal = state.manufacturer?.active;
   if (!deal) return "Sign a works deal first.";
   const { next, failed } = worksReport(deal);
   if (!next || failed) return "The deal has finished. File the report.";
   if (worksEntryStatus(state)) return "An official works start is already booked.";
-  const spec = officialSpec(deal, next);
+  const spec = officialSpec(deal, next, call);
   if (!worksSpecMatches(state, spec)) return "Fit the signed engine and three family parts to this article.";
   return jobBlocker(state, spec, true);
 }
@@ -192,6 +196,7 @@ export function worksRecastBlocker(state: GameState, partUid?: string): string |
 }
 
 export function applyWorks(state: GameState, move: WorksMove): string | null {
+  if (!experimentalCareers()) return EXPERIMENTAL_OFF;
   const works = state.manufacturer;
   switch (move.type) {
     case "sign": {
@@ -199,15 +204,15 @@ export function applyWorks(state: GameState, move: WorksMove): string | null {
       const reason = worksSignBlocker(state, move.family, vehicle);
       if (reason) return reason;
       const manufacturer = WORKS_FAMILIES[move.family];
-      state.run.cash -= manufacturer.fee;
+      spend(state, manufacturer.fee);
       works!.active = { id: nextUid(state, "works"), season: state.meta.seasonsPlayed + 1, family: move.family, vehicleUid: vehicle!.uid, article: vehicle!.name, engineUid: vehicle!.parts.engine!.uid, attempts: [] };
       return null;
     }
     case "enter": {
-      const reason = worksEnterBlocker(state);
+      const reason = worksEnterBlocker(state, move.call);
       if (reason) return reason;
       const deal = works!.active!;
-      return enqueue(state, officialSpec(deal, worksReport(deal).next!));
+      return enqueue(state, officialSpec(deal, worksReport(deal).next!, move.call));
     }
     case "archive":
       if (worksEntryStatus(state)) return "Withdraw the queued sign-up or wait for the flag before filing the report.";
@@ -220,7 +225,7 @@ export function applyWorks(state: GameState, move: WorksMove): string | null {
       const family = WORKS_FAMILIES[state.config.worksPlan!];
       const { drawing } = family;
       const part = state.run.inventory.find(({ uid }) => uid === move.partUid)!;
-      state.run.cash -= drawing.cash;
+      spend(state, drawing.cash);
       state.run.materials[drawing.material] -= drawing.units;
       part.partId = drawing.output;
       part.origin = `${family.name} drawing`;
@@ -232,6 +237,7 @@ export function applyWorks(state: GameState, move: WorksMove): string | null {
 }
 
 export function recordWorksRace(state: GameState, spec: RaceSpec, result: RaceResult, paidEntry: number): void {
+  if (!experimentalCareers()) return;
   const vehicle = state.run.vehicles.find(({ uid }) => uid === result.vehicleUid);
   if (!vehicle || spec.vehicleUid !== result.vehicleUid) return;
   if (!spec.worksRound) {
@@ -240,7 +246,7 @@ export function recordWorksRace(state: GameState, spec: RaceSpec, result: RaceRe
         if (worksFit(vehicle, family) < 2 || state.manufacturer?.invites.includes(family)) continue;
         const works = state.manufacturer ??= { active: null, invites: [], drawings: [], history: [] };
         works.invites.push(family);
-        logSeason(state, `works:invite:${family}`, `${WORKS_FAMILIES[family].name} invited ${vehicle.name} to commission a proof article. Open Manufacturer to see the contract.`);
+        logSeason(state, `works:invite:${family}`, `${WORKS_FAMILIES[family].name} invited ${vehicle.name} to commission a proof article. See the offer under Garage → Suppliers.`);
       }
     }
     return;
@@ -253,7 +259,7 @@ export function recordWorksRace(state: GameState, spec: RaceSpec, result: RaceRe
   deal.attempts.push({ raceId: result.id, step, spent: paidEntry, ...proof, passed: worksOutcome(next!, proof) });
   if (!worksReport(deal).homologated) return;
   const maker = WORKS_FAMILIES[deal.family];
-  state.run.cash += maker.grant;
+  earn(state, maker.grant);
   if (!works.drawings.includes(deal.family)) works.drawings.push(deal.family);
   const key = `works:honors:${deal.id}`;
   logSeason(state, key, `${maker.name} homologated ${deal.article}. Its drawing is available in a future Scrap Reset.`, key);

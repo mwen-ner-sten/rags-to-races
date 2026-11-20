@@ -10,6 +10,7 @@ export type * from "./types";
 /** A brand-new game at the curb. */
 export function createGame(seed: string = Math.random().toString(36).slice(2)): GameState {
   const state = newGame(seed);
+  state.meta.stats.firstPlayedAt = Date.now();
   startSeason(state);
   return state;
 }

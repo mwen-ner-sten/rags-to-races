@@ -1,11 +1,11 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 import type { FeedItem, FeedKind } from "@/core/types";
 import { duration } from "../format";
 import { useGame } from "../store";
 
-const KIND_LABEL: Record<FeedKind, string> = {
+export const KIND_LABEL: Record<FeedKind, string> = {
   haul: "Trip",
   driveway: "Driveway",
   bench: "Bench",
@@ -15,6 +15,7 @@ const KIND_LABEL: Record<FeedKind, string> = {
   build: "Built",
   race: "Race",
   story: "Note",
+  achievement: "Achievement",
 };
 
 const SHORT_COUNT = 6;
@@ -62,7 +63,13 @@ const FeedRow = memo(function FeedRow({ item, age }: FeedRowProps) {
   );
 });
 
-export function Lately() {
+interface LatelyProps {
+  /** Show every item with no Show more toggle (the ticker's sheet). */
+  all?: boolean;
+}
+
+export function Lately({ all = false }: LatelyProps) {
+  const headingId = useId();
   const signature = useGame((s) => feedSignature(s.game?.run.feed));
   const ageBucket = useGame((s) => Math.floor((s.game?.run.seasonMs ?? 0) / AGE_BUCKET_MS));
   const compact = useCompact();
@@ -73,11 +80,11 @@ export function Lately() {
   const now = ageBucket * AGE_BUCKET_MS;
   const newest = useMemo(() => [...feed].reverse(), [feed]);
   if (newest.length === 0) return null;
-  const short = compact ? COMPACT_COUNT : SHORT_COUNT;
+  const short = all ? newest.length : compact ? COMPACT_COUNT : SHORT_COUNT;
   const shown = expanded ? newest : newest.slice(0, short);
   return (
-    <section className="lately" aria-labelledby="lately-h">
-      <h3 id="lately-h" className="label">Lately</h3>
+    <section className="lately" aria-labelledby={headingId}>
+      <h3 id={headingId} className="label">Lately</h3>
       <ol className="lately-list" aria-live="polite">
         {shown.map((item) => (
           <FeedRow key={item.id} item={item} age={Math.max(0, now - item.at)} />

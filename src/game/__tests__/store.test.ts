@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apply, createGame, must } from "@/core";
+import { setExperimentalCareers } from "@/core/features";
 import type { GameState } from "@/core/types";
 import { pendingCircuitFinal, pendingOwnerFinal, racer, saveText, swapMeetGame, teamRacer } from "../../../tests/fixtures/rewrite";
-import { HOUR, pendingBaton, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../../../tests/fixtures/workshopAway";
+import { HOUR, pendingDepotAndRepair, pendingHeritage, pendingWorksFinal } from "../../../tests/fixtures/workshopAway";
 import { decodeGameState } from "../save";
 import { isGameState, useGame } from "../store";
 
@@ -94,6 +95,13 @@ describe("paused jobs", () => {
 });
 
 describe("workshop and branch catch-up", () => {
+  // The workshop and branch careers are experimental: the browser preference is on for these.
+  beforeEach(() => {
+    storage.setItem("rags-to-races:experimental-careers", "on");
+    setExperimentalCareers(true);
+  });
+  afterEach(() => setExperimentalCareers(false));
+
   it("prioritizes newly arrived stock and an actionable invoice, preserving both through reload until collected", () => {
     const pending = pendingDepotAndRepair();
     const arrival = pending.motorPool!.job!;
@@ -128,7 +136,7 @@ describe("workshop and branch catch-up", () => {
     const pending = pendingWorksFinal();
     const returned = returnAfter(pending, 2 * HOUR);
     expect(returned.away?.careerReports).toMatchObject([{
-      id: "works-proof", title: "Works article homologated", destination: { tab: "manufacturer", section: "deal" },
+      id: "works-proof", title: "Works article homologated", destination: { tab: "garage", section: "works-deal" },
     }]);
     expect(returned.game?.manufacturer?.drawings).toEqual(["redwheel"]);
     expect(returned.game?.manufacturer?.active?.attempts).toHaveLength(2);
@@ -165,19 +173,6 @@ describe("workshop and branch catch-up", () => {
     expect(useGame.getState().away).toBeNull();
   });
 
-  it.each(["qualify", "deliver"] as const)("reports the County Baton %s leg from a settled Feature and retains its progress", (leg) => {
-    const pending = pendingBaton(leg);
-    const returned = returnAfter(pending, 2 * HOUR);
-    expect(returned.away?.careerReports).toMatchObject([{
-      id: leg === "qualify" ? "baton-qualified" : "baton-delivered", destination: { tab: "legacy", section: "baton" },
-    }]);
-    expect(returned.away?.items.some(({ key }) => key?.startsWith("county-baton-"))).toBe(false);
-    expect(returned.game?.meta.countyFreight?.quarry ?? 0).toBe(leg === "deliver" ? 1 : 0);
-    vi.advanceTimersByTime(HOUR);
-    useGame.getState().load();
-    expect(useGame.getState().away?.careerReports).toEqual([]);
-    expect(useGame.getState().game?.run.countyBaton).toEqual(returned.game?.run.countyBaton);
-  });
 });
 
 it("plays an earned five-round entry plan while away and reports the settlement once", () => {

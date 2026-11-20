@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it } from "vitest";
 import { decodeGameState } from "../../game/save";
 import { apply, createGame, must } from "../index";
 import { initialConfig } from "../state";
@@ -6,6 +6,11 @@ import { LAYERS } from "../layers";
 import { racer } from "../../../tests/fixtures/rewrite";
 import { careerOpportunities } from "../careerAdvice";
 import type { CustomerId, Invoice } from "../serviceShop";
+import { setExperimentalCareers } from "../features";
+
+// These systems are experimental and off by default; switch them on for this file only.
+beforeEach(() => setExperimentalCareers(true));
+afterEach(() => setExperimentalCareers(false));
 
 const invoice = (client: CustomerId, partId: string): Invoice => ({ client, partId, partUid: "paid-"+client, condition: 3, origin: "Curbside" });
 
